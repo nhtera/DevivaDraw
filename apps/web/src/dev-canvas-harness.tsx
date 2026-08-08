@@ -45,8 +45,10 @@ function seedScene(scene: Scene): void {
  * selection-tool skeleton is active by default, `H` (or space/middle-mouse-drag) pans, `R`/`O`/`D`/`L`
  * switch to the rectangle/ellipse/diamond/line shape tools, `P` switches to the freehand ink tool
  * (matches Excalidraw's own pencil shortcut), `T` switches to the text tool (click to place, type,
- * click away/Escape to commit), double-click inside a rect/ellipse/diamond edits its bound label,
- * wheel pans/ctrl+wheel zooms (cursor-anchored), `Shift+1` zooms to fit, `Ctrl +`/`Ctrl -` step zoom
+ * click away/Escape to commit), `A` switches to the arrow tool (drag for a straight arrow, click
+ * repeatedly for a curved multi-point one; an endpoint dropped near a shape binds to it), double-click
+ * inside a rect/ellipse/diamond or on an arrow edits its bound label, wheel pans/ctrl+wheel zooms
+ * (cursor-anchored), `Shift+1` zooms to fit, `Ctrl +`/`Ctrl -` step zoom
  * — all driven by `@deviva-draw/engine`'s `PointerEventPipeline`/`ToolStateMachine` (tool/pipeline
  * construction lives in `dev-canvas-harness-runtime.ts`, split out to keep this component small). A
  * debug overlay reports element counts and the active tool for manual QA.

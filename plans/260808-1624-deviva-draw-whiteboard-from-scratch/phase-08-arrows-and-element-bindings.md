@@ -7,7 +7,7 @@
 
 ## Overview
 - **Priority:** 🟡 parity-critical, flagged by research as the hardest single subsystem — budget accordingly, don't compress this phase's timeline
-- **Status:** pending
+- **Status:** complete (elbow routing explicitly deferred — see Todo List)
 - Implement arrow/connector elements that bind to shape endpoints, auto-reroute and clip at shape borders on move/resize, support straight/curved/elbow variants and 5 arrowhead styles, and carry optional centered text labels.
 
 ## Key Insights
@@ -56,13 +56,13 @@ packages/engine/src/render/arrow-renderer.ts   arrowhead shapes, elbow routing, 
 8. Unit tests: border intersection correctness per shape type; reroute correctness (move a bound rectangle, assert arrow endpoint follows); arrowhead-direction-from-config correctness (mirrors `extract-canvas-diagram.ts`'s `isArrowhead`/direction logic so phase 15's extraction stays consistent).
 
 ## Todo List
-- [ ] `ArrowElement` + binding model implemented
-- [ ] Border-intersection math correct for rect/ellipse/diamond (unit tested)
-- [ ] Binding-on-create (endpoint-drag proximity to shape) working
-- [ ] Reroute-on-move/resize working and undo-batched correctly
-- [ ] Straight + curved arrows rendering with all 5 arrowhead styles × 2 ends
-- [ ] Bound labels working (create, edit, recenter on reroute)
-- [ ] Elbow arrows implemented OR explicitly deferred with a tracked follow-up (not silently dropped)
+- [x] `ArrowElement` + binding model implemented
+- [x] Border-intersection math correct for rect/ellipse/diamond (unit tested)
+- [x] Binding-on-create (endpoint-drag proximity to shape) working
+- [x] Reroute-on-move/resize working and undo-batched correctly (reroute runs synchronously inside `Scene.updateElement`, so it's captured by whatever history batch is open around the caller's move; a full history-to-scene undo bridge doesn't exist yet — that's phase 10/12 UI-chrome scope — so this is verified via direct snapshot-based simulation in `bindings/binding-integration.test.ts`, not a live keyboard undo)
+- [x] Straight + curved arrows rendering with all 5 arrowhead styles × 2 ends
+- [x] Bound labels working (create, edit, recenter on reroute)
+- [ ] Elbow arrows: explicitly deferred, not silently dropped — `arrowType: "elbow"` is a valid stored value and falls back to straight-line rendering (see `render/arrow-renderer.ts`'s module doc); the arrow tool has no elbow-specific creation gesture yet
 
 ## Success Criteria
 - Dev harness: draw two rectangles, connect with an arrow bound at both ends, drag one rectangle — arrow follows and stays clipped at the border, not overlapping.

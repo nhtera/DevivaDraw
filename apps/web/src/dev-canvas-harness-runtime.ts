@@ -5,6 +5,7 @@
  * framework-agnostic engine wiring the component would otherwise inline into its effect.
  */
 import {
+  ArrowTool,
   computeElementsBounds,
   createCanvasTextMeasurer,
   createElementTarget,
@@ -17,17 +18,20 @@ import {
   PanZoomTool,
   PointerEventPipeline,
   RectangleTool,
+  registerArrowBindingHooks,
   registerCoreShortcuts,
   screenToScene,
   SelectionToolSkeleton,
   ShapeStyleState,
   ShortcutRegistry,
+  startArrowLabelEdit,
   startBoundTextEdit,
   TextEditSession,
   TextTool,
   ToolStateMachine,
 } from "@deviva-draw/engine";
 import type { AnyElement, Camera, Scene } from "@deviva-draw/engine";
+import { findArrowAt } from "./find-arrow-at-point";
 import { findBindableContainerAt } from "./find-bindable-container-at-point";
 
 export const SELECT_TOOL_NAME = "select";
@@ -38,6 +42,7 @@ export const DIAMOND_TOOL_NAME = "diamond";
 export const LINE_TOOL_NAME = "line";
 export const FREEDRAW_TOOL_NAME = "freedraw";
 export const TEXT_TOOL_NAME = "text";
+export const ARROW_TOOL_NAME = "arrow";
 
 export interface DevCanvasHarnessRuntime {
   toolStateMachine: ToolStateMachine;
@@ -75,8 +80,10 @@ export function createDevCanvasHarnessRuntime(
   const rectangleTool = new RectangleTool(shapeToolDeps);
   const ellipseTool = new EllipseTool(shapeToolDeps);
   const diamondTool = new DiamondTool(shapeToolDeps);
-  // Line tool's click-proximity thresholds are screen-pixel constants converted via the live zoom.
+  // Line/arrow tool click-proximity and drag/bind thresholds are screen-pixel constants converted
+  // via the live zoom.
   const lineTool = new LineTool({ ...shapeToolDeps, getZoom: () => getCamera().zoom });
+  const arrowTool = new ArrowTool({ ...shapeToolDeps, getZoom: () => getCamera().zoom });
   const freedrawTool = new FreedrawTool(shapeToolDeps);
 
   // A standalone offscreen canvas purely for `measureText` — independent of `CanvasStage`'s own
@@ -85,6 +92,12 @@ export function createDevCanvasHarnessRuntime(
   const measurementCtx = document.createElement("canvas").getContext("2d");
   if (!measurementCtx) throw new Error("dev-canvas-harness: 2d measurement context unavailable");
   const textMeasurer = createCanvasTextMeasurer(measurementCtx);
+
+  // Reroutes a bound arrow's endpoint whenever the shape it's attached to moves/resizes/deletes, and
+  // re-centers an arrow's bound label after any of its own geometry changes — see
+  // `bindings/binding-scene-sync.ts`'s module doc. Unregistered in `dispose()` below.
+  const unregisterBindingHooks = registerArrowBindingHooks(scene, textMeasurer);
+
   const editSession = new TextEditSession({ scene, history: historyStack });
   const textTool = new TextTool({
     scene,
@@ -106,6 +119,7 @@ export function createDevCanvasHarnessRuntime(
       [LINE_TOOL_NAME]: lineTool,
       [FREEDRAW_TOOL_NAME]: freedrawTool,
       [TEXT_TOOL_NAME]: textTool,
+      [ARROW_TOOL_NAME]: arrowTool,
     },
     SELECT_TOOL_NAME,
   );
@@ -114,13 +128,14 @@ export function createDevCanvasHarnessRuntime(
   registerCoreShortcuts(shortcutRegistry);
   // Matches Excalidraw's letter conventions (muscle memory, not a trademark concern — shortcuts
   // aren't copyrightable): R/O/D/L for rectangle/ellipse("oval")/diamond/line, P for the pencil,
-  // T for text.
+  // T for text, A for arrow.
   shortcutRegistry.register("r", "rectangle-tool");
   shortcutRegistry.register("o", "ellipse-tool");
   shortcutRegistry.register("d", "diamond-tool");
   shortcutRegistry.register("l", "line-tool");
   shortcutRegistry.register("p", "freedraw-tool");
   shortcutRegistry.register("t", "text-tool");
+  shortcutRegistry.register("a", "arrow-tool");
 
   const pipeline = new PointerEventPipeline({
     element: createElementTarget(container),
@@ -139,6 +154,7 @@ export function createDevCanvasHarnessRuntime(
       "line-tool": () => toolStateMachine.setTool(LINE_TOOL_NAME),
       "freedraw-tool": () => toolStateMachine.setTool(FREEDRAW_TOOL_NAME),
       "text-tool": () => toolStateMachine.setTool(TEXT_TOOL_NAME),
+      "arrow-tool": () => toolStateMachine.setTool(ARROW_TOOL_NAME),
       "zoom-in": () => panZoomTool.zoomStep(1),
       "zoom-out": () => panZoomTool.zoomStep(-1),
       "zoom-to-fit": () => panZoomTool.zoomToFit(),
@@ -150,16 +166,22 @@ export function createDevCanvasHarnessRuntime(
   });
   pipeline.attach();
 
-  // Double-click-to-edit bound text: a native browser `dblclick` (not the engine's gesture pipeline
-  // — double-click detection isn't a pointer-gesture concern) hit-tests for a bindable container
-  // under the cursor and opens/resumes editing its label. Only armed while the select tool is
-  // active, so it never fights the shape/text tools' own click handling.
+  // Double-click-to-edit a bound label: a native browser `dblclick` (not the engine's gesture
+  // pipeline — double-click detection isn't a pointer-gesture concern) hit-tests a bindable
+  // container first, then an arrow's path, and opens/resumes editing whichever it found. Only armed
+  // while the select tool is active, so it never fights the shape/arrow/text tools' own click handling.
   const handleDoubleClick = (event: MouseEvent) => {
     if (toolStateMachine.getActiveToolName() !== SELECT_TOOL_NAME) return;
     const rect = container.getBoundingClientRect();
     const scenePoint = screenToScene({ x: event.clientX - rect.left, y: event.clientY - rect.top }, getCamera());
-    const hit = findBindableContainerAt(scene, scenePoint);
-    if (hit) startBoundTextEdit(scene, editSession, hit.id, textMeasurer);
+
+    const containerHit = findBindableContainerAt(scene, scenePoint);
+    if (containerHit) {
+      startBoundTextEdit(scene, editSession, containerHit.id, textMeasurer);
+      return;
+    }
+    const arrowHit = findArrowAt(scene, scenePoint);
+    if (arrowHit) startArrowLabelEdit(scene, editSession, arrowHit.id, textMeasurer);
   };
   container.addEventListener("dblclick", handleDoubleClick);
 
@@ -168,6 +190,7 @@ export function createDevCanvasHarnessRuntime(
     editSession,
     dispose: () => {
       container.removeEventListener("dblclick", handleDoubleClick);
+      unregisterBindingHooks();
       pipeline.detach();
     },
   };

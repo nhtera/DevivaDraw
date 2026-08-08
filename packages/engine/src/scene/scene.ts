@@ -14,6 +14,13 @@ import { touch } from "./scene-mutations";
 export type SceneListener = () => void;
 
 /**
+ * Runs synchronously inside `updateElement`, right after an element is stored, before that call's
+ * own `notify()` dispatch — see `registerUpdateHook`'s doc for why this exists and how it stays safe
+ * against re-entrant mutation.
+ */
+export type SceneUpdateHook = (updated: AnyElement, scene: Scene) => void;
+
+/**
  * Fields callers may change via `updateElement`. `id` is immutable by construction; `type` never
  * changes after creation (a shape doesn't morph into another kind); `version`/`versionNonce`/
  * `updated` are owned exclusively by `touch()` and cannot be set directly, so the bump invariant
@@ -24,6 +31,8 @@ export type ElementUpdate = Partial<Omit<AnyElement, "id" | "type" | "version" |
 export class Scene {
   private readonly elements = new Map<string, AnyElement>();
   private readonly listeners = new Set<SceneListener>();
+  /** Domain-specific post-mutation middleware — see `registerUpdateHook`. Empty by default: `Scene` itself knows nothing about bindings, bound text, or any other cross-element relationship. */
+  private readonly updateHooks = new Set<SceneUpdateHook>();
   /** True while `notify()` is actively running the listener set — guards against re-entrancy. */
   private notifying = false;
   /** Set when a mutation happens from inside a listener; drained by the outer `notify()` call. */
@@ -72,12 +81,28 @@ export class Scene {
     return stored;
   }
 
-  /** Applies `changes` to the element with `id` and bumps its version/nonce. No-ops if not found. */
+  /**
+   * Applies `changes` to the element with `id`, bumps its version/nonce, runs every registered
+   * update hook against the result, then notifies subscribers. No-ops if not found.
+   *
+   * Hooks run *before* `notify()` so a hook-triggered `updateElement` call (e.g. rerouting a bound
+   * arrow after its shape moved) is itself a complete, independent `updateElement` invocation —
+   * with its own hook pass and its own `notify()` — rather than something the outer call has to
+   * wait for or special-case. This is safe from unbounded recursion only because no hook registered
+   * in this codebase ever mutates the same element it was invoked for, or an element type that could
+   * re-trigger the same hook (see `bindings/binding-scene-sync.ts`'s module doc for the concrete
+   * argument); `Scene` itself does not — and cannot, being hook-agnostic — enforce that invariant.
+   *
+   * A throwing hook can never abort the rest of this method: each hook runs inside its own
+   * try/catch (see `runUpdateHooks`), so one bad hook can't stop a later hook from running, can't
+   * skip `notify()`, and can't corrupt the mutation that already landed in `this.elements` above.
+   */
   updateElement(id: string, changes: ElementUpdate): AnyElement | undefined {
     const existing = this.elements.get(id);
     if (!existing) return undefined;
     const updated = touch(existing, changes);
     this.elements.set(id, updated);
+    this.runUpdateHooks(updated);
     this.notify();
     return updated;
   }
@@ -97,6 +122,37 @@ export class Scene {
   subscribe(listener: SceneListener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  /**
+   * Registers domain-specific middleware that runs on every `updateElement` call — see that
+   * method's doc for exact timing/re-entrancy semantics. `Scene` stays framework/domain-agnostic by
+   * design (see the module doc): this is how `bindings/binding-scene-sync.ts` wires "reroute bound
+   * arrows when their shape moves" and "clear their bindings when it's deleted" into the store
+   * without `Scene` itself importing anything binding-specific. Returns an unregister function
+   * (same shape as `subscribe`).
+   *
+   * Error contract: hooks must be idempotent and side-effect-safe to re-run — a throwing hook is
+   * caught, logged via `console.error`, and swallowed (never re-thrown to the `updateElement`
+   * caller). It does not prevent any other registered hook from running, and it never skips
+   * `notify()`. This exists specifically so one buggy/adversarial hook can't silently corrupt a
+   * multi-step cascade (e.g. a binding reroute) partway through — every other hook, and every
+   * subscriber, still sees a consistent post-mutation `Scene`.
+   */
+  registerUpdateHook(hook: SceneUpdateHook): () => void {
+    this.updateHooks.add(hook);
+    return () => this.updateHooks.delete(hook);
+  }
+
+  /** Runs every registered update hook against `updated`, isolating each from the others' (and its own) failures — see `registerUpdateHook`'s error contract doc. */
+  private runUpdateHooks(updated: AnyElement): void {
+    for (const hook of this.updateHooks) {
+      try {
+        hook(updated, this);
+      } catch (error) {
+        console.error(`scene: update hook threw for element "${updated.id}" (swallowed; other hooks and notify() still ran):`, error);
+      }
+    }
   }
 
   /**

@@ -16,6 +16,8 @@ export type {
 } from "./elements/base-element";
 export type { AnyElement, ElementCreationInput, GenericElement } from "./elements/element-types";
 export { createGenericElement } from "./elements/element-types";
+export type { Arrowhead, ArrowBinding, ArrowElement, ArrowElementCreationInput, ArrowType } from "./elements/arrow-element";
+export { createArrowElement, DEFAULT_ARROW_TYPE, DEFAULT_END_ARROWHEAD, DEFAULT_START_ARROWHEAD } from "./elements/arrow-element";
 export type { FreedrawElement, FreedrawElementCreationInput, FreedrawPoint } from "./elements/freedraw-element";
 export { createFreedrawElement } from "./elements/freedraw-element";
 export type {
@@ -40,7 +42,7 @@ export {
 export type { IndexedItem } from "./scene/fractional-index";
 export { indexBetween, moveBackward, moveForward, moveToBack, moveToFront } from "./scene/fractional-index";
 export { randomVersionNonce, touch } from "./scene/scene-mutations";
-export type { ElementUpdate, SceneListener } from "./scene/scene";
+export type { ElementUpdate, SceneListener, SceneUpdateHook } from "./scene/scene";
 export { Scene } from "./scene/scene";
 
 export type { HistoryStackOptions } from "./history/history-stack";
@@ -67,6 +69,21 @@ export { FreedrawOutlineCache } from "./render/freedraw-outline-cache";
 
 export type { TextDrawContext2D } from "./render/text-renderer";
 export { drawElementText } from "./render/text-renderer";
+
+export type { Rect } from "./render/arrow-geometry";
+export {
+  absolutePoints,
+  arcLengthMidpoint,
+  arrowheadBarEnds,
+  arrowheadDotCenter,
+  arrowheadWings,
+  outwardDirectionAt,
+  rebaseArrowPoints,
+  rotateVector,
+  smoothedPathFromPoints,
+} from "./render/arrow-geometry";
+export { buildArrowDrawables, drawElementArrow } from "./render/arrow-renderer";
+export { ArrowDrawableCache } from "./render/arrow-drawable-cache";
 
 export type { StaticLayerContext } from "./render/static-layer";
 export { StaticLayer } from "./render/static-layer";
@@ -127,6 +144,7 @@ export { BOUND_TEXT_PADDING, boundTextWrapWidth, layoutBoundText } from "./text/
 
 export type { BoundTextResult } from "./text/bound-text";
 export {
+  bindTextToContainer,
   deleteContainerAndBoundText,
   findBoundTextRef,
   getOrCreateBoundText,
@@ -140,6 +158,31 @@ export { getLabel } from "./text/get-label";
 
 export type { TextEditSessionDeps, TextEditSessionStartOptions, TextEditSessionState } from "./text/text-edit-session";
 export { TextEditSession } from "./text/text-edit-session";
+
+export type { BindableShapeType, BorderRect } from "./bindings/shape-border-intersection";
+export {
+  intersectDiamondLocal,
+  intersectEllipseLocal,
+  intersectRectangleLocal,
+  intersectShapeBorder,
+} from "./bindings/shape-border-intersection";
+
+export { computeFocusForBindingPoint, recomputeBindingPoint } from "./bindings/recompute-binding";
+
+export type { ArrowEnd } from "./bindings/binding-model";
+export {
+  bindArrowEndpoint,
+  boundArrowIds,
+  DEFAULT_BINDING_GAP,
+  deleteArrowAndUnbind,
+  unbindArrowEndpoint,
+  unbindArrowsFromDeletedShape,
+} from "./bindings/binding-model";
+
+export { findBindableShapeNear, registerArrowBindingHooks, rerouteArrowEndpoints } from "./bindings/binding-scene-sync";
+
+export type { ArrowLabelResult } from "./bindings/arrow-label";
+export { getOrCreateArrowLabel, recenterArrowLabelIfPresent, startArrowLabelEdit } from "./bindings/arrow-label";
 
 export type { DragRect } from "./tools/shape-drag-geometry";
 export { computeDragRect } from "./tools/shape-drag-geometry";
@@ -166,3 +209,6 @@ export type { FreedrawToolDeps } from "./tools/freedraw-tool";
 export { FreedrawTool } from "./tools/freedraw-tool";
 export type { TextToolDeps } from "./tools/text-tool";
 export { TextTool } from "./tools/text-tool";
+export { applyEndpointBindingsOnFinish } from "./tools/arrow-endpoint-binding";
+export type { ArrowToolDeps } from "./tools/arrow-tool";
+export { ArrowTool } from "./tools/arrow-tool";

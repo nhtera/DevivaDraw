@@ -30,8 +30,15 @@ export function findBoundTextRef(container: AnyElement): BoundElementRef | null 
   return container.boundElements?.find((ref) => ref.type === "text") ?? null;
 }
 
-/** Replaces `container`'s bound-text ref (a container has at most one label) with one pointing at `textId`. */
-function bindTextToContainer(scene: Scene, containerId: string, textId: string): void {
+/**
+ * Replaces `container`'s bound-text ref (a container has at most one label) with one pointing at
+ * `textId`. Exported (not just used internally by `getOrCreateBoundText`) so `bindings/arrow-label.ts`
+ * can reuse the exact same ref-bookkeeping for arrow labels — an arrow "container" needs its own
+ * midpoint-centered layout (not the padded-box wrap this file's `layoutBoundText`/
+ * `growContainerToFitText` assume), but the underlying `boundElements` linking is identical for any
+ * container type.
+ */
+export function bindTextToContainer(scene: Scene, containerId: string, textId: string): void {
   const container = scene.getElement(containerId);
   if (!container) return;
   const withoutStaleTextRef = (container.boundElements ?? []).filter((ref) => ref.type !== "text");

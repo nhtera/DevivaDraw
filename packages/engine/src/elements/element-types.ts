@@ -12,6 +12,7 @@
  * `text-element.ts` (see that file's doc for the standalone-vs-bound-in-a-container model).
  */
 import type { BaseElement } from "./base-element";
+import type { ArrowElement } from "./arrow-element";
 import type { ElementCreationInput } from "./element-factory-defaults";
 import { createElementBase } from "./element-factory-defaults";
 import type { FreedrawElement } from "./freedraw-element";
@@ -19,6 +20,8 @@ import type { DiamondElement, EllipseElement, LineElement, RectangleElement } fr
 import type { TextElement } from "./text-element";
 
 export type { ElementCreationInput } from "./element-factory-defaults";
+export type { Arrowhead, ArrowBinding, ArrowElement, ArrowElementCreationInput, ArrowType } from "./arrow-element";
+export { createArrowElement, DEFAULT_ARROW_TYPE, DEFAULT_END_ARROWHEAD, DEFAULT_START_ARROWHEAD } from "./arrow-element";
 export type { FreedrawElement, FreedrawElementCreationInput, FreedrawPoint } from "./freedraw-element";
 export { createFreedrawElement } from "./freedraw-element";
 export type {
@@ -46,7 +49,15 @@ export interface GenericElement extends BaseElement {
   type: "generic";
 }
 
-export type AnyElement = GenericElement | RectangleElement | EllipseElement | DiamondElement | LineElement | FreedrawElement | TextElement;
+export type AnyElement =
+  | GenericElement
+  | RectangleElement
+  | EllipseElement
+  | DiamondElement
+  | LineElement
+  | FreedrawElement
+  | TextElement
+  | ArrowElement;
 
 /**
  * Builds a new `GenericElement` with sane defaults for every field the caller did not supply.

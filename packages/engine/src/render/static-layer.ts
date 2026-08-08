@@ -25,11 +25,17 @@
  * drawable-cache treatment via `FreedrawOutlineCache` (pruned alongside `RoughDrawableCache` in the
  * same pass, against the same live-id set). `text` elements are dispatched to `drawElementText` the
  * same way — no drawable cache of its own (wrapping is cheap enough to redo on every actual redraw;
- * this layer's own snapshot check already skips redraws where nothing changed at all).
+ * this layer's own snapshot check already skips redraws where nothing changed at all). `arrow`
+ * elements dispatch to `drawElementArrow` — rough.js-backed like the rectangle/ellipse/diamond/line
+ * path, and given the same per-element drawable-cache treatment via `ArrowDrawableCache` (pruned
+ * alongside every other per-element cache in the same pass) — see `arrow-drawable-cache.ts`'s doc for
+ * why arrows need their own cache shape (an array of `Drawable`s, not one).
  */
 import type { Scene } from "../scene/scene";
 import { createCanvasTextMeasurer } from "../text/text-measurement";
 import type { MeasurementContext2D, TextMeasurer } from "../text/text-measurement";
+import { drawElementArrow } from "./arrow-renderer";
+import { ArrowDrawableCache } from "./arrow-drawable-cache";
 import type { Camera } from "./camera";
 import type { FreedrawDrawContext2D } from "./freedraw-renderer";
 import { drawElementFreedraw } from "./freedraw-renderer";
@@ -105,6 +111,7 @@ export class StaticLayer {
   private readonly roughCanvas: RoughCanvasDrawer;
   private readonly textMeasurer: TextMeasurer;
   private readonly drawableCache = new RoughDrawableCache();
+  private readonly arrowDrawableCache = new ArrowDrawableCache();
   private readonly freedrawOutlineCache = new FreedrawOutlineCache();
   private lastSnapshot: RenderSnapshot | null = null;
 
@@ -147,6 +154,8 @@ export class StaticLayer {
         drawElementFreedraw(this.ctx, element, camera, this.freedrawOutlineCache);
       } else if (element.type === "text") {
         drawElementText(this.ctx, element, camera, this.textMeasurer);
+      } else if (element.type === "arrow") {
+        drawElementArrow(this.ctx, this.roughCanvas, element, camera, this.arrowDrawableCache);
       } else {
         drawElementRough(this.ctx, this.roughCanvas, element, camera, this.drawableCache);
       }
@@ -158,6 +167,7 @@ export class StaticLayer {
     // unsorted-filter-free list) rather than a separate timer.
     const liveIds = new Set(elements.filter((element) => !element.isDeleted).map((element) => element.id));
     this.drawableCache.prune(liveIds);
+    this.arrowDrawableCache.prune(liveIds);
     this.freedrawOutlineCache.prune(liveIds);
   }
 
