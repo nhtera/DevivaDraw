@@ -7,7 +7,7 @@
 
 ## Overview
 - **Priority:** 🔴 blocking — nothing else starts without this
-- **Status:** pending
+- **Status:** ✅ done (2026-08-08) — all success criteria verified: install/typecheck/lint/test green across 5 projects, Playwright smoke passes, wrangler dev responds 200 (port pinned to 8788; 8787 taken by another local tool), code-reviewed, initial commit made
 - Stand up the pnpm workspace, shared TS config, lint/test tooling, and empty package/app skeletons so every later phase has a place to land code and a CI gate to pass.
 
 ## Key Insights
@@ -63,14 +63,14 @@ deviva-draw/
 9. Commit initial scaffold.
 
 ## Todo List
-- [ ] pnpm workspace + root configs created, `pnpm install` succeeds
-- [ ] `tsconfig.base.json` extended by all 5 sub-projects, `pnpm -r typecheck` green on empty stubs
-- [ ] ESLint flat config runs clean on empty stubs
-- [ ] Vitest runs (0 tests, exit 0) in engine/react/collab-client
-- [ ] Playwright installed + config present in apps/web (smoke test: page loads, title present)
-- [ ] apps/collab-server wrangler dev server boots locally and responds 200
-- [ ] LICENSE + LICENSE-THIRD-PARTY present
-- [ ] Initial commit made
+- [x] pnpm workspace + root configs created, `pnpm install` succeeds
+- [x] `tsconfig.base.json` extended by all 5 sub-projects, `pnpm -r typecheck` green on empty stubs
+- [x] ESLint flat config runs clean on empty stubs
+- [x] Vitest runs (0 tests, exit 0) in engine/react/collab-client
+- [x] Playwright installed + config present in apps/web (smoke test: page loads, title present)
+- [x] apps/collab-server wrangler dev server boots locally and responds 200 (port 8788)
+- [x] LICENSE + LICENSE-THIRD-PARTY present
+- [x] Initial commit made
 
 ## Success Criteria
 - `pnpm install && pnpm -r typecheck && pnpm -r lint && pnpm -r test` all exit 0 from repo root.
