@@ -11,6 +11,15 @@ import {
 import type { AnyElement, Camera, TextEditSession } from "@deviva-draw/engine";
 import { TextEditorOverlay, usePasteAndDrop } from "@deviva-draw/react";
 import { decodeNaturalSize } from "./browser-image-decode";
+import {
+  copySceneImageToClipboard,
+  exportSceneToPngFile,
+  exportSceneToSvgFile,
+  openSceneFromFile,
+  restoreBrowserAutosave,
+  saveSceneToFile,
+  startBrowserAutosave,
+} from "./dev-canvas-harness-persistence";
 import type { DevCanvasHarnessRuntime } from "./dev-canvas-harness-runtime";
 import { createDevCanvasHarnessRuntime } from "./dev-canvas-harness-runtime";
 import { SELECT_TOOL_NAME } from "./dev-canvas-harness-tool-names";
@@ -18,6 +27,8 @@ import { SELECT_TOOL_NAME } from "./dev-canvas-harness-tool-names";
 const SEEDED_ELEMENT_COUNT = 500;
 const SEED_SPREAD = 4000;
 const DEBUG_POLL_MS = 250;
+/** "Export PNG at 2x" is this phase's explicit success criterion — the manual QA button below defaults to it. */
+const EXPORT_PNG_SCALE = 2;
 
 /**
  * Scatters `SEEDED_ELEMENT_COUNT` fake shapes (mixed rectangle/ellipse/diamond) across a large
@@ -56,18 +67,30 @@ function seedScene(scene: Scene): void {
  * wheel pans/ctrl+wheel zooms (cursor-anchored), `Shift+1` zooms to fit, `Ctrl +`/`Ctrl -` step zoom
  * — all driven by `@deviva-draw/engine`'s `PointerEventPipeline`/`ToolStateMachine`/`SelectionTool`
  * (tool/pipeline construction lives in `dev-canvas-harness-runtime.ts`, split out to keep this
- * component small). A debug overlay reports element/selection counts and the active tool, and a
- * button toggles grid mode, for manual QA.
+ * component small). A debug overlay reports element/selection counts and the active tool, and buttons
+ * toggle grid mode and exercise persistence/export (`dev-canvas-harness-persistence.ts`) for manual QA:
+ * localStorage autosave starts automatically and restores on boot; Save/Open round-trip a `.devivadraw`
+ * JSON file; Export PNG/SVG trigger a download of the live scene.
  */
 export function DevCanvasHarness() {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const sceneRef = useRef<Scene>(new Scene());
+  // Lazy-initialized once, on first render: restores the last autosaved scene if one exists, so
+  // reloading the tab picks up exactly where the previous session left off (this phase's own
+  // "reload the browser tab — scene restores exactly from localStorage" success criterion).
+  const sceneRef = useRef<Scene | null>(null);
+  if (sceneRef.current === null) sceneRef.current = restoreBrowserAutosave() ?? new Scene();
   const cameraRef = useRef<Camera>(createCamera());
   const runtimeRef = useRef<DevCanvasHarnessRuntime | null>(null);
   const [debugCounts, setDebugCounts] = useState({ total: 0, visible: 0, activeTool: SELECT_TOOL_NAME, selected: 0, gridEnabled: false });
   // Set once the effect below constructs the runtime — the overlay only renders once this exists;
   // a ref alone wouldn't trigger the re-render needed to mount it.
   const [editSession, setEditSession] = useState<TextEditSession | null>(null);
+  // Bumped by "Open" to force the mount effect below to tear down and rebuild CanvasStage/the tool
+  // runtime/autosave against the newly-loaded `Scene` instance held in `sceneRef.current` — a plain
+  // ref reassignment alone wouldn't retrigger the effect, since its dependency array is what React
+  // actually watches, not the ref's mutable `.current` box.
+  const [sceneVersion, setSceneVersion] = useState(0);
+  const [busy, setBusy] = useState(false);
 
   // Stable (never-changing) accessors — `usePasteAndDrop`'s effect re-attaches its DOM listeners
   // whenever these identities change, so wrapping the refs in `useCallback` (empty deps) instead of
@@ -81,7 +104,9 @@ export function DevCanvasHarness() {
 
   // Paste (clipboard image or SVG markup) and drag-drop insertion — the scene's own `subscribe`
   // callback below (invalidating the static layer) already covers redrawing once an image lands, so
-  // no extra wiring is needed here beyond the hook call itself.
+  // no extra wiring is needed here beyond the hook call itself. Reads `sceneRef.current` directly
+  // (not `sceneVersion`) since a scene swap via "Open" always accompanies a `sceneVersion` bump, which
+  // re-renders this component and re-evaluates this hook call against the now-current ref value.
   usePasteAndDrop({
     containerRef,
     scene: sceneRef.current,
@@ -93,17 +118,19 @@ export function DevCanvasHarness() {
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    const scene = sceneRef.current;
+    if (!container || !scene) return;
 
-    if (sceneRef.current.getElements().length === 0) seedScene(sceneRef.current);
+    if (scene.getElements().length === 0) seedScene(scene);
 
     const stage = new CanvasStage();
     stage.mount(container);
-    const unsubscribe = sceneRef.current.subscribe(() => stage.staticLayer.invalidate());
+    const unsubscribe = scene.subscribe(() => stage.staticLayer.invalidate());
+    const autosave = startBrowserAutosave(scene);
 
     const runtime = createDevCanvasHarnessRuntime(
       container,
-      sceneRef.current,
+      scene,
       () => cameraRef.current,
       (camera) => {
         cameraRef.current = camera;
@@ -113,9 +140,9 @@ export function DevCanvasHarness() {
     setEditSession(runtime.editSession);
 
     let frameHandle = requestAnimationFrame(function renderFrame() {
-      stage.staticLayer.render(sceneRef.current, cameraRef.current, runtime.grid);
+      stage.staticLayer.render(scene, cameraRef.current, runtime.grid);
       const selectedElements = [...runtime.selectionState.getSelectedIds()]
-        .map((id) => sceneRef.current.getElement(id))
+        .map((id) => scene.getElement(id))
         .filter((element): element is AnyElement => !!element);
       stage.interactiveLayer.render(
         { selectedElements, marqueeRect: runtime.getMarqueeRect(), snapGuides: runtime.getSnapGuides() },
@@ -127,8 +154,8 @@ export function DevCanvasHarness() {
     const debugInterval = window.setInterval(() => {
       const viewportSize = { width: container.clientWidth, height: container.clientHeight };
       setDebugCounts({
-        total: sceneRef.current.getElements().length,
-        visible: getVisibleElements(sceneRef.current, cameraRef.current, viewportSize).length,
+        total: scene.getElements().length,
+        visible: getVisibleElements(scene, cameraRef.current, viewportSize).length,
         activeTool: runtime.toolStateMachine.getActiveToolName(),
         selected: runtime.selectionState.size,
         gridEnabled: runtime.grid.enabled,
@@ -139,18 +166,52 @@ export function DevCanvasHarness() {
       cancelAnimationFrame(frameHandle);
       window.clearInterval(debugInterval);
       unsubscribe();
+      autosave.dispose();
       runtime.dispose();
       runtimeRef.current = null;
       stage.unmount();
       setEditSession(null);
     };
-  }, []);
+  }, [sceneVersion]);
 
   const toggleGrid = useCallback(() => {
     const runtime = runtimeRef.current;
     if (!runtime) return;
     runtime.grid.enabled = !runtime.grid.enabled;
     setDebugCounts((previous) => ({ ...previous, gridEnabled: runtime.grid.enabled }));
+  }, []);
+
+  const handleSave = useCallback(() => {
+    if (!sceneRef.current) return;
+    saveSceneToFile(sceneRef.current).catch((error) => console.error("dev-canvas-harness: save failed", error));
+  }, []);
+
+  const handleOpen = useCallback(() => {
+    setBusy(true);
+    openSceneFromFile()
+      .then((opened) => {
+        if (!opened) return;
+        sceneRef.current = opened;
+        cameraRef.current = createCamera();
+        setSceneVersion((version) => version + 1);
+      })
+      .catch((error) => console.error("dev-canvas-harness: open failed", error))
+      .finally(() => setBusy(false));
+  }, []);
+
+  const handleExportPng = useCallback(() => {
+    if (!sceneRef.current) return;
+    exportSceneToPngFile(sceneRef.current, EXPORT_PNG_SCALE).catch((error) => console.error("dev-canvas-harness: PNG export failed", error));
+  }, []);
+
+  const handleExportSvg = useCallback(() => {
+    if (!sceneRef.current) return;
+    exportSceneToSvgFile(sceneRef.current).catch((error) => console.error("dev-canvas-harness: SVG export failed", error));
+  }, []);
+
+  const handleCopyImage = useCallback(() => {
+    if (!sceneRef.current) return;
+    copySceneImageToClipboard(sceneRef.current).catch((error) => console.error("dev-canvas-harness: copy-as-image failed", error));
   }, []);
 
   return (
@@ -160,7 +221,7 @@ export function DevCanvasHarness() {
         data-testid="dev-canvas-container"
         style={{ position: "relative", width: "100%", height: "70vh", border: "1px solid #ccc" }}
       >
-        {editSession && <TextEditorOverlay session={editSession} scene={sceneRef.current} getCamera={() => cameraRef.current} />}
+        {editSession && <TextEditorOverlay session={editSession} scene={sceneRef.current!} getCamera={() => cameraRef.current} />}
       </div>
       <p data-testid="dev-canvas-debug-counts">
         elements: {debugCounts.total} total / {debugCounts.visible} visible (culled:{" "}
@@ -168,6 +229,21 @@ export function DevCanvasHarness() {
       </p>
       <button type="button" data-testid="dev-canvas-grid-toggle" onClick={toggleGrid}>
         grid: {debugCounts.gridEnabled ? "on" : "off"}
+      </button>
+      <button type="button" data-testid="dev-canvas-save" onClick={handleSave}>
+        save .devivadraw
+      </button>
+      <button type="button" data-testid="dev-canvas-open" onClick={handleOpen} disabled={busy}>
+        open .devivadraw
+      </button>
+      <button type="button" data-testid="dev-canvas-export-png" onClick={handleExportPng}>
+        export PNG ({EXPORT_PNG_SCALE}x)
+      </button>
+      <button type="button" data-testid="dev-canvas-export-svg" onClick={handleExportSvg}>
+        export SVG
+      </button>
+      <button type="button" data-testid="dev-canvas-copy-image" onClick={handleCopyImage}>
+        copy as image
       </button>
     </div>
   );

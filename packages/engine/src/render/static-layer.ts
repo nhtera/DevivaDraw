@@ -19,47 +19,27 @@
  * could coincidentally produce the same `{count, versionSum, maxUpdated}` fingerprint as the
  * previous one and wrongly skip a needed redraw.
  *
- * `freedraw` elements are dispatched to `drawElementFreedraw` instead of `drawElementRough` — they
- * don't use rough.js at all (see `freedraw-renderer.ts`'s module doc) — but still participate in
- * the same redraw-skip/culling pass as every other element type, and get the same per-element
- * drawable-cache treatment via `FreedrawOutlineCache` (pruned alongside `RoughDrawableCache` in the
- * same pass, against the same live-id set). `text` elements are dispatched to `drawElementText` the
- * same way — no drawable cache of its own (wrapping is cheap enough to redo on every actual redraw;
- * this layer's own snapshot check already skips redraws where nothing changed at all). `arrow`
- * elements dispatch to `drawElementArrow` — rough.js-backed like the rectangle/ellipse/diamond/line
- * path, and given the same per-element drawable-cache treatment via `ArrowDrawableCache` (pruned
- * alongside every other per-element cache in the same pass) — see `arrow-drawable-cache.ts`'s doc for
- * why arrows need their own cache shape (an array of `Drawable`s, not one). `image` elements dispatch
- * to `drawElementImage`, backed by an `ImageDecodeCache` keyed by *fileId* rather than element id
- * (multiple elements can share one file, see `images/files-map.ts`) — pruned each redraw against the
- * live set of *referenced fileIds*, not element ids, unlike every other cache in this file.
+ * The actual per-element draw dispatch (rough shapes/arrows/freedraw/text/images, cache
+ * prune) lives in `render-scene-to-canvas.ts`'s `renderSceneToCanvas` — shared with
+ * `export/export-to-png.ts` so a PNG export never re-implements "how to paint an element" — this
+ * file only owns the redraw-skip fingerprint check and the long-lived per-element caches.
  */
-import type { ImageElement } from "../elements/image-element";
-import type { Scene } from "../scene/scene";
 import { createBrowserImageDecoder, ImageDecodeCache } from "../images/image-decode-cache";
 import { createCanvasTextMeasurer } from "../text/text-measurement";
 import type { MeasurementContext2D, TextMeasurer } from "../text/text-measurement";
-import { drawElementArrow } from "./arrow-renderer";
 import { ArrowDrawableCache } from "./arrow-drawable-cache";
 import type { Camera } from "./camera";
 import type { FreedrawDrawContext2D } from "./freedraw-renderer";
-import { drawElementFreedraw } from "./freedraw-renderer";
 import { FreedrawOutlineCache } from "./freedraw-outline-cache";
-import { drawGrid } from "./grid-renderer";
 import type { ImageDrawContext2D } from "./image-renderer";
-import { drawElementImage } from "./image-renderer";
 import type { RoughCanvasDrawer } from "./rough-renderer";
-import { drawElementRough } from "./rough-renderer";
 import { RoughDrawableCache } from "./rough-drawable-cache";
+import type { GridRenderState } from "./render-scene-to-canvas";
+import { renderSceneToCanvas } from "./render-scene-to-canvas";
+import type { Scene } from "../scene/scene";
 import type { TextDrawContext2D } from "./text-renderer";
-import { drawElementText } from "./text-renderer";
-import { filterVisibleElements } from "./viewport-culling";
 
-/** Grid-mode state a `render()` call draws against — see `grid-renderer.ts`'s module doc for why the grid is a static-layer (not interactive-layer) concern. */
-export interface GridRenderState {
-  enabled: boolean;
-  size: number;
-}
+export type { GridRenderState } from "./render-scene-to-canvas";
 
 const GRID_DISABLED: GridRenderState = { enabled: false, size: 20 };
 
@@ -157,8 +137,8 @@ export class StaticLayer {
    * without touching the canvas — or sorting the scene's elements — at all if neither the scene's
    * content, the camera/viewport, nor `grid` changed since the last call; see the module doc for why
    * that's safe. `grid` (omit or leave `enabled: false` for no grid) is drawn first, underneath every
-   * element — see `grid-renderer.ts`'s module doc for why the grid belongs here and not the
-   * interactive layer.
+   * element. The actual draw dispatch is `render-scene-to-canvas.ts`'s `renderSceneToCanvas` — shared
+   * with PNG export, see that module's doc.
    */
   render(scene: Scene, camera: Camera, grid: GridRenderState = GRID_DISABLED): void {
     const width = this.ctx.canvas.clientWidth;
@@ -179,40 +159,15 @@ export class StaticLayer {
     if (this.lastSnapshot && sameSnapshot(this.lastSnapshot, snapshot)) return;
     this.lastSnapshot = snapshot;
 
-    // Sorted (z-order) elements are only fetched once we know a redraw is actually happening, and
-    // reused for the whole draw pass instead of letting culling re-fetch/re-sort a second time.
-    const elements = scene.getElements();
-    this.ctx.clearRect(0, 0, width, height);
-    if (grid.enabled) drawGrid(this.ctx, camera, { width, height }, grid.size);
-    for (const element of filterVisibleElements(elements, camera, { width, height })) {
-      if (element.type === "freedraw") {
-        drawElementFreedraw(this.ctx, element, camera, this.freedrawOutlineCache);
-      } else if (element.type === "text") {
-        drawElementText(this.ctx, element, camera, this.textMeasurer);
-      } else if (element.type === "arrow") {
-        drawElementArrow(this.ctx, this.roughCanvas, element, camera, this.arrowDrawableCache);
-      } else if (element.type === "image") {
-        drawElementImage(this.ctx, element, camera, scene, this.imageDecodeCache);
-      } else {
-        drawElementRough(this.ctx, this.roughCanvas, element, camera, this.drawableCache);
-      }
-    }
-
-    // Bounds every per-element cache against a session's worth of created-then-deleted elements —
-    // see `rough-drawable-cache.ts`'s `prune()` doc (the freedraw/arrow caches mirror it exactly).
-    // Piggybacks on this already-happening redraw pass (elements is already the full,
-    // unsorted-filter-free list) rather than a separate timer.
-    const liveIds = new Set(elements.filter((element) => !element.isDeleted).map((element) => element.id));
-    this.drawableCache.prune(liveIds);
-    this.arrowDrawableCache.prune(liveIds);
-    this.freedrawOutlineCache.prune(liveIds);
-
-    // Image decode cache is keyed by *fileId*, not element id (see the module doc) — its live set is
-    // therefore the distinct fileIds still referenced by a live image element, not `liveIds` itself.
-    const liveFileIds = new Set(
-      elements.filter((element): element is ImageElement => !element.isDeleted && element.type === "image").map((element) => element.fileId),
-    );
-    this.imageDecodeCache.prune(liveFileIds);
+    renderSceneToCanvas(this.ctx, scene, camera, { width, height }, {
+      roughCanvas: this.roughCanvas,
+      textMeasurer: this.textMeasurer,
+      imageDecodeCache: this.imageDecodeCache,
+      drawableCache: this.drawableCache,
+      arrowDrawableCache: this.arrowDrawableCache,
+      freedrawOutlineCache: this.freedrawOutlineCache,
+      grid,
+    });
   }
 
   /** Forces the next `render()` call to redraw even if the snapshot looks unchanged. */

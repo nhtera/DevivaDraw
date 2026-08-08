@@ -99,6 +99,11 @@ export { ArrowDrawableCache } from "./render/arrow-drawable-cache";
 export type { GridRenderState, StaticLayerContext } from "./render/static-layer";
 export { StaticLayer } from "./render/static-layer";
 
+export { createBrowserRoughCanvas, createRoughGenerator } from "./render/rough-factory";
+
+export type { RenderSceneContext2D, RenderSceneOptions } from "./render/render-scene-to-canvas";
+export { renderSceneToCanvas } from "./render/render-scene-to-canvas";
+
 export type { GridDrawContext2D } from "./render/grid-renderer";
 export { drawGrid } from "./render/grid-renderer";
 
@@ -279,3 +284,41 @@ export { buildSelectionFrame } from "./selection/selection-tool-frame";
 
 export type { SelectionToolDeps } from "./selection/selection-tool";
 export { SelectionTool } from "./selection/selection-tool";
+
+// --- Persistence & export ---
+
+export type { SceneDocument, SceneDocumentV1, SerializedAppState, SerializedStoredFile } from "./persistence/scene-schema";
+export { CURRENT_SCHEMA_VERSION, SCENE_DOCUMENT_TYPE } from "./persistence/scene-schema";
+
+export type { SceneMigration } from "./persistence/migrations";
+export { applyMigrations, migrations, UnsupportedSchemaVersionError } from "./persistence/migrations";
+
+export type { ValidationResult } from "./persistence/scene-validation";
+export { validateSceneDocument } from "./persistence/scene-validation";
+
+export type { DeserializeSceneResult, SerializeSceneOptions } from "./persistence/serialize-scene";
+export { deserializeScene, serializeScene } from "./persistence/serialize-scene";
+
+export type { AutosaveController, AutosaveOptions, StorageLike } from "./persistence/local-storage-autosave";
+export { AUTOSAVE_STORAGE_KEY, restoreAutosave, startAutosave } from "./persistence/local-storage-autosave";
+
+export type { ExportFrame, ExportScale } from "./export/export-geometry";
+export { computeExportBounds, computeExportFrame, DEFAULT_EXPORT_PADDING, EmptyExportSelectionError, EXPORT_SCALES } from "./export/export-geometry";
+
+export { readTextChunk, writeTextChunk } from "./export/png-chunk-writer";
+
+export type { CreateExportRenderTarget, ExportRenderTarget, ExportToPngOptions } from "./export/export-to-png";
+export { exportToPng, readEmbeddedSceneData, SCENE_DATA_PNG_KEYWORD } from "./export/export-to-png";
+
+export type { RoughSvgGenerator } from "./export/svg-shape-paths";
+export { buildArrowSvgFragment, buildRoughShapeSvgFragment } from "./export/svg-shape-paths";
+
+export { buildFreedrawSvgFragment, buildImageSvgFragment, buildTextSvgFragment } from "./export/svg-text-freedraw-image";
+
+export { escapeXmlAttribute, escapeXmlText } from "./export/svg-escape";
+
+export type { ExportToSvgOptions } from "./export/export-to-svg";
+export { exportToSvg, readEmbeddedSceneDataFromSvg } from "./export/export-to-svg";
+
+export type { ClipboardWriterLike, CopyAsImageOptions } from "./export/copy-as-image";
+export { copyAsImage } from "./export/copy-as-image";

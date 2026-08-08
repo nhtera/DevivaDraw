@@ -1,0 +1,103 @@
+/**
+ * Renders a scene (or a selection subset) to a standalone SVG document string. Shapes/arrows go
+ * through rough.js's own SVG-path mode (`svg-shape-paths.ts`, reusing `RoughGenerator.toPaths()`) —
+ * the exact sketchy-rendering algorithm the live canvas uses, just emitting path data instead of
+ * painting — so the exported SVG looks identical to the canvas, deterministically (same per-element
+ * `seed`). Freedraw/text/image go through `svg-text-freedraw-image.ts`'s equivalents. The live scene
+ * JSON is embedded as an SVG `<metadata>` block by default, mirroring `export-to-png.ts`'s `tEXt`-chunk
+ * embedding, so a previously-exported SVG can later be re-opened as an editable scene.
+ */
+import type { AnyElement } from "../elements/element-types";
+import { serializeScene } from "../persistence/serialize-scene";
+import type { Camera } from "../render/camera";
+import { screenRectOf } from "../render/rough-shape-geometry";
+import type { Scene } from "../scene/scene";
+import type { TextMeasurer } from "../text/text-measurement";
+import { filterVisibleElements } from "../render/viewport-culling";
+import { computeExportBounds, computeExportFrame } from "./export-geometry";
+import type { ExportScale } from "./export-geometry";
+import { escapeXmlAttribute, escapeXmlText } from "./svg-escape";
+import { buildArrowSvgFragment, buildRoughShapeSvgFragment } from "./svg-shape-paths";
+import type { RoughSvgGenerator } from "./svg-shape-paths";
+import { buildFreedrawSvgFragment, buildImageSvgFragment, buildTextSvgFragment } from "./svg-text-freedraw-image";
+
+export interface ExportToSvgOptions {
+  scene: Scene;
+  /** Headless rough.js generator (`rough.generator()`) — no `<canvas>` needed for SVG output. */
+  roughGenerator: RoughSvgGenerator;
+  textMeasurer: TextMeasurer;
+  elements?: readonly AnyElement[];
+  scale?: ExportScale;
+  padding?: number;
+  backgroundColor?: string | null;
+  embedSceneData?: boolean;
+}
+
+/** Rotation (around the element's screen-space bbox center) + opacity wrap — the SVG equivalent of every canvas renderer's `save/translate/rotate/globalAlpha/restore` block. */
+function wrapElementFragment(inner: string, element: AnyElement, camera: Camera): string {
+  if (!inner) return "";
+  const opacity = Math.min(1, Math.max(0, element.opacity / 100));
+  const rect = screenRectOf(element, camera);
+  const centerX = rect.x + rect.width / 2;
+  const centerY = rect.y + rect.height / 2;
+  const transform = element.angle !== 0 ? ` transform="rotate(${(element.angle * 180) / Math.PI} ${centerX} ${centerY})"` : "";
+  return `<g opacity="${opacity}"${transform}>${inner}</g>`;
+}
+
+function elementFragment(element: AnyElement, camera: Camera, generator: RoughSvgGenerator, textMeasurer: TextMeasurer, scene: Scene): string {
+  switch (element.type) {
+    case "freedraw":
+      return buildFreedrawSvgFragment(element, camera);
+    case "text":
+      return buildTextSvgFragment(element, camera, textMeasurer);
+    case "arrow":
+      return buildArrowSvgFragment(generator, element, camera);
+    case "image":
+      return buildImageSvgFragment(element, camera, scene);
+    default:
+      return buildRoughShapeSvgFragment(generator, element, camera);
+  }
+}
+
+/** Renders `options.scene` (or `options.elements`) to a standalone `<svg>...</svg>` document string — see the module doc. */
+export function exportToSvg(options: ExportToSvgOptions): string {
+  const {
+    scene,
+    roughGenerator,
+    textMeasurer,
+    elements = scene.getElements().filter((element) => !element.isDeleted),
+    scale = 1,
+    padding,
+    backgroundColor = null,
+    embedSceneData = true,
+  } = options;
+
+  const bounds = computeExportBounds(elements, padding);
+  const { camera, pixelWidth, pixelHeight } = computeExportFrame(bounds, scale);
+  const visible = filterVisibleElements(elements, camera, { width: pixelWidth, height: pixelHeight });
+
+  const body = visible.map((element) => wrapElementFragment(elementFragment(element, camera, roughGenerator, textMeasurer, scene), element, camera)).join("");
+
+  const backgroundRect = backgroundColor
+    ? `<rect x="0" y="0" width="${pixelWidth}" height="${pixelHeight}" fill="${escapeXmlAttribute(backgroundColor)}" />`
+    : "";
+
+  const metadata = embedSceneData ? `<metadata>${escapeXmlText(JSON.stringify(serializeScene(scene)))}</metadata>` : "";
+
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${pixelWidth}" height="${pixelHeight}" viewBox="0 0 ${pixelWidth} ${pixelHeight}">`,
+    metadata,
+    backgroundRect,
+    body,
+    "</svg>",
+  ].join("");
+}
+
+const METADATA_PATTERN = /<metadata>([\s\S]*?)<\/metadata>/;
+
+/** Reverses `exportToSvg`'s `<metadata>` embedding — reads the scene JSON string back out of a previously-exported SVG document, or `null` if none was embedded. */
+export function readEmbeddedSceneDataFromSvg(svg: string): string | null {
+  const match = METADATA_PATTERN.exec(svg);
+  if (!match) return null;
+  return match[1]!.replaceAll("&lt;", "<").replaceAll("&gt;", ">").replaceAll("&amp;", "&");
+}

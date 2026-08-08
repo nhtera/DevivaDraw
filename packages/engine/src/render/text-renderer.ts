@@ -31,7 +31,8 @@ export interface TextDrawContext2D extends RoughDrawContext2D {
   fillText(text: string, x: number, y: number): void;
 }
 
-function verticalStartOffsetPx(verticalAlign: TextElement["verticalAlign"], boxHeightPx: number, blockHeightPx: number): number {
+/** Exported (beyond this module's own `drawElementText`) so `export/svg-text-freedraw-image.ts` positions SVG `<text>` elements with the exact same vertical-alignment math instead of re-deriving it. */
+export function verticalStartOffsetPx(verticalAlign: TextElement["verticalAlign"], boxHeightPx: number, blockHeightPx: number): number {
   switch (verticalAlign) {
     case "top":
       return 0;
@@ -42,7 +43,8 @@ function verticalStartOffsetPx(verticalAlign: TextElement["verticalAlign"], boxH
   }
 }
 
-function horizontalAnchorPx(textAlign: TextElement["textAlign"], rect: { x: number; width: number }): number {
+/** Exported for the same reason as `verticalStartOffsetPx` — shared with SVG `<text>` export. */
+export function horizontalAnchorPx(textAlign: TextElement["textAlign"], rect: { x: number; width: number }): number {
   switch (textAlign) {
     case "left":
       return rect.x;

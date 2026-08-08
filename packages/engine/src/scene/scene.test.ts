@@ -235,6 +235,17 @@ describe("Scene subscriptions", () => {
     expect(scene.getElements()).toHaveLength(2);
   });
 
+  it("restoreElement inserts without bumping version/versionNonce (unlike addElement)", () => {
+    const element = { ...createGenericElement({ x: 0, y: 0 }), id: "restored-1", version: 5, versionNonce: 42, updated: 999, index: "a0" };
+    scene.restoreElement(element);
+    expect(scene.getElement("restored-1")).toEqual(element);
+  });
+
+  it("restoreElement throws on a duplicate id, same as addElement", () => {
+    const created = scene.addElement(createGenericElement({ x: 0, y: 0 }));
+    expect(() => scene.restoreElement({ ...created, id: created.id })).toThrow(/already exists/);
+  });
+
   it("coalesces multiple mutations queued from within a single listener dispatch into one extra pass", () => {
     let notifyCount = 0;
     let hasTriggeredNestedMutations = false;
@@ -254,5 +265,34 @@ describe("Scene subscriptions", () => {
     // 3 nested mutations queued during one dispatch collapse into a single redelivered pass.
     expect(notifyCount).toBe(2);
     expect(scene.getElements()).toHaveLength(4);
+  });
+});
+
+describe("Scene.toJSON / Scene.fromJSON", () => {
+  it("toJSON delegates to serializeScene — round trips through Scene.fromJSON", () => {
+    const scene = new Scene();
+    scene.addElement(createGenericElement({ x: 1, y: 2, width: 10, height: 10 }));
+
+    const document = scene.toJSON();
+    const parsed = JSON.parse(JSON.stringify(document));
+    const result = Scene.fromJSON(parsed);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.scene.getElements()).toEqual(scene.getElements());
+  });
+
+  it("Scene.fromJSON never throws for malformed input — returns an ok:false result", () => {
+    expect(() => Scene.fromJSON({ garbage: true })).not.toThrow();
+    expect(Scene.fromJSON({ garbage: true }).ok).toBe(false);
+  });
+
+  it("Scene.fromJSON is a static factory: a rejected load never touches any existing live Scene", () => {
+    const live = new Scene();
+    live.addElement(createGenericElement({ x: 0, y: 0 }));
+    const before = live.getElements();
+
+    Scene.fromJSON({ garbage: true });
+
+    expect(live.getElements()).toEqual(before);
   });
 });

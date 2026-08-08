@@ -8,6 +8,9 @@
  * change signal, nothing a dependency would meaningfully simplify (YAGNI).
  */
 import type { AnyElement } from "../elements/element-types";
+import type { DeserializeSceneResult, SerializeSceneOptions } from "../persistence/serialize-scene";
+import { deserializeScene, serializeScene } from "../persistence/serialize-scene";
+import type { SceneDocumentV1 } from "../persistence/scene-schema";
 import { indexBetween } from "./fractional-index";
 import { liveFileIds, SceneFilesStore } from "./scene-files-store";
 import type { StoredFile } from "./scene-files-store";
@@ -154,6 +157,41 @@ export class Scene {
     const removed = this.filesStore.pruneOrphaned(liveFileIds(this.elements.values()));
     if (removed.length > 0) this.notify();
     return removed;
+  }
+
+  /**
+   * Inserts `element` exactly as given — no `version`/`versionNonce`/`updated` bump (unlike
+   * `addElement`), and no notify of its own beyond whatever the caller triggers afterward. Reserved
+   * for `persistence/serialize-scene.ts`'s `deserializeScene`: restoring an already-serialized
+   * element must not look like a fresh edit — a freshly-reloaded document should compare identical to
+   * the one that was saved, not bump every element's version on every reload. Every other insertion
+   * path must go through `addElement`. Throws on a duplicate id, same as `addElement`.
+   */
+  restoreElement(element: AnyElement): void {
+    if (this.elements.has(element.id)) {
+      throw new Error(`scene: element with id "${element.id}" already exists; restoreElement is for populating a still-empty scene`);
+    }
+    this.elements.set(element.id, element);
+  }
+
+  /** Registers `file` under `fileId` — see `restoreElement`'s doc; used by the same bulk-restore path in `deserializeScene`. */
+  restoreFile(fileId: string, file: StoredFile): void {
+    this.filesStore.addFile(fileId, file);
+  }
+
+  /** Serializes this scene to the versioned JSON document shape — see `persistence/serialize-scene.ts`'s module doc for the export-vs-autosave `includeDeleted` distinction. */
+  toJSON(options?: SerializeSceneOptions): SceneDocumentV1 {
+    return serializeScene(this, options);
+  }
+
+  /**
+   * Parses/validates `raw` and builds a brand-new `Scene` from it, or returns a descriptive error —
+   * never throws, and never mutates any existing `Scene` (a `static` factory rather than an instance
+   * method, specifically so a malformed load can never partially clobber a live scene the app is
+   * already showing). See `persistence/serialize-scene.ts`'s `deserializeScene` for the full contract.
+   */
+  static fromJSON(raw: unknown): DeserializeSceneResult {
+    return deserializeScene(raw);
   }
 
   /** Registers a change listener; returns an unsubscribe function. */
