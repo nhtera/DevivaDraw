@@ -38,12 +38,20 @@ export {
   DEFAULT_TEXT_LINE_HEIGHT,
   DEFAULT_TEXT_VERTICAL_ALIGN,
 } from "./elements/text-element";
+export type { ImageElement, ImageElementCreationInput } from "./elements/image-element";
+export { createImageElement } from "./elements/image-element";
 
 export type { IndexedItem } from "./scene/fractional-index";
 export { indexBetween, moveBackward, moveForward, moveToBack, moveToFront } from "./scene/fractional-index";
 export { randomVersionNonce, touch } from "./scene/scene-mutations";
-export type { ElementUpdate, SceneListener, SceneUpdateHook } from "./scene/scene";
+export type { ElementUpdate, SceneListener, SceneUpdateHook, StoredFile } from "./scene/scene";
 export { Scene } from "./scene/scene";
+
+export type { DecodeNaturalSizeFn, InsertImageFileOptions, InsertImageFileResult } from "./images/insert-image-file";
+export { DEFAULT_MAX_FILE_SIZE_BYTES, fitInitialSize, ImageFileTooLargeError, insertImageFile } from "./images/insert-image-file";
+export { bytesToDataURL, computeFileId, FilesMap } from "./images/files-map";
+export type { ImageDecodeFn } from "./images/image-decode-cache";
+export { createBrowserImageDecoder, ImageDecodeCache } from "./images/image-decode-cache";
 
 export type { HistoryStackOptions } from "./history/history-stack";
 export { HistoryStack } from "./history/history-stack";
@@ -69,6 +77,9 @@ export { FreedrawOutlineCache } from "./render/freedraw-outline-cache";
 
 export type { TextDrawContext2D } from "./render/text-renderer";
 export { drawElementText } from "./render/text-renderer";
+
+export type { ImageDrawContext2D, ImageFileLookup } from "./render/image-renderer";
+export { drawElementImage } from "./render/image-renderer";
 
 export type { Rect } from "./render/arrow-geometry";
 export {

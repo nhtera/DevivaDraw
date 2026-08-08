@@ -9,7 +9,11 @@
  */
 import type { AnyElement } from "../elements/element-types";
 import { indexBetween } from "./fractional-index";
+import { liveFileIds, SceneFilesStore } from "./scene-files-store";
+import type { StoredFile } from "./scene-files-store";
 import { touch } from "./scene-mutations";
+
+export type { StoredFile } from "./scene-files-store";
 
 export type SceneListener = () => void;
 
@@ -30,6 +34,8 @@ export type ElementUpdate = Partial<Omit<AnyElement, "id" | "type" | "version" |
 
 export class Scene {
   private readonly elements = new Map<string, AnyElement>();
+  /** Binary files (images) referenced by `ImageElement.fileId` — stored separately from `elements` on purpose, see `images/files-map.ts`'s module doc. Composed unit, see `scene-files-store.ts`. */
+  private readonly filesStore = new SceneFilesStore();
   private readonly listeners = new Set<SceneListener>();
   /** Domain-specific post-mutation middleware — see `registerUpdateHook`. Empty by default: `Scene` itself knows nothing about bindings, bound text, or any other cross-element relationship. */
   private readonly updateHooks = new Set<SceneUpdateHook>();
@@ -116,6 +122,38 @@ export class Scene {
    */
   deleteElement(id: string): AnyElement | undefined {
     return this.updateElement(id, { isDeleted: true });
+  }
+
+  getFile(fileId: string): StoredFile | undefined {
+    return this.filesStore.getFile(fileId);
+  }
+
+  hasFile(fileId: string): boolean {
+    return this.filesStore.hasFile(fileId);
+  }
+
+  /**
+   * Registers `file` under `fileId` (a no-op if already present — content-addressed ids mean a
+   * duplicate `addFile` for identical bytes is expected, not an error, see `images/files-map.ts`).
+   * Notifies subscribers the same as any element mutation, so a static-layer/other consumer redraws
+   * once the file backing a soon-to-be-inserted image element actually exists.
+   */
+  addFile(fileId: string, file: StoredFile): void {
+    if (this.filesStore.addFile(fileId, file)) this.notify();
+  }
+
+  /**
+   * Removes any stored file no longer referenced by a live image element. Deliberately not called
+   * automatically from `deleteElement`: like every other soft-delete in this store, a deleted
+   * element can still be restored by undo, and an eagerly-pruned file would leave that restored
+   * element pointing at nothing. Callers that actually want garbage collection (e.g. before a
+   * persistence export) call this explicitly once they're sure no further undo can resurrect the
+   * reference. Returns the removed fileIds.
+   */
+  pruneOrphanedFiles(): string[] {
+    const removed = this.filesStore.pruneOrphaned(liveFileIds(this.elements.values()));
+    if (removed.length > 0) this.notify();
+    return removed;
   }
 
   /** Registers a change listener; returns an unsubscribe function. */

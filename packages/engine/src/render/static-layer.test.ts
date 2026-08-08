@@ -27,6 +27,11 @@ function fakeContext(width = 800, height = 600): StaticLayerContext {
     textBaseline: "alphabetic",
     fillText: vi.fn(),
     measureText: vi.fn(() => ({ width: 0 })),
+    strokeStyle: "",
+    lineWidth: 1,
+    fillRect: vi.fn(),
+    strokeRect: vi.fn(),
+    drawImage: vi.fn(),
   };
 }
 

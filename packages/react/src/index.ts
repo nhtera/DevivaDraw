@@ -13,3 +13,9 @@ export type { TextEditingOverlay, UseTextEditingOptions } from "./hooks/use-text
 export { useTextEditing } from "./hooks/use-text-editing";
 
 export { shouldCommitOnEnter } from "./hooks/should-commit-on-enter";
+
+export type { MimeTyped } from "./hooks/clipboard-image-detection";
+export { findFirstImageItem, isImageMimeType, looksLikeSvgMarkup, SVG_MIME_TYPE, svgMarkupToBytes } from "./hooks/clipboard-image-detection";
+
+export type { UsePasteAndDropOptions } from "./hooks/use-paste-and-drop";
+export { usePasteAndDrop } from "./hooks/use-paste-and-drop";

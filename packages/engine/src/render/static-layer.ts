@@ -29,9 +29,14 @@
  * elements dispatch to `drawElementArrow` — rough.js-backed like the rectangle/ellipse/diamond/line
  * path, and given the same per-element drawable-cache treatment via `ArrowDrawableCache` (pruned
  * alongside every other per-element cache in the same pass) — see `arrow-drawable-cache.ts`'s doc for
- * why arrows need their own cache shape (an array of `Drawable`s, not one).
+ * why arrows need their own cache shape (an array of `Drawable`s, not one). `image` elements dispatch
+ * to `drawElementImage`, backed by an `ImageDecodeCache` keyed by *fileId* rather than element id
+ * (multiple elements can share one file, see `images/files-map.ts`) — pruned each redraw against the
+ * live set of *referenced fileIds*, not element ids, unlike every other cache in this file.
  */
+import type { ImageElement } from "../elements/image-element";
 import type { Scene } from "../scene/scene";
+import { createBrowserImageDecoder, ImageDecodeCache } from "../images/image-decode-cache";
 import { createCanvasTextMeasurer } from "../text/text-measurement";
 import type { MeasurementContext2D, TextMeasurer } from "../text/text-measurement";
 import { drawElementArrow } from "./arrow-renderer";
@@ -40,6 +45,8 @@ import type { Camera } from "./camera";
 import type { FreedrawDrawContext2D } from "./freedraw-renderer";
 import { drawElementFreedraw } from "./freedraw-renderer";
 import { FreedrawOutlineCache } from "./freedraw-outline-cache";
+import type { ImageDrawContext2D } from "./image-renderer";
+import { drawElementImage } from "./image-renderer";
 import type { RoughCanvasDrawer } from "./rough-renderer";
 import { drawElementRough } from "./rough-renderer";
 import { RoughDrawableCache } from "./rough-drawable-cache";
@@ -55,7 +62,7 @@ import { filterVisibleElements } from "./viewport-culling";
  * `FreedrawDrawContext2D` (itself a superset of the rough dispatch's `RoughDrawContext2D`) so one
  * context surface satisfies both draw paths.
  */
-export interface StaticLayerContext extends FreedrawDrawContext2D, TextDrawContext2D, MeasurementContext2D {
+export interface StaticLayerContext extends FreedrawDrawContext2D, TextDrawContext2D, MeasurementContext2D, ImageDrawContext2D {
   readonly canvas: { clientWidth: number; clientHeight: number };
   clearRect(x: number, y: number, width: number, height: number): void;
 }
@@ -113,13 +120,23 @@ export class StaticLayer {
   private readonly drawableCache = new RoughDrawableCache();
   private readonly arrowDrawableCache = new ArrowDrawableCache();
   private readonly freedrawOutlineCache = new FreedrawOutlineCache();
+  private readonly imageDecodeCache: ImageDecodeCache<HTMLImageElement>;
   private lastSnapshot: RenderSnapshot | null = null;
 
-  /** `textMeasurer` defaults to a canvas-backed measurer over the same `ctx` used to paint — reusing one context for both is the standard `measureText`-then-`fillText` approach; only tests (or a future non-canvas backend) need to override it. */
-  constructor(ctx: StaticLayerContext, roughCanvas: RoughCanvasDrawer, textMeasurer?: TextMeasurer) {
+  /**
+   * `textMeasurer` defaults to a canvas-backed measurer over the same `ctx` used to paint — reusing
+   * one context for both is the standard `measureText`-then-`fillText` approach; only tests (or a
+   * future non-canvas backend) need to override it. `imageDecodeCache` defaults to a real
+   * `Image()`-backed decoder (`createBrowserImageDecoder`) wired to `invalidate()` on every settled
+   * decode, so a just-finished image decode actually appears on the next frame instead of waiting for
+   * an unrelated scene change; tests inject a synchronous fake instead (see `image-decode-cache.ts`'s
+   * `TextMeasurer`-style injection doc).
+   */
+  constructor(ctx: StaticLayerContext, roughCanvas: RoughCanvasDrawer, textMeasurer?: TextMeasurer, imageDecodeCache?: ImageDecodeCache<HTMLImageElement>) {
     this.ctx = ctx;
     this.roughCanvas = roughCanvas;
     this.textMeasurer = textMeasurer ?? createCanvasTextMeasurer(ctx);
+    this.imageDecodeCache = imageDecodeCache ?? new ImageDecodeCache(createBrowserImageDecoder(), () => this.invalidate());
   }
 
   /**
@@ -156,19 +173,28 @@ export class StaticLayer {
         drawElementText(this.ctx, element, camera, this.textMeasurer);
       } else if (element.type === "arrow") {
         drawElementArrow(this.ctx, this.roughCanvas, element, camera, this.arrowDrawableCache);
+      } else if (element.type === "image") {
+        drawElementImage(this.ctx, element, camera, scene, this.imageDecodeCache);
       } else {
         drawElementRough(this.ctx, this.roughCanvas, element, camera, this.drawableCache);
       }
     }
 
-    // Bounds both per-element caches against a session's worth of created-then-deleted elements —
-    // see `rough-drawable-cache.ts`'s `prune()` doc (the freedraw outline cache mirrors it exactly).
+    // Bounds every per-element cache against a session's worth of created-then-deleted elements —
+    // see `rough-drawable-cache.ts`'s `prune()` doc (the freedraw/arrow caches mirror it exactly).
     // Piggybacks on this already-happening redraw pass (elements is already the full,
     // unsorted-filter-free list) rather than a separate timer.
     const liveIds = new Set(elements.filter((element) => !element.isDeleted).map((element) => element.id));
     this.drawableCache.prune(liveIds);
     this.arrowDrawableCache.prune(liveIds);
     this.freedrawOutlineCache.prune(liveIds);
+
+    // Image decode cache is keyed by *fileId*, not element id (see the module doc) — its live set is
+    // therefore the distinct fileIds still referenced by a live image element, not `liveIds` itself.
+    const liveFileIds = new Set(
+      elements.filter((element): element is ImageElement => !element.isDeleted && element.type === "image").map((element) => element.fileId),
+    );
+    this.imageDecodeCache.prune(liveFileIds);
   }
 
   /** Forces the next `render()` call to redraw even if the snapshot looks unchanged. */

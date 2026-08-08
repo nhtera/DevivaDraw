@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CanvasStage,
   createCamera,
@@ -9,7 +9,8 @@ import {
   Scene,
 } from "@deviva-draw/engine";
 import type { Camera, TextEditSession } from "@deviva-draw/engine";
-import { TextEditorOverlay } from "@deviva-draw/react";
+import { TextEditorOverlay, usePasteAndDrop } from "@deviva-draw/react";
+import { decodeNaturalSize } from "./browser-image-decode";
 import { createDevCanvasHarnessRuntime, SELECT_TOOL_NAME } from "./dev-canvas-harness-runtime";
 
 const SEEDED_ELEMENT_COUNT = 500;
@@ -61,6 +62,28 @@ export function DevCanvasHarness() {
   // Set once the effect below constructs the runtime — the overlay only renders once this exists;
   // a ref alone wouldn't trigger the re-render needed to mount it.
   const [editSession, setEditSession] = useState<TextEditSession | null>(null);
+
+  // Stable (never-changing) accessors — `usePasteAndDrop`'s effect re-attaches its DOM listeners
+  // whenever these identities change, so wrapping the refs in `useCallback` (empty deps) instead of
+  // passing fresh inline closures avoids tearing down/re-adding the paste/drop listeners every render.
+  const getCamera = useCallback(() => cameraRef.current, []);
+  const getViewportSize = useCallback(
+    () => ({ width: containerRef.current?.clientWidth ?? 0, height: containerRef.current?.clientHeight ?? 0 }),
+    [],
+  );
+  const onInsertError = useCallback((error: unknown) => console.warn("dev-canvas-harness: image insert rejected", error), []);
+
+  // Paste (clipboard image or SVG markup) and drag-drop insertion — the scene's own `subscribe`
+  // callback below (invalidating the static layer) already covers redrawing once an image lands, so
+  // no extra wiring is needed here beyond the hook call itself.
+  usePasteAndDrop({
+    containerRef,
+    scene: sceneRef.current,
+    getCamera,
+    getViewportSize,
+    decodeNaturalSize,
+    onInsertError,
+  });
 
   useEffect(() => {
     const container = containerRef.current;

@@ -7,6 +7,7 @@ import type { Drawable } from "roughjs/bin/core";
 import { describe, expect, it, vi } from "vitest";
 import { createArrowElement } from "../elements/arrow-element";
 import { createFreedrawElement } from "../elements/freedraw-element";
+import { createImageElement } from "../elements/image-element";
 import { createTextElement } from "../elements/text-element";
 import { Scene } from "../scene/scene";
 import { createCamera } from "./camera";
@@ -34,6 +35,11 @@ function fakeContext(width = 800, height = 600): StaticLayerContext {
     textBaseline: "alphabetic",
     fillText: vi.fn(),
     measureText: vi.fn(() => ({ width: 0 })),
+    strokeStyle: "",
+    lineWidth: 1,
+    fillRect: vi.fn(),
+    strokeRect: vi.fn(),
+    drawImage: vi.fn(),
   };
 }
 
@@ -116,6 +122,22 @@ describe("StaticLayer.render — per-type dispatch", () => {
     layer.render(scene, createCamera());
 
     expect(roughCanvas.linearPath).toHaveBeenCalled(); // shaft + default "arrow" end-cap chevron
+    expect(roughCanvas.rectangle).not.toHaveBeenCalled();
+  });
+
+  it("dispatches image elements to the placeholder/drawImage path instead of the rough.js drawer", () => {
+    const ctx = fakeContext();
+    const roughCanvas = fakeRoughCanvas();
+    const scene = new Scene();
+    scene.addElement(createImageElement({ x: 0, y: 0, width: 40, height: 20, fileId: "f1", naturalWidth: 40, naturalHeight: 20 }));
+    // No matching Scene.files entry — draws the "missing file" error placeholder, not drawImage;
+    // this dispatch test only asserts routing, not the decode-cache/placeholder details covered by
+    // image-renderer.test.ts.
+    const layer = new StaticLayer(ctx, roughCanvas);
+
+    layer.render(scene, createCamera());
+
+    expect(ctx.fillRect).toHaveBeenCalledTimes(1);
     expect(roughCanvas.rectangle).not.toHaveBeenCalled();
   });
 });

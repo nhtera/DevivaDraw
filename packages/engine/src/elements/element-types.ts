@@ -16,6 +16,7 @@ import type { ArrowElement } from "./arrow-element";
 import type { ElementCreationInput } from "./element-factory-defaults";
 import { createElementBase } from "./element-factory-defaults";
 import type { FreedrawElement } from "./freedraw-element";
+import type { ImageElement } from "./image-element";
 import type { DiamondElement, EllipseElement, LineElement, RectangleElement } from "./shape-elements";
 import type { TextElement } from "./text-element";
 
@@ -24,6 +25,8 @@ export type { Arrowhead, ArrowBinding, ArrowElement, ArrowElementCreationInput, 
 export { createArrowElement, DEFAULT_ARROW_TYPE, DEFAULT_END_ARROWHEAD, DEFAULT_START_ARROWHEAD } from "./arrow-element";
 export type { FreedrawElement, FreedrawElementCreationInput, FreedrawPoint } from "./freedraw-element";
 export { createFreedrawElement } from "./freedraw-element";
+export type { ImageElement, ImageElementCreationInput } from "./image-element";
+export { createImageElement } from "./image-element";
 export type {
   DiamondElement,
   EllipseElement,
@@ -57,7 +60,8 @@ export type AnyElement =
   | LineElement
   | FreedrawElement
   | TextElement
-  | ArrowElement;
+  | ArrowElement
+  | ImageElement;
 
 /**
  * Builds a new `GenericElement` with sane defaults for every field the caller did not supply.
