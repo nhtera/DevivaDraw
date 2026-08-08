@@ -7,8 +7,11 @@
  * `preventDefault` policy: a wheel event over the canvas is always consumed (otherwise Ctrl+wheel
  * triggers the browser's own page-zoom and a plain wheel scrolls an ancestor instead of, or in
  * addition to, panning). A key event is only consumed when it maps to something this pipeline
- * actually handles — Space, Escape (while a gesture is active), or a registered shortcut/action —
- * so normal typing anywhere else on the page is never swallowed.
+ * actually handles — Space, Escape while a gesture is active, or a registered shortcut/action — so
+ * normal typing anywhere else on the page is never swallowed. Escape while *no* gesture is active
+ * has nothing of this pipeline's own to cancel, so it falls through to the same "unmatched key"
+ * path as any other key — forwarded to the active tool's `onKeyDown` (a multi-step tool, e.g. one
+ * building up a shape from several clicks, may still want it) without being consumed here.
  */
 import type { ModifierKeys } from "./tool-handler";
 import type { PanZoomTool } from "./pan-zoom-tool";
@@ -77,8 +80,7 @@ export class WheelKeyboardController {
       this.spaceHeldFlag = true;
       return;
     }
-    if (event.key === "Escape") {
-      if (!this.options.isGestureInProgress()) return; // nothing to cancel — don't swallow Escape elsewhere
+    if (event.key === "Escape" && this.options.isGestureInProgress()) {
       event.preventDefault();
       this.options.onEscapeDuringGesture(extractModifiers(event));
       return;

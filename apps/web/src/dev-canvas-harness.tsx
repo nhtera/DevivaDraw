@@ -3,16 +3,23 @@ import {
   CanvasStage,
   computeElementsBounds,
   createCamera,
+  createDiamondElement,
   createElementTarget,
-  createGenericElement,
+  createEllipseElement,
   createGlobalTarget,
+  createRectangleElement,
+  DiamondTool,
+  EllipseTool,
   getVisibleElements,
   HistoryStack,
+  LineTool,
   PanZoomTool,
   PointerEventPipeline,
+  RectangleTool,
   registerCoreShortcuts,
   Scene,
   SelectionToolSkeleton,
+  ShapeStyleState,
   ShortcutRegistry,
   ToolStateMachine,
 } from "@deviva-draw/engine";
@@ -23,17 +30,30 @@ const SEED_SPREAD = 4000;
 const DEBUG_POLL_MS = 250;
 const SELECT_TOOL_NAME = "select";
 const PAN_TOOL_NAME = "pan";
+const RECTANGLE_TOOL_NAME = "rectangle";
+const ELLIPSE_TOOL_NAME = "ellipse";
+const DIAMOND_TOOL_NAME = "diamond";
+const LINE_TOOL_NAME = "line";
 
-/** Scatters `SEEDED_ELEMENT_COUNT` fake generic elements across a large scene area for pan/zoom/culling testing. */
+/**
+ * Scatters `SEEDED_ELEMENT_COUNT` fake shapes (mixed rectangle/ellipse/diamond) across a large
+ * scene area — exercises the rough.js renderer, pan/zoom, and culling all at once as a manual perf
+ * smoke check ("no console errors drawing 200+ mixed shapes at once").
+ */
 function seedScene(scene: Scene): void {
+  const factories = [createRectangleElement, createEllipseElement, createDiamondElement] as const;
   for (let i = 0; i < SEEDED_ELEMENT_COUNT; i += 1) {
+    // `factories` is a fixed non-empty tuple indexed by `i % factories.length`, always in range.
+    const factory = factories[i % factories.length]!;
     scene.addElement(
-      createGenericElement({
+      factory({
         x: Math.random() * SEED_SPREAD - SEED_SPREAD / 2,
         y: Math.random() * SEED_SPREAD - SEED_SPREAD / 2,
         width: 20 + Math.random() * 60,
         height: 20 + Math.random() * 60,
         strokeColor: `hsl(${Math.floor(Math.random() * 360)}, 70%, 45%)`,
+        backgroundColor: `hsl(${Math.floor(Math.random() * 360)}, 70%, 85%)`,
+        fillStyle: "hachure",
       }),
     );
   }
@@ -41,10 +61,11 @@ function seedScene(scene: Scene): void {
 
 /**
  * Manual test page wiring `CanvasStage` and the real input pipeline into the Vite app: the
- * selection-tool skeleton is active by default, `H` (or space/middle-mouse-drag) pans, wheel
- * pans/ctrl+wheel zooms (cursor-anchored), `Shift+1` zooms to fit, `Ctrl +`/`Ctrl -` step zoom — all
- * driven by `@deviva-draw/engine`'s `PointerEventPipeline`/`ToolStateMachine`, not ad-hoc DOM
- * listeners. A debug overlay reports element counts and the active tool for manual QA.
+ * selection-tool skeleton is active by default, `H` (or space/middle-mouse-drag) pans, `R`/`O`/`D`/`L`
+ * switch to the rectangle/ellipse/diamond/line shape tools, wheel pans/ctrl+wheel zooms
+ * (cursor-anchored), `Shift+1` zooms to fit, `Ctrl +`/`Ctrl -` step zoom — all driven by
+ * `@deviva-draw/engine`'s `PointerEventPipeline`/`ToolStateMachine`, not ad-hoc DOM listeners. A
+ * debug overlay reports element counts and the active tool for manual QA.
  */
 export function DevCanvasHarness() {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -77,17 +98,39 @@ export function DevCanvasHarness() {
       getSceneBounds: () => computeElementsBounds(sceneRef.current.elementsUnsorted()),
     });
     const selectionTool = new SelectionToolSkeleton();
+
+    // Shared "keep current style for next shape" state, and the history batch guard the shape
+    // tools open on gesture start / close on commit — see `input/pointer-event-pipeline.ts`'s abort
+    // path for why a tool never needs to cancel this itself.
+    const styleState = new ShapeStyleState();
+    const historyStack = new HistoryStack<AnyElement[]>(sceneRef.current.getElements());
+    const shapeToolDeps = { scene: sceneRef.current, styleState, history: historyStack };
+    const rectangleTool = new RectangleTool(shapeToolDeps);
+    const ellipseTool = new EllipseTool(shapeToolDeps);
+    const diamondTool = new DiamondTool(shapeToolDeps);
+    // Line tool's click-proximity thresholds are screen-pixel constants converted via the live zoom.
+    const lineTool = new LineTool({ ...shapeToolDeps, getZoom: () => cameraRef.current.zoom });
+
     const toolStateMachine = new ToolStateMachine(
-      { [SELECT_TOOL_NAME]: selectionTool, [PAN_TOOL_NAME]: panZoomTool },
+      {
+        [SELECT_TOOL_NAME]: selectionTool,
+        [PAN_TOOL_NAME]: panZoomTool,
+        [RECTANGLE_TOOL_NAME]: rectangleTool,
+        [ELLIPSE_TOOL_NAME]: ellipseTool,
+        [DIAMOND_TOOL_NAME]: diamondTool,
+        [LINE_TOOL_NAME]: lineTool,
+      },
       SELECT_TOOL_NAME,
     );
 
     const shortcutRegistry = new ShortcutRegistry();
     registerCoreShortcuts(shortcutRegistry);
-
-    // Proves the abort-path -> `HistoryStack.cancelBatch()` guard wires up cleanly; no concrete
-    // tool in this phase opens a batch yet (that starts with the first Scene-mutating tool).
-    const historyStack = new HistoryStack<AnyElement[]>(sceneRef.current.getElements());
+    // Matches Excalidraw's letter conventions (muscle memory, not a trademark concern — shortcuts
+    // aren't copyrightable): R/O/D/L for rectangle/ellipse("oval")/diamond/line.
+    shortcutRegistry.register("r", "rectangle-tool");
+    shortcutRegistry.register("o", "ellipse-tool");
+    shortcutRegistry.register("d", "diamond-tool");
+    shortcutRegistry.register("l", "line-tool");
 
     const pipeline = new PointerEventPipeline({
       element: createElementTarget(container),
@@ -100,6 +143,10 @@ export function DevCanvasHarness() {
       actionHandlers: {
         "select-tool": () => toolStateMachine.setTool(SELECT_TOOL_NAME),
         "pan-tool": () => toolStateMachine.setTool(PAN_TOOL_NAME),
+        "rectangle-tool": () => toolStateMachine.setTool(RECTANGLE_TOOL_NAME),
+        "ellipse-tool": () => toolStateMachine.setTool(ELLIPSE_TOOL_NAME),
+        "diamond-tool": () => toolStateMachine.setTool(DIAMOND_TOOL_NAME),
+        "line-tool": () => toolStateMachine.setTool(LINE_TOOL_NAME),
         "zoom-in": () => panZoomTool.zoomStep(1),
         "zoom-out": () => panZoomTool.zoomStep(-1),
         "zoom-to-fit": () => panZoomTool.zoomToFit(),

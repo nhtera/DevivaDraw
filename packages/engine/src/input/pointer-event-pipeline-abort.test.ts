@@ -56,10 +56,11 @@ describe("PointerEventPipeline abort paths", () => {
     expect(cancelBatch).not.toHaveBeenCalled();
   });
 
-  it("Escape with no gesture in progress is a no-op", () => {
+  it("Escape with no gesture in progress falls through to the active tool's onKeyDown, unconsumed", () => {
     const { globalTarget, selectTool } = buildHarness();
-    globalTarget.fireKeyDown("Escape");
-    expect(selectTool.calls).toEqual([]);
+    const event = globalTarget.fireKeyDown("Escape");
+    expect(selectTool.calls).toEqual(["key:Escape"]);
+    expect(event.preventDefault).not.toHaveBeenCalled();
   });
 
   it("lostpointercapture cancels the gesture and guards an open history batch, same as pointercancel", () => {

@@ -1,0 +1,76 @@
+import { describe, expect, it } from "vitest";
+import { DEFAULT_BACKGROUND_COLOR_PALETTE, DEFAULT_STROKE_COLOR_PALETTE, ShapeStyleState } from "./shape-style-state";
+
+describe("ShapeStyleState", () => {
+  it("starts with sane defaults matching the element factory defaults", () => {
+    const state = new ShapeStyleState();
+    expect(state.getStyle()).toEqual({
+      strokeColor: "#1e1e1e",
+      backgroundColor: "transparent",
+      fillStyle: "solid",
+      strokeWidth: 1,
+      strokeStyle: "solid",
+      roughness: 1,
+      opacity: 100,
+      roundness: null,
+    });
+  });
+
+  it("accepts an initial style override at construction", () => {
+    const state = new ShapeStyleState({ strokeColor: "#ff0000" });
+    expect(state.getStyle().strokeColor).toBe("#ff0000");
+  });
+
+  it("setStyle merges partial changes without clobbering untouched fields", () => {
+    const state = new ShapeStyleState();
+    state.setStyle({ strokeColor: "#00ff00" });
+    expect(state.getStyle().strokeColor).toBe("#00ff00");
+    expect(state.getStyle().fillStyle).toBe("solid"); // untouched field survives
+  });
+
+  it("persists the last-set style across multiple reads — 'keep current style for next shape'", () => {
+    const state = new ShapeStyleState();
+    state.setStyle({ strokeWidth: 4 });
+    expect(state.getStyle().strokeWidth).toBe(4);
+    expect(state.getStyle().strokeWidth).toBe(4); // reading again doesn't reset it
+  });
+
+  it("applyToSelection updates currentStyle the same way setStyle does (selection-aware branch lands later)", () => {
+    const state = new ShapeStyleState();
+    state.applyToSelection({ opacity: 50 });
+    expect(state.getStyle().opacity).toBe(50);
+  });
+
+  it("records a newly-set stroke color into recentColors, most-recent first", () => {
+    const state = new ShapeStyleState();
+    state.setStyle({ strokeColor: "#111111" });
+    state.setStyle({ strokeColor: "#222222" });
+    expect(state.getRecentColors()).toEqual(["#222222", "#111111"]);
+  });
+
+  it("does not duplicate a color already in recentColors — re-picking it moves it to the front", () => {
+    const state = new ShapeStyleState();
+    state.setStyle({ strokeColor: "#111111" });
+    state.setStyle({ strokeColor: "#222222" });
+    state.setStyle({ strokeColor: "#111111" });
+    expect(state.getRecentColors()).toEqual(["#111111", "#222222"]);
+  });
+
+  it("never records 'transparent' as a recently-used background color", () => {
+    const state = new ShapeStyleState();
+    state.setStyle({ backgroundColor: "transparent" });
+    expect(state.getRecentColors()).toEqual([]);
+  });
+
+  it("caps recentColors at a fixed maximum, dropping the oldest", () => {
+    const state = new ShapeStyleState();
+    for (let i = 0; i < 12; i += 1) state.setStyle({ strokeColor: `#${i.toString(16).padStart(6, "0")}` });
+    expect(state.getRecentColors().length).toBeLessThanOrEqual(8);
+    expect(state.getRecentColors()[0]).toBe("#00000b"); // most recent (i=11) stays at the front
+  });
+
+  it("exposes non-empty default stroke/background color palettes", () => {
+    expect(DEFAULT_STROKE_COLOR_PALETTE.length).toBeGreaterThan(0);
+    expect(DEFAULT_BACKGROUND_COLOR_PALETTE.length).toBeGreaterThan(0);
+  });
+});

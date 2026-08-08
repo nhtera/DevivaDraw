@@ -10,6 +10,7 @@
  * see the phase report for the explicit trade-off). Verified manually via the dev harness in
  * `apps/web` instead.
  */
+import rough from "roughjs";
 import { InteractiveLayer } from "./interactive-layer";
 import { StaticLayer } from "./static-layer";
 
@@ -39,7 +40,10 @@ export class CanvasStage {
       throw new Error("canvas-stage: 2d rendering context unavailable");
     }
 
-    this.staticLayer = new StaticLayer(staticCtx);
+    // `rough.canvas()` needs the real `HTMLCanvasElement` (it lazily calls `.getContext("2d")`
+    // itself internally) — that call returns the exact same context object as `staticCtx` above
+    // (`getContext` is idempotent per-canvas), so the two stay in sync without any extra wiring.
+    this.staticLayer = new StaticLayer(staticCtx, rough.canvas(this.staticCanvas));
     this.interactiveLayer = new InteractiveLayer(interactiveCtx);
   }
 

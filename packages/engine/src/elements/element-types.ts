@@ -1,84 +1,42 @@
 /**
  * The concrete element union and its factory functions.
  *
- * Only a `generic` placeholder element exists this phase — enough to exercise the scene store
- * and history stack end to end. Concrete shapes (rectangle, ellipse, text, arrow, freedraw,
- * image, ...) are added incrementally in later phases as thin `extends BaseElement` members
- * appended to `AnyElement`, each with its own `create*Element` factory following this same shape.
+ * `GenericElement` is a stand-in used by the pre-shape phases; it carries no extra fields beyond
+ * `BaseElement` and stays in the union so already-persisted/seeded data of that type still
+ * type-checks. Concrete shapes (rectangle, ellipse, diamond, line, and later text/arrow/freedraw/
+ * image) are `extends BaseElement` members appended to `AnyElement` — the shape-specific ones live
+ * in `shape-elements.ts` (kept separate so this file, and the per-shape factories, stay small) and
+ * are re-exported from here so `AnyElement` has one canonical home.
  */
 import type { BaseElement } from "./base-element";
+import type { ElementCreationInput } from "./element-factory-defaults";
+import { createElementBase } from "./element-factory-defaults";
+import type { DiamondElement, EllipseElement, LineElement, RectangleElement } from "./shape-elements";
 
-/** Stand-in element used until concrete shape types land; carries no extra fields beyond the base. */
+export type { ElementCreationInput } from "./element-factory-defaults";
+export type {
+  DiamondElement,
+  EllipseElement,
+  LineElement,
+  LineElementCreationInput,
+  RectangleElement,
+  RelativePoint,
+} from "./shape-elements";
+export { createDiamondElement, createEllipseElement, createLineElement, createRectangleElement } from "./shape-elements";
+
+/** Stand-in element used before concrete shape types existed; carries no extra fields beyond the base. */
 export interface GenericElement extends BaseElement {
   type: "generic";
 }
 
-export type AnyElement = GenericElement;
-
-/**
- * Caller-supplied fields for creating a new element. Everything the store itself must own
- * (`version`, `versionNonce`, `updated`, `index`) is excluded — those are only ever set by
- * `Scene`'s mutation path (see `scene/scene-mutations.ts`) so the version/nonce invariant can
- * never be bypassed by constructing an element directly.
- */
-export type ElementCreationInput = Partial<
-  Omit<BaseElement, "id" | "type" | "version" | "versionNonce" | "updated" | "index">
-> & {
-  x: number;
-  y: number;
-};
-
-/** Upper bound for `seed`/`versionNonce` — comfortably inside `Number.isSafeInteger` after arithmetic on it. */
-const MAX_RANDOM_INT = 2 ** 31;
-
-function randomInt(): number {
-  return Math.floor(Math.random() * MAX_RANDOM_INT);
-}
-
-function generateElementId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  // Fallback for runtimes without Web Crypto (kept pure-JS so the engine has zero required deps
-  // beyond fractional-indexing); collision risk is negligible for a single local session.
-  return `${Date.now().toString(36)}-${randomInt().toString(36)}`;
-}
+export type AnyElement = GenericElement | RectangleElement | EllipseElement | DiamondElement | LineElement;
 
 /**
  * Builds a new `GenericElement` with sane defaults for every field the caller did not supply.
- *
- * The returned element is *not yet* store-tracked: `version`/`versionNonce`/`updated` are left at
- * their zero-value sentinels and `index` is empty. `Scene.addElement` is the only place that
- * assigns real values for those fields, via `touch()` — see `scene/scene-mutations.ts` for why
- * that invariant is centralized there instead of here.
+ * Kept around (rather than removed) so existing callers/tests/seed data built on the pre-shape-system
+ * placeholder element type keep working; new call sites should reach for a concrete shape factory
+ * (`createRectangleElement` and friends) instead.
  */
 export function createGenericElement(input: ElementCreationInput): GenericElement {
-  return {
-    id: generateElementId(),
-    type: "generic",
-    x: input.x,
-    y: input.y,
-    width: input.width ?? 0,
-    height: input.height ?? 0,
-    angle: input.angle ?? 0,
-    strokeColor: input.strokeColor ?? "#1e1e1e",
-    backgroundColor: input.backgroundColor ?? "transparent",
-    fillStyle: input.fillStyle ?? "solid",
-    strokeWidth: input.strokeWidth ?? 1,
-    strokeStyle: input.strokeStyle ?? "solid",
-    roughness: input.roughness ?? 1,
-    opacity: input.opacity ?? 100,
-    roundness: input.roundness ?? null,
-    seed: input.seed ?? randomInt(),
-    groupIds: input.groupIds ?? [],
-    frameId: input.frameId ?? null,
-    boundElements: input.boundElements ?? null,
-    link: input.link ?? null,
-    locked: input.locked ?? false,
-    index: "",
-    version: 0,
-    versionNonce: 0,
-    updated: 0,
-    isDeleted: input.isDeleted ?? false,
-  };
+  return { ...createElementBase(input), type: "generic" };
 }

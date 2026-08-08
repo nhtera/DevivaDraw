@@ -2,7 +2,7 @@
  * Static layer: caches the rendered scene. Redrawn only when something that affects what's on
  * screen actually changed (element set/content, camera, or viewport size) — a pointer-move that
  * doesn't move the camera or touch the scene must be a no-op here, otherwise every drag frame
- * would repaint every element regardless of how cheap `drawElementPlaceholder` currently is.
+ * would repaint every element regardless of how cheap the per-element draw call currently is.
  *
  * `Scene` has no single "scene version" counter, only a `version`/`versionNonce` pair per
  * *element*, centrally bumped by `touch()` on every mutation. Rather than add a store-wide field
@@ -21,8 +21,9 @@
  */
 import type { Scene } from "../scene/scene";
 import type { Camera } from "./camera";
-import type { DrawContext2D } from "./draw-element-placeholder";
-import { drawElementPlaceholder } from "./draw-element-placeholder";
+import type { RoughCanvasDrawer, RoughDrawContext2D } from "./rough-renderer";
+import { drawElementRough } from "./rough-renderer";
+import { RoughDrawableCache } from "./rough-drawable-cache";
 import { filterVisibleElements } from "./viewport-culling";
 
 /**
@@ -31,7 +32,7 @@ import { filterVisibleElements } from "./viewport-culling";
  * real canvas. `canvas.clientWidth`/`clientHeight` are CSS-pixel dimensions: the logical drawing
  * space after `CanvasStage` applies its one-time devicePixelRatio `ctx.setTransform`.
  */
-export interface StaticLayerContext extends DrawContext2D {
+export interface StaticLayerContext extends RoughDrawContext2D {
   readonly canvas: { clientWidth: number; clientHeight: number };
   clearRect(x: number, y: number, width: number, height: number): void;
 }
@@ -84,16 +85,20 @@ function sameSnapshot(a: RenderSnapshot, b: RenderSnapshot): boolean {
 
 export class StaticLayer {
   private readonly ctx: StaticLayerContext;
+  private readonly roughCanvas: RoughCanvasDrawer;
+  private readonly drawableCache = new RoughDrawableCache();
   private lastSnapshot: RenderSnapshot | null = null;
 
-  constructor(ctx: StaticLayerContext) {
+  constructor(ctx: StaticLayerContext, roughCanvas: RoughCanvasDrawer) {
     this.ctx = ctx;
+    this.roughCanvas = roughCanvas;
   }
 
   /**
-   * Renders the culled-in, non-deleted elements as placeholder boxes. Early-returns without
-   * touching the canvas — or sorting the scene's elements — at all if neither the scene's content
-   * nor the camera/viewport changed since the last call; see the module doc for why that's safe.
+   * Renders the culled-in, non-deleted elements via the rough.js sketchy dispatch. Early-returns
+   * without touching the canvas — or sorting the scene's elements — at all if neither the scene's
+   * content nor the camera/viewport changed since the last call; see the module doc for why that's
+   * safe.
    */
   render(scene: Scene, camera: Camera): void {
     const width = this.ctx.canvas.clientWidth;
@@ -117,8 +122,13 @@ export class StaticLayer {
     const elements = scene.getElements();
     this.ctx.clearRect(0, 0, width, height);
     for (const element of filterVisibleElements(elements, camera, { width, height })) {
-      drawElementPlaceholder(this.ctx, element, camera);
+      drawElementRough(this.ctx, this.roughCanvas, element, camera, this.drawableCache);
     }
+
+    // Bounds the drawable cache against a session's worth of created-then-deleted elements — see
+    // `rough-drawable-cache.ts`'s `prune()` doc. Piggybacks on this already-happening redraw pass
+    // (elements is already the full, unsorted-filter-free list) rather than a separate timer.
+    this.drawableCache.prune(new Set(elements.filter((element) => !element.isDeleted).map((element) => element.id)));
   }
 
   /** Forces the next `render()` call to redraw even if the snapshot looks unchanged. */
