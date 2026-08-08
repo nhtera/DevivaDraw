@@ -4,7 +4,7 @@
  * test environment too), so anything derived from user-controlled content (text element strings, color
  * values, embedded JSON) must be escaped by hand before landing in that string. An unescaped `<script>`-
  * looking text element would otherwise become live markup if the exported SVG is later opened directly
- * in a browser — this is the one deliberate XSS-adjacent risk this phase's spec calls out explicitly.
+ * in a browser — this is the one deliberate XSS-adjacent risk this module guards against explicitly.
  */
 
 /** Escapes the 3 characters unsafe inside XML *text* content (between tags): `&`, `<`, `>`. Order matters — `&` must be escaped first, or a later `&lt;`/`&gt;` substitution would itself get re-escaped. */

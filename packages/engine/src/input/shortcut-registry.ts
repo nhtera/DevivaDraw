@@ -54,7 +54,7 @@ export class ShortcutRegistry {
   }
 }
 
-/** No-modifier tool-switch keys and the pan/zoom shortcuts this phase owns. */
+/** No-modifier tool-switch keys and the pan/zoom shortcuts registered here. */
 export function registerCoreShortcuts(registry: ShortcutRegistry): void {
   registry.register("1", "select-tool");
   registry.register("h", "pan-tool");
@@ -90,7 +90,7 @@ export function registerHistoryShortcuts(registry: ShortcutRegistry): void {
   }
 }
 
-/** `Ctrl/Cmd+K` opens the command palette — the one new chrome-level shortcut this phase introduces beyond undo/redo. */
+/** `Ctrl/Cmd+K` opens the command palette — the one new chrome-level shortcut beyond undo/redo. */
 export function registerCommandPaletteShortcut(registry: ShortcutRegistry): void {
   registry.register("ctrl+k", "open-command-palette");
   registry.register("meta+k", "open-command-palette");

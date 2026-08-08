@@ -1,10 +1,9 @@
 /**
  * The single source of truth every action-triggering surface (toolbar, properties panel, context
- * menu, main menu, command palette, keyboard shortcuts) reads from — see this phase's Key Insight on
- * why one `ActionRegistry` beats four separately-wired paths. Security-relevant by construction (see
- * the phase's Security Considerations): actions are resolved by a fixed `id` string through a
- * `Map` lookup, never by evaluating caller-supplied code, so a context menu/command palette can never
- * execute anything beyond what was explicitly `register()`-ed here.
+ * menu, main menu, command palette, keyboard shortcuts) reads from — one `ActionRegistry` beats four
+ * separately-wired paths. Security-relevant by construction: actions are resolved by a fixed `id`
+ * string through a `Map` lookup, never by evaluating caller-supplied code, so a context menu/command
+ * palette can never execute anything beyond what was explicitly `register()`-ed here.
  */
 import type { Action, ActionRuntime } from "./action-types";
 

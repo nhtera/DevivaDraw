@@ -11,8 +11,8 @@
  *   bound to (`deleteArrowAndUnbind`) — the shape survives, untouched otherwise.
  * - Deleting the *shape* must clear the binding on every arrow that referenced it, and drop this
  *   shape's own now-stale `boundElements` entries for those arrows (`unbindArrowsFromDeletedShape`) —
- *   the arrow survives, keeping its last-computed endpoint position exactly where the shape left it,
- *   per this phase's spec ("arrow survives, binding removed").
+ *   the arrow survives, keeping its last-computed endpoint position exactly where the shape left it
+ *   ("arrow survives, binding removed").
  *
  * `boundElements` de-duplicates by `(id, type)`: a self-loop arrow bound at *both* ends to the same
  * shape still produces exactly one back-ref entry, not two — which end(s) are actually bound is read

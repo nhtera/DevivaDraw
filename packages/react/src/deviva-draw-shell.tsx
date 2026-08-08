@@ -22,6 +22,7 @@ import { TopBar } from "./components/top-bar";
 import { PropertiesPanel } from "./components/properties-panel";
 import { ContextMenu } from "./components/context-menu";
 import { MainMenu } from "./components/main-menu";
+import { ShareDialog } from "./components/share-dialog";
 import { ShortcutsDialog } from "./components/shortcuts-dialog";
 import { CommandPalette } from "./components/command-palette";
 import { BottomToolbar } from "./components/mobile/bottom-toolbar";
@@ -35,12 +36,14 @@ import { useContextMenuTriggers } from "./runtime/use-context-menu-triggers";
 import { useStableCallback, useStableGetter } from "./runtime/use-stable-ref";
 import { useDevivaRuntime } from "./runtime/use-deviva-runtime";
 import { useToggleState } from "./runtime/use-toggle-state";
+import { useValueState } from "./runtime/use-value-state";
 import { NOOP_HANDLE } from "./runtime/noop-handle";
 import type { DevivaDrawHandle } from "./runtime/imperative-handle";
+import type { ShareDialogState } from "./actions/action-types";
 import type { DevivaDrawProps } from "./deviva-draw-app-types";
 
 export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(function DevivaDrawShell(props, ref) {
-  const { initialData, onChange, className, style } = props;
+  const { initialData, onChange, className, style, initialViewOnly, shareApiBaseUrl } = props;
   const canvasHostRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
   const { mode, tokens, cssVariables, toggleMode } = useTheme();
@@ -54,11 +57,12 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const cameraStore = cameraStoreRef.current;
 
   const zenMode = useToggleState(false);
-  const viewOnly = useToggleState(false);
+  const viewOnly = useToggleState(initialViewOnly ?? false);
   const statsPanel = useToggleState(false);
   const commandPaletteOpen = useToggleState(false);
   const shortcutsDialogOpen = useToggleState(false);
   const mainMenuOpen = useToggleState(false);
+  const shareDialog = useValueState<ShareDialogState>({ status: "closed" });
   const contextMenuTriggers = useContextMenuTriggers(canvasHostRef, cameraStore);
 
   // `use-deviva-runtime.ts`'s mount effect only re-runs on an explicit scene swap ("Open"), so it
@@ -68,7 +72,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const getThemeMode = useStableGetter(mode);
   const toggleThemeMode = useStableCallback(toggleMode);
   const isChromeOverlayOpen = useStableGetter(
-    commandPaletteOpen.value || shortcutsDialogOpen.value || mainMenuOpen.value || contextMenuTriggers.point !== null,
+    commandPaletteOpen.value || shortcutsDialogOpen.value || mainMenuOpen.value || shareDialog.value.status !== "closed" || contextMenuTriggers.point !== null,
   );
 
   const { runtime, editSession, handle } = useDevivaRuntime({
@@ -87,7 +91,10 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       setCommandPaletteOpen: commandPaletteOpen.set,
       getShortcutsDialogOpen: shortcutsDialogOpen.get,
       setShortcutsDialogOpen: shortcutsDialogOpen.set,
+      getShareDialogState: shareDialog.get,
+      setShareDialogState: shareDialog.set,
     },
+    shareApiBaseUrl,
     getThemeMode,
     toggleThemeMode,
     isChromeOverlayOpen,
@@ -128,6 +135,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
         <MainMenu runtime={runtime} onClose={() => mainMenuOpen.set(false)} onOpenShortcuts={() => shortcutsDialogOpen.set(true)} />
       )}
       {runtime && shortcutsDialogOpen.value && <ShortcutsDialog runtime={runtime} onClose={() => shortcutsDialogOpen.set(false)} />}
+      {runtime && shareDialog.value.status !== "closed" && <ShareDialog state={shareDialog.value} onClose={() => shareDialog.set({ status: "closed" })} />}
       {runtime && commandPaletteOpen.value && <CommandPalette runtime={runtime} onClose={() => commandPaletteOpen.set(false)} />}
       {runtime && contextMenuTriggers.point && !viewOnly.value && (
         <ContextMenu runtime={runtime} screenPoint={contextMenuTriggers.point} onClose={contextMenuTriggers.close} />

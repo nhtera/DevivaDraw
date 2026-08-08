@@ -111,6 +111,8 @@ function buildTestRuntime(scene: Scene): ActionRuntime {
       setCommandPaletteOpen: vi.fn(),
       getShortcutsDialogOpen: () => false,
       setShortcutsDialogOpen: vi.fn(),
+      getShareDialogState: () => ({ status: "closed" as const }),
+      setShareDialogState: vi.fn(),
     },
     theme: { mode: "light", toggleMode: vi.fn() },
     persistence: {
@@ -120,6 +122,7 @@ function buildTestRuntime(scene: Scene): ActionRuntime {
       exportPng: vi.fn(),
       exportSvg: vi.fn(),
       copyAsImage: vi.fn(),
+      shareScene: vi.fn(async () => "https://draw.deviva.app/s/test#key=k&iv=i"),
     },
   };
 }

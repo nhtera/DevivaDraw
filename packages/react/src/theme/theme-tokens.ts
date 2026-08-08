@@ -1,7 +1,7 @@
 /**
  * Pure light/dark CSS-variable token tables for the UI chrome (panels, toolbar, menus, dialogs) plus
  * the canvas backdrop color. Deliberately a small, hand-picked palette (not a copy of any other
- * whiteboard app's exact values — clean-room per this phase's constraint): a neutral gray scale for
+ * whiteboard app's exact values — clean-room by design): a neutral gray scale for
  * chrome surfaces/borders/text, one accent color for selection/focus, and a canvas background that
  * flips between near-white and near-black. `resolveThemeTokens` is the only place these values live,
  * so `theme-provider.tsx` and every component reading `var(--dd-*)` stay in sync by construction.

@@ -5,7 +5,7 @@
  * `catalog-completeness.test.ts` is a second, independent safety net catching the same class of bug
  * for any future catalog that isn't authored as a literal `Record` against this type). Every UI
  * chrome string in `@deviva-draw/react`'s components must be pulled through `t()` against this
- * catalog — the engine itself stays string-free (no i18n dependency), per this phase's scope.
+ * catalog — the engine itself stays string-free (no i18n dependency).
  */
 export const catalogEn = {
   "app.title": "Deviva Draw",
@@ -58,6 +58,7 @@ export const catalogEn = {
   "action.exportPng": "Export as PNG",
   "action.exportSvg": "Export as SVG",
   "action.copyAsImage": "Copy as image",
+  "action.share": "Share…",
 
   "menu.title": "Menu",
   "menu.theme": "Theme",
@@ -135,6 +136,21 @@ export const catalogEn = {
 
   "language.en": "English",
   "language.vi": "Tiếng Việt",
+
+  "share.dialog.title": "Share link",
+  "share.dialog.description": "Anyone with this link can view (not edit) this scene. The link's key is never sent to our servers.",
+  "share.dialog.generating": "Creating share link…",
+  "share.dialog.copy": "Copy link",
+  "share.dialog.copied": "Copied!",
+  "share.dialog.error": "Couldn't create the share link. Please try again.",
+
+  "share.loading": "Loading shared scene…",
+  "share.error.invalidLink": "This share link is invalid or incomplete.",
+  "share.error.notFound": "This share link has expired or no longer exists.",
+  "share.error.network": "Couldn't reach the share link server. Check your connection and try again.",
+  "share.error.http": "Couldn't load this shared scene right now. Please try again later.",
+  "share.error.decrypt": "Couldn't decrypt this share link — the key may be wrong or the link corrupted.",
+  "share.error.invalidScene": "This share link's content is invalid or corrupted.",
 } as const;
 
 /** Every valid message key — `catalog-vi.ts` (and any future locale) is typed against this so a missing/extra key is a compile error. */

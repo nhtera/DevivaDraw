@@ -56,6 +56,8 @@ export interface UseDevivaRuntimeOptions {
   initialData?: SceneDocument | null;
   onChange?(elements: AnyElement[], files: Record<string, LiveStoredFile>): void;
   ui: UiToggleState;
+  /** The collab-server's base URL, forwarded to `buildPersistenceOperations` for the "Share" action — see that module's `shareApiBaseUrl` doc. */
+  shareApiBaseUrl?: string;
   getThemeMode(): ThemeMode;
   toggleThemeMode(): void;
   /** `true` while the command palette, shortcuts dialog, main menu, or context menu is open — suppresses the global keyboard-shortcut resolver so typing into an overlay's search input can never leak through and switch tools (see `build-runtime.ts`'s `isChromeOverlayOpen` doc). */
@@ -78,7 +80,7 @@ function buildInitialScene(initialData: SceneDocument | null | undefined): Scene
 }
 
 export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRuntimeResult {
-  const { containerRef, cameraStore, initialData, onChange, ui, getThemeMode, toggleThemeMode, isChromeOverlayOpen } = options;
+  const { containerRef, cameraStore, initialData, onChange, ui, shareApiBaseUrl, getThemeMode, toggleThemeMode, isChromeOverlayOpen } = options;
   const sceneRef = useRef<Scene | null>(null);
   if (sceneRef.current === null) sceneRef.current = buildInitialScene(initialData);
 
@@ -116,7 +118,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
       getCamera: cameraStore.getCamera,
       setCamera: cameraStore.setCamera,
       ui,
-      createPersistence: ({ history, selection }) => buildPersistenceOperations({ getScene: () => sceneRef.current!, history, selection, onSceneReplaced }),
+      createPersistence: ({ history, selection }) => buildPersistenceOperations({ getScene: () => sceneRef.current!, history, selection, onSceneReplaced, shareApiBaseUrl }),
       getThemeMode,
       toggleThemeMode,
       isChromeOverlayOpen,

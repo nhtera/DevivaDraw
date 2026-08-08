@@ -1,5 +1,5 @@
 /**
- * The camera-change subscription this phase's tracked fix requires: `Camera` (`@deviva-draw/engine`)
+ * The camera-change subscription mechanism: `Camera` (`@deviva-draw/engine`)
  * is plain data with no pub-sub of its own — every consumer that needs to react to a pan/zoom
  * (the text-editor overlay's position while editing during a live pan, the top bar's zoom-percentage
  * readout) previously had no way to do that except recomputing on every React render and hoping

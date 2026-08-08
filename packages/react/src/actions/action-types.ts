@@ -4,7 +4,7 @@
  * is the live, already-constructed engine wiring every action reads/writes through — the toolbar,
  * properties panel, context menu, main menu, command palette, and keyboard shortcuts all resolve
  * through the *same* registry against the *same* runtime, so there is exactly one implementation of
- * "what does duplicate/delete/group/zoom-in actually do" (this phase's DRY requirement).
+ * "what does duplicate/delete/group/zoom-in actually do" (single source of truth for every chrome surface).
  */
 import type {
   AnyElement,
@@ -39,6 +39,8 @@ export interface UiToggleState {
   setCommandPaletteOpen(value: boolean): void;
   getShortcutsDialogOpen(): boolean;
   setShortcutsDialogOpen(value: boolean): void;
+  getShareDialogState(): ShareDialogState;
+  setShareDialogState(state: ShareDialogState): void;
 }
 
 /** Async browser-facing persistence/export operations — injected so the pure action definitions never import DOM-only code directly (see `browser/persistence-adapters.ts`). */
@@ -49,7 +51,29 @@ export interface PersistenceOperations {
   exportPng(): Promise<void>;
   exportSvg(): Promise<void>;
   copyAsImage(): Promise<void>;
+  /**
+   * Encrypts the live scene client-side and uploads only ciphertext to the collab-server, resolving
+   * the shareable URL (or rejecting on failure) — see `browser/share-link-client.ts` and
+   * `@deviva-draw/engine`'s `share-link/` module for the actual crypto. Unlike every other operation
+   * here, this one surfaces its result (the URL, or an error) to the caller instead of swallowing
+   * failures via a logged `console.error`: `actions/share-actions.ts` needs the URL to populate
+   * `ShareDialogState`, and a silent failure would leave the share dialog stuck on "generating"
+   * forever with no explanation.
+   */
+  shareScene(): Promise<string>;
 }
+
+/**
+ * Drives the main-menu-triggered share-link dialog (`components/share-dialog.tsx`) — the same
+ * "action handler writes state, a chrome component renders it" shape `UiToggleState`'s other get/set
+ * pairs already use for zen mode / view-only / stats, just non-boolean since a share link has more
+ * than two states worth distinguishing in the UI (in flight vs. succeeded-with-a-URL vs. failed). The
+ * "error" branch carries no message: `share-dialog.tsx` only ever shows a fixed i18n'd string for it
+ * (there's no per-error-cause copy to select between), and the actual failure detail is already
+ * `console.error`-logged by `actions/share-actions.ts` for debugging — carrying it here too would just
+ * be a second, unread copy of the same information.
+ */
+export type ShareDialogState = { status: "closed" } | { status: "generating" } | { status: "ready"; url: string } | { status: "error" };
 
 /** Every live object an `Action.run`/`isEnabled` may need. Built once per mounted `<DevivaDraw/>` by `runtime/build-runtime.ts`. */
 export interface ActionRuntime {

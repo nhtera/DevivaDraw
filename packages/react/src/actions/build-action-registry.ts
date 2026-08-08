@@ -3,6 +3,7 @@ import { ActionRegistry } from "./action-registry";
 import { buildArrangeActions } from "./arrange-actions";
 import { buildEditActions } from "./edit-actions";
 import { buildFileActions } from "./file-actions";
+import { buildShareActions } from "./share-actions";
 import { buildToolActions } from "./tool-actions";
 import { buildViewActions } from "./view-actions";
 import { buildZOrderActions } from "./z-order-actions";
@@ -16,6 +17,7 @@ export function buildActionRegistry(): ActionRegistry {
     ...buildArrangeActions(),
     ...buildViewActions(),
     ...buildFileActions(),
+    ...buildShareActions(),
   ]) {
     registry.register(action);
   }

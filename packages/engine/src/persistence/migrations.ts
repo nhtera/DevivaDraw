@@ -1,6 +1,6 @@
 /**
  * Schema migration registry. Empty today — version 1 is the first shipped schema, so there is nothing
- * to migrate *from* yet — but the registry exists from this phase's first commit specifically so the
+ * to migrate *from* yet — but the registry exists from the very first commit specifically so the
  * first real schema change (a new required field, a renamed key, a new element variant needing a
  * default) has a migration path instead of stranding every already-saved `.devivadraw` file/localStorage
  * snapshot written before that change shipped. See `scene-schema.ts`'s module doc for the versioning

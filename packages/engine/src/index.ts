@@ -331,3 +331,17 @@ export { exportToSvg, readEmbeddedSceneDataFromSvg } from "./export/export-to-sv
 
 export type { ClipboardWriterLike, CopyAsImageOptions } from "./export/copy-as-image";
 export { copyAsImage } from "./export/copy-as-image";
+
+// --- Share links (E2E encrypted, R2-backed) ---
+
+export type { DecryptSceneErrorReason, DecryptSceneKeyMaterial, DecryptSceneResult } from "./share-link/decrypt-scene";
+export { decryptSceneCiphertext } from "./share-link/decrypt-scene";
+
+export type { EncryptedSharePayload, EncryptSceneOptions } from "./share-link/encrypt-scene";
+export { encryptSceneDocument, MAX_SHARE_PAYLOAD_BYTES, ShareScenePayloadTooLargeError } from "./share-link/encrypt-scene";
+
+export type { BuildShareUrlOptions } from "./share-link/build-share-url";
+export { buildShareUrl } from "./share-link/build-share-url";
+
+export type { ParsedShareUrl, ParseShareUrlErrorReason, ParseShareUrlResult } from "./share-link/parse-share-url";
+export { parseShareUrl } from "./share-link/parse-share-url";

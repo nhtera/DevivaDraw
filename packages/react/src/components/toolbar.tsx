@@ -1,6 +1,6 @@
 /**
  * Desktop tool-selection toolbar: one button per `tool-actions.ts` entry, reading/writing through the
- * shared `ActionRegistry` (this phase's DRY requirement — same actions the keyboard shortcuts and
+ * shared `ActionRegistry` (DRY: same actions the keyboard shortcuts and
  * command palette use). Active tool highlighting is driven by `ToolStateMachine.subscribe` (not a
  * poll), and each button's `title` shows its i18n label plus its platform-formatted shortcut.
  */

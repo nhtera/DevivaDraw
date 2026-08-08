@@ -1,8 +1,8 @@
 /**
  * Pure `t(key, params)` translator over a message catalog — deliberately not a full i18n framework
  * (no plural/gender rules, no RTL): this app's UI string surface is moderate (toolbar/menu/dialog
- * labels), and EN+VI have no plural-form divergence that would need one (see this phase's own
- * Key Insight on YAGNI here — revisit only if a locale with real plural rules is ever added).
+ * labels), and EN+VI have no plural-form divergence that would need one (YAGNI —
+ * revisit only if a locale with real plural rules is ever added).
  * `{token}` placeholders in a catalog string are replaced from `params` by exact key match.
  */
 import type { TranslationKey } from "./catalog-en";

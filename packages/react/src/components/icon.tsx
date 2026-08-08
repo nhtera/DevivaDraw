@@ -1,6 +1,6 @@
 /**
  * The chrome's icon set: a small self-authored glyph table (Unicode symbols, not custom SVG art) —
- * deliberately simple rather than a pixel-precise icon library, both for this phase's time budget and
+ * deliberately simple rather than a pixel-precise icon library, both to keep implementation effort low and
  * to keep the chrome visually distinct from any other whiteboard app's icon set (clean-room
  * constraint: no copied iconography). Every `Action.icon` string maps to one entry here; an unknown
  * name renders a visible fallback glyph rather than silently rendering nothing, so a typo'd icon name
@@ -57,6 +57,7 @@ const GLYPHS: Record<string, string> = {
   close: "✕",
   search: "🔍",
   more: "⋯",
+  share: "🔗",
 };
 
 const FALLBACK_GLYPH = "?";

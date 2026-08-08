@@ -1,7 +1,7 @@
 /**
  * Keyboard-shortcuts reference dialog: every `ActionRegistry` action that declares a `shortcut`,
- * searchable by label. This is this phase's "full keyboard shortcut map populated and manually
- * verified" requirement made discoverable in the UI, not just a developer-facing checklist.
+ * searchable by label. This makes the full, manually-verified keyboard shortcut map discoverable
+ * in the UI, not just a developer-facing checklist.
  *
  * Keydown leak defense-in-depth: same two-layer fix as `command-palette.tsx` — the primary mechanism
  * is `use-deviva-runtime.ts`'s `isChromeOverlayOpen` suppression of the global shortcut resolver

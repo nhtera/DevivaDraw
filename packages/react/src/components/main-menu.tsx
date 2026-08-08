@@ -67,6 +67,9 @@ export function MainMenu(props: MainMenuProps) {
       <MenuButton testId="main-menu-copy-image" icon="copy-image" onClick={() => run("copy-as-image")}>
         {t("action.copyAsImage")}
       </MenuButton>
+      <MenuButton testId="main-menu-share" icon="share" onClick={() => run("share-scene")}>
+        {t("action.share")}
+      </MenuButton>
       <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
       <div style={{ padding: "4px 8px", fontSize: 11, color: "var(--dd-text-secondary)" }}>{t("menu.theme")}</div>
       <div style={{ display: "flex", gap: 2, padding: "0 4px 4px" }}>

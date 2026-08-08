@@ -2,7 +2,7 @@
  * DOM wiring for mobile/touch: pinch-zoom + two-finger pan (feeding `touch-gesture-math.ts`'s pure
  * math) and long-press -> context menu (feeding `long-press-detector.ts`'s pure timing/movement
  * predicates). Layered *additively* on top of `@deviva-draw/engine`'s single-pointer
- * `PointerEventPipeline` (this phase's Key Insight) — a single touch flows through the pipeline
+ * `PointerEventPipeline` — a single touch flows through the pipeline
  * completely untouched; this adapter only ever activates once a *second* touch appears (pinch/pan) or
  * a *single* touch holds still long enough (long-press). When a second finger lands mid-gesture, this
  * adapter dispatches a synthetic `pointercancel` for the first finger's `pointerId` on the same
@@ -14,8 +14,8 @@
  * vitest environment (no `jsdom`) — same DOM-only trade-off `text-editor-overlay.tsx`/
  * `use-paste-and-drop.ts` document for their own listener-wiring layers. The pure math/timing this
  * class calls into is fully unit tested in `touch-gesture-math.test.ts`/`long-press-detector.test.ts`.
- * Verified manually via Chrome DevTools touch emulation and a real touch device per this phase's Risk
- * Assessment (native-pinch-zoom-conflict is a known pitfall class).
+ * Verified manually via Chrome DevTools touch emulation and a real touch device
+ * (native-pinch-zoom-conflict is a known pitfall class).
  */
 import type { Camera } from "@deviva-draw/engine";
 import { hasLongPressElapsed, hasMovedPastLongPressThreshold, LONG_PRESS_DURATION_MS } from "./long-press-detector";
@@ -49,7 +49,7 @@ export class TouchGestureAdapter {
   attach(): void {
     const { element } = this.options;
     // Primary defense against the browser's own native pinch-zoom/scroll fighting this adapter for
-    // the same gesture (this phase's Risk Assessment) — `preventDefault` inside pointer handlers
+    // the same gesture — `preventDefault` inside pointer handlers
     // alone is not reliably honored for touch-scroll suppression across browsers.
     element.style.touchAction = "none";
     element.addEventListener("pointerdown", this.handlePointerDown);
@@ -115,7 +115,7 @@ export class TouchGestureAdapter {
       this.twoFingerLast = { centroid: touchCentroid(points), spread: touchSpread(points) };
       return;
     }
-    // 3+ simultaneous touches: out of scope for this phase's gesture set (select/pinch/pan only).
+    // 3+ simultaneous touches: out of scope (select/pinch/pan only).
   };
 
   private readonly handlePointerMove = (event: PointerEvent): void => {

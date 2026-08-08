@@ -35,7 +35,7 @@ export type { Translator } from "./i18n/translate";
 // --- Actions ---
 
 export { ActionRegistry } from "./actions/action-registry";
-export type { Action, ActionRuntime, GridState, PersistenceOperations, UiToggleState } from "./actions/action-types";
+export type { Action, ActionRuntime, GridState, PersistenceOperations, ShareDialogState, UiToggleState } from "./actions/action-types";
 export { buildActionRegistry } from "./actions/build-action-registry";
 export { formatShortcut, detectIsMac } from "./actions/format-shortcut";
 export { fuzzyMatch } from "./actions/fuzzy-match";
@@ -63,3 +63,8 @@ export { findFirstImageItem, isImageMimeType, looksLikeSvgMarkup, SVG_MIME_TYPE,
 
 export type { UsePasteAndDropOptions } from "./hooks/use-paste-and-drop";
 export { usePasteAndDrop } from "./hooks/use-paste-and-drop";
+
+// --- Share links (E2E encrypted, R2-backed) ---
+
+export type { SharedSceneViewerProps } from "./share/shared-scene-viewer";
+export { SharedSceneViewer } from "./share/shared-scene-viewer";

@@ -10,7 +10,7 @@
  * doc for the full security note.
  */
 
-/** True for any MIME type this phase treats as a rasterizable image (`image/*`, including `image/svg+xml`). */
+/** True for any MIME type treated as a rasterizable image (`image/*`, including `image/svg+xml`). */
 export function isImageMimeType(mimeType: string): boolean {
   return mimeType.startsWith("image/");
 }

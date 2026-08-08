@@ -2,8 +2,8 @@
  * Top bar: undo/redo, zoom controls (in/out/percentage readout/fit), and the main-menu trigger.
  * Undo/redo enabled-state and the zoom percentage both read live engine state reactively —
  * `useSceneVersion` for history availability (every undo-relevant mutation notifies the scene, see
- * `use-live-version.ts`'s doc) and `useCameraVersion` for the zoom readout (this phase's tracked
- * camera-change-subscription fix, not a poll).
+ * `use-live-version.ts`'s doc) and `useCameraVersion` for the zoom readout (the camera-change
+ * subscription from `camera-store.ts`, not a poll).
  */
 import { buttonStyle, disabledButtonStyle, panelStyle } from "./chrome-styles";
 import { Icon } from "./icon";

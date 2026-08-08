@@ -1,6 +1,6 @@
 /**
  * Canvas-aware color inversion: the rule that keeps dark mode from looking broken on a scene with
- * custom colors (this phase's tracked Key Insight). Only colors that exactly match one of the
+ * custom colors. Only colors that exactly match one of the
  * engine's own *default* palette entries (`DEFAULT_STROKE_COLOR_PALETTE`/`DEFAULT_BACKGROUND_COLOR_PALETTE`
  * — the swatches a fresh element gets before a user ever touches the color picker) are swapped for
  * their dark-mode counterpart; anything else (a user's deliberately-chosen custom hex, e.g. for

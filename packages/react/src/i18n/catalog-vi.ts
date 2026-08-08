@@ -58,6 +58,7 @@ export const catalogVi: Record<TranslationKey, string> = {
   "action.exportPng": "Xuất PNG",
   "action.exportSvg": "Xuất SVG",
   "action.copyAsImage": "Sao chép dưới dạng ảnh",
+  "action.share": "Chia sẻ…",
 
   "menu.title": "Menu",
   "menu.theme": "Giao diện",
@@ -135,4 +136,19 @@ export const catalogVi: Record<TranslationKey, string> = {
 
   "language.en": "English",
   "language.vi": "Tiếng Việt",
+
+  "share.dialog.title": "Liên kết chia sẻ",
+  "share.dialog.description": "Bất kỳ ai có liên kết này đều có thể xem (không thể chỉnh sửa) bản vẽ này. Khóa giải mã của liên kết không bao giờ được gửi đến máy chủ của chúng tôi.",
+  "share.dialog.generating": "Đang tạo liên kết chia sẻ…",
+  "share.dialog.copy": "Sao chép liên kết",
+  "share.dialog.copied": "Đã sao chép!",
+  "share.dialog.error": "Không thể tạo liên kết chia sẻ. Vui lòng thử lại.",
+
+  "share.loading": "Đang tải bản vẽ được chia sẻ…",
+  "share.error.invalidLink": "Liên kết chia sẻ này không hợp lệ hoặc chưa đầy đủ.",
+  "share.error.notFound": "Liên kết chia sẻ này đã hết hạn hoặc không còn tồn tại.",
+  "share.error.network": "Không thể kết nối đến máy chủ chia sẻ. Hãy kiểm tra kết nối mạng và thử lại.",
+  "share.error.http": "Không thể tải bản vẽ được chia sẻ này ngay bây giờ. Vui lòng thử lại sau.",
+  "share.error.decrypt": "Không thể giải mã liên kết chia sẻ này — khóa có thể sai hoặc liên kết đã bị hỏng.",
+  "share.error.invalidScene": "Nội dung của liên kết chia sẻ này không hợp lệ hoặc đã bị hỏng.",
 };

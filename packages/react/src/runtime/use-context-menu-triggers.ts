@@ -1,7 +1,7 @@
 /**
  * Wires both ways a context menu opens: desktop right-click (native `contextmenu`, default-prevented
  * so the browser's own menu never shows) and mobile long-press (`mobile/touch-gesture-adapter.ts`'s
- * `onLongPress`, which also drives this phase's pinch-zoom/two-finger-pan gesture recognition on the
+ * `onLongPress`, which also drives the pinch-zoom/two-finger-pan gesture recognition on the
  * same adapter instance — one attachment covers both mobile milestones (b) and (c)).
  */
 import { useEffect, useState } from "react";

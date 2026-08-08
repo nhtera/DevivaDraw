@@ -1,7 +1,7 @@
 /**
  * Mobile/narrow-viewport chrome variant of `toolbar.tsx` — same `TOOL_ACTION_IDS`/`ActionRegistry`
  * wiring, docked to the bottom of the viewport and horizontally scrollable instead of a fixed
- * top-centered row (this phase's mobile milestone (a): responsive layout + bottom toolbar).
+ * top-centered row (responsive layout + bottom toolbar for narrow viewports).
  */
 import { buttonStyle, panelStyle } from "../chrome-styles";
 import { Icon } from "../icon";

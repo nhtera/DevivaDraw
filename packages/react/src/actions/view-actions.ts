@@ -1,6 +1,6 @@
 /**
  * View/chrome-toggle actions: zoom, grid, theme, command palette, and the 🟢-priority zen/view-only/
- * stats-panel toggles (per this phase's spec, gated behind the same `ActionRegistry`/appState pattern
+ * stats-panel toggles (gated behind the same `ActionRegistry`/appState pattern
  * as everything else — kept intentionally tiny, no dedicated UI beyond a main-menu toggle each).
  */
 import type { Action } from "./action-types";

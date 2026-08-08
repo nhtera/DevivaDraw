@@ -6,5 +6,12 @@
   "compatibility_flags": ["nodejs_compat"],
   // 8787 (wrangler's default) is often taken by other local tools; fix a port
   // so `pnpm dev` is deterministic on every machine.
-  "dev": { "port": 8788 }
+  "dev": { "port": 8788 },
+  // Ciphertext blob storage for share links (see src/blob-routes.ts) — the bucket itself must be
+  // created once via `wrangler r2 bucket create deviva-draw-share-blobs` (or the dashboard) before
+  // this Worker can deploy; `wrangler dev` provisions a local miniflare-backed R2 automatically, no
+  // manual step needed for local development.
+  "r2_buckets": [
+    { "binding": "SHARE_BLOBS", "bucket_name": "deviva-draw-share-blobs" }
+  ]
 }

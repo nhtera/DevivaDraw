@@ -5,10 +5,9 @@
  * its `RoughShapeDrawer` double-duty (a headless `RoughGenerator` for tests, a canvas-bound
  * `RoughCanvas` at runtime).
  *
- * `arrowType: "elbow"` (orthogonal routing) is this phase's explicitly deferred stretch item — see
- * `plans/`'s phase spec risk assessment — and renders via the same straight-line path `"straight"`
- * uses rather than being rejected, so a document created with it never looks broken, just simpler
- * than intended until elbow routing ships as a fast-follow.
+ * `arrowType: "elbow"` (orthogonal routing) is an explicitly deferred stretch item and renders via
+ * the same straight-line path `"straight"` uses rather than being rejected, so a document created
+ * with it never looks broken, just simpler than intended until elbow routing ships as a fast-follow.
  *
  * Unlike `rough-drawable-cache.ts`'s one-`Drawable`-per-element cache, an arrow always produces 1-3
  * `Drawable`s (shaft + up to 2 arrowheads) — `ArrowDrawableCache` (`arrow-drawable-cache.ts`) stores

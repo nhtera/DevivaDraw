@@ -27,7 +27,7 @@ export interface BoundElementRef {
 
 export interface BaseElement {
   readonly id: string;
-  /** Discriminant for the concrete element union; `"generic"` is the only member this phase defines. */
+  /** Discriminant for the concrete element union; `"generic"` is the initial member of the union. */
   type: string;
   x: number;
   y: number;

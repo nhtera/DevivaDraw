@@ -29,10 +29,10 @@ const DEFAULT_DEBOUNCE_MS = 1000;
 export interface AutosaveOptions {
   scene: Scene;
   storage: StorageLike;
-  /** Debounce window between the last scene change and the actual write — default 1s per this phase's spec. */
+  /** Debounce window between the last scene change and the actual write — default 1s. */
   debounceMs?: number;
   storageKey?: string;
-  /** Called when a write is rejected for exceeding the storage quota — the caller (a later phase's UI) decides how to warn the user; this module only guarantees the write itself never throws/crashes the app. */
+  /** Called when a write is rejected for exceeding the storage quota — the caller (future UI chrome) decides how to warn the user; this module only guarantees the write itself never throws/crashes the app. */
   onQuotaExceeded?: (error: unknown) => void;
   /** Called for any other unexpected write failure — should be rare, a quota error is the only expected failure mode. */
   onError?: (error: unknown) => void;

@@ -8,6 +8,7 @@
 import type { AnyElement, HistoryStack, Scene, SelectionState } from "@deviva-draw/engine";
 import type { PersistenceOperations } from "../actions/action-types";
 import { exportSceneToPngFile, exportSceneToSvgFile, openSceneFromFile, saveSceneToFile, copySceneImageToClipboard } from "../browser/scene-file-operations";
+import { createShareLink } from "../browser/share-link-client";
 import { resetScene } from "./reset-scene";
 
 const EXPORT_PNG_DEFAULT_SCALE = 1;
@@ -19,10 +20,12 @@ export interface BuildPersistenceOperationsDeps {
   /** Called when "Open" successfully loads a different `Scene` instance — the caller swaps its live reference and rebuilds the runtime around it. */
   onSceneReplaced(scene: Scene): void;
   onError?(error: unknown): void;
+  /** The collab-server's base URL — omitted (e.g. the host app never configured `<DevivaDraw shareApiBaseUrl/>`) makes `shareScene` reject immediately rather than attempting a request to nowhere. */
+  shareApiBaseUrl?: string;
 }
 
 export function buildPersistenceOperations(deps: BuildPersistenceOperationsDeps): PersistenceOperations {
-  const { getScene, history, selection, onSceneReplaced, onError } = deps;
+  const { getScene, history, selection, onSceneReplaced, onError, shareApiBaseUrl } = deps;
   const reportError = onError ?? ((error: unknown) => console.error("deviva-draw: persistence operation failed", error));
 
   return {
@@ -39,5 +42,12 @@ export function buildPersistenceOperations(deps: BuildPersistenceOperationsDeps)
     exportPng: () => exportSceneToPngFile(getScene(), EXPORT_PNG_DEFAULT_SCALE).catch(reportError),
     exportSvg: () => exportSceneToSvgFile(getScene()).catch(reportError),
     copyAsImage: () => copySceneImageToClipboard(getScene()).catch(reportError),
+    // Deliberately not `.catch(reportError)`-wrapped like every operation above — see
+    // `PersistenceOperations.shareScene`'s doc: the caller (`actions/share-actions.ts`) needs the
+    // thrown error to populate `ShareDialogState`'s "error" branch, not just a console log.
+    shareScene: () => {
+      if (!shareApiBaseUrl) return Promise.reject(new Error("deviva-draw: share link service is not configured (missing shareApiBaseUrl)"));
+      return createShareLink({ apiBaseUrl: shareApiBaseUrl, origin: window.location.origin, document: getScene().toJSON() });
+    },
   };
 }
