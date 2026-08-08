@@ -34,6 +34,16 @@ export class Scene {
     return [...this.elements.values()].sort((a, b) => (a.index < b.index ? -1 : a.index > b.index ? 1 : 0));
   }
 
+  /**
+   * All elements (including soft-deleted ones) in unspecified order — skips the sort `getElements()`
+   * pays for on every call. Use this instead of `getElements()` whenever a caller only needs to
+   * inspect every element (e.g. summing a per-element field to detect "did anything change") and
+   * does not care about z-order.
+   */
+  elementsUnsorted(): IterableIterator<AnyElement> {
+    return this.elements.values();
+  }
+
   getElement(id: string): AnyElement | undefined {
     return this.elements.get(id);
   }

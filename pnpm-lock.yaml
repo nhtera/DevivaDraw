@@ -38,6 +38,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@deviva-draw/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
       '@deviva-draw/react':
         specifier: workspace:*
         version: link:../../packages/react

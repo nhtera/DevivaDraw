@@ -7,7 +7,7 @@
 
 ## Overview
 - **Priority:** 🔴 blocking — tools (phase 04+) need something to draw into
-- **Status:** pending
+- **Status:** complete
 - Build the Canvas2D rendering pipeline: camera/viewport model, dual-layer (static cache + interactive overlay) compositing, devicePixelRatio handling, and viewport culling. No shape-specific drawing yet (that's phase 05+) — this phase renders a generic placeholder box per element to prove the pipeline.
 
 ## Key Insights
@@ -56,12 +56,12 @@ Data flow: `Scene` (phase 02) → `getVisibleElements(scene, camera)` → `Stati
 7. Manual test: zoom to 3000%/10% (spec range from feature inventory), confirm placeholder boxes still align pixel-correct with a known scene coordinate.
 
 ## Todo List
-- [ ] Camera + coordinate transforms implemented, unit tested (round-trip + known-value cases)
-- [ ] Viewport culling implemented, unit tested
-- [ ] CanvasStage handles resize + DPR correctly (visually verified at 1x and 2x DPR)
-- [ ] Static layer redraws only on version/camera change (verified via render-call counter in test)
-- [ ] Interactive layer scaffold in place (no-op render loop)
-- [ ] Dev harness in apps/web demonstrates pan/zoom/culling working end-to-end
+- [x] Camera + coordinate transforms implemented, unit tested (round-trip + known-value cases)
+- [x] Viewport culling implemented, unit tested
+- [x] CanvasStage handles resize + DPR correctly (implemented; verified via manual Playwright run, not unit tested — see Next Steps deviation note)
+- [x] Static layer redraws only on version/camera change (verified via render-call counter in test)
+- [x] Interactive layer scaffold in place (no-op render loop)
+- [x] Dev harness in apps/web demonstrates pan/zoom/culling working end-to-end (verified with a throwaway Playwright script, then removed per instructions)
 
 ## Success Criteria
 - Unit tests green for camera + culling (pure functions, no canvas needed).
@@ -81,3 +81,4 @@ Data flow: `Scene` (phase 02) → `getVisibleElements(scene, camera)` → `Stati
 ## Next Steps
 - Blocks: 04 (input needs `screenToScene` for pointer coords), all shape-drawing phases (05, 06, 07, 08, 09 extend `draw-element-placeholder.ts`'s dispatch pattern per type), 10 (interactive layer gets real content).
 - Rollback: renderer is additive/internal, no external state — revert commit.
+- **Deviation from spec (documented per task instructions):** `canvas-stage.ts` (DOM/`ResizeObserver`/`HTMLCanvasElement`) has no unit test file — the engine package's vitest config runs in a `node` environment with no `jsdom`/`node-canvas` dependency. All decision logic that file depends on (camera transforms, culling, redraw-skip fingerprinting) is pure and fully unit tested in `camera.test.ts`, `viewport-culling.test.ts`, and `static-layer.test.ts` (the latter via a plain recording fake context, not a real canvas). `canvas-stage.ts` itself was verified manually with a throwaway Playwright spec (mounted two canvases, confirmed pan/zoom/culling worked with 500 seeded elements and zero console errors) which was deleted afterward per instructions, not left in the repo.
