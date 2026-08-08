@@ -9,6 +9,6 @@ and are reproduced in distribution bundles as required.
 |---|---|---|---|
 | roughjs | MIT | Hand-drawn/sketchy shape rendering | planned |
 | perfect-freehand | MIT | Pressure-sensitive freehand ink strokes | planned |
-| fractional-indexing | CC0 | Stable ordering keys for element z-index | planned |
+| fractional-indexing | CC0 | Stable ordering keys for element z-index | in use |
 
 Update this file whenever a runtime dependency is added or removed.
