@@ -14,49 +14,45 @@ import {
   EllipseTool,
   FreedrawTool,
   HistoryStack,
+  InternalClipboard,
   LineTool,
   PanZoomTool,
   PointerEventPipeline,
   RectangleTool,
   registerArrowBindingHooks,
-  registerCoreShortcuts,
-  screenToScene,
-  SelectionToolSkeleton,
+  registerBoundTextContainerSyncHook,
+  SelectionState,
+  SelectionTool,
   ShapeStyleState,
-  ShortcutRegistry,
-  startArrowLabelEdit,
-  startBoundTextEdit,
   TextEditSession,
   TextTool,
   ToolStateMachine,
 } from "@deviva-draw/engine";
 import type { AnyElement, Camera, Scene } from "@deviva-draw/engine";
-import { findArrowAt } from "./find-arrow-at-point";
-import { findBindableContainerAt } from "./find-bindable-container-at-point";
+import { buildToolActionHandlers } from "./dev-canvas-harness-actions";
+import { attachDoubleClickToEditListener } from "./dev-canvas-harness-double-click";
+import { createDevHarnessShortcutRegistry } from "./dev-canvas-harness-shortcuts";
+import {
+  ARROW_TOOL_NAME,
+  DIAMOND_TOOL_NAME,
+  ELLIPSE_TOOL_NAME,
+  FREEDRAW_TOOL_NAME,
+  LINE_TOOL_NAME,
+  PAN_TOOL_NAME,
+  RECTANGLE_TOOL_NAME,
+  SELECT_TOOL_NAME,
+  TEXT_TOOL_NAME,
+} from "./dev-canvas-harness-tool-names";
+import type { DevCanvasHarnessRuntime, GridState } from "./dev-canvas-harness-types";
 
-export const SELECT_TOOL_NAME = "select";
-export const PAN_TOOL_NAME = "pan";
-export const RECTANGLE_TOOL_NAME = "rectangle";
-export const ELLIPSE_TOOL_NAME = "ellipse";
-export const DIAMOND_TOOL_NAME = "diamond";
-export const LINE_TOOL_NAME = "line";
-export const FREEDRAW_TOOL_NAME = "freedraw";
-export const TEXT_TOOL_NAME = "text";
-export const ARROW_TOOL_NAME = "arrow";
-
-export interface DevCanvasHarnessRuntime {
-  toolStateMachine: ToolStateMachine;
-  editSession: TextEditSession;
-  /** Detaches the pointer pipeline and the double-click listener — call from the owning effect's cleanup. */
-  dispose(): void;
-}
+export type { DevCanvasHarnessRuntime, GridState } from "./dev-canvas-harness-types";
 
 /**
- * Wires up every tool (select/pan/rectangle/ellipse/diamond/line/freedraw/text), the shortcut
- * registry (`R`/`O`/`D`/`L`/`P`/`T` + the core pan/zoom bindings), the pointer pipeline, and the
- * native `dblclick` listener that opens bound-text editing on a rect/ellipse/diamond. `getCamera`/
- * `setCamera` are the same live-camera accessors the render loop uses, so every tool here reads/
- * writes the exact camera the canvas paints with.
+ * Wires up every tool (select/pan/rectangle/ellipse/diamond/line/freedraw/text/arrow), the shortcut
+ * registry (`R`/`O`/`D`/`L`/`P`/`T`/`A` + `1`/`V` for select + the core pan/zoom bindings), the
+ * pointer pipeline, and the native `dblclick` listener that opens bound-text editing on a
+ * rect/ellipse/diamond. `getCamera`/`setCamera` are the same live-camera accessors the render loop
+ * uses, so every tool here reads/writes the exact camera the canvas paints with.
  */
 export function createDevCanvasHarnessRuntime(
   container: HTMLElement,
@@ -70,10 +66,10 @@ export function createDevCanvasHarnessRuntime(
     getViewportSize: () => ({ width: container.clientWidth, height: container.clientHeight }),
     getSceneBounds: () => computeElementsBounds(scene.elementsUnsorted()),
   });
-  const selectionTool = new SelectionToolSkeleton();
 
   // Shared "keep current style for next shape" state, and the history batch guard every gesture
-  // (shape drags, freehand strokes, text edits) opens on start / closes on commit.
+  // (shape drags, freehand strokes, text edits, select/move/resize/rotate) opens on start / closes
+  // on commit.
   const styleState = new ShapeStyleState();
   const historyStack = new HistoryStack<AnyElement[]>(scene.getElements());
   const shapeToolDeps = { scene, styleState, history: historyStack };
@@ -97,6 +93,24 @@ export function createDevCanvasHarnessRuntime(
   // re-centers an arrow's bound label after any of its own geometry changes — see
   // `bindings/binding-scene-sync.ts`'s module doc. Unregistered in `dispose()` below.
   const unregisterBindingHooks = registerArrowBindingHooks(scene, textMeasurer);
+  // Keeps a bound text glued to (and re-wrapped for) its container across every move/resize/rotate —
+  // see `text/bound-text-container-sync.ts`'s module doc. Unregistered in `dispose()` below.
+  const unregisterBoundTextSync = registerBoundTextContainerSyncHook(scene, textMeasurer);
+
+  const selectionState = new SelectionState();
+  const clipboard = new InternalClipboard();
+  const grid: GridState = { enabled: false, size: 20 };
+  // "Apply to selection" for the (future) style-picker UI rewrites every selected element's style
+  // live, not just the "next shape" default — see `tools/shape-style-state.ts`'s module doc.
+  styleState.bindSelection({ scene, getSelectedIds: () => selectionState.getSelectedIds() });
+  const selectionTool = new SelectionTool({
+    scene,
+    selection: selectionState,
+    history: historyStack,
+    clipboard,
+    getZoom: () => getCamera().zoom,
+    getGrid: () => grid,
+  });
 
   const editSession = new TextEditSession({ scene, history: historyStack });
   const textTool = new TextTool({
@@ -124,18 +138,7 @@ export function createDevCanvasHarnessRuntime(
     SELECT_TOOL_NAME,
   );
 
-  const shortcutRegistry = new ShortcutRegistry();
-  registerCoreShortcuts(shortcutRegistry);
-  // Matches Excalidraw's letter conventions (muscle memory, not a trademark concern — shortcuts
-  // aren't copyrightable): R/O/D/L for rectangle/ellipse("oval")/diamond/line, P for the pencil,
-  // T for text, A for arrow.
-  shortcutRegistry.register("r", "rectangle-tool");
-  shortcutRegistry.register("o", "ellipse-tool");
-  shortcutRegistry.register("d", "diamond-tool");
-  shortcutRegistry.register("l", "line-tool");
-  shortcutRegistry.register("p", "freedraw-tool");
-  shortcutRegistry.register("t", "text-tool");
-  shortcutRegistry.register("a", "arrow-tool");
+  const shortcutRegistry = createDevHarnessShortcutRegistry();
 
   const pipeline = new PointerEventPipeline({
     element: createElementTarget(container),
@@ -145,20 +148,7 @@ export function createDevCanvasHarnessRuntime(
     shortcutRegistry,
     getCamera,
     historyStack,
-    actionHandlers: {
-      "select-tool": () => toolStateMachine.setTool(SELECT_TOOL_NAME),
-      "pan-tool": () => toolStateMachine.setTool(PAN_TOOL_NAME),
-      "rectangle-tool": () => toolStateMachine.setTool(RECTANGLE_TOOL_NAME),
-      "ellipse-tool": () => toolStateMachine.setTool(ELLIPSE_TOOL_NAME),
-      "diamond-tool": () => toolStateMachine.setTool(DIAMOND_TOOL_NAME),
-      "line-tool": () => toolStateMachine.setTool(LINE_TOOL_NAME),
-      "freedraw-tool": () => toolStateMachine.setTool(FREEDRAW_TOOL_NAME),
-      "text-tool": () => toolStateMachine.setTool(TEXT_TOOL_NAME),
-      "arrow-tool": () => toolStateMachine.setTool(ARROW_TOOL_NAME),
-      "zoom-in": () => panZoomTool.zoomStep(1),
-      "zoom-out": () => panZoomTool.zoomStep(-1),
-      "zoom-to-fit": () => panZoomTool.zoomToFit(),
-    },
+    actionHandlers: buildToolActionHandlers(toolStateMachine, panZoomTool),
     // While a text-edit session's <textarea> overlay owns keyboard input, none of this pipeline's
     // shortcuts/space-pan should react to what's typed into it — see
     // `wheel-keyboard-controller.ts`'s "Text-editing suppression" doc.
@@ -166,31 +156,27 @@ export function createDevCanvasHarnessRuntime(
   });
   pipeline.attach();
 
-  // Double-click-to-edit a bound label: a native browser `dblclick` (not the engine's gesture
-  // pipeline — double-click detection isn't a pointer-gesture concern) hit-tests a bindable
-  // container first, then an arrow's path, and opens/resumes editing whichever it found. Only armed
-  // while the select tool is active, so it never fights the shape/arrow/text tools' own click handling.
-  const handleDoubleClick = (event: MouseEvent) => {
-    if (toolStateMachine.getActiveToolName() !== SELECT_TOOL_NAME) return;
-    const rect = container.getBoundingClientRect();
-    const scenePoint = screenToScene({ x: event.clientX - rect.left, y: event.clientY - rect.top }, getCamera());
-
-    const containerHit = findBindableContainerAt(scene, scenePoint);
-    if (containerHit) {
-      startBoundTextEdit(scene, editSession, containerHit.id, textMeasurer);
-      return;
-    }
-    const arrowHit = findArrowAt(scene, scenePoint);
-    if (arrowHit) startArrowLabelEdit(scene, editSession, arrowHit.id, textMeasurer);
-  };
-  container.addEventListener("dblclick", handleDoubleClick);
+  const detachDoubleClick = attachDoubleClickToEditListener({
+    container,
+    scene,
+    toolStateMachine,
+    selectToolName: SELECT_TOOL_NAME,
+    editSession,
+    textMeasurer,
+    getCamera,
+  });
 
   return {
     toolStateMachine,
     editSession,
+    selectionState,
+    grid,
+    getMarqueeRect: () => selectionTool.getMarqueeRect(),
+    getSnapGuides: () => selectionTool.getSnapGuides(),
     dispose: () => {
-      container.removeEventListener("dblclick", handleDoubleClick);
+      detachDoubleClick();
       unregisterBindingHooks();
+      unregisterBoundTextSync();
       pipeline.detach();
     },
   };

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { createRectangleElement } from "../elements/shape-elements";
+import { Scene } from "../scene/scene";
 import { DEFAULT_BACKGROUND_COLOR_PALETTE, DEFAULT_STROKE_COLOR_PALETTE, ShapeStyleState } from "./shape-style-state";
 
 describe("ShapeStyleState", () => {
@@ -72,5 +74,44 @@ describe("ShapeStyleState", () => {
   it("exposes non-empty default stroke/background color palettes", () => {
     expect(DEFAULT_STROKE_COLOR_PALETTE.length).toBeGreaterThan(0);
     expect(DEFAULT_BACKGROUND_COLOR_PALETTE.length).toBeGreaterThan(0);
+  });
+
+  describe("applyToSelection with a bound selection", () => {
+    it("rewrites every selected, non-deleted element's style via Scene.updateElement", () => {
+      const scene = new Scene();
+      const a = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 10, height: 10 }));
+      const b = scene.addElement(createRectangleElement({ x: 20, y: 0, width: 10, height: 10 }));
+      const state = new ShapeStyleState();
+      state.bindSelection({ scene, getSelectedIds: () => [a.id, b.id] });
+
+      state.applyToSelection({ strokeColor: "#00ff00" });
+
+      expect(scene.getElement(a.id)?.strokeColor).toBe("#00ff00");
+      expect(scene.getElement(b.id)?.strokeColor).toBe("#00ff00");
+      expect(state.getStyle().strokeColor).toBe("#00ff00"); // "next shape" default still updates too
+    });
+
+    it("skips a selected id that no longer resolves to a live element", () => {
+      const scene = new Scene();
+      const a = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 10, height: 10 }));
+      scene.deleteElement(a.id);
+      const state = new ShapeStyleState();
+      state.bindSelection({ scene, getSelectedIds: () => [a.id, "missing-id"] });
+
+      expect(() => state.applyToSelection({ strokeColor: "#00ff00" })).not.toThrow();
+    });
+
+    it("unbinding (calling bindSelection(undefined)) reverts to style-only behavior", () => {
+      const scene = new Scene();
+      const a = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 10, height: 10 }));
+      const state = new ShapeStyleState();
+      state.bindSelection({ scene, getSelectedIds: () => [a.id] });
+      state.bindSelection(undefined);
+
+      state.applyToSelection({ strokeColor: "#00ff00" });
+
+      expect(scene.getElement(a.id)?.strokeColor).toBe("#1e1e1e"); // untouched
+      expect(state.getStyle().strokeColor).toBe("#00ff00");
+    });
   });
 });

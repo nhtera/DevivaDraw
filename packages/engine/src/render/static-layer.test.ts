@@ -192,4 +192,32 @@ describe("StaticLayer.render", () => {
 
     expect(getElementsSpy).toHaveBeenCalledTimes(2);
   });
+
+  describe("grid", () => {
+    it("draws nothing extra when omitted or disabled", () => {
+      const ctx = fakeContext();
+      const layer = new StaticLayer(ctx, fakeRoughCanvas());
+      layer.render(new Scene(), createCamera());
+      expect(ctx.fillRect).not.toHaveBeenCalled();
+    });
+
+    it("draws grid dots underneath the scene when enabled", () => {
+      const ctx = fakeContext();
+      const layer = new StaticLayer(ctx, fakeRoughCanvas());
+      layer.render(new Scene(), createCamera(), { enabled: true, size: 20 });
+      expect(ctx.fillRect).toHaveBeenCalled();
+    });
+
+    it("toggling grid on forces a redraw even with an otherwise-unchanged scene/camera", () => {
+      const ctx = fakeContext();
+      const layer = new StaticLayer(ctx, fakeRoughCanvas());
+      const scene = new Scene();
+      const camera = createCamera();
+
+      layer.render(scene, camera, { enabled: false, size: 20 });
+      layer.render(scene, camera, { enabled: true, size: 20 });
+
+      expect(ctx.clearRect).toHaveBeenCalledTimes(2);
+    });
+  });
 });

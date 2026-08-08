@@ -1,0 +1,58 @@
+/**
+ * Rubber-band ("marquee") selection query: which elements fall inside a drag rectangle. Two modes,
+ * matching every whiteboard app of this genre:
+ *  - `"intersect"`: any element whose bbox overlaps the marquee at all (drag left-to-right — the
+ *    forgiving default).
+ *  - `"contain"`: only elements fully enclosed by the marquee (drag right-to-left — the precise
+ *    "only what's entirely inside" mode). Direction convention lives in `selection-tool.ts`, which
+ *    picks the mode from drag direction and calls this with it already decided.
+ * Uses each element's *rotated* footprint (`selectionBoundsOf`'s per-element corner logic, applied
+ * per element here) rather than its raw bbox, so a rotated shape's marquee membership matches what
+ * the user visually sees, not its unrotated storage box.
+ */
+import type { AnyElement } from "../elements/element-types";
+import type { SceneRect } from "../render/viewport-culling";
+import { rotatedCorners } from "./selection-geometry";
+
+export type MarqueeMode = "intersect" | "contain";
+
+/** Normalizes a possibly-inverted drag rect (e.g. dragged bottom-right to top-left) to non-negative width/height. */
+export function normalizeMarqueeRect(a: { x: number; y: number }, b: { x: number; y: number }): SceneRect {
+  return {
+    x: Math.min(a.x, b.x),
+    y: Math.min(a.y, b.y),
+    width: Math.abs(b.x - a.x),
+    height: Math.abs(b.y - a.y),
+  };
+}
+
+function rectsIntersect(a: SceneRect, b: SceneRect): boolean {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}
+
+function rectContains(outer: SceneRect, inner: SceneRect): boolean {
+  return inner.x >= outer.x && inner.y >= outer.y && inner.x + inner.width <= outer.x + outer.width && inner.y + inner.height <= outer.y + outer.height;
+}
+
+function rotatedBboxOf(element: AnyElement): SceneRect {
+  const corners = rotatedCorners(element);
+  const xs = corners.map((corner) => corner.x);
+  const ys = corners.map((corner) => corner.y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  return { x: minX, y: minY, width: Math.max(...xs) - minX, height: Math.max(...ys) - minY };
+}
+
+/**
+ * Non-deleted, non-locked, non-bound-text elements from `elements` whose (rotation-aware) footprint
+ * matches `mode` against `marquee`. Locked elements are excluded — see `hit-test.ts`'s module doc for
+ * the same "locked ignores pointer selection" rule applied there to click selection.
+ */
+export function elementsInMarquee(elements: readonly AnyElement[], marquee: SceneRect, mode: MarqueeMode): AnyElement[] {
+  return elements.filter((element) => {
+    if (element.isDeleted || element.locked) return false;
+    if (element.type === "text" && element.containerId !== null) return false;
+    const bbox = rotatedBboxOf(element);
+    return mode === "contain" ? rectContains(marquee, bbox) : rectsIntersect(marquee, bbox);
+  });
+}

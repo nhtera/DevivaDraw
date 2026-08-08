@@ -96,8 +96,11 @@ export {
 export { buildArrowDrawables, drawElementArrow } from "./render/arrow-renderer";
 export { ArrowDrawableCache } from "./render/arrow-drawable-cache";
 
-export type { StaticLayerContext } from "./render/static-layer";
+export type { GridRenderState, StaticLayerContext } from "./render/static-layer";
 export { StaticLayer } from "./render/static-layer";
+
+export type { GridDrawContext2D } from "./render/grid-renderer";
+export { drawGrid } from "./render/grid-renderer";
 
 export type { InteractiveLayerContext, OverlayState } from "./render/interactive-layer";
 export { InteractiveLayer } from "./render/interactive-layer";
@@ -113,9 +116,6 @@ export { computeElementsBounds, computeZoomToFitCamera, panCameraByScreenDelta, 
 
 export type { PanZoomToolDeps } from "./input/pan-zoom-tool";
 export { PanZoomTool } from "./input/pan-zoom-tool";
-
-export type { SelectionToolSkeletonDeps } from "./input/selection-tool-skeleton";
-export { SelectionToolSkeleton } from "./input/selection-tool-skeleton";
 
 export { normalizeCombo, registerCoreShortcuts, ShortcutRegistry } from "./input/shortcut-registry";
 
@@ -165,6 +165,8 @@ export {
   unbindTextFromContainer,
 } from "./text/bound-text";
 
+export { registerBoundTextContainerSyncHook } from "./text/bound-text-container-sync";
+
 export { getLabel } from "./text/get-label";
 
 export type { TextEditSessionDeps, TextEditSessionStartOptions, TextEditSessionState } from "./text/text-edit-session";
@@ -198,7 +200,7 @@ export { getOrCreateArrowLabel, recenterArrowLabelIfPresent, startArrowLabelEdit
 export type { DragRect } from "./tools/shape-drag-geometry";
 export { computeDragRect } from "./tools/shape-drag-geometry";
 
-export type { ShapeStyle } from "./tools/shape-style-state";
+export type { ShapeStyle, ShapeStyleSelectionBinding } from "./tools/shape-style-state";
 export {
   DEFAULT_BACKGROUND_COLOR_PALETTE,
   DEFAULT_STROKE_COLOR_PALETTE,
@@ -223,3 +225,57 @@ export { TextTool } from "./tools/text-tool";
 export { applyEndpointBindingsOnFinish } from "./tools/arrow-endpoint-binding";
 export type { ArrowToolDeps } from "./tools/arrow-tool";
 export { ArrowTool } from "./tools/arrow-tool";
+
+// --- Selection, transforms, snapping & grid ---
+
+export type { SelectionListener } from "./selection/selection-state";
+export { SelectionState } from "./selection/selection-state";
+
+export { hitTestElement, topmostElementAt } from "./selection/hit-test";
+
+export type { MarqueeMode } from "./selection/marquee-select";
+export { elementsInMarquee, normalizeMarqueeRect } from "./selection/marquee-select";
+
+export type { ElementBounds } from "./selection/selection-geometry";
+export { elementBounds, elementCenter, MIN_ELEMENT_SIZE, rotatedCorners, rotatePointAroundCenter, selectionBoundsOf } from "./selection/selection-geometry";
+
+export type { ElementTransformInput, ElementTransformResult } from "./selection/group-transform";
+export { mapBoundsToGroup, rotateElementsAroundPivot, translateElements } from "./selection/group-transform";
+
+export { dispatchResize } from "./selection/resize-dispatch";
+
+export type { ResizeHandleId } from "./selection/resize-handles";
+export {
+  computeResizedBounds,
+  computeRotationDelta,
+  handlePositions,
+  hitTestHandles,
+  resizeAnchorPoint,
+  RESIZE_HANDLE_IDS,
+  rotateHandlePosition,
+} from "./selection/resize-handles";
+
+export { bringForward, bringToFront, sendBackward, sendToBack } from "./selection/z-order-ops";
+
+export type { AlignableElement, AlignEdge, DistributeAxis } from "./selection/align-distribute";
+export { computeAlignChanges, computeDistributeChanges } from "./selection/align-distribute";
+
+export { expandToGroupMembers, groupSelection, ungroupSelection } from "./selection/group-ungroup";
+
+export { lockSelection, unlockSelection } from "./selection/selection-lock";
+
+export { dropArrowBindingsMovingAlone } from "./selection/arrow-binding-drop";
+
+export type { SnapGuide, SnapGuideOrientation, SnapResult } from "./selection/snapping";
+export { computeGridSnap, computeObjectSnap, snapPointToGrid } from "./selection/snapping";
+
+export type { DuplicateOffset } from "./selection/clipboard";
+export { DEFAULT_DUPLICATE_OFFSET, duplicateElements, expandForDuplication, InternalClipboard } from "./selection/clipboard";
+
+export { deleteSelection } from "./selection/delete-selection";
+
+export type { SelectionFrame } from "./selection/selection-tool-frame";
+export { buildSelectionFrame } from "./selection/selection-tool-frame";
+
+export type { SelectionToolDeps } from "./selection/selection-tool";
+export { SelectionTool } from "./selection/selection-tool";

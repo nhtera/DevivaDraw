@@ -2,10 +2,23 @@
  * "Keep current styles for next shape": the last-used style set lives here (not as a per-element
  * default), so drawing shape #2 inherits shape #1's stroke color until explicitly changed — a UX
  * detail users notice immediately if missing. Shape tools (`rectangle-tool.ts` and friends) read
- * `getStyle()` once per new element; a later phase's UI color pickers call `setStyle`/
- * `applyToSelection`.
+ * `getStyle()` once per new element; a UI color picker calls `setStyle`/`applyToSelection`.
+ *
+ * `applyToSelection`'s selection-aware branch (rewriting every currently-selected element's style,
+ * not just the "next shape" default) needs a live selection to rewrite — optionally wired in via
+ * `selectionBinding`, a small structural interface rather than importing `selection/selection-state.ts`
+ * directly, so this file (which every shape tool already depends on) never has to depend on the
+ * selection subsystem: a caller with no selection UI yet simply omits the binding and gets the exact
+ * pre-selection behavior (style-only, no `Scene` writes).
  */
 import type { BaseElement, RoundnessValue } from "../elements/base-element";
+import type { Scene } from "../scene/scene";
+
+/** Structural (not import-coupled) view of a live selection — see the module doc. */
+export interface ShapeStyleSelectionBinding {
+  scene: Scene;
+  getSelectedIds(): Iterable<string>;
+}
 
 /** The subset of `BaseElement` a style picker controls — everything except geometry/seed/scene bookkeeping. */
 export type ShapeStyle = Pick<
@@ -46,9 +59,15 @@ const RECENT_COLORS_MAX = 8;
 export class ShapeStyleState {
   private style: ShapeStyle;
   private recentColors: string[] = [];
+  private selectionBinding: ShapeStyleSelectionBinding | null = null;
 
   constructor(initialStyle: Partial<ShapeStyle> = {}) {
     this.style = { ...DEFAULT_STYLE, ...initialStyle };
+  }
+
+  /** Wires (or clears, via `undefined`) the live selection `applyToSelection` rewrites elements against — see the module doc. */
+  bindSelection(binding: ShapeStyleSelectionBinding | undefined): void {
+    this.selectionBinding = binding ?? null;
   }
 
   /** Snapshot of the current style — shape tools spread this into a new element at gesture start. */
@@ -68,13 +87,20 @@ export class ShapeStyleState {
   }
 
   /**
-   * Style-picker entry point for "apply to selection". Until real selection exists, this only
-   * updates `currentStyle` (the "keep current style" behavior for the *next* shape) — the branch
-   * that also rewrites every currently-selected element's style via `Scene.updateElement` is added
-   * once selection state exists.
+   * Style-picker entry point for "apply to selection": always updates `currentStyle` (the "keep
+   * current style" behavior for the *next* shape drawn), and — when a selection is bound via
+   * `bindSelection` — also rewrites every currently-selected, non-deleted element's style live via
+   * `Scene.updateElement`. With no binding wired up (a headless engine consumer, or a host that
+   * hasn't built its selection UI yet), this degrades exactly to `setStyle`'s behavior.
    */
   applyToSelection(partial: Partial<ShapeStyle>): void {
     this.setStyle(partial);
+    if (!this.selectionBinding) return;
+    const { scene, getSelectedIds } = this.selectionBinding;
+    for (const id of getSelectedIds()) {
+      const element = scene.getElement(id);
+      if (element && !element.isDeleted) scene.updateElement(id, partial);
+    }
   }
 
   getRecentColors(): readonly string[] {

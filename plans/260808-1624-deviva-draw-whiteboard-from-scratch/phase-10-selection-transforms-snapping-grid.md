@@ -6,7 +6,7 @@
 
 ## Overview
 - **Priority:** 🔴 blocking for MVP — "solo whiteboard" isn't usable without select/move/resize/delete
-- **Status:** pending
+- **Status:** done
 - Replace phase 04's selection-tool skeleton with full selection (click, shift-click, rubber-band, select-all, deep-select-in-group), multi-select transforms (move/resize/rotate/flip as one unit), group/ungroup, z-order operations, align/distribute, duplicate/copy/paste/delete, lock/unlock, and grid+snapping.
 
 ## Key Insights
@@ -56,12 +56,18 @@ packages/engine/src/selection/
 6. Manual QA pass: full checklist from §3 of the feature inventory, checked off item by item (not just "it compiles").
 
 ## Todo List
-- [ ] Milestone A: single select/move/resize/rotate working
-- [ ] Milestone B: multi-select transform-as-unit, group/ungroup, z-order, align/distribute working
-- [ ] Milestone C: grid/snap, duplicate/clipboard, lock/unlock, delete working
-- [ ] Resize dispatch correctly delegates to freedraw/text/arrow-binding hooks (regression tested against phases 06/07/08)
-- [ ] Interactive layer renders selection/handles/guides without touching persisted scene state
-- [ ] Full §3 checklist manually verified against a reference (excalidraw.com) for feel-parity
+- [x] Milestone A: single select/move/resize/rotate working
+- [x] Milestone B: multi-select transform-as-unit, group/ungroup, z-order, align/distribute working
+- [x] Milestone C: grid/snap, duplicate/clipboard, lock/unlock, delete working
+- [x] Resize dispatch correctly delegates to freedraw/text/arrow-binding hooks (regression tested against phases 06/07/08)
+- [x] Interactive layer renders selection/handles/guides without touching persisted scene state
+- [ ] Full §3 checklist manually verified against a reference (excalidraw.com) for feel-parity — deferred: no UI chrome (color pickers, align/distribute buttons) exists yet (phase 12), so a full visual A/B pass isn't meaningful until then; the engine-level behavior all §3 items describe is implemented and unit tested.
+
+## Implementation Notes (post-completion)
+- Align/distribute (`selection/align-distribute.ts`) is implemented and exported but not yet bound to a keyboard shortcut — no established convention exists for it (unlike z-order/group), and it's naturally a toolbar-button action; phase 12 wires it to UI.
+- Internal clipboard (`selection/clipboard.ts`) is in-memory only; writing/reading the real OS clipboard's custom MIME type is a DOM/host concern layered on top later (mirrors how phase 09 split system-image-paste from the engine's own logic).
+- Grid rendering lives on `StaticLayer` (not `InteractiveLayer`) since the interactive canvas paints on top of the static one — see `render/grid-renderer.ts`'s module doc.
+- Added `text/bound-text-container-sync.ts` (a `Scene.registerUpdateHook`, mirroring `bindings/binding-scene-sync.ts`'s pattern) so a bound text automatically follows/re-wraps for *any* container move/resize/rotate, not just ones driven by the selection tool.
 
 ## Success Criteria
 - Dev harness: draw 5 mixed-type elements, multi-select, move/resize/rotate as one unit, ungroup preserves individual positions correctly.

@@ -8,10 +8,12 @@ import {
   getVisibleElements,
   Scene,
 } from "@deviva-draw/engine";
-import type { Camera, TextEditSession } from "@deviva-draw/engine";
+import type { AnyElement, Camera, TextEditSession } from "@deviva-draw/engine";
 import { TextEditorOverlay, usePasteAndDrop } from "@deviva-draw/react";
 import { decodeNaturalSize } from "./browser-image-decode";
-import { createDevCanvasHarnessRuntime, SELECT_TOOL_NAME } from "./dev-canvas-harness-runtime";
+import type { DevCanvasHarnessRuntime } from "./dev-canvas-harness-runtime";
+import { createDevCanvasHarnessRuntime } from "./dev-canvas-harness-runtime";
+import { SELECT_TOOL_NAME } from "./dev-canvas-harness-tool-names";
 
 const SEEDED_ELEMENT_COUNT = 500;
 const SEED_SPREAD = 4000;
@@ -42,23 +44,27 @@ function seedScene(scene: Scene): void {
 }
 
 /**
- * Manual test page wiring `CanvasStage` and the real input pipeline into the Vite app: the
- * selection-tool skeleton is active by default, `H` (or space/middle-mouse-drag) pans, `R`/`O`/`D`/`L`
- * switch to the rectangle/ellipse/diamond/line shape tools, `P` switches to the freehand ink tool
- * (matches Excalidraw's own pencil shortcut), `T` switches to the text tool (click to place, type,
- * click away/Escape to commit), `A` switches to the arrow tool (drag for a straight arrow, click
- * repeatedly for a curved multi-point one; an endpoint dropped near a shape binds to it), double-click
- * inside a rect/ellipse/diamond or on an arrow edits its bound label, wheel pans/ctrl+wheel zooms
- * (cursor-anchored), `Shift+1` zooms to fit, `Ctrl +`/`Ctrl -` step zoom
- * — all driven by `@deviva-draw/engine`'s `PointerEventPipeline`/`ToolStateMachine` (tool/pipeline
- * construction lives in `dev-canvas-harness-runtime.ts`, split out to keep this component small). A
- * debug overlay reports element counts and the active tool for manual QA.
+ * Manual test page wiring `CanvasStage` and the real input pipeline into the Vite app: the real
+ * select tool (`1` or `V`) is active by default — click/shift-click/rubber-band-marquee to select,
+ * drag to move (alt-drag to duplicate), 8 handles to resize (shift = aspect lock, alt = from-center),
+ * the handle above the selection to rotate (shift = 15deg steps), Delete to remove, Ctrl/Cmd+D to
+ * duplicate, Ctrl/Cmd+C/V to copy/paste, Ctrl/Cmd+A to select all, Ctrl/Cmd+G / +Shift+G to
+ * group/ungroup, `]`/`[` (+Ctrl/Cmd for front/back) for z-order, arrow keys to nudge, Escape to clear
+ * — `H` (or space/middle-mouse-drag) pans, `R`/`O`/`D`/`L` switch to the rectangle/ellipse/diamond/line
+ * shape tools, `P` switches to the freehand ink tool, `T` switches to the text tool, `A` switches to
+ * the arrow tool, double-click inside a rect/ellipse/diamond or on an arrow edits its bound label,
+ * wheel pans/ctrl+wheel zooms (cursor-anchored), `Shift+1` zooms to fit, `Ctrl +`/`Ctrl -` step zoom
+ * — all driven by `@deviva-draw/engine`'s `PointerEventPipeline`/`ToolStateMachine`/`SelectionTool`
+ * (tool/pipeline construction lives in `dev-canvas-harness-runtime.ts`, split out to keep this
+ * component small). A debug overlay reports element/selection counts and the active tool, and a
+ * button toggles grid mode, for manual QA.
  */
 export function DevCanvasHarness() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sceneRef = useRef<Scene>(new Scene());
   const cameraRef = useRef<Camera>(createCamera());
-  const [debugCounts, setDebugCounts] = useState({ total: 0, visible: 0, activeTool: SELECT_TOOL_NAME });
+  const runtimeRef = useRef<DevCanvasHarnessRuntime | null>(null);
+  const [debugCounts, setDebugCounts] = useState({ total: 0, visible: 0, activeTool: SELECT_TOOL_NAME, selected: 0, gridEnabled: false });
   // Set once the effect below constructs the runtime — the overlay only renders once this exists;
   // a ref alone wouldn't trigger the re-render needed to mount it.
   const [editSession, setEditSession] = useState<TextEditSession | null>(null);
@@ -95,12 +101,6 @@ export function DevCanvasHarness() {
     stage.mount(container);
     const unsubscribe = sceneRef.current.subscribe(() => stage.staticLayer.invalidate());
 
-    let frameHandle = requestAnimationFrame(function renderFrame() {
-      stage.staticLayer.render(sceneRef.current, cameraRef.current);
-      stage.interactiveLayer.render({}, cameraRef.current);
-      frameHandle = requestAnimationFrame(renderFrame);
-    });
-
     const runtime = createDevCanvasHarnessRuntime(
       container,
       sceneRef.current,
@@ -109,7 +109,20 @@ export function DevCanvasHarness() {
         cameraRef.current = camera;
       },
     );
+    runtimeRef.current = runtime;
     setEditSession(runtime.editSession);
+
+    let frameHandle = requestAnimationFrame(function renderFrame() {
+      stage.staticLayer.render(sceneRef.current, cameraRef.current, runtime.grid);
+      const selectedElements = [...runtime.selectionState.getSelectedIds()]
+        .map((id) => sceneRef.current.getElement(id))
+        .filter((element): element is AnyElement => !!element);
+      stage.interactiveLayer.render(
+        { selectedElements, marqueeRect: runtime.getMarqueeRect(), snapGuides: runtime.getSnapGuides() },
+        cameraRef.current,
+      );
+      frameHandle = requestAnimationFrame(renderFrame);
+    });
 
     const debugInterval = window.setInterval(() => {
       const viewportSize = { width: container.clientWidth, height: container.clientHeight };
@@ -117,6 +130,8 @@ export function DevCanvasHarness() {
         total: sceneRef.current.getElements().length,
         visible: getVisibleElements(sceneRef.current, cameraRef.current, viewportSize).length,
         activeTool: runtime.toolStateMachine.getActiveToolName(),
+        selected: runtime.selectionState.size,
+        gridEnabled: runtime.grid.enabled,
       });
     }, DEBUG_POLL_MS);
 
@@ -125,9 +140,17 @@ export function DevCanvasHarness() {
       window.clearInterval(debugInterval);
       unsubscribe();
       runtime.dispose();
+      runtimeRef.current = null;
       stage.unmount();
       setEditSession(null);
     };
+  }, []);
+
+  const toggleGrid = useCallback(() => {
+    const runtime = runtimeRef.current;
+    if (!runtime) return;
+    runtime.grid.enabled = !runtime.grid.enabled;
+    setDebugCounts((previous) => ({ ...previous, gridEnabled: runtime.grid.enabled }));
   }, []);
 
   return (
@@ -141,8 +164,11 @@ export function DevCanvasHarness() {
       </div>
       <p data-testid="dev-canvas-debug-counts">
         elements: {debugCounts.total} total / {debugCounts.visible} visible (culled:{" "}
-        {debugCounts.total - debugCounts.visible}) / tool: {debugCounts.activeTool}
+        {debugCounts.total - debugCounts.visible}) / tool: {debugCounts.activeTool} / selected: {debugCounts.selected}
       </p>
+      <button type="button" data-testid="dev-canvas-grid-toggle" onClick={toggleGrid}>
+        grid: {debugCounts.gridEnabled ? "on" : "off"}
+      </button>
     </div>
   );
 }

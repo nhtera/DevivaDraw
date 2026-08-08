@@ -45,6 +45,7 @@ import type { Camera } from "./camera";
 import type { FreedrawDrawContext2D } from "./freedraw-renderer";
 import { drawElementFreedraw } from "./freedraw-renderer";
 import { FreedrawOutlineCache } from "./freedraw-outline-cache";
+import { drawGrid } from "./grid-renderer";
 import type { ImageDrawContext2D } from "./image-renderer";
 import { drawElementImage } from "./image-renderer";
 import type { RoughCanvasDrawer } from "./rough-renderer";
@@ -53,6 +54,14 @@ import { RoughDrawableCache } from "./rough-drawable-cache";
 import type { TextDrawContext2D } from "./text-renderer";
 import { drawElementText } from "./text-renderer";
 import { filterVisibleElements } from "./viewport-culling";
+
+/** Grid-mode state a `render()` call draws against — see `grid-renderer.ts`'s module doc for why the grid is a static-layer (not interactive-layer) concern. */
+export interface GridRenderState {
+  enabled: boolean;
+  size: number;
+}
+
+const GRID_DISABLED: GridRenderState = { enabled: false, size: 20 };
 
 /**
  * Minimal 2D-context surface this layer needs — narrower than a real `CanvasRenderingContext2D`
@@ -98,6 +107,8 @@ interface RenderSnapshot {
   zoom: number;
   width: number;
   height: number;
+  gridEnabled: boolean;
+  gridSize: number;
 }
 
 function sameSnapshot(a: RenderSnapshot, b: RenderSnapshot): boolean {
@@ -109,7 +120,9 @@ function sameSnapshot(a: RenderSnapshot, b: RenderSnapshot): boolean {
     a.scrollY === b.scrollY &&
     a.zoom === b.zoom &&
     a.width === b.width &&
-    a.height === b.height
+    a.height === b.height &&
+    a.gridEnabled === b.gridEnabled &&
+    a.gridSize === b.gridSize
   );
 }
 
@@ -142,10 +155,12 @@ export class StaticLayer {
   /**
    * Renders the culled-in, non-deleted elements via the rough.js sketchy dispatch. Early-returns
    * without touching the canvas — or sorting the scene's elements — at all if neither the scene's
-   * content nor the camera/viewport changed since the last call; see the module doc for why that's
-   * safe.
+   * content, the camera/viewport, nor `grid` changed since the last call; see the module doc for why
+   * that's safe. `grid` (omit or leave `enabled: false` for no grid) is drawn first, underneath every
+   * element — see `grid-renderer.ts`'s module doc for why the grid belongs here and not the
+   * interactive layer.
    */
-  render(scene: Scene, camera: Camera): void {
+  render(scene: Scene, camera: Camera, grid: GridRenderState = GRID_DISABLED): void {
     const width = this.ctx.canvas.clientWidth;
     const height = this.ctx.canvas.clientHeight;
     const snapshot: RenderSnapshot = {
@@ -157,6 +172,8 @@ export class StaticLayer {
       zoom: camera.zoom,
       width,
       height,
+      gridEnabled: grid.enabled,
+      gridSize: grid.size,
     };
 
     if (this.lastSnapshot && sameSnapshot(this.lastSnapshot, snapshot)) return;
@@ -166,6 +183,7 @@ export class StaticLayer {
     // reused for the whole draw pass instead of letting culling re-fetch/re-sort a second time.
     const elements = scene.getElements();
     this.ctx.clearRect(0, 0, width, height);
+    if (grid.enabled) drawGrid(this.ctx, camera, { width, height }, grid.size);
     for (const element of filterVisibleElements(elements, camera, { width, height })) {
       if (element.type === "freedraw") {
         drawElementFreedraw(this.ctx, element, camera, this.freedrawOutlineCache);
