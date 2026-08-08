@@ -47,3 +47,31 @@ export type { InteractiveLayerContext, OverlayState } from "./render/interactive
 export { InteractiveLayer } from "./render/interactive-layer";
 
 export { CanvasStage } from "./render/canvas-stage";
+
+export type { ModifierKeys, ToolHandler } from "./input/tool-handler";
+export { NoOpToolHandler } from "./input/tool-handler";
+
+export { ToolStateMachine } from "./input/tool-state-machine";
+
+export { computeElementsBounds, computeZoomToFitCamera, panCameraByScreenDelta, zoomCameraAtScreenPoint } from "./input/pan-zoom-math";
+
+export type { PanZoomToolDeps } from "./input/pan-zoom-tool";
+export { PanZoomTool } from "./input/pan-zoom-tool";
+
+export type { SelectionToolSkeletonDeps } from "./input/selection-tool-skeleton";
+export { SelectionToolSkeleton } from "./input/selection-tool-skeleton";
+
+export { normalizeCombo, registerCoreShortcuts, ShortcutRegistry } from "./input/shortcut-registry";
+
+export type {
+  HistoryBatchGuard,
+  KeyLikeEvent,
+  PipelineElementTarget,
+  PipelineGlobalTarget,
+  PointerEventPipelineOptions,
+  PointerLikeEvent,
+  WheelLikeEvent,
+} from "./input/pointer-event-pipeline";
+export { PointerEventPipeline } from "./input/pointer-event-pipeline";
+
+export { createElementTarget, createGlobalTarget } from "./input/dom-event-target-adapter";

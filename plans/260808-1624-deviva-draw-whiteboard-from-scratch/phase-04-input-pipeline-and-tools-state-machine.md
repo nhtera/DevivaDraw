@@ -6,7 +6,7 @@
 
 ## Overview
 - **Priority:** 🔴 blocking — every concrete tool (05–09) is a state in this machine
-- **Status:** pending
+- **Status:** completed
 - Build the pointer/keyboard event pipeline and the tool state machine (selection tool, hand/pan tool, and a generic "creation tool" contract that concrete shape tools plug into starting phase 05). Implements pan (space-drag, wheel, trackpad, pinch stub) and zoom (ctrl+wheel, zoom-to-fit) against the camera from phase 03.
 
 ## Key Insights
@@ -54,12 +54,12 @@ Data flow: DOM pointer/wheel/key events (attached by `packages/react` binding, s
 7. Wire into `apps/web` dev harness: real mouse/keyboard drives pan/zoom against phase 03's rendering.
 
 ## Todo List
-- [ ] `ToolHandler` interface + `ToolStateMachine` implemented and unit tested
-- [ ] `PointerEventPipeline` normalizes pointer events to scene coords, unit tested
-- [ ] Pan (space-drag, middle-mouse, wheel) implemented and manually verified
-- [ ] Zoom (ctrl+wheel cursor-centered, zoom-to-fit, 10%–3000% clamp) implemented and manually verified
-- [ ] Shortcut registry scaffolded with conflict detection, pan/zoom/tool-switch keys registered
-- [ ] Dev harness responds to real input end-to-end
+- [x] `ToolHandler` interface + `ToolStateMachine` implemented and unit tested
+- [x] `PointerEventPipeline` normalizes pointer events to scene coords, unit tested
+- [x] Pan (space-drag, middle-mouse, wheel) implemented and manually verified
+- [x] Zoom (ctrl+wheel cursor-centered, zoom-to-fit, 10%–3000% clamp) implemented and manually verified
+- [x] Shortcut registry scaffolded with conflict detection, pan/zoom/tool-switch keys registered
+- [x] Dev harness responds to real input end-to-end
 
 ## Success Criteria
 - Unit tests cover gesture routing and pan/zoom math (zoom-centered-on-cursor has a numeric test, not just visual).
