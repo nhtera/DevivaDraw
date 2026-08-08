@@ -37,11 +37,17 @@ export function touch<T extends AnyElement>(element: T, changes: Partial<T> = {}
     versionNonce: randomVersionNonce(),
     updated: Date.now(),
   };
-  return freeze(next);
+  return freezeElement(next);
 }
 
-/** Freezes an element and the mutable containers nested inside it, one level deep. */
-function freeze<T extends AnyElement>(element: T): T {
+/**
+ * Freezes an element and the mutable containers nested inside it, one level deep. Exported (not just
+ * `touch()`'s private helper) because `Scene.applyRemoteElement` also hands out an element it stores
+ * internally without going through `touch()` — a remote-merge winner must be frozen the same way a
+ * locally-touched element is, or `scene.getElement(id).x = 5` on a remote-applied element would
+ * silently corrupt the store instead of throwing (see this function's original doc below).
+ */
+export function freezeElement<T extends AnyElement>(element: T): T {
   Object.freeze(element.groupIds);
   if (element.boundElements) {
     for (const ref of element.boundElements) Object.freeze(ref);

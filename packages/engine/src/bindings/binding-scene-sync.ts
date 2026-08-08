@@ -47,6 +47,19 @@ export function findBindableShapeNear(scene: Scene, point: Point, thresholdScene
   return null;
 }
 
+/**
+ * Scene-unit epsilon below which two endpoint positions are treated as identical — deliberately not
+ * zero: `recomputeBindingPoint` is a deterministic pure function of the same inputs, so a genuinely
+ * unchanged shape reroutes to the exact same point, but a nonzero epsilon is still cheap insurance
+ * against any future floating-point-sensitive change to that computation silently reintroducing the
+ * amplification bug this guards against (see `rerouteArrowEndpoints`'s doc).
+ */
+const ENDPOINT_UNCHANGED_EPSILON = 1e-6;
+
+function pointsNearlyEqual(a: Point, b: Point, epsilon = ENDPOINT_UNCHANGED_EPSILON): boolean {
+  return Math.abs(a.x - b.x) < epsilon && Math.abs(a.y - b.y) < epsilon;
+}
+
 /** Writes a single recomputed endpoint back into `arrowId`, re-basing every vertex's relative offset since the bounding-box origin may shift when only one vertex moves. */
 function applyEndpointPosition(scene: Scene, arrow: ArrowElement, end: "start" | "end", newPoint: Point): void {
   const absolute = absolutePoints({ x: arrow.x, y: arrow.y }, arrow.points);
@@ -63,6 +76,15 @@ function applyEndpointPosition(scene: Scene, arrow: ArrowElement, end: "start" |
  * `recompute-binding.ts`'s module doc. For a self-loop arrow (both ends bound to `movedShape`), the
  * start is recomputed first and the arrow is re-read before recomputing the end, so the end's
  * reference point reflects the start's just-updated position rather than a now-stale one.
+ *
+ * Each end is only actually written back (via `applyEndpointPosition`, which calls `scene.updateElement`
+ * and so bumps the arrow's version) when the recomputed point differs from its current position by more
+ * than `ENDPOINT_UNCHANGED_EPSILON`. Without this guard, this hook — which runs on *every* update to a
+ * bindable container, not just moves — would `updateElement` (and, under `useCollabSession`, rebroadcast)
+ * every bound arrow on a purely cosmetic change (a color swap, a stroke-width tweak) to a container that
+ * hasn't actually moved: harmless locally, but under live collaboration it means every remote container
+ * delta triggers every peer to independently re-touch and rebroadcast every arrow bound to it, an
+ * amplifying storm of no-op deltas that scales with (bound arrows) x (connected peers).
  */
 export function rerouteArrowEndpoints(scene: Scene, arrowId: string, movedShape: AnyElement): void {
   if (!isBindableContainer(movedShape)) return;
@@ -73,17 +95,21 @@ export function rerouteArrowEndpoints(scene: Scene, arrowId: string, movedShape:
 
   if (arrow.startBinding?.elementId === movedShape.id) {
     const absolute = absolutePoints({ x: arrow.x, y: arrow.y }, arrow.points);
+    const currentStart = absolute[0]!;
     const referencePoint = absolute[absolute.length - 1]!;
     const newStart = recomputeBindingPoint(shapeType, movedShape, arrow.startBinding, referencePoint);
-    applyEndpointPosition(scene, arrow, "start", newStart);
-    arrow = scene.getElement(arrowId) as ArrowElement;
+    if (!pointsNearlyEqual(currentStart, newStart)) {
+      applyEndpointPosition(scene, arrow, "start", newStart);
+      arrow = scene.getElement(arrowId) as ArrowElement;
+    }
   }
 
   if (arrow.endBinding?.elementId === movedShape.id) {
     const absolute = absolutePoints({ x: arrow.x, y: arrow.y }, arrow.points);
+    const currentEnd = absolute[absolute.length - 1]!;
     const referencePoint = absolute[0]!;
     const newEnd = recomputeBindingPoint(shapeType, movedShape, arrow.endBinding, referencePoint);
-    applyEndpointPosition(scene, arrow, "end", newEnd);
+    if (!pointsNearlyEqual(currentEnd, newEnd)) applyEndpointPosition(scene, arrow, "end", newEnd);
   }
 }
 

@@ -13,6 +13,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@deviva-draw/collab-client": "workspace:*",
     "@deviva-draw/engine": "workspace:*"
   },
   "peerDependencies": {

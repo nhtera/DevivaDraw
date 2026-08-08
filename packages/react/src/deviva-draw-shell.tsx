@@ -13,9 +13,12 @@
  * breaking every toolbar/panel/menu button. Keeping chrome as `rootRef` siblings instead of
  * `canvasHostRef` descendants avoids this entirely rather than special-casing it per component.
  */
-import { forwardRef, useCallback, useImperativeHandle, useRef } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from "react";
 import { createCamera } from "@deviva-draw/engine";
+import type { RemoteCursorOverlay } from "@deviva-draw/engine";
 import { usePasteAndDrop } from "./hooks/use-paste-and-drop";
+import { useCollabCursorTracking } from "./hooks/use-collab-cursor-tracking";
+import { useCollabSession } from "./hooks/use-collab-session";
 import { TextEditorOverlay } from "./components/text-editor-overlay";
 import { Toolbar } from "./components/toolbar";
 import { TopBar } from "./components/top-bar";
@@ -23,6 +26,7 @@ import { PropertiesPanel } from "./components/properties-panel";
 import { ContextMenu } from "./components/context-menu";
 import { MainMenu } from "./components/main-menu";
 import { ShareDialog } from "./components/share-dialog";
+import { CollabDialog } from "./components/collab-dialog";
 import { ShortcutsDialog } from "./components/shortcuts-dialog";
 import { CommandPalette } from "./components/command-palette";
 import { BottomToolbar } from "./components/mobile/bottom-toolbar";
@@ -63,6 +67,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const shortcutsDialogOpen = useToggleState(false);
   const mainMenuOpen = useToggleState(false);
   const shareDialog = useValueState<ShareDialogState>({ status: "closed" });
+  const collabDialogOpen = useToggleState(false);
   const contextMenuTriggers = useContextMenuTriggers(canvasHostRef, cameraStore);
 
   // `use-deviva-runtime.ts`'s mount effect only re-runs on an explicit scene swap ("Open"), so it
@@ -72,8 +77,21 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const getThemeMode = useStableGetter(mode);
   const toggleThemeMode = useStableCallback(toggleMode);
   const isChromeOverlayOpen = useStableGetter(
-    commandPaletteOpen.value || shortcutsDialogOpen.value || mainMenuOpen.value || shareDialog.value.status !== "closed" || contextMenuTriggers.point !== null,
+    commandPaletteOpen.value ||
+      shortcutsDialogOpen.value ||
+      mainMenuOpen.value ||
+      shareDialog.value.status !== "closed" ||
+      collabDialogOpen.value ||
+      contextMenuTriggers.point !== null,
   );
+
+  // Read by the render loop every frame (see `start-render-loop.ts`'s `getRemoteCursors` doc); kept as
+  // a ref + a `useCallback([])`-stable getter, not a value derived from `useCollabSession`'s state
+  // directly, precisely so it can be handed to `useDevivaRuntime` below *before* `useCollabSession` is
+  // even called (that hook needs `runtime.scene`, which doesn't exist until after this call) without
+  // either hook depending on the other's call order.
+  const remoteCursorsRef = useRef<RemoteCursorOverlay[]>([]);
+  const getRemoteCursors = useCallback(() => remoteCursorsRef.current, []);
 
   const { runtime, editSession, handle } = useDevivaRuntime({
     containerRef: canvasHostRef,
@@ -98,6 +116,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     getThemeMode,
     toggleThemeMode,
     isChromeOverlayOpen,
+    getRemoteCursors,
   });
 
   useImperativeHandle(ref, () => handle ?? NOOP_HANDLE, [handle]);
@@ -117,6 +136,17 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     onInsertError: (error) => console.warn("deviva-draw: image insert rejected", error),
   });
 
+  // Collaboration is opt-in and reuses the same collab-server base URL the "Share" action already
+  // requires (`shareApiBaseUrl` — both are that Worker's endpoints, see `use-collab-session.ts`'s
+  // `apiBaseUrl` doc) rather than introducing a second, near-identical prop.
+  const collab = useCollabSession({ scene: runtime?.scene ?? null, apiBaseUrl: shareApiBaseUrl });
+  useEffect(() => {
+    remoteCursorsRef.current = collab.peers
+      .filter((peer): peer is typeof peer & { point: { x: number; y: number } } => peer.point !== null)
+      .map((peer) => ({ id: peer.peerId, name: peer.name, color: peer.color, point: peer.point }));
+  }, [collab.peers]);
+  useCollabCursorTracking({ containerRef: canvasHostRef, getCamera, onCursorMove: collab.updateCursor, active: collab.status === "connected" });
+
   return (
     <div
       className={className}
@@ -132,10 +162,16 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {runtime && !zenMode.value && <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} />}
       {runtime && !zenMode.value && !viewOnly.value && <PropertiesPanel runtime={runtime} />}
       {runtime && mainMenuOpen.value && (
-        <MainMenu runtime={runtime} onClose={() => mainMenuOpen.set(false)} onOpenShortcuts={() => shortcutsDialogOpen.set(true)} />
+        <MainMenu
+          runtime={runtime}
+          onClose={() => mainMenuOpen.set(false)}
+          onOpenShortcuts={() => shortcutsDialogOpen.set(true)}
+          onOpenCollab={() => collabDialogOpen.set(true)}
+        />
       )}
       {runtime && shortcutsDialogOpen.value && <ShortcutsDialog runtime={runtime} onClose={() => shortcutsDialogOpen.set(false)} />}
       {runtime && shareDialog.value.status !== "closed" && <ShareDialog state={shareDialog.value} onClose={() => shareDialog.set({ status: "closed" })} />}
+      {runtime && collabDialogOpen.value && <CollabDialog collab={collab} onClose={() => collabDialogOpen.set(false)} />}
       {runtime && commandPaletteOpen.value && <CommandPalette runtime={runtime} onClose={() => commandPaletteOpen.set(false)} />}
       {runtime && contextMenuTriggers.point && !viewOnly.value && (
         <ContextMenu runtime={runtime} screenPoint={contextMenuTriggers.point} onClose={contextMenuTriggers.close} />

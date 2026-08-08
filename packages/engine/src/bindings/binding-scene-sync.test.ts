@@ -86,6 +86,29 @@ describe("rerouteArrowEndpoints", () => {
     rerouteArrowEndpoints(scene, arrow.id, shapeB);
     expect(scene.getElement(arrow.id)).toEqual(before);
   });
+
+  it("does not touch the bound arrow when the container's geometry hasn't actually changed (e.g. a color-only edit) — regression guard against reroute-amplification", () => {
+    const { scene, shapeA, arrow } = setup();
+    bindArrowEndpoint(scene, arrow.id, "start", shapeA.id, { focus: 0, gap: 0 });
+    const arrowBefore = scene.getElement(arrow.id)!;
+
+    const recolored = scene.updateElement(shapeA.id, { strokeColor: "#ff0000" })!;
+    rerouteArrowEndpoints(scene, arrow.id, recolored);
+
+    expect(scene.getElement(arrow.id)).toEqual(arrowBefore);
+    expect(scene.getElement(arrow.id)!.version).toBe(arrowBefore.version);
+  });
+
+  it("still reroutes when the container actually moves, even by a tiny amount above the unchanged-epsilon", () => {
+    const { scene, shapeA, arrow } = setup();
+    bindArrowEndpoint(scene, arrow.id, "start", shapeA.id, { focus: 0, gap: 0 });
+    const arrowBefore = scene.getElement(arrow.id)!;
+
+    const moved = scene.updateElement(shapeA.id, { x: shapeA.x + 1, y: shapeA.y })!;
+    rerouteArrowEndpoints(scene, arrow.id, moved);
+
+    expect(scene.getElement(arrow.id)!.version).toBeGreaterThan(arrowBefore.version);
+  });
 });
 
 describe("registerArrowBindingHooks", () => {
@@ -128,6 +151,21 @@ describe("registerArrowBindingHooks", () => {
     // Exactly 2 updateElement calls happen: the shape's own move, and the one reroute of the bound
     // arrow — never an unbounded chain.
     expect(hookSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("a color-only container edit through the live hook never re-touches (or rebroadcasts) bound arrows", () => {
+    const { scene, shapeA, arrow } = setup();
+    bindArrowEndpoint(scene, arrow.id, "start", shapeA.id, { focus: 0, gap: 0 });
+    const arrowBefore = scene.getElement(arrow.id)!;
+    const hookSpy = vi.fn();
+    scene.registerUpdateHook(hookSpy);
+    registerArrowBindingHooks(scene);
+
+    scene.updateElement(shapeA.id, { strokeColor: "#00ff00" });
+
+    expect(scene.getElement(arrow.id)).toEqual(arrowBefore);
+    // Only the shape's own update ran through the hook set — no cascading arrow reroute/rebroadcast.
+    expect(hookSpy).toHaveBeenCalledTimes(1);
   });
 
   it("unregistering the hook stops further reroutes", () => {

@@ -42,8 +42,8 @@ export type { ImageElement, ImageElementCreationInput } from "./elements/image-e
 export { createImageElement } from "./elements/image-element";
 
 export type { IndexedItem } from "./scene/fractional-index";
-export { indexBetween, moveBackward, moveForward, moveToBack, moveToFront } from "./scene/fractional-index";
-export { randomVersionNonce, touch } from "./scene/scene-mutations";
+export { compareIndexedItems, indexBetween, moveBackward, moveForward, moveToBack, moveToFront } from "./scene/fractional-index";
+export { freezeElement, randomVersionNonce, touch } from "./scene/scene-mutations";
 export type { ElementUpdate, SceneListener, SceneUpdateHook, StoredFile } from "./scene/scene";
 export { Scene } from "./scene/scene";
 
@@ -107,7 +107,7 @@ export { renderSceneToCanvas } from "./render/render-scene-to-canvas";
 export type { GridDrawContext2D } from "./render/grid-renderer";
 export { drawGrid } from "./render/grid-renderer";
 
-export type { InteractiveLayerContext, OverlayState } from "./render/interactive-layer";
+export type { InteractiveLayerContext, OverlayState, RemoteCursorOverlay } from "./render/interactive-layer";
 export { InteractiveLayer } from "./render/interactive-layer";
 
 export { CanvasStage } from "./render/canvas-stage";
@@ -345,3 +345,11 @@ export { buildShareUrl } from "./share-link/build-share-url";
 
 export type { ParsedShareUrl, ParseShareUrlErrorReason, ParseShareUrlResult } from "./share-link/parse-share-url";
 export { parseShareUrl } from "./share-link/parse-share-url";
+
+// Low-level primitives re-exported for `@deviva-draw/collab-client`'s per-message encryption, which
+// reuses the same base64url/gzip building blocks as the share-link flow above instead of duplicating
+// them (a fresh key-per-message would defeat AES-GCM's whole point for a long-lived room key, so
+// collab-client calls `crypto.subtle` directly with these rather than reusing `encryptSceneDocument`,
+// which is hardwired to mint a brand-new key on every call).
+export { bytesToBase64Url, base64UrlToBytes } from "./share-link/base64url-bytes";
+export { gzipCompress, gzipDecompress } from "./share-link/gzip-codec";

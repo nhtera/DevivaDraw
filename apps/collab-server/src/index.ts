@@ -1,18 +1,23 @@
 /**
- * Deviva Draw collaboration backend. Currently hosts only the R2-backed share-link blob store
- * (`blob-routes.ts`) — Durable Objects room coordination arrives with the collab phase. Every route
- * this Worker exposes is intentionally dumb (see `blob-routes.ts`'s module doc): the server never
- * parses or understands what it stores, by design. This file is the thin runtime-specific wiring layer
- * only: parsing the request path, resolving CORS, and dispatching to the hermetic handler functions —
- * every actual decision (validation, size limits, rate limiting) lives in `blob-routes.ts`/
- * `rate-limit.ts`, which is why those stay unit-testable without a Workers runtime at all.
+ * Deviva Draw collaboration backend: the R2-backed share-link blob store (`blob-routes.ts`) and the
+ * Durable Objects live-collaboration room relay (`room-durable-object.ts`/`room-routes.ts`). Every
+ * route this Worker exposes is intentionally dumb (see `blob-routes.ts`'s and
+ * `room-connection-registry.ts`'s module docs): the server never parses or understands the ciphertext
+ * it stores or relays, by design. This file is the thin runtime-specific wiring layer only: parsing the
+ * request path, resolving CORS, and dispatching to the hermetic handler functions — every actual
+ * decision (validation, size limits, rate limiting, relay logic) lives in those modules, which is why
+ * they stay unit-testable without a Workers runtime at all.
  */
 import { handleGetBlob, handlePutBlob } from "./blob-routes";
 import type { BlobStore } from "./blob-routes";
 import { RateLimiter } from "./rate-limit";
+import { handleRoomUpgrade, matchRoomPath } from "./room-routes";
+import type { RoomNamespace } from "./room-routes";
+export { RoomDO } from "./room-durable-object";
 
 export interface Env {
   SHARE_BLOBS: BlobStore;
+  ROOMS: RoomNamespace;
 }
 
 /**
@@ -54,6 +59,12 @@ export default {
     const headers = corsHeaders(request.headers.get("origin"));
 
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
+
+    // WebSocket upgrades never carry a CORS-relevant response (the 101 Switching Protocols response
+    // has no headers a browser's CORS check inspects), so this route bypasses `withCors` entirely —
+    // it's handled before the CORS-wrapped blob/health-check dispatch below rather than folded into it.
+    const roomId = matchRoomPath(url.pathname);
+    if (roomId !== null) return handleRoomUpgrade(request, roomId, env.ROOMS);
 
     const blobMatch = BLOB_PATH_PATTERN.exec(url.pathname);
     if (!blobMatch) return withCors(new Response("deviva-draw-collab ok", { status: 200 }), headers);

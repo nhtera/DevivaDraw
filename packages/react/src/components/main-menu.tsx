@@ -18,6 +18,7 @@ export interface MainMenuProps {
   runtime: DevivaRuntime;
   onClose(): void;
   onOpenShortcuts(): void;
+  onOpenCollab(): void;
 }
 
 const LOCALES: Locale[] = ["en", "vi"];
@@ -32,7 +33,7 @@ function MenuButton(props: { onClick: () => void; icon: string; children: string
 }
 
 export function MainMenu(props: MainMenuProps) {
-  const { runtime, onClose, onOpenShortcuts } = props;
+  const { runtime, onClose, onOpenShortcuts, onOpenCollab } = props;
   const { t, locale, setLocale } = useTranslation();
   const { mode, setMode } = useTheme();
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -69,6 +70,16 @@ export function MainMenu(props: MainMenuProps) {
       </MenuButton>
       <MenuButton testId="main-menu-share" icon="share" onClick={() => run("share-scene")}>
         {t("action.share")}
+      </MenuButton>
+      <MenuButton
+        testId="main-menu-collab"
+        icon="users"
+        onClick={() => {
+          onOpenCollab();
+          onClose();
+        }}
+      >
+        {t("action.collab")}
       </MenuButton>
       <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
       <div style={{ padding: "4px 8px", fontSize: 11, color: "var(--dd-text-secondary)" }}>{t("menu.theme")}</div>

@@ -85,3 +85,46 @@ describe("InteractiveLayer.render", () => {
     expect(ctx.fillRect).toHaveBeenCalledTimes(9);
   });
 });
+
+describe("InteractiveLayer.render — remote cursors", () => {
+  it("draws nothing when remoteCursors is omitted (existing, non-collab hosts unaffected)", () => {
+    const ctx = fakeContext();
+    new InteractiveLayer(ctx).render(EMPTY_OVERLAY, createCamera());
+    expect(ctx.fill).not.toHaveBeenCalled();
+  });
+
+  it("draws a filled pointer marker per remote cursor", () => {
+    const ctx = fakeContext();
+    const overlay: OverlayState = {
+      ...EMPTY_OVERLAY,
+      remoteCursors: [
+        { id: "peer-1", name: "Alice", color: "#ff0000", point: { x: 10, y: 20 } },
+        { id: "peer-2", name: "Bob", color: "#00ff00", point: { x: 30, y: 40 } },
+      ],
+    };
+    new InteractiveLayer(ctx).render(overlay, createCamera());
+    expect(ctx.fill).toHaveBeenCalledTimes(2);
+    expect(ctx.closePath).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips the name-tag label on a context that doesn't implement fillText, without throwing", () => {
+    const ctx = fakeContext();
+    expect(ctx.fillText).toBeUndefined();
+    const overlay: OverlayState = { ...EMPTY_OVERLAY, remoteCursors: [{ id: "peer-1", name: "Alice", color: "#ff0000", point: { x: 0, y: 0 } }] };
+    expect(() => new InteractiveLayer(ctx).render(overlay, createCamera())).not.toThrow();
+  });
+
+  it("calls fillText with the cursor's name when the context supports it", () => {
+    const ctx = { ...fakeContext(), fillText: vi.fn() };
+    const overlay: OverlayState = { ...EMPTY_OVERLAY, remoteCursors: [{ id: "peer-1", name: "Alice", color: "#ff0000", point: { x: 0, y: 0 } }] };
+    new InteractiveLayer(ctx).render(overlay, createCamera());
+    expect(ctx.fillText).toHaveBeenCalledWith("Alice", expect.any(Number), expect.any(Number));
+  });
+
+  it("draws an empty remoteCursors array as nothing", () => {
+    const ctx = fakeContext();
+    const overlay: OverlayState = { ...EMPTY_OVERLAY, remoteCursors: [] };
+    new InteractiveLayer(ctx).render(overlay, createCamera());
+    expect(ctx.fill).not.toHaveBeenCalled();
+  });
+});

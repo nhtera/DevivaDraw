@@ -151,4 +151,18 @@ export const catalogVi: Record<TranslationKey, string> = {
   "share.error.http": "Không thể tải bản vẽ được chia sẻ này ngay bây giờ. Vui lòng thử lại sau.",
   "share.error.decrypt": "Không thể giải mã liên kết chia sẻ này — khóa có thể sai hoặc liên kết đã bị hỏng.",
   "share.error.invalidScene": "Nội dung của liên kết chia sẻ này không hợp lệ hoặc đã bị hỏng.",
+
+  "action.collab": "Cộng tác…",
+  "collab.dialog.title": "Cộng tác trực tiếp",
+  "collab.dialog.description": "Cùng vẽ trong thời gian thực. Khóa của phiên không bao giờ được gửi đến máy chủ của chúng tôi — bất kỳ ai có liên kết đều có thể tham gia và chỉnh sửa.",
+  "collab.dialog.start": "Bắt đầu phiên mới",
+  "collab.dialog.joinLabel": "Hoặc tham gia một phiên đã có",
+  "collab.dialog.joinPlaceholder": "Dán liên kết phiên…",
+  "collab.dialog.join": "Tham gia",
+  "collab.dialog.connecting": "Đang kết nối…",
+  "collab.dialog.leave": "Rời phiên",
+  "collab.dialog.peersLabel": "{count} đang trực tuyến",
+  "collab.error.notConfigured": "Ứng dụng này chưa được cấu hình cho cộng tác trực tiếp.",
+  "collab.error.startFailed": "Không thể bắt đầu phiên cộng tác. Vui lòng thử lại.",
+  "collab.error.joinFailed": "Không thể tham gia phiên này — liên kết có thể không hợp lệ hoặc đã hết hạn.",
 };

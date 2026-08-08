@@ -17,7 +17,12 @@ import type { Camera, Point } from "./camera";
 import { sceneToScreen } from "./camera";
 import type { SceneRect } from "./viewport-culling";
 
-/** Minimal 2D-context surface this layer needs; a real `CanvasRenderingContext2D` satisfies it. */
+/**
+ * Minimal 2D-context surface this layer needs; a real `CanvasRenderingContext2D` satisfies it.
+ * `fillText`/`font` are optional (unlike every other member here): they're only reached by remote-cursor
+ * name labels (see `drawRemoteCursors`), so a caller that never wires collaboration (most tests, and any
+ * embedder that doesn't pass `remoteCursors`) never needs to implement them on a fake context.
+ */
 export interface InteractiveLayerContext {
   readonly canvas: { clientWidth: number; clientHeight: number };
   clearRect(x: number, y: number, width: number, height: number): void;
@@ -35,6 +40,16 @@ export interface InteractiveLayerContext {
   strokeStyle: string | CanvasGradient | CanvasPattern;
   fillStyle: string | CanvasGradient | CanvasPattern;
   lineWidth: number;
+  fillText?(text: string, x: number, y: number): void;
+  font?: string;
+}
+
+/** A collaborator's live cursor, already resolved to scene coordinates — the host (`packages/react`'s render loop) owns turning `@deviva-draw/collab-client` presence data into this shape each frame. */
+export interface RemoteCursorOverlay {
+  id: string;
+  name: string;
+  color: string;
+  point: Point;
 }
 
 export interface OverlayState {
@@ -44,6 +59,8 @@ export interface OverlayState {
   marqueeRect: SceneRect | null;
   /** Live object-snap alignment guides (scene space), or `[]` outside a snapping move. */
   snapGuides: readonly SnapGuide[];
+  /** Other collaborators' live cursors — optional and defaults to none drawn, so every non-collab host/test stays unaffected. */
+  remoteCursors?: readonly RemoteCursorOverlay[];
 }
 
 const SELECTION_COLOR = "#1971c2";
@@ -51,6 +68,7 @@ const HANDLE_SIZE_PX = 8;
 const ROTATE_HANDLE_OFFSET_PX = 28;
 const SNAP_GUIDE_COLOR = "#e64980";
 const MARQUEE_FILL = "rgba(25, 113, 194, 0.08)";
+const REMOTE_CURSOR_SIZE_PX = 12;
 
 /** Local-space rect corners rotated by `frame.angle` around `frame.pivot`, in scene space. */
 function frameOutlineScene(frame: SelectionFrame): Point[] {
@@ -78,6 +96,34 @@ export class InteractiveLayer {
 
     const frame = buildSelectionFrame(overlayState.selectedElements);
     if (frame) this.drawSelectionFrame(frame, camera);
+
+    this.drawRemoteCursors(overlayState.remoteCursors ?? [], camera);
+  }
+
+  /** Each cursor is a small filled triangle pointer plus an optional name-tag label — the label is skipped entirely on a context that doesn't implement `fillText` (see `InteractiveLayerContext`'s doc) rather than throwing. */
+  private drawRemoteCursors(cursors: readonly RemoteCursorOverlay[], camera: Camera): void {
+    if (cursors.length === 0) return;
+    for (const cursor of cursors) {
+      const screen = sceneToScreen(cursor.point, camera);
+      this.ctx.save();
+      this.ctx.fillStyle = cursor.color;
+      this.ctx.strokeStyle = cursor.color;
+      this.ctx.setLineDash([]);
+      this.ctx.lineWidth = 1;
+
+      this.ctx.beginPath();
+      this.ctx.moveTo(screen.x, screen.y);
+      this.ctx.lineTo(screen.x, screen.y + REMOTE_CURSOR_SIZE_PX);
+      this.ctx.lineTo(screen.x + REMOTE_CURSOR_SIZE_PX * 0.7, screen.y + REMOTE_CURSOR_SIZE_PX * 0.7);
+      this.ctx.closePath();
+      this.ctx.fill();
+
+      if (this.ctx.fillText) {
+        this.ctx.font = "11px system-ui, sans-serif";
+        this.ctx.fillText(cursor.name, screen.x + REMOTE_CURSOR_SIZE_PX + 2, screen.y + REMOTE_CURSOR_SIZE_PX);
+      }
+      this.ctx.restore();
+    }
   }
 
   private drawMarquee(rect: SceneRect | null, camera: Camera): void {

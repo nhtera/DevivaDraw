@@ -58,6 +58,7 @@ const GLYPHS: Record<string, string> = {
   search: "🔍",
   more: "⋯",
   share: "🔗",
+  users: "👥",
 };
 
 const FALLBACK_GLYPH = "?";

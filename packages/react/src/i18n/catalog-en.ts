@@ -151,6 +151,20 @@ export const catalogEn = {
   "share.error.http": "Couldn't load this shared scene right now. Please try again later.",
   "share.error.decrypt": "Couldn't decrypt this share link — the key may be wrong or the link corrupted.",
   "share.error.invalidScene": "This share link's content is invalid or corrupted.",
+
+  "action.collab": "Collaborate…",
+  "collab.dialog.title": "Live collaboration",
+  "collab.dialog.description": "Draw together in real time. The session key is never sent to our servers — anyone with the link can join and edit.",
+  "collab.dialog.start": "Start a new session",
+  "collab.dialog.joinLabel": "Or join an existing session",
+  "collab.dialog.joinPlaceholder": "Paste a session link…",
+  "collab.dialog.join": "Join",
+  "collab.dialog.connecting": "Connecting…",
+  "collab.dialog.leave": "Leave session",
+  "collab.dialog.peersLabel": "{count} online",
+  "collab.error.notConfigured": "Live collaboration isn't configured for this app.",
+  "collab.error.startFailed": "Couldn't start a collaboration session. Please try again.",
+  "collab.error.joinFailed": "Couldn't join that session — the link may be invalid or expired.",
 } as const;
 
 /** Every valid message key — `catalog-vi.ts` (and any future locale) is typed against this so a missing/extra key is a compile error. */

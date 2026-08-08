@@ -4,3 +4,26 @@
  * last-writer-wins conflict resolution over element versions.
  */
 export const COLLAB_CLIENT_VERSION = "0.1.0";
+
+export type { CollabConnectionStatus, CollabSessionOptions } from "./collab-session";
+export { CollabSession } from "./collab-session";
+
+export type { ConnectionManagerOptions, WebSocketLike } from "./connection-manager";
+export { computeReconnectDelayMs, ConnectionManager } from "./connection-manager";
+
+export type { DecryptEnvelopeResult, EnvelopeCodecOptions, RoomEnvelope } from "./message-codec";
+export { decryptEnvelope, encryptEnvelope, generateRoomKey, importRoomKey } from "./message-codec";
+
+export { isPlausibleRemoteElement, mergeRemoteElement, remoteElementWins } from "./lww-merge";
+
+export type { OutboundSyncDeps } from "./outbound-sync";
+export { flushElementDeltas, sendFullSnapshot, sendPresenceUpdate } from "./outbound-sync";
+
+export type { InboundMessageDeps } from "./inbound-message-handler";
+export { handleInboundMessage } from "./inbound-message-handler";
+
+export type { PresenceListener, PresencePayload, PresenceViewport, RemotePeerPresence } from "./presence-state";
+export { isPlausiblePresencePayload, PresenceStore, throttle } from "./presence-state";
+
+export type { BuildRoomUrlOptions, ParsedRoomUrl, ParseRoomUrlErrorReason, ParseRoomUrlResult } from "./room-url";
+export { buildRoomUrl, buildRoomWebSocketUrl, parseRoomUrl } from "./room-url";

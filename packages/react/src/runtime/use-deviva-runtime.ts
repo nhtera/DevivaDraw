@@ -25,7 +25,7 @@ import {
   ImageDecodeCache,
   Scene,
 } from "@deviva-draw/engine";
-import type { AnyElement, SceneDocument, TextEditSession } from "@deviva-draw/engine";
+import type { AnyElement, RemoteCursorOverlay, SceneDocument, TextEditSession } from "@deviva-draw/engine";
 import { buildPersistenceOperations } from "./build-persistence-operations";
 import { buildRuntime } from "./build-runtime";
 import type { DevivaDrawHandle } from "./imperative-handle";
@@ -62,6 +62,8 @@ export interface UseDevivaRuntimeOptions {
   toggleThemeMode(): void;
   /** `true` while the command palette, shortcuts dialog, main menu, or context menu is open — suppresses the global keyboard-shortcut resolver so typing into an overlay's search input can never leak through and switch tools (see `build-runtime.ts`'s `isChromeOverlayOpen` doc). */
   isChromeOverlayOpen(): boolean;
+  /** Live collaborator cursors for the interactive layer — see `start-render-loop.ts`'s `RenderLoopDeps.getRemoteCursors` doc. Omitted when the host never wires `useCollabSession` up. */
+  getRemoteCursors?(): readonly RemoteCursorOverlay[];
 }
 
 export interface UseDevivaRuntimeResult {
@@ -80,7 +82,7 @@ function buildInitialScene(initialData: SceneDocument | null | undefined): Scene
 }
 
 export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRuntimeResult {
-  const { containerRef, cameraStore, initialData, onChange, ui, shareApiBaseUrl, getThemeMode, toggleThemeMode, isChromeOverlayOpen } = options;
+  const { containerRef, cameraStore, initialData, onChange, ui, shareApiBaseUrl, getThemeMode, toggleThemeMode, isChromeOverlayOpen, getRemoteCursors } = options;
   const sceneRef = useRef<Scene | null>(null);
   if (sceneRef.current === null) sceneRef.current = buildInitialScene(initialData);
 
@@ -147,6 +149,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
       getMarqueeRect: builtRuntime.getMarqueeRect,
       getSnapGuides: builtRuntime.getSnapGuides,
       grid: builtRuntime.grid,
+      getRemoteCursors,
     });
 
     // Always subscribed (not gated on whether `onChange` was passed at *mount* time) — `stableOnChange`

@@ -36,6 +36,31 @@ describe("Scene CRUD", () => {
     expect(b.index < c.index).toBe(true);
   });
 
+  it("getElements breaks a tie between equal index strings deterministically by id — order is identical regardless of insertion order (regression: cross-peer z-order divergence)", () => {
+    // Two distinct elements sharing the exact same index string — the scenario a remote-merge LWW
+    // resolver can legitimately produce: `generateKeyBetween` is a pure function of its bounds, so two
+    // peers concurrently creating different elements at the same insertion point compute an identical
+    // index. Without a secondary tiebreak, two scenes that received the same two elements in opposite
+    // insertion orders would disagree on z-order.
+    const sceneA = new Scene();
+    const sceneB = new Scene();
+    const SHARED_INDEX = "a1";
+    const elementX = { ...createGenericElement({ x: 0, y: 0 }), index: SHARED_INDEX };
+    const elementY = { ...createGenericElement({ x: 0, y: 0 }), index: SHARED_INDEX };
+    expect(elementX.id).not.toBe(elementY.id);
+
+    sceneA.addElement(elementX);
+    sceneA.addElement(elementY);
+    sceneB.addElement(elementY);
+    sceneB.addElement(elementX);
+
+    const orderA = sceneA.getElements().map((el) => el.id);
+    const orderB = sceneB.getElements().map((el) => el.id);
+    expect(orderA).toEqual(orderB);
+    // Confirms the tiebreak is actually exercised (lexicographic by id), not just incidentally stable.
+    expect(orderA).toEqual([elementX.id, elementY.id].sort());
+  });
+
   it("addElement respects an explicit index instead of always appending to the back", () => {
     const a = scene.addElement(createGenericElement({ x: 0, y: 0 }));
     const c = scene.addElement(createGenericElement({ x: 0, y: 0 }));
@@ -244,6 +269,69 @@ describe("Scene subscriptions", () => {
   it("restoreElement throws on a duplicate id, same as addElement", () => {
     const created = scene.addElement(createGenericElement({ x: 0, y: 0 }));
     expect(() => scene.restoreElement({ ...created, id: created.id })).toThrow(/already exists/);
+  });
+
+  it("applyRemoteElement inserts a brand-new element without bumping version/versionNonce, unlike addElement", () => {
+    const remote = { ...createGenericElement({ x: 0, y: 0 }), id: "remote-1", version: 7, versionNonce: 123, updated: 555, index: "a0" };
+    const result = scene.applyRemoteElement(remote);
+    expect(result).toEqual(remote);
+    expect(scene.getElement("remote-1")).toEqual(remote);
+  });
+
+  it("applyRemoteElement overwrites an existing element with the exact given fields (no re-touch)", () => {
+    const created = scene.addElement(createGenericElement({ x: 0, y: 0 }));
+    const remoteWinner = { ...created, x: 999, version: created.version + 5, versionNonce: 4242 };
+    scene.applyRemoteElement(remoteWinner);
+    expect(scene.getElement(created.id)).toEqual(remoteWinner);
+  });
+
+  it("applyRemoteElement never throws on an id that already exists, unlike restoreElement", () => {
+    const created = scene.addElement(createGenericElement({ x: 0, y: 0 }));
+    expect(() => scene.applyRemoteElement({ ...created, x: 5 })).not.toThrow();
+  });
+
+  it("applyRemoteElement freezes the stored element (and its nested groupIds/boundElements/roundness), same as touch() — a direct write must throw, not silently corrupt the store", () => {
+    const remote = {
+      ...createGenericElement({ x: 0, y: 0 }),
+      id: "remote-frozen-1",
+      version: 1,
+      versionNonce: 1,
+      index: "a0",
+      groupIds: ["group-1"],
+      boundElements: [{ id: "bound-1", type: "text" }],
+      roundness: { type: 1 },
+    };
+    scene.applyRemoteElement(remote);
+    const stored = scene.getElement("remote-frozen-1")!;
+
+    expect(Object.isFrozen(stored)).toBe(true);
+    expect(Object.isFrozen(stored.groupIds)).toBe(true);
+    expect(Object.isFrozen(stored.boundElements)).toBe(true);
+    expect(Object.isFrozen(stored.boundElements![0])).toBe(true);
+    expect(Object.isFrozen(stored.roundness)).toBe(true);
+    // This test file is an ES module, which is always strict mode — writing to a frozen object throws
+    // a TypeError rather than silently no-oping.
+    expect(() => {
+      (stored as { x: number }).x = 12345;
+    }).toThrow();
+    expect(scene.getElement("remote-frozen-1")!.x).toBe(remote.x);
+  });
+
+  it("applyRemoteElement runs registered update hooks against the applied element", () => {
+    const seen: string[] = [];
+    scene.registerUpdateHook((updated) => seen.push(updated.id));
+    const remote = { ...createGenericElement({ x: 0, y: 0 }), id: "remote-2", version: 1, versionNonce: 1, index: "a0" };
+
+    scene.applyRemoteElement(remote);
+
+    expect(seen).toEqual(["remote-2"]);
+  });
+
+  it("applyRemoteElement notifies subscribers, same as any other mutation", () => {
+    const listener = vi.fn();
+    scene.subscribe(listener);
+    scene.applyRemoteElement({ ...createGenericElement({ x: 0, y: 0 }), id: "remote-3", version: 1, versionNonce: 1, index: "a0" });
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 
   it("coalesces multiple mutations queued from within a single listener dispatch into one extra pass", () => {

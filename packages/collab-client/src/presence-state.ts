@@ -1,0 +1,145 @@
+/**
+ * Ephemeral collaborator presence: cursor position, live selection, display name/color, an optional
+ * viewport (for follow-mode), and idle detection — deliberately kept out of LWW merge and the room
+ * snapshot (`apps/collab-server` never persists any of this): a disconnected peer's last-known cursor
+ * must vanish the moment they leave, never linger as merged/stale data the way a soft-deleted element
+ * intentionally does. Idle-ness is derived from wall-clock time since the last presence update was
+ * received, not a field the sender computes and transmits — a peer who stops moving simply stops
+ * sending updates (see `collab-session.ts`'s throttled outbound cursor sync), so no extra wire field is
+ * needed and every observer converges on the same "idle" verdict independently.
+ */
+export interface PresenceViewport {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
+/** The decrypted, still-untrusted wire shape of an inbound presence update. */
+export interface PresencePayload {
+  name: string;
+  color: string;
+  point: { x: number; y: number } | null;
+  selectedElementIds: string[];
+  viewport: PresenceViewport | null;
+}
+
+/** A peer's presence as the local UI renders it — `idle` is computed fresh on every `list()` call, not stored. */
+export interface RemotePeerPresence extends PresencePayload {
+  peerId: string;
+  idle: boolean;
+}
+
+const IDLE_THRESHOLD_MS = 10_000;
+/** How often the store re-evaluates every peer's `idle` flag purely from the wall clock, even with no new network traffic — see the module doc for why idle-ness has no dedicated wire field. */
+const DEFAULT_IDLE_TICK_MS = 2_000;
+
+/** Rejects a malformed/hostile inbound presence payload rather than trusting attacker-controlled JSON. */
+export function isPlausiblePresencePayload(value: unknown): value is PresencePayload {
+  if (typeof value !== "object" || value === null) return false;
+  const p = value as Record<string, unknown>;
+  if (typeof p.name !== "string" || typeof p.color !== "string") return false;
+  if (!Array.isArray(p.selectedElementIds) || !p.selectedElementIds.every((id) => typeof id === "string")) return false;
+  if (p.point !== null && !isPoint(p.point)) return false;
+  if (p.viewport !== null && !isViewport(p.viewport)) return false;
+  return true;
+}
+
+function isPoint(value: unknown): value is { x: number; y: number } {
+  if (typeof value !== "object" || value === null) return false;
+  const point = value as Record<string, unknown>;
+  return typeof point.x === "number" && typeof point.y === "number";
+}
+
+function isViewport(value: unknown): value is PresenceViewport {
+  if (typeof value !== "object" || value === null) return false;
+  const viewport = value as Record<string, unknown>;
+  return typeof viewport.x === "number" && typeof viewport.y === "number" && typeof viewport.zoom === "number";
+}
+
+export type PresenceListener = () => void;
+
+interface StoredPeer {
+  payload: PresencePayload;
+  lastSeenAt: number;
+}
+
+export class PresenceStore {
+  private readonly peers = new Map<string, StoredPeer>();
+  private readonly listeners = new Set<PresenceListener>();
+  private idleTickTimer: ReturnType<typeof setInterval> | null = null;
+
+  subscribe(listener: PresenceListener): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  /** Every currently-known peer, most-recently-updated last, with `idle` computed against `now`. */
+  list(now: number = Date.now()): RemotePeerPresence[] {
+    return [...this.peers.entries()].map(([peerId, stored]) => ({
+      peerId,
+      ...stored.payload,
+      idle: now - stored.lastSeenAt > IDLE_THRESHOLD_MS,
+    }));
+  }
+
+  get(peerId: string): RemotePeerPresence | undefined {
+    return this.list().find((peer) => peer.peerId === peerId);
+  }
+
+  /** Upserts `peerId`'s presence from a validated payload; rejects (returns `false`, no-ops) a malformed one instead of throwing. */
+  applyUpdate(peerId: string, payload: unknown, now: number = Date.now()): boolean {
+    if (!isPlausiblePresencePayload(payload)) return false;
+    this.peers.set(peerId, { payload, lastSeenAt: now });
+    this.notifyListeners();
+    return true;
+  }
+
+  /** Removes a peer entirely (on `peer-left`) — presence never lingers as a stale/merged entry the way a soft-deleted element does. */
+  removePeer(peerId: string): void {
+    if (this.peers.delete(peerId)) this.notifyListeners();
+  }
+
+  clear(): void {
+    if (this.peers.size === 0) return;
+    this.peers.clear();
+    this.notifyListeners();
+  }
+
+  /** Starts the wall-clock idle re-evaluation tick; returns a disposer. Idempotent — calling it again while already ticking just restarts the interval, so a caller doesn't need to track whether it already started one. */
+  startIdleTicking(intervalMs = DEFAULT_IDLE_TICK_MS): () => void {
+    if (this.idleTickTimer !== null) clearInterval(this.idleTickTimer);
+    this.idleTickTimer = setInterval(() => this.notifyListeners(), intervalMs);
+    return () => {
+      if (this.idleTickTimer !== null) clearInterval(this.idleTickTimer);
+      this.idleTickTimer = null;
+    };
+  }
+
+  private notifyListeners(): void {
+    for (const listener of this.listeners) listener();
+  }
+}
+
+/** Leading+trailing throttle for the local user's own outbound cursor updates — at most one call to `fn` per `intervalMs`, plus one final trailing call carrying the latest arguments so the last known position is never dropped. */
+export function throttle<Args extends unknown[]>(fn: (...args: Args) => void, intervalMs: number): (...args: Args) => void {
+  let lastCallAt = 0;
+  let trailingTimer: ReturnType<typeof setTimeout> | null = null;
+  let trailingArgs: Args | null = null;
+
+  return (...args: Args) => {
+    const now = Date.now();
+    const elapsed = now - lastCallAt;
+    if (elapsed >= intervalMs) {
+      lastCallAt = now;
+      fn(...args);
+      return;
+    }
+    trailingArgs = args;
+    if (trailingTimer !== null) return;
+    trailingTimer = setTimeout(() => {
+      trailingTimer = null;
+      lastCallAt = Date.now();
+      if (trailingArgs) fn(...trailingArgs);
+    }, intervalMs - elapsed);
+  };
+}

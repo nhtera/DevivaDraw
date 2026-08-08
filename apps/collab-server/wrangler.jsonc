@@ -11,7 +11,27 @@
   // created once via `wrangler r2 bucket create deviva-draw-share-blobs` (or the dashboard) before
   // this Worker can deploy; `wrangler dev` provisions a local miniflare-backed R2 automatically, no
   // manual step needed for local development.
+  //
+  // `deviva-draw-rooms` is a separate, dedicated bucket for live-room encrypted snapshots (see
+  // src/snapshot-persistence.ts) rather than reusing SHARE_BLOBS: share-link blobs and room snapshots
+  // have different write patterns (write-once vs. periodically-overwritten) and different retention
+  // policies, so keeping them in separate buckets avoids one feature's lifecycle rules ever needing to
+  // special-case the other's key shape. Create it once via
+  // `wrangler r2 bucket create deviva-draw-rooms` before deploying.
   "r2_buckets": [
-    { "binding": "SHARE_BLOBS", "bucket_name": "deviva-draw-share-blobs" }
+    { "binding": "SHARE_BLOBS", "bucket_name": "deviva-draw-share-blobs" },
+    { "binding": "ROOM_SNAPSHOTS", "bucket_name": "deviva-draw-rooms" }
+  ],
+  // One Durable Object instance per live collaboration room (src/room-durable-object.ts) — the
+  // strongly-consistent, single-threaded actor a room's WebSocket relay needs, with no separate
+  // pub/sub coordination layer. `new_sqlite_classes` (not the legacy `new_classes`) is the
+  // Cloudflare-recommended storage backend for newly-added Durable Object classes.
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOMS", "class_name": "RoomDO" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RoomDO"] }
   ]
 }

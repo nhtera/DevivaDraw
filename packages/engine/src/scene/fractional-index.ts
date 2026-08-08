@@ -24,8 +24,25 @@ export interface IndexedItem {
   index: string;
 }
 
+/**
+ * Total-order comparator for z-order: primary key `index`, secondary key `id`. The secondary key
+ * matters because `generateKeyBetween` is a pure function of its two bounds — two peers concurrently
+ * creating two *different* elements at the same insertion point (e.g. both appending to an empty scene,
+ * or both undo/redoing into the same gap) compute IDENTICAL index strings for otherwise-unrelated
+ * elements. Without a deterministic tiebreak, `Array.prototype.sort` is not required to preserve
+ * insertion order for equal keys (and even where it does, "whichever order this peer happened to insert
+ * them locally" differs peer-to-peer) — z-order would then diverge between peers even though every
+ * element's own fields converged correctly. `id` never changes and is identical on every peer for the
+ * "same" element, so ordering by it is arbitrary but perfectly consistent across every client.
+ */
+export function compareIndexedItems(a: IndexedItem, b: IndexedItem): number {
+  if (a.index !== b.index) return a.index < b.index ? -1 : 1;
+  if (a.id === b.id) return 0;
+  return a.id < b.id ? -1 : 1;
+}
+
 function sortByIndex<T extends IndexedItem>(items: readonly T[]): T[] {
-  return [...items].sort((a, b) => (a.index < b.index ? -1 : a.index > b.index ? 1 : 0));
+  return [...items].sort(compareIndexedItems);
 }
 
 /** New index that places `id` after every other item (top of z-order / drawn last). */

@@ -11,10 +11,10 @@ import type { AnyElement } from "../elements/element-types";
 import type { DeserializeSceneResult, SerializeSceneOptions } from "../persistence/serialize-scene";
 import { deserializeScene, serializeScene } from "../persistence/serialize-scene";
 import type { SceneDocumentV1 } from "../persistence/scene-schema";
-import { indexBetween } from "./fractional-index";
+import { compareIndexedItems, indexBetween } from "./fractional-index";
 import { liveFileIds, SceneFilesStore } from "./scene-files-store";
 import type { StoredFile } from "./scene-files-store";
-import { touch } from "./scene-mutations";
+import { freezeElement, touch } from "./scene-mutations";
 
 export type { StoredFile } from "./scene-files-store";
 
@@ -47,9 +47,13 @@ export class Scene {
   /** Set when a mutation happens from inside a listener; drained by the outer `notify()` call. */
   private notifyQueued = false;
 
-  /** All elements (including soft-deleted ones), sorted by z-order (`index`, ascending). */
+  /**
+   * All elements (including soft-deleted ones), sorted by z-order (`index`, ascending, `id` as a
+   * deterministic tiebreak for equal indices — see `fractional-index.ts`'s `compareIndexedItems` doc
+   * for why two elements can legitimately share an index string after a remote merge).
+   */
   getElements(): AnyElement[] {
-    return [...this.elements.values()].sort((a, b) => (a.index < b.index ? -1 : a.index > b.index ? 1 : 0));
+    return [...this.elements.values()].sort(compareIndexedItems);
   }
 
   /**
@@ -209,6 +213,30 @@ export class Scene {
    */
   static fromJSON(raw: unknown): DeserializeSceneResult {
     return deserializeScene(raw);
+  }
+
+  /**
+   * Inserts or overwrites `element` with its exact given fields — no `version`/`versionNonce`/`updated`
+   * bump, unlike `updateElement`'s `touch()` — then runs every registered update hook against it and
+   * notifies subscribers. This is the remote-merge insertion point a collaboration client's
+   * last-writer-wins resolver calls once it has already decided (by comparing `version`/`versionNonce`)
+   * that a remote element should replace the local one: the winning element must land locally with the
+   * identical version/versionNonce/content the sender produced, byte-for-byte, or two peers that both
+   * receive the same delta would each mint their own fresh version via `touch()` and never converge to
+   * an identical final state. Hooks still run (e.g. rerouting a bound arrow) so any locally-only
+   * relationship stays consistent even in the rare case the sender's own hook pass didn't already cover
+   * it for this peer — a redundant, idempotent no-op in the common case.
+   *
+   * Also the correct primitive for inserting a brand-new remote element (one with no local counterpart
+   * yet): unlike `restoreElement`, this never throws on an unknown id, so a resolver doesn't need a
+   * separate exists-check branch before calling it.
+   */
+  applyRemoteElement(element: AnyElement): AnyElement {
+    const frozen = freezeElement(element);
+    this.elements.set(frozen.id, frozen);
+    this.runUpdateHooks(frozen);
+    this.notify();
+    return frozen;
   }
 
   /** Registers a change listener; returns an unsubscribe function. */

@@ -1,0 +1,121 @@
+/**
+ * Start/join/leave collaboration UI — driven entirely by `useCollabSession`'s return value (the same
+ * "hook owns state, dialog only reads/dispatches" pattern `share-dialog.tsx` uses for the share-link
+ * flow). Offers two entry points from a fresh (disconnected, no room) state: start a brand-new session
+ * (mints a room + shows its link, same copy-to-clipboard UX as `share-dialog.tsx`) or join one via a
+ * pasted room URL (`@deviva-draw/collab-client`'s `room-url.ts` scheme — the decryption key travels in
+ * the URL fragment, this dialog never sees or transmits it separately).
+ */
+import { useState } from "react";
+import { buttonStyle, dialogOverlayStyle, dialogStyle, inputStyle, labelStyle } from "./chrome-styles";
+import { Icon } from "./icon";
+import type { TranslationKey } from "../i18n/catalog-en";
+import { useTranslation } from "../i18n/use-translation";
+import type { CollabErrorReason, UseCollabSessionResult } from "../hooks/use-collab-session";
+
+export interface CollabDialogProps {
+  collab: UseCollabSessionResult;
+  onClose(): void;
+}
+
+const ERROR_KEY: Record<NonNullable<CollabErrorReason>, TranslationKey> = {
+  "not-configured": "collab.error.notConfigured",
+  "start-failed": "collab.error.startFailed",
+  "join-failed": "collab.error.joinFailed",
+};
+
+export function CollabDialog(props: CollabDialogProps) {
+  const { collab, onClose } = props;
+  const { t } = useTranslation();
+  const [joinUrl, setJoinUrl] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const copyLink = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Soft failure — the link is still visible and manually selectable below (see `share-dialog.tsx`).
+    }
+  };
+
+  const isActive = collab.status === "connected" || collab.status === "connecting";
+
+  return (
+    <div style={dialogOverlayStyle} onClick={onClose} data-testid="collab-dialog-overlay">
+      <div style={dialogStyle} onClick={(event) => event.stopPropagation()} role="dialog" aria-label={t("collab.dialog.title")} data-testid="collab-dialog">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <strong>{t("collab.dialog.title")}</strong>
+          <button type="button" aria-label={t("shortcuts.close")} onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer" }}>
+            <Icon name="close" />
+          </button>
+        </div>
+        <p>{t("collab.dialog.description")}</p>
+
+        {collab.error && (
+          <p role="alert" data-testid="collab-dialog-error">
+            {t(ERROR_KEY[collab.error])}
+          </p>
+        )}
+
+        {!isActive && (
+          <>
+            <button type="button" style={{ marginBottom: 12 }} onClick={() => void collab.startSession()} data-testid="collab-dialog-start">
+              {t("collab.dialog.start")}
+            </button>
+            <label style={labelStyle} htmlFor="collab-join-url">
+              {t("collab.dialog.joinLabel")}
+            </label>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input
+                id="collab-join-url"
+                type="text"
+                value={joinUrl}
+                onChange={(event) => setJoinUrl(event.target.value)}
+                placeholder={t("collab.dialog.joinPlaceholder")}
+                style={inputStyle}
+                data-testid="collab-dialog-join-input"
+              />
+              <button type="button" onClick={() => void collab.joinSession(joinUrl)} disabled={!joinUrl} data-testid="collab-dialog-join">
+                {t("collab.dialog.join")}
+              </button>
+            </div>
+          </>
+        )}
+
+        {collab.status === "connecting" && <p data-testid="collab-dialog-connecting">{t("collab.dialog.connecting")}</p>}
+
+        {collab.status === "connected" && collab.roomUrl && (
+          <>
+            <input
+              type="text"
+              readOnly
+              value={collab.roomUrl}
+              style={inputStyle}
+              data-testid="collab-dialog-link"
+              onFocus={(event) => event.currentTarget.select()}
+            />
+            <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+              <button type="button" onClick={() => void copyLink(collab.roomUrl!)} data-testid="collab-dialog-copy">
+                {copied ? t("share.dialog.copied") : t("share.dialog.copy")}
+              </button>
+              <button type="button" onClick={collab.leaveSession} data-testid="collab-dialog-leave">
+                {t("collab.dialog.leave")}
+              </button>
+            </div>
+            <p style={labelStyle}>{t("collab.dialog.peersLabel", { count: collab.peers.length })}</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {collab.peers.map((peer) => (
+                <div key={peer.peerId} style={{ display: "flex", alignItems: "center", gap: 6, opacity: peer.idle ? 0.5 : 1 }} data-testid="collab-dialog-peer">
+                  <span style={{ ...buttonStyle(false), width: 10, height: 10, padding: 0, borderRadius: "50%", background: peer.color }} />
+                  <span>{peer.name}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

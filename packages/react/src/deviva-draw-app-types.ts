@@ -21,7 +21,7 @@ export interface DevivaDrawProps {
   locale?: Locale;
   /** Starts the app shell in view-only mode (hides the properties panel/context menu, same as toggling `toggle-view-only`) — the shared-scene viewer route (`SharedSceneViewer`) sets this so an opened share link is a read-only snapshot, never editable in place (live co-editing is a separate, room-based feature, not what opening a share link does). Omit for the normal editable default. */
   initialViewOnly?: boolean;
-  /** The collab-server's base URL (e.g. `http://localhost:8788` in dev) — required for the "Share" main-menu action to work; omit to leave sharing disabled (the action fails gracefully with an error in the share dialog rather than attempting a request to nowhere). */
+  /** The collab-server's base URL (e.g. `http://localhost:8788` in dev) — required for the "Share" main-menu action *and* live collaboration (`useCollabSession`, driven by the "Collaborate…" menu action) to work; omit to leave both disabled (each fails gracefully with an inline error rather than attempting a request to nowhere). */
   shareApiBaseUrl?: string;
   className?: string;
   style?: CSSProperties;

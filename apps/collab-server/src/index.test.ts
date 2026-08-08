@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import worker from "./index";
 import type { Env } from "./index";
 import type { BlobStore } from "./blob-routes";
+import type { RoomNamespace } from "./room-routes";
 
 function fakeEnv(): Env {
   const data = new Map<string, ArrayBuffer>();
@@ -19,7 +20,16 @@ function fakeEnv(): Env {
       return { arrayBuffer: async () => value };
     },
   };
-  return { SHARE_BLOBS: store };
+  // Not exercised by the blob-route tests below (routing to it is `room-routes.test.ts`'s job) —
+  // present only so `fakeEnv()` satisfies `Env`'s shape.
+  // Node's Fetch polyfill (this test's runtime) rejects constructing a real `status: 101` Response
+  // outside an actual protocol upgrade — see `room-routes.test.ts`'s fake for the same note. `200`
+  // stands in here purely to prove routing reached the DO stub, not the DO's real upgrade response.
+  const rooms: RoomNamespace = {
+    idFromName: (name) => name,
+    get: () => ({ fetch: async () => new Response(null, { status: 200 }) }),
+  };
+  return { SHARE_BLOBS: store, ROOMS: rooms };
 }
 
 const VALID_BLOB_ID = "550e8400-e29b-41d4-a716-446655440000";
@@ -78,5 +88,19 @@ describe("worker fetch — /blobs/{id} dispatch", () => {
     // Regression guard: a missing header must never throw or bypass the limiter entirely.
     const response = await worker.fetch(new Request(`https://collab.example/blobs/${VALID_BLOB_ID}`), fakeEnv());
     expect(response.status).toBe(404); // no blob stored yet, but the request completed without error
+  });
+});
+
+describe("worker fetch — /room/{id} dispatch", () => {
+  const VALID_ROOM_ID = "550e8400-e29b-41d4-a716-446655440001";
+
+  it("routes a WebSocket-upgrade request to the room's Durable Object", async () => {
+    const response = await worker.fetch(new Request(`https://collab.example/room/${VALID_ROOM_ID}`, { headers: { upgrade: "websocket" } }), fakeEnv());
+    expect(response.status).toBe(200);
+  });
+
+  it("rejects a non-WebSocket request to a room path with 426", async () => {
+    const response = await worker.fetch(new Request(`https://collab.example/room/${VALID_ROOM_ID}`), fakeEnv());
+    expect(response.status).toBe(426);
   });
 });

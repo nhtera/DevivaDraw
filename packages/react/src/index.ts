@@ -68,3 +68,13 @@ export { usePasteAndDrop } from "./hooks/use-paste-and-drop";
 
 export type { SharedSceneViewerProps } from "./share/shared-scene-viewer";
 export { SharedSceneViewer } from "./share/shared-scene-viewer";
+
+// --- Live collaboration (E2E encrypted, Durable Objects relay) ---
+
+export type { CollabErrorReason, UseCollabSessionOptions, UseCollabSessionResult } from "./hooks/use-collab-session";
+export { useCollabSession } from "./hooks/use-collab-session";
+export type { UseCollabCursorTrackingOptions } from "./hooks/use-collab-cursor-tracking";
+export { useCollabCursorTracking } from "./hooks/use-collab-cursor-tracking";
+export { randomGuestColor, randomGuestName } from "./hooks/random-collab-identity";
+export type { CollabDialogProps } from "./components/collab-dialog";
+export { CollabDialog } from "./components/collab-dialog";
