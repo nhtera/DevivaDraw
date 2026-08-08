@@ -44,7 +44,7 @@ deviva-draw/
 | 02 | [Core element model, scene store & history](phase-02-core-element-model-scene-store-history.md) | 01 | ✅ done (2026-08-08, 67 tests) |
 | 03 | [Canvas renderer: dual-layer, viewport, culling](phase-03-canvas-renderer-dual-layer-viewport.md) | 02 | ✅ done (2026-08-08, 107 engine tests) |
 | 04 | [Input pipeline & tools state machine](phase-04-input-pipeline-and-tools-state-machine.md) | 02, 03 | ✅ done (2026-08-08, 190 engine tests) |
-| 05 | [Shape tools & style system](phase-05-shape-tools-and-style-system.md) | 03, 04 | pending |
+| 05 | [Shape tools & style system](phase-05-shape-tools-and-style-system.md) | 03, 04 | ✅ done (2026-08-08, 288 engine tests) |
 | 06 | [Freehand drawing tool](phase-06-freehand-drawing-tool.md) | 03, 04 | pending |
 | 07 | [Text editing & bound containers](phase-07-text-editing-and-bound-containers.md) | 04, 05 | pending |
 | 08 | [Arrows & element bindings](phase-08-arrows-and-element-bindings.md) | 05, 07 | pending |
