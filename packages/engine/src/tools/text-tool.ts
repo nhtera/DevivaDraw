@@ -43,6 +43,8 @@ function syncStandaloneTextSize(scene: Scene, elementId: string, finalText: stri
 
 export class TextTool extends NoOpToolHandler {
   private readonly deps: TextToolDeps;
+  /** The element placed by the most recent `onGestureStart`, read back by `onGestureEnd` — see that method's doc for why `onPlaced` fires there instead of immediately. */
+  private placedElementId: string | null = null;
 
   constructor(deps: TextToolDeps) {
     super();
@@ -61,7 +63,22 @@ export class TextTool extends NoOpToolHandler {
       isNewElement: true,
       onCommitted: (elementId, finalText) => syncStandaloneTextSize(this.deps.scene, elementId, finalText, this.deps.measurer),
     });
-    this.deps.onPlaced?.(stored.id);
+    this.placedElementId = stored.id;
+  }
+
+  /**
+   * `onPlaced` fires here (gesture *end*, i.e. `pointerup`), not from `onGestureStart` — a click is
+   * a full down-then-up gesture, and `ToolStateMachine` holds `isGestureInProgress()` true for that
+   * *entire* window (see its own module doc: "switching mid-gesture is rejected, not queued"). A host
+   * that (correctly, per `onPlaced`'s own doc) calls `toolStateMachine.setTool(...)` from this
+   * callback needs that call to actually succeed — calling it from `onGestureStart` would hit that
+   * still-in-progress gesture on every single placement and silently no-op forever, permanently
+   * stranding the tool on "text" instead of handing back to selection.
+   */
+  override onGestureEnd(point: Point, modifiers: ModifierKeys): void {
+    const elementId = this.placedElementId;
+    this.placedElementId = null;
+    if (elementId) this.deps.onPlaced?.(elementId);
   }
   /* eslint-enable @typescript-eslint/no-unused-vars */
 }

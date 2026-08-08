@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { normalizeCombo, registerCoreShortcuts, ShortcutRegistry } from "./shortcut-registry";
+import {
+  normalizeCombo,
+  registerCommandPaletteShortcut,
+  registerCoreShortcuts,
+  registerFullShortcutMap,
+  registerHistoryShortcuts,
+  registerToolShortcuts,
+  ShortcutRegistry,
+} from "./shortcut-registry";
 
 const NO_MODIFIERS = { shift: false, alt: false, ctrl: false, meta: false };
 
@@ -75,5 +83,60 @@ describe("registerCoreShortcuts", () => {
     expect(registry.resolve("=", { ...NO_MODIFIERS, ctrl: true })).toBe("zoom-in");
     expect(registry.resolve("=", { ...NO_MODIFIERS, meta: true })).toBe("zoom-in");
     expect(registry.resolve("-", { ...NO_MODIFIERS, ctrl: true })).toBe("zoom-out");
+  });
+});
+
+describe("registerToolShortcuts", () => {
+  it("registers the letter shortcut for every non-select/pan tool, with no internal conflicts", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const registry = new ShortcutRegistry();
+    registerToolShortcuts(registry);
+
+    expect(warn).not.toHaveBeenCalled();
+    expect(registry.resolve("v", NO_MODIFIERS)).toBe("select-tool");
+    expect(registry.resolve("r", NO_MODIFIERS)).toBe("rectangle-tool");
+    expect(registry.resolve("o", NO_MODIFIERS)).toBe("ellipse-tool");
+    expect(registry.resolve("d", NO_MODIFIERS)).toBe("diamond-tool");
+    expect(registry.resolve("l", NO_MODIFIERS)).toBe("line-tool");
+    expect(registry.resolve("p", NO_MODIFIERS)).toBe("freedraw-tool");
+    expect(registry.resolve("t", NO_MODIFIERS)).toBe("text-tool");
+    expect(registry.resolve("a", NO_MODIFIERS)).toBe("arrow-tool");
+  });
+});
+
+describe("registerHistoryShortcuts", () => {
+  it("registers Ctrl/Cmd+Z for undo and Ctrl/Cmd+Shift+Z for redo", () => {
+    const registry = new ShortcutRegistry();
+    registerHistoryShortcuts(registry);
+
+    expect(registry.resolve("z", { ...NO_MODIFIERS, ctrl: true })).toBe("undo");
+    expect(registry.resolve("z", { ...NO_MODIFIERS, meta: true })).toBe("undo");
+    expect(registry.resolve("z", { ...NO_MODIFIERS, ctrl: true, shift: true })).toBe("redo");
+    expect(registry.resolve("z", { ...NO_MODIFIERS, meta: true, shift: true })).toBe("redo");
+  });
+});
+
+describe("registerCommandPaletteShortcut", () => {
+  it("registers Ctrl/Cmd+K to open the command palette", () => {
+    const registry = new ShortcutRegistry();
+    registerCommandPaletteShortcut(registry);
+
+    expect(registry.resolve("k", { ...NO_MODIFIERS, ctrl: true })).toBe("open-command-palette");
+    expect(registry.resolve("k", { ...NO_MODIFIERS, meta: true })).toBe("open-command-palette");
+  });
+});
+
+describe("registerFullShortcutMap", () => {
+  it("composes every registration function with zero internal conflicts", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const registry = new ShortcutRegistry();
+    registerFullShortcutMap(registry);
+
+    expect(warn).not.toHaveBeenCalled();
+    // Spot-check one binding from each composed function.
+    expect(registry.resolve("1", NO_MODIFIERS)).toBe("select-tool");
+    expect(registry.resolve("r", NO_MODIFIERS)).toBe("rectangle-tool");
+    expect(registry.resolve("z", { ...NO_MODIFIERS, meta: true })).toBe("undo");
+    expect(registry.resolve("k", { ...NO_MODIFIERS, meta: true })).toBe("open-command-palette");
   });
 });

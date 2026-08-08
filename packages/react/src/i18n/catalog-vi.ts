@@ -1,0 +1,138 @@
+/**
+ * Vietnamese message catalog — typed as `Record<TranslationKey, string>` against `catalog-en.ts`'s
+ * key set, so a key added to (or removed from) the English catalog and not mirrored here is a
+ * compile error (missing key / excess-property check), not a silent runtime gap. Diacritic rendering
+ * for Vietnamese was already validated end-to-end by the engine's text-editing IME work (the canvas
+ * text renderer/measurer both handle it); this catalog only supplies the UI-chrome strings.
+ */
+import type { TranslationKey } from "./catalog-en";
+
+export const catalogVi: Record<TranslationKey, string> = {
+  "app.title": "Deviva Draw",
+
+  "tool.select": "Chọn",
+  "tool.pan": "Di chuyển (kéo)",
+  "tool.rectangle": "Hình chữ nhật",
+  "tool.ellipse": "Hình elip",
+  "tool.diamond": "Hình thoi",
+  "tool.line": "Đường thẳng",
+  "tool.arrow": "Mũi tên",
+  "tool.freedraw": "Vẽ tay",
+  "tool.text": "Văn bản",
+
+  "action.undo": "Hoàn tác",
+  "action.redo": "Làm lại",
+  "action.copy": "Sao chép",
+  "action.paste": "Dán",
+  "action.duplicate": "Nhân bản",
+  "action.delete": "Xóa",
+  "action.selectAll": "Chọn tất cả",
+  "action.group": "Nhóm lựa chọn",
+  "action.ungroup": "Bỏ nhóm",
+  "action.lock": "Khóa",
+  "action.unlock": "Mở khóa",
+  "action.bringToFront": "Đưa lên trên cùng",
+  "action.bringForward": "Đưa lên trước",
+  "action.sendBackward": "Đưa xuống sau",
+  "action.sendToBack": "Đưa xuống dưới cùng",
+  "action.alignLeft": "Căn trái",
+  "action.alignCenterH": "Căn giữa (ngang)",
+  "action.alignRight": "Căn phải",
+  "action.alignTop": "Căn trên",
+  "action.alignMiddleV": "Căn giữa (dọc)",
+  "action.alignBottom": "Căn dưới",
+  "action.distributeHorizontal": "Dàn đều theo chiều ngang",
+  "action.distributeVertical": "Dàn đều theo chiều dọc",
+  "action.zoomIn": "Phóng to",
+  "action.zoomOut": "Thu nhỏ",
+  "action.zoomToFit": "Vừa khung hình",
+  "action.toggleGrid": "Bật/tắt lưới",
+  "action.toggleTheme": "Đổi giao diện",
+  "action.toggleZenMode": "Chế độ tập trung",
+  "action.toggleViewOnly": "Chế độ chỉ xem",
+  "action.toggleStats": "Bảng thống kê",
+  "action.openCommandPalette": "Mở bảng lệnh",
+  "action.newScene": "Bản vẽ mới",
+  "action.openScene": "Mở…",
+  "action.saveScene": "Lưu",
+  "action.exportPng": "Xuất PNG",
+  "action.exportSvg": "Xuất SVG",
+  "action.copyAsImage": "Sao chép dưới dạng ảnh",
+
+  "menu.title": "Menu",
+  "menu.theme": "Giao diện",
+  "menu.language": "Ngôn ngữ",
+  "menu.help": "Phím tắt",
+  "menu.reset": "Xóa toàn bộ bản vẽ",
+  "menu.resetConfirm": "Xóa toàn bộ bản vẽ? Không thể hoàn tác.",
+
+  "panel.stroke": "Nét vẽ",
+  "panel.background": "Nền",
+  "panel.fill": "Kiểu tô",
+  "panel.strokeWidth": "Độ dày nét",
+  "panel.strokeStyle": "Kiểu nét",
+  "panel.roughness": "Độ nguệch ngoạc",
+  "panel.edges": "Góc cạnh",
+  "panel.opacity": "Độ mờ",
+  "panel.arrowheads": "Đầu mũi tên",
+  "panel.arrowheadStart": "Đầu",
+  "panel.arrowheadEnd": "Cuối",
+  "panel.fontSize": "Cỡ chữ",
+  "panel.fontFamily": "Kiểu chữ",
+  "panel.textAlign": "Căn văn bản",
+  "panel.layers": "Lớp",
+  "panel.customColor": "Màu tùy chỉnh",
+
+  "styleValue.thin": "Mỏng",
+  "styleValue.bold": "Đậm",
+  "styleValue.extra-bold": "Rất đậm",
+  "styleValue.solid": "Liền",
+  "styleValue.dashed": "Nét đứt",
+  "styleValue.dotted": "Nét chấm",
+  "styleValue.hachure": "Gạch chéo",
+  "styleValue.cross-hatch": "Gạch chéo đôi",
+  "styleValue.zigzag": "Zigzag",
+  "styleValue.sharp": "Vuông",
+  "styleValue.round": "Bo tròn",
+  "styleValue.architect": "Kiến trúc sư",
+  "styleValue.artist": "Họa sĩ",
+  "styleValue.cartoonist": "Truyện tranh",
+
+  "arrowhead.none": "Không",
+  "arrowhead.arrow": "Mũi tên",
+  "arrowhead.bar": "Vạch",
+  "arrowhead.dot": "Chấm",
+  "arrowhead.triangle": "Tam giác",
+
+  "fontFamily.normal": "Thường",
+  "fontFamily.code": "Mã code",
+  "fontFamily.hand-drawn-slot": "Chữ viết tay",
+
+  "textAlign.left": "Trái",
+  "textAlign.center": "Giữa",
+  "textAlign.right": "Phải",
+
+  "contextMenu.copy": "Sao chép",
+  "contextMenu.paste": "Dán",
+  "contextMenu.duplicate": "Nhân bản",
+  "contextMenu.delete": "Xóa",
+
+  "shortcuts.title": "Phím tắt",
+  "shortcuts.search": "Tìm phím tắt…",
+  "shortcuts.noResults": "Không tìm thấy phím tắt phù hợp",
+  "shortcuts.close": "Đóng",
+
+  "commandPalette.placeholder": "Tìm hành động…",
+  "commandPalette.noResults": "Không tìm thấy hành động phù hợp",
+
+  "topbar.zoomPercentage": "{percent}%",
+
+  "mobile.moreTools": "Thêm công cụ",
+
+  "theme.light": "Sáng",
+  "theme.dark": "Tối",
+  "theme.system": "Theo hệ thống",
+
+  "language.en": "English",
+  "language.vi": "Tiếng Việt",
+};

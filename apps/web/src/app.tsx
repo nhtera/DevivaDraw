@@ -1,16 +1,18 @@
-import { ENGINE_VERSION } from "@deviva-draw/react";
-import { DevCanvasHarness } from "./dev-canvas-harness";
+import { useEffect } from "react";
+import { DevivaDraw } from "@deviva-draw/react";
 
 /**
- * Application shell. Mounts the temporary `DevCanvasHarness` to manually verify the renderer's
- * pan/zoom/culling behavior — replaced by the real tool/input UI once that pipeline exists.
+ * Application shell for the standalone Deviva Draw app (draw.deviva.app) — a thin wrapper around the
+ * composed `<DevivaDraw/>` component from `@deviva-draw/react`, full-screen, with no props overridden
+ * (theme/locale default to the persisted preference or the browser/system default; scene data
+ * defaults to localStorage autosave restore/save, this app's whole persistence story). Every actual
+ * feature (canvas, tools, toolbar, panels, menus, shortcuts, mobile/touch, theming, i18n) lives in
+ * `@deviva-draw/react` — this app is just the browser tab that hosts it.
  */
 export function App() {
-  return (
-    <main>
-      <h1>Deviva Draw</h1>
-      <p data-testid="engine-version">engine {ENGINE_VERSION}</p>
-      <DevCanvasHarness />
-    </main>
-  );
+  useEffect(() => {
+    document.title = "Deviva Draw";
+  }, []);
+
+  return <DevivaDraw style={{ position: "fixed", inset: 0 }} />;
 }

@@ -4,15 +4,20 @@
  * queued. Queueing was considered and rejected — it would switch tools on the *next* click instead
  * of the one the user actually made, which is more surprising than an explicit no-op, and no
  * concrete tool needs a deferred switch. `isGestureInProgress()` lets a caller (e.g. a toolbar) know
- * why a `setTool` call failed.
+ * why a `setTool` call failed. `subscribe()` (same plain `Set`-of-callbacks pub-sub `scene/scene.ts`
+ * and `selection/selection-state.ts` already use) lets a toolbar highlight the active tool reactively
+ * instead of polling `getActiveToolName()` on a timer.
  */
 import type { Point } from "../render/camera";
 import type { ModifierKeys, ToolHandler } from "./tool-handler";
+
+export type ToolChangeListener = () => void;
 
 export class ToolStateMachine {
   private readonly tools = new Map<string, ToolHandler>();
   private activeToolName: string;
   private gestureInProgress = false;
+  private readonly listeners = new Set<ToolChangeListener>();
 
   constructor(tools: Record<string, ToolHandler>, initialTool: string) {
     for (const [name, handler] of Object.entries(tools)) this.tools.set(name, handler);
@@ -46,8 +51,16 @@ export class ToolStateMachine {
   setTool(name: string): boolean {
     if (this.gestureInProgress) return false;
     this.getTool(name);
+    if (name === this.activeToolName) return true; // no-op re-selection: not a change, no notify
     this.activeToolName = name;
+    for (const listener of this.listeners) listener();
     return true;
+  }
+
+  /** Registers a listener fired whenever `setTool` actually changes the active tool; returns an unsubscribe function. */
+  subscribe(listener: ToolChangeListener): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
   }
 
   /** `pressure`/`pointerType` are forwarded verbatim to the active tool — see `ToolHandler.onGestureStart`'s doc. */

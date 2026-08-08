@@ -48,13 +48,30 @@ describe("TextTool", () => {
     expect(editSession.getState()).toMatchObject({ status: "editing", elementId: element?.id, isNewElement: true });
   });
 
-  it("calls onPlaced with the new element's id", () => {
-    const { scene, tool, onPlaced } = setup();
+  it("does not call onPlaced from onGestureStart alone — the gesture (click) is still in progress", () => {
+    const { tool, onPlaced } = setup();
 
     tool.onGestureStart({ x: 0, y: 0 }, NO_MODIFIERS);
 
+    expect(onPlaced).not.toHaveBeenCalled();
+  });
+
+  it("calls onPlaced with the new element's id once the gesture ends (pointerup)", () => {
+    const { scene, tool, onPlaced } = setup();
+
+    tool.onGestureStart({ x: 0, y: 0 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: 0, y: 0 }, NO_MODIFIERS);
+
     const element = scene.getElements()[0];
     expect(onPlaced).toHaveBeenCalledWith(element?.id);
+  });
+
+  it("onGestureEnd with no prior onGestureStart does not call onPlaced", () => {
+    const { tool, onPlaced } = setup();
+
+    tool.onGestureEnd({ x: 0, y: 0 }, NO_MODIFIERS);
+
+    expect(onPlaced).not.toHaveBeenCalled();
   });
 
   it("committing the session syncs width/height to the natural (unwrapped) measured size", () => {

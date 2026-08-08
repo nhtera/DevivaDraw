@@ -1,0 +1,141 @@
+/**
+ * English message catalog — the source of truth for every UI-chrome string key. `TranslationKey`
+ * (derived via `keyof typeof`) is what `catalog-vi.ts` types itself against, so a key added here and
+ * forgotten there is a compile error, not just a runtime gap (the runtime completeness test in
+ * `catalog-completeness.test.ts` is a second, independent safety net catching the same class of bug
+ * for any future catalog that isn't authored as a literal `Record` against this type). Every UI
+ * chrome string in `@deviva-draw/react`'s components must be pulled through `t()` against this
+ * catalog — the engine itself stays string-free (no i18n dependency), per this phase's scope.
+ */
+export const catalogEn = {
+  "app.title": "Deviva Draw",
+
+  "tool.select": "Selection",
+  "tool.pan": "Hand (pan)",
+  "tool.rectangle": "Rectangle",
+  "tool.ellipse": "Ellipse",
+  "tool.diamond": "Diamond",
+  "tool.line": "Line",
+  "tool.arrow": "Arrow",
+  "tool.freedraw": "Draw",
+  "tool.text": "Text",
+
+  "action.undo": "Undo",
+  "action.redo": "Redo",
+  "action.copy": "Copy",
+  "action.paste": "Paste",
+  "action.duplicate": "Duplicate",
+  "action.delete": "Delete",
+  "action.selectAll": "Select all",
+  "action.group": "Group selection",
+  "action.ungroup": "Ungroup selection",
+  "action.lock": "Lock",
+  "action.unlock": "Unlock",
+  "action.bringToFront": "Bring to front",
+  "action.bringForward": "Bring forward",
+  "action.sendBackward": "Send backward",
+  "action.sendToBack": "Send to back",
+  "action.alignLeft": "Align left",
+  "action.alignCenterH": "Align center (horizontal)",
+  "action.alignRight": "Align right",
+  "action.alignTop": "Align top",
+  "action.alignMiddleV": "Align middle (vertical)",
+  "action.alignBottom": "Align bottom",
+  "action.distributeHorizontal": "Distribute horizontally",
+  "action.distributeVertical": "Distribute vertically",
+  "action.zoomIn": "Zoom in",
+  "action.zoomOut": "Zoom out",
+  "action.zoomToFit": "Zoom to fit",
+  "action.toggleGrid": "Toggle grid",
+  "action.toggleTheme": "Toggle theme",
+  "action.toggleZenMode": "Toggle zen mode",
+  "action.toggleViewOnly": "Toggle view-only mode",
+  "action.toggleStats": "Toggle stats panel",
+  "action.openCommandPalette": "Open command palette",
+  "action.newScene": "New scene",
+  "action.openScene": "Open…",
+  "action.saveScene": "Save",
+  "action.exportPng": "Export as PNG",
+  "action.exportSvg": "Export as SVG",
+  "action.copyAsImage": "Copy as image",
+
+  "menu.title": "Menu",
+  "menu.theme": "Theme",
+  "menu.language": "Language",
+  "menu.help": "Keyboard shortcuts",
+  "menu.reset": "Reset canvas",
+  "menu.resetConfirm": "Clear the entire canvas? This cannot be undone.",
+
+  "panel.stroke": "Stroke",
+  "panel.background": "Background",
+  "panel.fill": "Fill",
+  "panel.strokeWidth": "Stroke width",
+  "panel.strokeStyle": "Stroke style",
+  "panel.roughness": "Sloppiness",
+  "panel.edges": "Edges",
+  "panel.opacity": "Opacity",
+  "panel.arrowheads": "Arrowheads",
+  "panel.arrowheadStart": "Start",
+  "panel.arrowheadEnd": "End",
+  "panel.fontSize": "Font size",
+  "panel.fontFamily": "Font family",
+  "panel.textAlign": "Text align",
+  "panel.layers": "Layer",
+  "panel.customColor": "Custom color",
+
+  "styleValue.thin": "Thin",
+  "styleValue.bold": "Bold",
+  "styleValue.extra-bold": "Extra bold",
+  "styleValue.solid": "Solid",
+  "styleValue.dashed": "Dashed",
+  "styleValue.dotted": "Dotted",
+  "styleValue.hachure": "Hachure",
+  "styleValue.cross-hatch": "Cross-hatch",
+  "styleValue.zigzag": "Zigzag",
+  "styleValue.sharp": "Sharp",
+  "styleValue.round": "Round",
+  "styleValue.architect": "Architect",
+  "styleValue.artist": "Artist",
+  "styleValue.cartoonist": "Cartoonist",
+
+  "arrowhead.none": "None",
+  "arrowhead.arrow": "Arrow",
+  "arrowhead.bar": "Bar",
+  "arrowhead.dot": "Dot",
+  "arrowhead.triangle": "Triangle",
+
+  "fontFamily.normal": "Normal",
+  "fontFamily.code": "Code",
+  "fontFamily.hand-drawn-slot": "Hand-drawn",
+
+  "textAlign.left": "Left",
+  "textAlign.center": "Center",
+  "textAlign.right": "Right",
+
+  "contextMenu.copy": "Copy",
+  "contextMenu.paste": "Paste",
+  "contextMenu.duplicate": "Duplicate",
+  "contextMenu.delete": "Delete",
+
+  "shortcuts.title": "Keyboard shortcuts",
+  "shortcuts.search": "Search shortcuts…",
+  "shortcuts.noResults": "No matching shortcuts",
+  "shortcuts.close": "Close",
+
+  "commandPalette.placeholder": "Search actions…",
+  "commandPalette.noResults": "No matching actions",
+
+  "topbar.zoomPercentage": "{percent}%",
+
+  "mobile.moreTools": "More tools",
+
+  "theme.light": "Light",
+  "theme.dark": "Dark",
+  "theme.system": "System",
+
+  "language.en": "English",
+  "language.vi": "Tiếng Việt",
+} as const;
+
+/** Every valid message key — `catalog-vi.ts` (and any future locale) is typed against this so a missing/extra key is a compile error. */
+export type TranslationKey = keyof typeof catalogEn;

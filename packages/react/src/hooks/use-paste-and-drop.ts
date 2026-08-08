@@ -1,12 +1,12 @@
 /**
- * Wires native `paste`/`drop` DOM events to the engine's shared `insertImageFile` path — the
- * paste/drag-drop two of this phase's three insertion entry points (the third, a toolbar file
- * picker, is a later phase's UI chrome; it will call the exact same `insertImageFile` this hook
- * does). Not unit tested: `ClipboardEvent`/`DataTransfer`/`File` DOM behavior doesn't exist in this
- * package's node-based vitest environment (no `jsdom`), same trade-off
- * `components/text-editor-overlay.tsx` documents for its own DOM-only surface — the actual
- * item-classification logic this hook calls into (`clipboard-image-detection.ts`) is separately
- * pure/tested. Verified manually via the dev harness in `apps/web`.
+ * Wires native `paste`/`drop` DOM events to the engine's shared `insertImageFile` path — paste and
+ * drag-drop are this package's two image-insertion entry points; a toolbar file-picker button (a
+ * third entry point calling the exact same `insertImageFile`) is not yet implemented, tracked as a
+ * follow-up UI affordance rather than built here. Not unit tested: `ClipboardEvent`/`DataTransfer`/
+ * `File` DOM behavior doesn't exist in this package's node-based vitest environment (no `jsdom`),
+ * same trade-off `components/text-editor-overlay.tsx` documents for its own DOM-only surface — the
+ * actual item-classification logic this hook calls into (`clipboard-image-detection.ts`) is
+ * separately pure/tested. Verified manually via `apps/web`'s composed app shell.
  *
  * Security: SVG paste is always routed through `insertImageFile` -> `Scene.files`' data-URL storage,
  * decoded and painted via `drawImage` (`render/image-renderer.ts`) — never `dangerouslySetInnerHTML`
@@ -30,17 +30,21 @@ import type { ClipboardItemKind } from "./clipboard-image-detection";
 
 export interface UsePasteAndDropOptions {
   containerRef: RefObject<HTMLElement | null>;
-  scene: Scene;
+  /** `null` while the composed app shell's canvas hasn't finished mounting yet — the hook no-ops (no listeners attached) until a real `Scene` is available, re-attaching once it is (see its effect's dependency array). */
+  scene: Scene | null;
   getCamera: () => Camera;
   /** CSS-pixel viewport size — used both to center a paste (no drop point) and to cap the fitted initial insert size. */
   getViewportSize: () => { width: number; height: number };
   decodeNaturalSize: DecodeNaturalSizeFn;
   maxFileSizeBytes?: number;
-  /** Called when an insert is rejected (oversized file, undecodable image, ...); this phase has no toast system yet (later UI chrome work), so the dev harness just logs it. */
+  /** Called when an insert is rejected (oversized file, undecodable image, ...); there's no toast/notification system yet, so the composed app shell just logs it (`console.warn`). */
   onInsertError?: (error: unknown) => void;
 }
 
-async function insertBlobAt(blob: { type: string; arrayBuffer(): Promise<ArrayBuffer> }, position: { x: number; y: number }, options: UsePasteAndDropOptions): Promise<void> {
+/** `UsePasteAndDropOptions` with `scene` narrowed to non-null — every helper below is only ever called from inside the effect's `!scene` early-return guard, via `narrowedOptions`. */
+type ScenePresentOptions = UsePasteAndDropOptions & { scene: Scene };
+
+async function insertBlobAt(blob: { type: string; arrayBuffer(): Promise<ArrayBuffer> }, position: { x: number; y: number }, options: ScenePresentOptions): Promise<void> {
   const bytes = new Uint8Array(await blob.arrayBuffer());
   await insertImageFile({
     scene: options.scene,
@@ -53,13 +57,13 @@ async function insertBlobAt(blob: { type: string; arrayBuffer(): Promise<ArrayBu
   });
 }
 
-function viewportCenter(options: UsePasteAndDropOptions): { x: number; y: number } {
+function viewportCenter(options: ScenePresentOptions): { x: number; y: number } {
   const viewport = options.getViewportSize();
   return screenToScene({ x: viewport.width / 2, y: viewport.height / 2 }, options.getCamera());
 }
 
 /** Handles a clipboard image file item (screenshot, copied image, ...) — the common case. */
-function tryPasteImageFile(items: DataTransferItemList, options: UsePasteAndDropOptions): boolean {
+function tryPasteImageFile(items: DataTransferItemList, options: ScenePresentOptions): boolean {
   for (let index = 0; index < items.length; index += 1) {
     const item = items[index];
     if (!item || item.kind !== "file" || !findFirstImageItem([item])) continue;
@@ -89,7 +93,7 @@ function collectClipboardItemKinds(items: DataTransferItemList): ClipboardItemKi
 }
 
 /** Handles pasted SVG markup, either as an explicit `image/svg+xml` clipboard item or plain text that sniffs as SVG. */
-function tryPasteSvgText(items: DataTransferItemList, options: UsePasteAndDropOptions): void {
+function tryPasteSvgText(items: DataTransferItemList, options: ScenePresentOptions): void {
   for (let index = 0; index < items.length; index += 1) {
     const item = items[index];
     if (!item || item.kind !== "string" || (item.type !== "text/plain" && item.type !== SVG_MIME_TYPE)) continue;
@@ -114,7 +118,11 @@ export function usePasteAndDrop(options: UsePasteAndDropOptions): void {
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || !scene) return;
+    // Narrowed copy (non-null `scene`) so the module-level helper functions below — typed against
+    // the full `UsePasteAndDropOptions` shape, `scene` included — never have to re-check what this
+    // guard just established.
+    const narrowedOptions: UsePasteAndDropOptions & { scene: Scene } = { ...options, scene };
 
     const handlePaste = (event: ClipboardEvent) => {
       const items = event.clipboardData?.items;
@@ -128,8 +136,8 @@ export function usePasteAndDrop(options: UsePasteAndDropOptions): void {
       if (!shouldConsumePaste(activeElementTag, isContentEditable, collectClipboardItemKinds(items))) return;
 
       event.preventDefault();
-      if (tryPasteImageFile(items, options)) return;
-      tryPasteSvgText(items, options);
+      if (tryPasteImageFile(items, narrowedOptions)) return;
+      tryPasteSvgText(items, narrowedOptions);
     };
 
     const handleDragOver = (event: DragEvent) => event.preventDefault();
@@ -144,7 +152,7 @@ export function usePasteAndDrop(options: UsePasteAndDropOptions): void {
       for (let index = 0; index < files.length; index += 1) {
         const file = files[index];
         if (!file || !findFirstImageItem([file])) continue;
-        insertBlobAt(file, dropPoint, options).catch((error: unknown) => options.onInsertError?.(error));
+        insertBlobAt(file, dropPoint, narrowedOptions).catch((error: unknown) => narrowedOptions.onInsertError?.(error));
         return; // one image per drop keeps "single insert point" semantics simple — YAGNI beyond that for V1
       }
     };

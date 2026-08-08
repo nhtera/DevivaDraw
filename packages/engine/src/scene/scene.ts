@@ -179,6 +179,23 @@ export class Scene {
     this.filesStore.addFile(fileId, file);
   }
 
+  /**
+   * Replaces every element with exactly `elements`, in one atomic swap plus a single `notify()` — the
+   * undo/redo restore path: `HistoryStack<AnyElement[]>` snapshots (`scene.getElements()`) taken by
+   * tool gestures are handed straight back here by the UI-chrome layer's undo/redo action, with no
+   * `version`/`versionNonce`/`updated` bump (like `restoreElement`, not `addElement`/`updateElement`) —
+   * an undo must restore an element to its exact prior recorded state, not mint a fresh "edit" on top
+   * of it. Files are left untouched: undoing an image insert removes the `ImageElement` referencing it
+   * but intentionally leaves the file bytes in `filesStore` (same "no eager GC, only explicit
+   * `pruneOrphanedFiles()`" policy `deleteElement`'s doc already documents) so a redo immediately after
+   * finds the file still there.
+   */
+  loadElementsSnapshot(elements: readonly AnyElement[]): void {
+    this.elements.clear();
+    for (const element of elements) this.elements.set(element.id, element);
+    this.notify();
+  }
+
   /** Serializes this scene to the versioned JSON document shape — see `persistence/serialize-scene.ts`'s module doc for the export-vs-autosave `includeDeleted` distinction. */
   toJSON(options?: SerializeSceneOptions): SceneDocumentV1 {
     return serializeScene(this, options);

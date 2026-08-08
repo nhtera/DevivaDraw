@@ -134,6 +134,50 @@ describe("ToolStateMachine.setTool", () => {
   });
 });
 
+describe("ToolStateMachine.subscribe", () => {
+  it("notifies subscribers when setTool actually changes the active tool", () => {
+    const { machine } = buildMachine();
+    let notifyCount = 0;
+    machine.subscribe(() => (notifyCount += 1));
+
+    machine.setTool("b");
+
+    expect(notifyCount).toBe(1);
+  });
+
+  it("does not notify for a no-op re-selection of the already-active tool", () => {
+    const { machine } = buildMachine();
+    let notifyCount = 0;
+    machine.subscribe(() => (notifyCount += 1));
+
+    machine.setTool("a"); // already active
+
+    expect(notifyCount).toBe(0);
+  });
+
+  it("does not notify when setTool is rejected mid-gesture", () => {
+    const { machine } = buildMachine();
+    let notifyCount = 0;
+    machine.subscribe(() => (notifyCount += 1));
+    machine.dispatchGestureStart({ x: 0, y: 0 }, NO_MODIFIERS);
+
+    machine.setTool("b");
+
+    expect(notifyCount).toBe(0);
+  });
+
+  it("stops notifying after unsubscribe", () => {
+    const { machine } = buildMachine();
+    let notifyCount = 0;
+    const unsubscribe = machine.subscribe(() => (notifyCount += 1));
+    unsubscribe();
+
+    machine.setTool("b");
+
+    expect(notifyCount).toBe(0);
+  });
+});
+
 describe("ToolStateMachine.registerTool", () => {
   it("makes a newly registered tool selectable", () => {
     const { machine } = buildMachine();

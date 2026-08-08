@@ -1,10 +1,54 @@
 /**
  * @deviva-draw/react — React bindings for the Deviva Draw engine.
  *
- * Will export the <DevivaDraw/> component, imperative handle, hooks, and the
- * scene-read API used by embedders (e.g. deviva.app's interview canvas).
+ * Public entry point: the composed `<DevivaDraw/>` component + its imperative handle (the embedding
+ * contract deviva.app and `apps/web` both consume), plus the lower-level hooks/building blocks a host
+ * that wants to build its own chrome around the engine can use directly.
  */
 export { ENGINE_VERSION } from "@deviva-draw/engine";
+
+// --- Composed app shell (primary public API) ---
+
+export { DevivaDraw } from "./deviva-draw-app";
+export type { DevivaDrawHandle, DevivaDrawProps, DevivaDrawStoredFile } from "./deviva-draw-app";
+export type { ExportPngOptions, ExportSvgOptions } from "./runtime/imperative-handle";
+
+// --- Theming ---
+
+export { ThemeProvider, useTheme } from "./theme/theme-provider";
+export type { ThemeContextValue, ThemeProviderProps } from "./theme/theme-provider";
+export type { ThemeMode, ThemeTokens } from "./theme/theme-tokens";
+export { resolveThemeTokens, toCssVariables } from "./theme/theme-tokens";
+export { adaptBackgroundColorForTheme, adaptStrokeColorForTheme, applyThemeToSceneElements } from "./theme/canvas-color-inversion";
+
+// --- i18n ---
+
+export { LocaleProvider, useTranslation } from "./i18n/use-translation";
+export type { LocaleContextValue, LocaleProviderProps } from "./i18n/use-translation";
+export type { Locale } from "./i18n/locale-storage";
+export type { TranslationKey } from "./i18n/catalog-en";
+export { catalogEn } from "./i18n/catalog-en";
+export { catalogVi } from "./i18n/catalog-vi";
+export { createTranslator } from "./i18n/translate";
+export type { Translator } from "./i18n/translate";
+
+// --- Actions ---
+
+export { ActionRegistry } from "./actions/action-registry";
+export type { Action, ActionRuntime, GridState, PersistenceOperations, UiToggleState } from "./actions/action-types";
+export { buildActionRegistry } from "./actions/build-action-registry";
+export { formatShortcut, detectIsMac } from "./actions/format-shortcut";
+export { fuzzyMatch } from "./actions/fuzzy-match";
+
+// --- Runtime building blocks (for a host building its own chrome around the engine) ---
+
+export { createCameraStore } from "./runtime/camera-store";
+export type { CameraStore } from "./runtime/camera-store";
+export { buildImperativeHandle } from "./runtime/imperative-handle";
+export type { ImperativeHandleDeps } from "./runtime/imperative-handle";
+export * from "./runtime/tool-names";
+
+// --- Lower-level components/hooks (phases 07/09) ---
 
 export type { TextEditorOverlayProps } from "./components/text-editor-overlay";
 export { TextEditorOverlay } from "./components/text-editor-overlay";

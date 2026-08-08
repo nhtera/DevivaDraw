@@ -1,9 +1,15 @@
 /**
  * Key-combo -> action-name registry with registration-time conflict detection (`register()` warns
- * immediately if a combo is already bound to a different action). This phase registers only its own
- * features (tool-switch + pan/zoom); the full shortcut map is populated once the concrete tools,
- * menus, and remaining actions exist (a later phase) — `register()` stays a public method so that
- * phase can keep adding to the same registry instance instead of replacing it.
+ * immediately if a combo is already bound to a different action). `registerCoreShortcuts` covers this
+ * package's own tool-switch/pan-zoom bindings; `registerToolShortcuts`/`registerHistoryShortcuts`/
+ * `registerCommandPaletteShortcut` add the remaining letter/tool/undo-redo/palette bindings the UI
+ * chrome layer (`@deviva-draw/react`) wires up — `registerFullShortcutMap` composes all of them into
+ * the one registry instance a host app's pointer pipeline resolves every keydown against. Note: some
+ * "shortcuts" mentioned by the product spec (Delete, Escape, arrow-key nudge, Ctrl/Cmd+A/C/V/D/G/L,
+ * `[`/`]`) are deliberately *not* registered here — they're handled inside the select tool's own
+ * `onKeyDown` fallback (`selection/selection-tool-keyboard.ts`), which every unmatched key reaches
+ * (see `input/wheel-keyboard-controller.ts`'s resolution precedence) — registering them here would
+ * intercept them before they ever reach that handler.
  */
 import type { ModifierKeys } from "./tool-handler";
 
@@ -58,4 +64,42 @@ export function registerCoreShortcuts(registry: ShortcutRegistry): void {
     registry.register(`${modifier}++`, "zoom-in"); // some layouts report "+" directly as `key`
     registry.register(`${modifier}+-`, "zoom-out");
   }
+}
+
+/**
+ * No-modifier letter shortcuts for every remaining tool, matching this genre's conventional
+ * mnemonics: R/O/D/L for rectangle/ellipse("oval")/diamond/line, P for the pencil (freehand), T for
+ * text, A for arrow. `V` is the second common binding for the select tool alongside `registerCoreShortcuts`'s `1`.
+ */
+export function registerToolShortcuts(registry: ShortcutRegistry): void {
+  registry.register("v", "select-tool");
+  registry.register("r", "rectangle-tool");
+  registry.register("o", "ellipse-tool");
+  registry.register("d", "diamond-tool");
+  registry.register("l", "line-tool");
+  registry.register("p", "freedraw-tool");
+  registry.register("t", "text-tool");
+  registry.register("a", "arrow-tool");
+}
+
+/** Undo/redo — `Ctrl/Cmd+Z` and `Ctrl/Cmd+Shift+Z`, the one shortcut pair no tool's own `onKeyDown` owns (undo/redo is global chrome, not a tool concern). */
+export function registerHistoryShortcuts(registry: ShortcutRegistry): void {
+  for (const modifier of ["ctrl", "meta"]) {
+    registry.register(`${modifier}+z`, "undo");
+    registry.register(`${modifier}+shift+z`, "redo");
+  }
+}
+
+/** `Ctrl/Cmd+K` opens the command palette — the one new chrome-level shortcut this phase introduces beyond undo/redo. */
+export function registerCommandPaletteShortcut(registry: ShortcutRegistry): void {
+  registry.register("ctrl+k", "open-command-palette");
+  registry.register("meta+k", "open-command-palette");
+}
+
+/** Composes every registration function above into one registry — the single call a host app's runtime wiring needs. */
+export function registerFullShortcutMap(registry: ShortcutRegistry): void {
+  registerCoreShortcuts(registry);
+  registerToolShortcuts(registry);
+  registerHistoryShortcuts(registry);
+  registerCommandPaletteShortcut(registry);
 }

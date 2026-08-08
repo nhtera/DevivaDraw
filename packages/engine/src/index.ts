@@ -115,6 +115,7 @@ export { CanvasStage } from "./render/canvas-stage";
 export type { ModifierKeys, ToolHandler } from "./input/tool-handler";
 export { NoOpToolHandler } from "./input/tool-handler";
 
+export type { ToolChangeListener } from "./input/tool-state-machine";
 export { ToolStateMachine } from "./input/tool-state-machine";
 
 export { computeElementsBounds, computeZoomToFitCamera, panCameraByScreenDelta, zoomCameraAtScreenPoint } from "./input/pan-zoom-math";
@@ -122,7 +123,15 @@ export { computeElementsBounds, computeZoomToFitCamera, panCameraByScreenDelta, 
 export type { PanZoomToolDeps } from "./input/pan-zoom-tool";
 export { PanZoomTool } from "./input/pan-zoom-tool";
 
-export { normalizeCombo, registerCoreShortcuts, ShortcutRegistry } from "./input/shortcut-registry";
+export {
+  normalizeCombo,
+  registerCommandPaletteShortcut,
+  registerCoreShortcuts,
+  registerFullShortcutMap,
+  registerHistoryShortcuts,
+  registerToolShortcuts,
+  ShortcutRegistry,
+} from "./input/shortcut-registry";
 
 export type {
   HistoryBatchGuard,

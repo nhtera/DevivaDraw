@@ -16,7 +16,22 @@ export interface UseTextEditingOptions {
   scene: Scene;
   /** Read fresh on every render — the same camera the canvas itself paints with, so the overlay tracks pan/zoom exactly. */
   getCamera: () => Camera;
-  /** Opaque background so the overlay fully covers the last-committed canvas render underneath while editing, instead of the two overlapping into a double-vision blur. Defaults to white. */
+  /**
+   * Registers a listener fired whenever the camera actually changes (`camera-store.ts`'s
+   * `CameraStore.subscribe`) — without this, a live pan/zoom while a text-edit session is open would
+   * leave the overlay's position stale until *something else* (a session/scene change) happened to
+   * force a React re-render. Optional so a host that hasn't wired a `CameraStore` yet still gets the
+   * old "recompute on every render" behavior rather than a hard requirement; every composed
+   * `<DevivaDraw/>` app shell always supplies it.
+   */
+  subscribeCamera?: (listener: () => void) => () => void;
+  /**
+   * Opaque background so the overlay fully covers the last-committed canvas render underneath while
+   * editing, instead of the two overlapping into a double-vision blur. Must match the canvas's own
+   * current background (the active theme's `canvasBackground` token — see `theme/theme-tokens.ts`),
+   * not a fixed color, or dark mode shows a white flash around the text caret. Defaults to white for
+   * a host that hasn't wired theming.
+   */
   canvasBackgroundColor?: string;
 }
 
@@ -43,21 +58,21 @@ function useForceRender(): () => void {
 
 /**
  * Returns the current overlay's derived state, or `null` when no session is open (the host renders
- * nothing in that case). Deliberately recomputed on every render rather than memoized: the geometry
- * depends on `getCamera()`, which lives outside React state (a plain ref the canvas render loop
- * mutates directly — see `apps/web`'s dev harness) with no subscribable change event of its own, so
- * a memo keyed only on session/scene state would miss camera pans/zooms that happen without a
- * session/scene change in between. The computation itself is a handful of arithmetic ops — cheap
- * enough that recomputing on every render (the subscriptions below still gate *when* a render
- * happens at all) is simpler and more correct than chasing a camera-change signal that doesn't
- * exist yet.
+ * nothing in that case). Deliberately recomputed on every render rather than memoized — the geometry
+ * depends on `getCamera()`, which lives outside React state, so a memo keyed only on session/scene
+ * state would miss camera pans/zooms in between; the computation itself is a handful of arithmetic
+ * ops, cheap enough to redo on every render this hook is asked to. What actually *triggers* a render
+ * whenever the camera changes mid-edit (the bug `subscribeCamera` fixes: without it, the overlay's
+ * position would drift stale during a live pan while editing, since neither `session` nor `scene`
+ * emit anything for a pan-only change) is the third subscription below.
  */
 export function useTextEditing(options: UseTextEditingOptions): TextEditingOverlay | null {
-  const { session, scene, getCamera, canvasBackgroundColor = "#ffffff" } = options;
+  const { session, scene, getCamera, subscribeCamera, canvasBackgroundColor = "#ffffff" } = options;
   const forceRender = useForceRender();
 
   useEffect(() => session.subscribe(forceRender), [session, forceRender]);
   useEffect(() => scene.subscribe(forceRender), [scene, forceRender]);
+  useEffect(() => subscribeCamera?.(forceRender), [subscribeCamera, forceRender]);
 
   const sessionState = session.getState();
   if (sessionState.status !== "editing") return null;
