@@ -2,6 +2,7 @@ import type { Drawable } from "roughjs/bin/core";
 import { describe, expect, it, vi } from "vitest";
 import { createFreedrawElement } from "../elements/freedraw-element";
 import { createGenericElement } from "../elements/element-types";
+import { createTextElement } from "../elements/text-element";
 import { Scene } from "../scene/scene";
 import { createCamera } from "./camera";
 import type { RoughCanvasDrawer } from "./rough-renderer";
@@ -23,6 +24,11 @@ function fakeContext(width = 800, height = 600): StaticLayerContext {
     lineTo: vi.fn(),
     closePath: vi.fn(),
     fill: vi.fn(),
+    font: "",
+    textAlign: "left",
+    textBaseline: "alphabetic",
+    fillText: vi.fn(),
+    measureText: vi.fn(() => ({ width: 0 })),
   };
 }
 
@@ -176,6 +182,31 @@ describe("StaticLayer.render", () => {
     expect(ctx.fill).toHaveBeenCalledTimes(1);
     expect(roughCanvas.rectangle).not.toHaveBeenCalled();
     expect(roughCanvas.polygon).not.toHaveBeenCalled();
+  });
+
+  it("dispatches text elements to the fillText path instead of the rough.js drawer", () => {
+    const ctx = fakeContext();
+    const roughCanvas = fakeRoughCanvas();
+    const scene = new Scene();
+    scene.addElement(createTextElement({ x: 0, y: 0, width: 40, height: 20, text: "hello" }));
+    const layer = new StaticLayer(ctx, roughCanvas);
+
+    layer.render(scene, createCamera());
+
+    expect(ctx.fillText).toHaveBeenCalledTimes(1);
+    expect(roughCanvas.rectangle).not.toHaveBeenCalled();
+  });
+
+  it("skips fillText entirely for an empty (mid-edit) text element", () => {
+    const ctx = fakeContext();
+    const roughCanvas = fakeRoughCanvas();
+    const scene = new Scene();
+    scene.addElement(createTextElement({ x: 0, y: 0, width: 40, height: 20, text: "" }));
+    const layer = new StaticLayer(ctx, roughCanvas);
+
+    layer.render(scene, createCamera());
+
+    expect(ctx.fillText).not.toHaveBeenCalled();
   });
 
   it("never calls the sorted getElements() when a render is skipped (fingerprint uses the unsorted path)", () => {

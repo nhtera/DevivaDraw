@@ -1,0 +1,71 @@
+/**
+ * `TextElement`: standalone text (`containerId === null`) or text bound inside a rect/ellipse/
+ * diamond container (`containerId` set to the container's id, with a matching `{id, type: "text"}`
+ * entry in the container's `boundElements` — see `text/bound-text.ts` for the linking logic).
+ *
+ * `text` always stores the raw, unwrapped string exactly as typed — never the wrapped-with-inserted-
+ * line-breaks version. Word wrapping is derived at measurement/render time from this raw string (see
+ * `text/text-measurement.ts`), the same way `FreedrawElement` stores raw pointer samples instead of a
+ * derived outline: recomputing the wrap (a container resize, a font-metrics fix) never needs to
+ * touch stored data, only re-run the derivation.
+ */
+import type { BaseElement } from "./base-element";
+import type { ElementCreationInput } from "./element-factory-defaults";
+import { createElementBase } from "./element-factory-defaults";
+
+/**
+ * `"normal"`/`"code"` ship with unambiguous open-licensed fonts (a standard sans-serif + monospace,
+ * see `text/font-loading.ts`). `"hand-drawn-slot"` is a swappable slot with no bundled asset yet —
+ * commissioning/licensing a Deviva-owned hand-drawn font is an open blocker, not a code task; the
+ * slot exists so wiring one in later needs zero element-model rework.
+ */
+export type TextFontFamily = "normal" | "code" | "hand-drawn-slot";
+
+export type TextAlign = "left" | "center" | "right";
+
+/** How the text block is positioned within its own bounding box (standalone) or its container's inner box (bound). */
+export type VerticalAlign = "top" | "middle" | "bottom";
+
+export interface TextElement extends BaseElement {
+  type: "text";
+  text: string;
+  fontFamily: TextFontFamily;
+  /** Pixel size in scene units (not a named `S`/`M`/`L`/`XL` level — see `text/text-measurement.ts`'s `FONT_SIZE_LEVELS` for the UI-facing preset mapping, matching `shape-style-state.ts`'s `STROKE_WIDTH_LEVELS` pattern). */
+  fontSize: number;
+  textAlign: TextAlign;
+  verticalAlign: VerticalAlign;
+  /** Multiplier applied to `fontSize` for the distance between line baselines. */
+  lineHeight: number;
+  /** The container this text is bound inside, or `null` for standalone text. */
+  containerId: string | null;
+}
+
+export interface TextElementCreationInput extends ElementCreationInput {
+  text?: string;
+  fontFamily?: TextFontFamily;
+  fontSize?: number;
+  textAlign?: TextAlign;
+  verticalAlign?: VerticalAlign;
+  lineHeight?: number;
+  containerId?: string | null;
+}
+
+export const DEFAULT_TEXT_FONT_FAMILY: TextFontFamily = "normal";
+export const DEFAULT_TEXT_FONT_SIZE = 20;
+export const DEFAULT_TEXT_ALIGN: TextAlign = "left";
+export const DEFAULT_TEXT_VERTICAL_ALIGN: VerticalAlign = "top";
+export const DEFAULT_TEXT_LINE_HEIGHT = 1.25;
+
+export function createTextElement(input: TextElementCreationInput): TextElement {
+  return {
+    ...createElementBase(input),
+    type: "text",
+    text: input.text ?? "",
+    fontFamily: input.fontFamily ?? DEFAULT_TEXT_FONT_FAMILY,
+    fontSize: input.fontSize ?? DEFAULT_TEXT_FONT_SIZE,
+    textAlign: input.textAlign ?? DEFAULT_TEXT_ALIGN,
+    verticalAlign: input.verticalAlign ?? DEFAULT_TEXT_VERTICAL_ALIGN,
+    lineHeight: input.lineHeight ?? DEFAULT_TEXT_LINE_HEIGHT,
+    containerId: input.containerId ?? null,
+  };
+}

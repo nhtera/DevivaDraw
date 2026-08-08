@@ -27,6 +27,15 @@ export type {
   RelativePoint,
 } from "./elements/shape-elements";
 export { createDiamondElement, createEllipseElement, createLineElement, createRectangleElement } from "./elements/shape-elements";
+export type { TextAlign, TextElement, TextElementCreationInput, TextFontFamily, VerticalAlign } from "./elements/text-element";
+export {
+  createTextElement,
+  DEFAULT_TEXT_ALIGN,
+  DEFAULT_TEXT_FONT_FAMILY,
+  DEFAULT_TEXT_FONT_SIZE,
+  DEFAULT_TEXT_LINE_HEIGHT,
+  DEFAULT_TEXT_VERTICAL_ALIGN,
+} from "./elements/text-element";
 
 export type { IndexedItem } from "./scene/fractional-index";
 export { indexBetween, moveBackward, moveForward, moveToBack, moveToFront } from "./scene/fractional-index";
@@ -55,6 +64,9 @@ export { RoughDrawableCache } from "./render/rough-drawable-cache";
 export type { FreedrawDrawContext2D, FreedrawStrokeOptions } from "./render/freedraw-renderer";
 export { buildFreedrawStrokeOptions, computeFreedrawOutline, drawElementFreedraw, freedrawSceneRadius } from "./render/freedraw-renderer";
 export { FreedrawOutlineCache } from "./render/freedraw-outline-cache";
+
+export type { TextDrawContext2D } from "./render/text-renderer";
+export { drawElementText } from "./render/text-renderer";
 
 export type { StaticLayerContext } from "./render/static-layer";
 export { StaticLayer } from "./render/static-layer";
@@ -92,6 +104,43 @@ export { DEFAULT_POINTER_TYPE, DEFAULT_SIMULATED_PRESSURE, PointerEventPipeline 
 
 export { createElementTarget, createGlobalTarget } from "./input/dom-event-target-adapter";
 
+export type { FontLoaderTarget, TextFontFaceSource } from "./text/font-loading";
+export { FONT_SIZE_LEVELS, loadTextFonts, TEXT_FONT_FAMILY_CSS } from "./text/font-loading";
+
+export type {
+  MeasureWrappedTextOptions,
+  MeasurementContext2D,
+  TextMeasurer,
+  WrappedTextMetrics,
+  WrapTextOptions,
+} from "./text/text-measurement";
+export {
+  buildFontCssString,
+  createCanvasTextMeasurer,
+  createFixedWidthTextMeasurer,
+  measureWrappedText,
+  wrapText,
+} from "./text/text-measurement";
+
+export type { BoundTextContainerSize, BoundTextLayoutResult } from "./text/bound-text-layout";
+export { BOUND_TEXT_PADDING, boundTextWrapWidth, layoutBoundText } from "./text/bound-text-layout";
+
+export type { BoundTextResult } from "./text/bound-text";
+export {
+  deleteContainerAndBoundText,
+  findBoundTextRef,
+  getOrCreateBoundText,
+  growContainerToFitText,
+  isBindableContainer,
+  startBoundTextEdit,
+  unbindTextFromContainer,
+} from "./text/bound-text";
+
+export { getLabel } from "./text/get-label";
+
+export type { TextEditSessionDeps, TextEditSessionStartOptions, TextEditSessionState } from "./text/text-edit-session";
+export { TextEditSession } from "./text/text-edit-session";
+
 export type { DragRect } from "./tools/shape-drag-geometry";
 export { computeDragRect } from "./tools/shape-drag-geometry";
 
@@ -115,3 +164,5 @@ export type { LineToolDeps } from "./tools/line-tool";
 export { LineTool } from "./tools/line-tool";
 export type { FreedrawToolDeps } from "./tools/freedraw-tool";
 export { FreedrawTool } from "./tools/freedraw-tool";
+export type { TextToolDeps } from "./tools/text-tool";
+export { TextTool } from "./tools/text-tool";

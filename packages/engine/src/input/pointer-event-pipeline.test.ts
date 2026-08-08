@@ -165,6 +165,46 @@ describe("PointerEventPipeline gesture-active camera guard", () => {
   });
 });
 
+describe("PointerEventPipeline text-editing suppression", () => {
+  it("suppresses shortcut resolution entirely while suppressed — no tool switch, no forward to the active tool", () => {
+    const { globalTarget, selectTool, toolStateMachine, editingSuppressionState } = buildHarness();
+    editingSuppressionState.suppressed = true;
+
+    globalTarget.fireKeyDown("h"); // normally resolves to the "pan-tool" shortcut
+    globalTarget.fireKeyDown("a"); // normally forwards to the active tool's onKeyDown
+
+    expect(toolStateMachine.getActiveToolName()).toBe("select");
+    expect(selectTool.calls).toEqual([]);
+  });
+
+  it("does not call preventDefault while suppressed, leaving the textarea's native key handling untouched", () => {
+    const { globalTarget, editingSuppressionState } = buildHarness();
+    editingSuppressionState.suppressed = true;
+
+    const event = globalTarget.fireKeyDown("h");
+    expect(event.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it("does not arm the space-held pan override while suppressed", () => {
+    const { globalTarget, editingSuppressionState } = buildHarness();
+    editingSuppressionState.suppressed = true;
+
+    const event = globalTarget.fireKeyDown(" ");
+    expect(event.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it("shortcuts resolve normally again once suppression is lifted", () => {
+    const { globalTarget, toolStateMachine, editingSuppressionState } = buildHarness();
+    editingSuppressionState.suppressed = true;
+    globalTarget.fireKeyDown("h");
+    expect(toolStateMachine.getActiveToolName()).toBe("select"); // still suppressed
+
+    editingSuppressionState.suppressed = false;
+    globalTarget.fireKeyDown("h");
+    expect(toolStateMachine.getActiveToolName()).toBe("pan");
+  });
+});
+
 describe("PointerEventPipeline.detach", () => {
   it("disposes both targets", () => {
     const { pipeline, element, globalTarget } = buildHarness();

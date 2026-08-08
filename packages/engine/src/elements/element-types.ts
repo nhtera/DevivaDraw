@@ -8,13 +8,15 @@
  * in `shape-elements.ts` (kept separate so this file, and the per-shape factories, stay small) and
  * are re-exported from here so `AnyElement` has one canonical home. `FreedrawElement` lives in its
  * own `freedraw-element.ts` (rather than `shape-elements.ts`) since it isn't a rough.js-rendered
- * bounding-box shape — see that file's doc.
+ * bounding-box shape — see that file's doc. `TextElement` similarly lives in its own
+ * `text-element.ts` (see that file's doc for the standalone-vs-bound-in-a-container model).
  */
 import type { BaseElement } from "./base-element";
 import type { ElementCreationInput } from "./element-factory-defaults";
 import { createElementBase } from "./element-factory-defaults";
 import type { FreedrawElement } from "./freedraw-element";
 import type { DiamondElement, EllipseElement, LineElement, RectangleElement } from "./shape-elements";
+import type { TextElement } from "./text-element";
 
 export type { ElementCreationInput } from "./element-factory-defaults";
 export type { FreedrawElement, FreedrawElementCreationInput, FreedrawPoint } from "./freedraw-element";
@@ -28,13 +30,23 @@ export type {
   RelativePoint,
 } from "./shape-elements";
 export { createDiamondElement, createEllipseElement, createLineElement, createRectangleElement } from "./shape-elements";
+export type { TextAlign, TextElementCreationInput, TextFontFamily, VerticalAlign } from "./text-element";
+export type { TextElement } from "./text-element";
+export {
+  createTextElement,
+  DEFAULT_TEXT_ALIGN,
+  DEFAULT_TEXT_FONT_FAMILY,
+  DEFAULT_TEXT_FONT_SIZE,
+  DEFAULT_TEXT_LINE_HEIGHT,
+  DEFAULT_TEXT_VERTICAL_ALIGN,
+} from "./text-element";
 
 /** Stand-in element used before concrete shape types existed; carries no extra fields beyond the base. */
 export interface GenericElement extends BaseElement {
   type: "generic";
 }
 
-export type AnyElement = GenericElement | RectangleElement | EllipseElement | DiamondElement | LineElement | FreedrawElement;
+export type AnyElement = GenericElement | RectangleElement | EllipseElement | DiamondElement | LineElement | FreedrawElement | TextElement;
 
 /**
  * Builds a new `GenericElement` with sane defaults for every field the caller did not supply.

@@ -158,6 +158,10 @@ export function buildHarness(historyStack?: HistoryBatchGuard) {
   const element = new FakeElementTarget();
   const globalTarget = new FakeGlobalTarget();
   const cameraState = { camera: createCamera() };
+  // Mutable flag a test can flip to simulate a text-edit session's `<textarea>` overlay owning
+  // keyboard input — see `wheel-keyboard-controller.ts`'s "Text-editing suppression" doc. Defaults
+  // to `false`, behaviorally identical to every pre-existing test that never touches it.
+  const editingSuppressionState = { suppressed: false };
   const selectTool = new RecordingToolHandler();
   const panZoomTool = new PanZoomTool({
     getCamera: () => cameraState.camera,
@@ -186,8 +190,9 @@ export function buildHarness(historyStack?: HistoryBatchGuard) {
       "zoom-out": () => panZoomTool.zoomStep(-1),
       "zoom-to-fit": () => panZoomTool.zoomToFit(),
     },
+    isEditingTextSuppressed: () => editingSuppressionState.suppressed,
   });
   pipeline.attach();
 
-  return { pipeline, element, globalTarget, cameraState, selectTool, toolStateMachine };
+  return { pipeline, element, globalTarget, cameraState, selectTool, toolStateMachine, editingSuppressionState };
 }

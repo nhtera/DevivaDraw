@@ -51,6 +51,8 @@ export interface PointerEventPipelineOptions {
   historyStack?: HistoryBatchGuard;
   /** Tool name `panZoomTool` is registered under, used for the temporary space/middle-mouse override. Defaults to `"pan"`. */
   panToolName?: string;
+  /** Forwarded verbatim to `WheelKeyboardController` as `isSuppressed` — see that module's "Text-editing suppression" doc. Omit if text editing isn't wired up. */
+  isEditingTextSuppressed?(): boolean;
 }
 
 function extractModifiers(event: { shiftKey: boolean; altKey: boolean; ctrlKey: boolean; metaKey: boolean }): ModifierKeys {
@@ -88,6 +90,7 @@ export class PointerEventPipeline {
       onEscapeDuringGesture: (modifiers) => this.abortActiveGesture(modifiers),
       dispatchKeyDown: (key, modifiers) => options.toolStateMachine.dispatchKeyDown(key, modifiers),
       getElementRect: () => options.element.getBoundingClientRect(),
+      isSuppressed: options.isEditingTextSuppressed,
     });
   }
 

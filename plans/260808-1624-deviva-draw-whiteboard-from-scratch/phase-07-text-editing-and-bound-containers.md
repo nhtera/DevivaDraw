@@ -7,7 +7,7 @@
 
 ## Overview
 - **Priority:** 🔴 blocking (MVP) — text is required for the diagram-extraction use case that motivates the deviva.app integration (phase 15)
-- **Status:** pending
+- **Status:** complete
 - Implement standalone text elements with WYSIWYG overlay editing, plus text bound inside containers (rect/ellipse/diamond) with auto-grow and wrapping. Establishes font loading/measurement used by every text-bearing feature after this (arrow labels in phase 08).
 
 ## Key Insights
@@ -55,12 +55,12 @@ This is the first phase where `packages/react` gets real content — text editin
 7. Unit tests: wrap algorithm correctness (known strings at known widths), auto-grow height math, `getLabel` covers all current element types.
 
 ## Todo List
-- [ ] Font loading + `fontsReady` gating implemented
-- [ ] Text measurement/wrap algorithm implemented and unit tested
-- [ ] Standalone text tool + WYSIWYG overlay working (position/zoom/rotation synced)
-- [ ] Bound text: double-click-to-edit inside shapes, auto-grow vertical, wrap on container resize hook in place
-- [ ] `getLabel` utility implemented and tested for all current element types
-- [ ] Hand-drawn font treated as swappable slot, not hard dependency (license blocker documented, not silently worked around)
+- [x] Font loading + `fontsReady` gating implemented
+- [x] Text measurement/wrap algorithm implemented and unit tested
+- [x] Standalone text tool + WYSIWYG overlay working (position/zoom/rotation synced)
+- [x] Bound text: double-click-to-edit inside shapes, auto-grow vertical, wrap on container resize hook in place
+- [x] `getLabel` utility implemented and tested for all current element types
+- [x] Hand-drawn font treated as swappable slot, not hard dependency (license blocker documented, not silently worked around)
 
 ## Success Criteria
 - Dev harness: create standalone text, edit it, see it render on canvas after blur.

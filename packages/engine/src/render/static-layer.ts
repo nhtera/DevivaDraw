@@ -23,9 +23,13 @@
  * don't use rough.js at all (see `freedraw-renderer.ts`'s module doc) — but still participate in
  * the same redraw-skip/culling pass as every other element type, and get the same per-element
  * drawable-cache treatment via `FreedrawOutlineCache` (pruned alongside `RoughDrawableCache` in the
- * same pass, against the same live-id set).
+ * same pass, against the same live-id set). `text` elements are dispatched to `drawElementText` the
+ * same way — no drawable cache of its own (wrapping is cheap enough to redo on every actual redraw;
+ * this layer's own snapshot check already skips redraws where nothing changed at all).
  */
 import type { Scene } from "../scene/scene";
+import { createCanvasTextMeasurer } from "../text/text-measurement";
+import type { MeasurementContext2D, TextMeasurer } from "../text/text-measurement";
 import type { Camera } from "./camera";
 import type { FreedrawDrawContext2D } from "./freedraw-renderer";
 import { drawElementFreedraw } from "./freedraw-renderer";
@@ -33,6 +37,8 @@ import { FreedrawOutlineCache } from "./freedraw-outline-cache";
 import type { RoughCanvasDrawer } from "./rough-renderer";
 import { drawElementRough } from "./rough-renderer";
 import { RoughDrawableCache } from "./rough-drawable-cache";
+import type { TextDrawContext2D } from "./text-renderer";
+import { drawElementText } from "./text-renderer";
 import { filterVisibleElements } from "./viewport-culling";
 
 /**
@@ -43,7 +49,7 @@ import { filterVisibleElements } from "./viewport-culling";
  * `FreedrawDrawContext2D` (itself a superset of the rough dispatch's `RoughDrawContext2D`) so one
  * context surface satisfies both draw paths.
  */
-export interface StaticLayerContext extends FreedrawDrawContext2D {
+export interface StaticLayerContext extends FreedrawDrawContext2D, TextDrawContext2D, MeasurementContext2D {
   readonly canvas: { clientWidth: number; clientHeight: number };
   clearRect(x: number, y: number, width: number, height: number): void;
 }
@@ -97,13 +103,16 @@ function sameSnapshot(a: RenderSnapshot, b: RenderSnapshot): boolean {
 export class StaticLayer {
   private readonly ctx: StaticLayerContext;
   private readonly roughCanvas: RoughCanvasDrawer;
+  private readonly textMeasurer: TextMeasurer;
   private readonly drawableCache = new RoughDrawableCache();
   private readonly freedrawOutlineCache = new FreedrawOutlineCache();
   private lastSnapshot: RenderSnapshot | null = null;
 
-  constructor(ctx: StaticLayerContext, roughCanvas: RoughCanvasDrawer) {
+  /** `textMeasurer` defaults to a canvas-backed measurer over the same `ctx` used to paint — reusing one context for both is the standard `measureText`-then-`fillText` approach; only tests (or a future non-canvas backend) need to override it. */
+  constructor(ctx: StaticLayerContext, roughCanvas: RoughCanvasDrawer, textMeasurer?: TextMeasurer) {
     this.ctx = ctx;
     this.roughCanvas = roughCanvas;
+    this.textMeasurer = textMeasurer ?? createCanvasTextMeasurer(ctx);
   }
 
   /**
@@ -136,6 +145,8 @@ export class StaticLayer {
     for (const element of filterVisibleElements(elements, camera, { width, height })) {
       if (element.type === "freedraw") {
         drawElementFreedraw(this.ctx, element, camera, this.freedrawOutlineCache);
+      } else if (element.type === "text") {
+        drawElementText(this.ctx, element, camera, this.textMeasurer);
       } else {
         drawElementRough(this.ctx, this.roughCanvas, element, camera, this.drawableCache);
       }

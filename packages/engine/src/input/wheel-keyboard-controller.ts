@@ -12,6 +12,16 @@
  * has nothing of this pipeline's own to cancel, so it falls through to the same "unmatched key"
  * path as any other key — forwarded to the active tool's `onKeyDown` (a multi-step tool, e.g. one
  * building up a shape from several clicks, may still want it) without being consumed here.
+ *
+ * Text-editing suppression: `isSuppressed` (checked first, in `handleKeyDown`) covers the case a
+ * plain "no gesture in progress" check can't — a text-edit session's `<textarea>` overlay (see
+ * `packages/react`'s overlay component) sits in the DOM, and any key typed into it still bubbles up
+ * to this controller's `window`-level listener. Without this escape hatch, typing "r"/"o"/"d" while
+ * editing text would switch tools mid-edit, and typing " " would arm the temporary pan override —
+ * both wrong while the browser's native text-input handling should be the only thing reacting.
+ * `handleKeyDown` returns immediately in that state without calling `preventDefault`, so the
+ * textarea's own native key handling (and the overlay's own explicit Escape/Enter listeners) are
+ * completely unaffected by this pipeline.
  */
 import type { ModifierKeys } from "./tool-handler";
 import type { PanZoomTool } from "./pan-zoom-tool";
@@ -37,6 +47,8 @@ export interface WheelKeyboardControllerOptions {
   /** Fallback for keys that resolved to no registered action — forwarded to the active tool. */
   dispatchKeyDown(key: string, modifiers: ModifierKeys): void;
   getElementRect(): { left: number; top: number };
+  /** True while a text-edit session's `<textarea>` overlay owns keyboard input — see the module doc's "Text-editing suppression" section. Optional; omitted/`undefined` behaves as always-`false` (no host wired up text editing yet). */
+  isSuppressed?(): boolean;
 }
 
 export class WheelKeyboardController {
@@ -75,6 +87,7 @@ export class WheelKeyboardController {
   };
 
   readonly handleKeyDown = (event: KeyLikeEvent): void => {
+    if (this.options.isSuppressed?.()) return;
     if (event.key === " ") {
       event.preventDefault();
       this.spaceHeldFlag = true;

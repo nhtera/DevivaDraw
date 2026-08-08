@@ -5,3 +5,11 @@
  * scene-read API used by embedders (e.g. deviva.app's interview canvas).
  */
 export { ENGINE_VERSION } from "@deviva-draw/engine";
+
+export type { TextEditorOverlayProps } from "./components/text-editor-overlay";
+export { TextEditorOverlay } from "./components/text-editor-overlay";
+
+export type { TextEditingOverlay, UseTextEditingOptions } from "./hooks/use-text-editing";
+export { useTextEditing } from "./hooks/use-text-editing";
+
+export { shouldCommitOnEnter } from "./hooks/should-commit-on-enter";
