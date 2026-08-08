@@ -50,20 +50,21 @@ export class ToolStateMachine {
     return true;
   }
 
-  dispatchGestureStart(point: Point, modifiers: ModifierKeys): void {
+  /** `pressure`/`pointerType` are forwarded verbatim to the active tool — see `ToolHandler.onGestureStart`'s doc. */
+  dispatchGestureStart(point: Point, modifiers: ModifierKeys, pressure?: number, pointerType?: string): void {
     this.gestureInProgress = true;
-    this.getActiveTool().onGestureStart(point, modifiers);
+    this.getActiveTool().onGestureStart(point, modifiers, pressure, pointerType);
   }
 
-  dispatchGestureMove(point: Point, modifiers: ModifierKeys): void {
+  dispatchGestureMove(point: Point, modifiers: ModifierKeys, pressure?: number, pointerType?: string): void {
     if (!this.gestureInProgress) return;
-    this.getActiveTool().onGestureMove(point, modifiers);
+    this.getActiveTool().onGestureMove(point, modifiers, pressure, pointerType);
   }
 
-  dispatchGestureEnd(point: Point, modifiers: ModifierKeys): void {
+  dispatchGestureEnd(point: Point, modifiers: ModifierKeys, pressure?: number, pointerType?: string): void {
     if (!this.gestureInProgress) return;
     this.gestureInProgress = false;
-    this.getActiveTool().onGestureEnd(point, modifiers);
+    this.getActiveTool().onGestureEnd(point, modifiers, pressure, pointerType);
   }
 
   /** See `ToolHandler.onGestureCancel` — the abort path for Escape/`pointercancel`/blur. */

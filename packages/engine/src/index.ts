@@ -16,6 +16,8 @@ export type {
 } from "./elements/base-element";
 export type { AnyElement, ElementCreationInput, GenericElement } from "./elements/element-types";
 export { createGenericElement } from "./elements/element-types";
+export type { FreedrawElement, FreedrawElementCreationInput, FreedrawPoint } from "./elements/freedraw-element";
+export { createFreedrawElement } from "./elements/freedraw-element";
 export type {
   DiamondElement,
   EllipseElement,
@@ -50,6 +52,10 @@ export type { RoughCanvasDrawer, RoughDrawContext2D, RoughShapeDrawer } from "./
 export { buildElementDrawable, drawElementRough, ROUND_CORNER_ROUNDNESS_TYPE } from "./render/rough-renderer";
 export { RoughDrawableCache } from "./render/rough-drawable-cache";
 
+export type { FreedrawDrawContext2D, FreedrawStrokeOptions } from "./render/freedraw-renderer";
+export { buildFreedrawStrokeOptions, computeFreedrawOutline, drawElementFreedraw, freedrawSceneRadius } from "./render/freedraw-renderer";
+export { FreedrawOutlineCache } from "./render/freedraw-outline-cache";
+
 export type { StaticLayerContext } from "./render/static-layer";
 export { StaticLayer } from "./render/static-layer";
 
@@ -82,7 +88,7 @@ export type {
   PointerLikeEvent,
   WheelLikeEvent,
 } from "./input/pointer-event-pipeline";
-export { PointerEventPipeline } from "./input/pointer-event-pipeline";
+export { DEFAULT_POINTER_TYPE, DEFAULT_SIMULATED_PRESSURE, PointerEventPipeline } from "./input/pointer-event-pipeline";
 
 export { createElementTarget, createGlobalTarget } from "./input/dom-event-target-adapter";
 
@@ -107,3 +113,5 @@ export { EllipseTool } from "./tools/ellipse-tool";
 export { DiamondTool } from "./tools/diamond-tool";
 export type { LineToolDeps } from "./tools/line-tool";
 export { LineTool } from "./tools/line-tool";
+export type { FreedrawToolDeps } from "./tools/freedraw-tool";
+export { FreedrawTool } from "./tools/freedraw-tool";

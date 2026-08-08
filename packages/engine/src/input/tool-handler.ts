@@ -17,12 +17,17 @@ export interface ModifierKeys {
 }
 
 export interface ToolHandler {
-  /** Pointer went down (or a gesture otherwise began) at `point` (scene-space). */
-  onGestureStart(point: Point, modifiers: ModifierKeys): void;
-  /** Pointer moved while the gesture begun by `onGestureStart` is still active. */
-  onGestureMove(point: Point, modifiers: ModifierKeys): void;
-  /** Pointer went up: the gesture completed normally and any result should be committed. */
-  onGestureEnd(point: Point, modifiers: ModifierKeys): void;
+  /**
+   * Pointer went down (or a gesture otherwise began) at `point` (scene-space). `pressure` (`0`-`1`)
+   * and `pointerType` (`"mouse"`/`"pen"`/`"touch"`) are optional, sourced from the originating
+   * `PointerEvent` — only the freehand tool (`tools/freedraw-tool.ts`) currently reads them; every
+   * other tool ignores the extra params, which is safe since callers only ever pass what they have.
+   */
+  onGestureStart(point: Point, modifiers: ModifierKeys, pressure?: number, pointerType?: string): void;
+  /** Pointer moved while the gesture begun by `onGestureStart` is still active. See `onGestureStart` for `pressure`/`pointerType`. */
+  onGestureMove(point: Point, modifiers: ModifierKeys, pressure?: number, pointerType?: string): void;
+  /** Pointer went up: the gesture completed normally and any result should be committed. See `onGestureStart` for `pressure`/`pointerType`. */
+  onGestureEnd(point: Point, modifiers: ModifierKeys, pressure?: number, pointerType?: string): void;
   /**
    * The gesture was abandoned rather than completed — Escape mid-drag, a `pointercancel` event, or
    * the window losing focus mid-gesture. No trustworthy final point exists for this path (the

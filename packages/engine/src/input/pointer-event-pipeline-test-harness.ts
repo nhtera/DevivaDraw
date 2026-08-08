@@ -25,14 +25,20 @@ const NO_MODS = { shiftKey: false, altKey: false, ctrlKey: false, metaKey: false
 /** Records every gesture/key call it receives — the "select" tool under test. */
 export class RecordingToolHandler extends NoOpToolHandler {
   calls: string[] = [];
-  override onGestureStart(point: { x: number; y: number }): void {
+  /** `pressure`/`pointerType` as received by each gesture call, in the same order as `calls` — kept separate so `calls`'s plain `"start:x,y"` string format (asserted verbatim by existing tests) never changes shape. */
+  pointerSamples: Array<{ pressure?: number; pointerType?: string }> = [];
+
+  override onGestureStart(point: { x: number; y: number }, modifiers: ModifierKeys, pressure?: number, pointerType?: string): void {
     this.calls.push(`start:${point.x},${point.y}`);
+    this.pointerSamples.push({ pressure, pointerType });
   }
-  override onGestureMove(point: { x: number; y: number }): void {
+  override onGestureMove(point: { x: number; y: number }, modifiers: ModifierKeys, pressure?: number, pointerType?: string): void {
     this.calls.push(`move:${point.x},${point.y}`);
+    this.pointerSamples.push({ pressure, pointerType });
   }
-  override onGestureEnd(point: { x: number; y: number }): void {
+  override onGestureEnd(point: { x: number; y: number }, modifiers: ModifierKeys, pressure?: number, pointerType?: string): void {
     this.calls.push(`end:${point.x},${point.y}`);
+    this.pointerSamples.push({ pressure, pointerType });
   }
   override onGestureCancel(): void {
     this.calls.push("cancel");

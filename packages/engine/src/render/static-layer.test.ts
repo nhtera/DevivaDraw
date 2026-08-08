@@ -1,5 +1,6 @@
 import type { Drawable } from "roughjs/bin/core";
 import { describe, expect, it, vi } from "vitest";
+import { createFreedrawElement } from "../elements/freedraw-element";
 import { createGenericElement } from "../elements/element-types";
 import { Scene } from "../scene/scene";
 import { createCamera } from "./camera";
@@ -16,6 +17,12 @@ function fakeContext(width = 800, height = 600): StaticLayerContext {
     translate: vi.fn(),
     rotate: vi.fn(),
     globalAlpha: 1,
+    fillStyle: "",
+    beginPath: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    closePath: vi.fn(),
+    fill: vi.fn(),
   };
 }
 
@@ -143,6 +150,32 @@ describe("StaticLayer.render", () => {
     layer.render(scene, camera); // forced
 
     expect(ctx.clearRect).toHaveBeenCalledTimes(2);
+  });
+
+  it("dispatches freedraw elements to the fill path instead of the rough.js drawer", () => {
+    const ctx = fakeContext();
+    const roughCanvas = fakeRoughCanvas();
+    const scene = new Scene();
+    scene.addElement(
+      createFreedrawElement({
+        x: 0,
+        y: 0,
+        width: 5,
+        height: 5,
+        points: [
+          [0, 0, 0.5],
+          [5, 0, 0.5],
+          [5, 5, 0.5],
+        ],
+      }),
+    );
+    const layer = new StaticLayer(ctx, roughCanvas);
+
+    layer.render(scene, createCamera());
+
+    expect(ctx.fill).toHaveBeenCalledTimes(1);
+    expect(roughCanvas.rectangle).not.toHaveBeenCalled();
+    expect(roughCanvas.polygon).not.toHaveBeenCalled();
   });
 
   it("never calls the sorted getElements() when a render is skipped (fingerprint uses the unsorted path)", () => {

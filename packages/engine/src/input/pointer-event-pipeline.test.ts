@@ -45,6 +45,28 @@ describe("PointerEventPipeline gesture routing", () => {
   });
 });
 
+describe("PointerEventPipeline pressure/pointerType threading", () => {
+  it("forwards real pressure/pointerType from the event through to the active tool", () => {
+    const { element, selectTool } = buildHarness();
+    element.firePointerDown({ pointerId: 1, clientX: 0, clientY: 0, pressure: 0.8, pointerType: "pen" });
+    expect(selectTool.pointerSamples[0]).toEqual({ pressure: 0.8, pointerType: "pen" });
+  });
+
+  it("defaults to simulated pressure (0.5) and pointerType 'mouse' when the event omits them", () => {
+    const { element, selectTool } = buildHarness();
+    element.firePointerDown({ pointerId: 1, clientX: 0, clientY: 0 });
+    expect(selectTool.pointerSamples[0]).toEqual({ pressure: 0.5, pointerType: "mouse" });
+  });
+
+  it("threads pressure through every stage of the gesture, not just gesture start", () => {
+    const { element, selectTool } = buildHarness();
+    element.firePointerDown({ pointerId: 1, clientX: 0, clientY: 0, pressure: 0.9, pointerType: "pen" });
+    element.firePointerMove({ pointerId: 1, clientX: 1, clientY: 1, pressure: 0.3, pointerType: "pen" });
+    element.firePointerUp({ pointerId: 1, clientX: 2, clientY: 2, pressure: 0.1, pointerType: "pen" });
+    expect(selectTool.pointerSamples.map((sample) => sample.pressure)).toEqual([0.9, 0.3, 0.1]);
+  });
+});
+
 describe("PointerEventPipeline wheel", () => {
   it("plain wheel pans the camera (trackpad two-finger-scroll convention)", () => {
     const { element, cameraState } = buildHarness();

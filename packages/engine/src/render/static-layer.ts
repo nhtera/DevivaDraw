@@ -18,10 +18,19 @@
  * object (e.g. loading a different document), it must call `invalidate()` first: a fresh scene
  * could coincidentally produce the same `{count, versionSum, maxUpdated}` fingerprint as the
  * previous one and wrongly skip a needed redraw.
+ *
+ * `freedraw` elements are dispatched to `drawElementFreedraw` instead of `drawElementRough` — they
+ * don't use rough.js at all (see `freedraw-renderer.ts`'s module doc) — but still participate in
+ * the same redraw-skip/culling pass as every other element type, and get the same per-element
+ * drawable-cache treatment via `FreedrawOutlineCache` (pruned alongside `RoughDrawableCache` in the
+ * same pass, against the same live-id set).
  */
 import type { Scene } from "../scene/scene";
 import type { Camera } from "./camera";
-import type { RoughCanvasDrawer, RoughDrawContext2D } from "./rough-renderer";
+import type { FreedrawDrawContext2D } from "./freedraw-renderer";
+import { drawElementFreedraw } from "./freedraw-renderer";
+import { FreedrawOutlineCache } from "./freedraw-outline-cache";
+import type { RoughCanvasDrawer } from "./rough-renderer";
 import { drawElementRough } from "./rough-renderer";
 import { RoughDrawableCache } from "./rough-drawable-cache";
 import { filterVisibleElements } from "./viewport-culling";
@@ -30,9 +39,11 @@ import { filterVisibleElements } from "./viewport-culling";
  * Minimal 2D-context surface this layer needs — narrower than a real `CanvasRenderingContext2D`
  * (which is structurally assignable here) so tests can supply a plain recording fake instead of a
  * real canvas. `canvas.clientWidth`/`clientHeight` are CSS-pixel dimensions: the logical drawing
- * space after `CanvasStage` applies its one-time devicePixelRatio `ctx.setTransform`.
+ * space after `CanvasStage` applies its one-time devicePixelRatio `ctx.setTransform`. Extends
+ * `FreedrawDrawContext2D` (itself a superset of the rough dispatch's `RoughDrawContext2D`) so one
+ * context surface satisfies both draw paths.
  */
-export interface StaticLayerContext extends RoughDrawContext2D {
+export interface StaticLayerContext extends FreedrawDrawContext2D {
   readonly canvas: { clientWidth: number; clientHeight: number };
   clearRect(x: number, y: number, width: number, height: number): void;
 }
@@ -87,6 +98,7 @@ export class StaticLayer {
   private readonly ctx: StaticLayerContext;
   private readonly roughCanvas: RoughCanvasDrawer;
   private readonly drawableCache = new RoughDrawableCache();
+  private readonly freedrawOutlineCache = new FreedrawOutlineCache();
   private lastSnapshot: RenderSnapshot | null = null;
 
   constructor(ctx: StaticLayerContext, roughCanvas: RoughCanvasDrawer) {
@@ -122,13 +134,20 @@ export class StaticLayer {
     const elements = scene.getElements();
     this.ctx.clearRect(0, 0, width, height);
     for (const element of filterVisibleElements(elements, camera, { width, height })) {
-      drawElementRough(this.ctx, this.roughCanvas, element, camera, this.drawableCache);
+      if (element.type === "freedraw") {
+        drawElementFreedraw(this.ctx, element, camera, this.freedrawOutlineCache);
+      } else {
+        drawElementRough(this.ctx, this.roughCanvas, element, camera, this.drawableCache);
+      }
     }
 
-    // Bounds the drawable cache against a session's worth of created-then-deleted elements — see
-    // `rough-drawable-cache.ts`'s `prune()` doc. Piggybacks on this already-happening redraw pass
-    // (elements is already the full, unsorted-filter-free list) rather than a separate timer.
-    this.drawableCache.prune(new Set(elements.filter((element) => !element.isDeleted).map((element) => element.id)));
+    // Bounds both per-element caches against a session's worth of created-then-deleted elements —
+    // see `rough-drawable-cache.ts`'s `prune()` doc (the freedraw outline cache mirrors it exactly).
+    // Piggybacks on this already-happening redraw pass (elements is already the full,
+    // unsorted-filter-free list) rather than a separate timer.
+    const liveIds = new Set(elements.filter((element) => !element.isDeleted).map((element) => element.id));
+    this.drawableCache.prune(liveIds);
+    this.freedrawOutlineCache.prune(liveIds);
   }
 
   /** Forces the next `render()` call to redraw even if the snapshot looks unchanged. */

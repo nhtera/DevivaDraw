@@ -8,7 +8,7 @@ and are reproduced in distribution bundles as required.
 | Library | License | Purpose | Status |
 |---|---|---|---|
 | roughjs | MIT | Hand-drawn/sketchy shape rendering | in use |
-| perfect-freehand | MIT | Pressure-sensitive freehand ink strokes | planned |
+| perfect-freehand | MIT | Pressure-sensitive freehand ink strokes | in use |
 | fractional-indexing | CC0 | Stable ordering keys for element z-index | in use |
 
 Update this file whenever a runtime dependency is added or removed.

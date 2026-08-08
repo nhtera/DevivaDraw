@@ -14,7 +14,27 @@ export interface PointerLikeEvent {
   altKey: boolean;
   ctrlKey: boolean;
   metaKey: boolean;
+  /**
+   * `0`-`1` pressure reported by the input device — real, varying values for a pressure-capable
+   * pen/stylus, a flat `0.5` for mouse/touch/anything that doesn't support it (matches the DOM
+   * `PointerEvent.pressure` contract this field mirrors). Optional so callers/tests that don't care
+   * about pressure (every gesture before the freehand tool) don't need to supply it; see
+   * `DEFAULT_SIMULATED_PRESSURE` below for the pipeline's fallback when omitted.
+   */
+  pressure?: number;
+  /**
+   * DOM `PointerEvent.pointerType` (`"mouse" | "pen" | "touch"`), used to decide whether the
+   * freehand tool should trust the reported `pressure` or fall back to perfect-freehand's
+   * velocity-based simulation — see `tools/freedraw-tool.ts`. Optional for the same reason as
+   * `pressure`; `DEFAULT_POINTER_TYPE` below is the pipeline's fallback when omitted.
+   */
+  pointerType?: string;
 }
+
+/** Fallback pressure for a `PointerLikeEvent` that omits `pressure` (tests, or a device that can't report it). */
+export const DEFAULT_SIMULATED_PRESSURE = 0.5;
+/** Fallback pointer type for a `PointerLikeEvent` that omits `pointerType` — the least-capable, most-common case. */
+export const DEFAULT_POINTER_TYPE = "mouse";
 
 export interface WheelLikeEvent {
   clientX: number;

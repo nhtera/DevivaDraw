@@ -10,6 +10,7 @@ import {
   createRectangleElement,
   DiamondTool,
   EllipseTool,
+  FreedrawTool,
   getVisibleElements,
   HistoryStack,
   LineTool,
@@ -34,6 +35,7 @@ const RECTANGLE_TOOL_NAME = "rectangle";
 const ELLIPSE_TOOL_NAME = "ellipse";
 const DIAMOND_TOOL_NAME = "diamond";
 const LINE_TOOL_NAME = "line";
+const FREEDRAW_TOOL_NAME = "freedraw";
 
 /**
  * Scatters `SEEDED_ELEMENT_COUNT` fake shapes (mixed rectangle/ellipse/diamond) across a large
@@ -62,7 +64,8 @@ function seedScene(scene: Scene): void {
 /**
  * Manual test page wiring `CanvasStage` and the real input pipeline into the Vite app: the
  * selection-tool skeleton is active by default, `H` (or space/middle-mouse-drag) pans, `R`/`O`/`D`/`L`
- * switch to the rectangle/ellipse/diamond/line shape tools, wheel pans/ctrl+wheel zooms
+ * switch to the rectangle/ellipse/diamond/line shape tools, `P` switches to the freehand ink tool
+ * (matches Excalidraw's own pencil shortcut), wheel pans/ctrl+wheel zooms
  * (cursor-anchored), `Shift+1` zooms to fit, `Ctrl +`/`Ctrl -` step zoom — all driven by
  * `@deviva-draw/engine`'s `PointerEventPipeline`/`ToolStateMachine`, not ad-hoc DOM listeners. A
  * debug overlay reports element counts and the active tool for manual QA.
@@ -110,6 +113,7 @@ export function DevCanvasHarness() {
     const diamondTool = new DiamondTool(shapeToolDeps);
     // Line tool's click-proximity thresholds are screen-pixel constants converted via the live zoom.
     const lineTool = new LineTool({ ...shapeToolDeps, getZoom: () => cameraRef.current.zoom });
+    const freedrawTool = new FreedrawTool(shapeToolDeps);
 
     const toolStateMachine = new ToolStateMachine(
       {
@@ -119,6 +123,7 @@ export function DevCanvasHarness() {
         [ELLIPSE_TOOL_NAME]: ellipseTool,
         [DIAMOND_TOOL_NAME]: diamondTool,
         [LINE_TOOL_NAME]: lineTool,
+        [FREEDRAW_TOOL_NAME]: freedrawTool,
       },
       SELECT_TOOL_NAME,
     );
@@ -126,11 +131,12 @@ export function DevCanvasHarness() {
     const shortcutRegistry = new ShortcutRegistry();
     registerCoreShortcuts(shortcutRegistry);
     // Matches Excalidraw's letter conventions (muscle memory, not a trademark concern — shortcuts
-    // aren't copyrightable): R/O/D/L for rectangle/ellipse("oval")/diamond/line.
+    // aren't copyrightable): R/O/D/L for rectangle/ellipse("oval")/diamond/line, P for the pencil.
     shortcutRegistry.register("r", "rectangle-tool");
     shortcutRegistry.register("o", "ellipse-tool");
     shortcutRegistry.register("d", "diamond-tool");
     shortcutRegistry.register("l", "line-tool");
+    shortcutRegistry.register("p", "freedraw-tool");
 
     const pipeline = new PointerEventPipeline({
       element: createElementTarget(container),
@@ -147,6 +153,7 @@ export function DevCanvasHarness() {
         "ellipse-tool": () => toolStateMachine.setTool(ELLIPSE_TOOL_NAME),
         "diamond-tool": () => toolStateMachine.setTool(DIAMOND_TOOL_NAME),
         "line-tool": () => toolStateMachine.setTool(LINE_TOOL_NAME),
+        "freedraw-tool": () => toolStateMachine.setTool(FREEDRAW_TOOL_NAME),
         "zoom-in": () => panZoomTool.zoomStep(1),
         "zoom-out": () => panZoomTool.zoomStep(-1),
         "zoom-to-fit": () => panZoomTool.zoomToFit(),

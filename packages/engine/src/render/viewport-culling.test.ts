@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createGenericElement } from "../elements/element-types";
+import { createFreedrawElement } from "../elements/freedraw-element";
 import { Scene } from "../scene/scene";
 import type { Camera } from "./camera";
 import { createCamera } from "./camera";
@@ -102,6 +103,22 @@ describe("getVisibleElements", () => {
 
     const visible = getVisibleElements(scene, createCamera(), { width: 800, height: 600 });
     expect(visible.map((el) => el.id)).not.toContain(element.id);
+  });
+
+  it("handles freedraw elements the same as any other type — culling is bbox-generic, not per-type", () => {
+    const scene = new Scene();
+    const inside = scene.addElement(
+      createFreedrawElement({ x: 10, y: 10, width: 20, height: 20, points: [[0, 0, 0.5], [20, 20, 0.5]] }),
+    );
+    const outside = scene.addElement(
+      createFreedrawElement({ x: 5000, y: 5000, width: 20, height: 20, points: [[0, 0, 0.5], [20, 20, 0.5]] }),
+    );
+
+    const visible = getVisibleElements(scene, createCamera(), { width: 800, height: 600 });
+    const visibleIds = visible.map((element) => element.id);
+
+    expect(visibleIds).toContain(inside.id);
+    expect(visibleIds).not.toContain(outside.id);
   });
 
   it("preserves the scene's z-order among the visible subset", () => {

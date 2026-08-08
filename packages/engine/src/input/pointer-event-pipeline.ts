@@ -21,6 +21,7 @@ import type { PanZoomTool } from "./pan-zoom-tool";
 import type { ShortcutRegistry } from "./shortcut-registry";
 import type { ToolStateMachine } from "./tool-state-machine";
 import { WheelKeyboardController } from "./wheel-keyboard-controller";
+import { DEFAULT_POINTER_TYPE, DEFAULT_SIMULATED_PRESSURE } from "./pointer-event-types";
 import type { HistoryBatchGuard, PipelineElementTarget, PipelineGlobalTarget, PointerLikeEvent } from "./pointer-event-types";
 
 export type {
@@ -31,6 +32,7 @@ export type {
   PointerLikeEvent,
   WheelLikeEvent,
 } from "./pointer-event-types";
+export { DEFAULT_POINTER_TYPE, DEFAULT_SIMULATED_PRESSURE } from "./pointer-event-types";
 
 export interface PointerEventPipelineOptions {
   element: PipelineElementTarget;
@@ -53,6 +55,11 @@ export interface PointerEventPipelineOptions {
 
 function extractModifiers(event: { shiftKey: boolean; altKey: boolean; ctrlKey: boolean; metaKey: boolean }): ModifierKeys {
   return { shift: event.shiftKey, alt: event.altKey, ctrl: event.ctrlKey, meta: event.metaKey };
+}
+
+/** Reads `pressure`/`pointerType` off a `PointerLikeEvent`, substituting the "no real signal" defaults when omitted. */
+function extractPointerSample(event: PointerLikeEvent): { pressure: number; pointerType: string } {
+  return { pressure: event.pressure ?? DEFAULT_SIMULATED_PRESSURE, pointerType: event.pointerType ?? DEFAULT_POINTER_TYPE };
 }
 
 const DEFAULT_PAN_TOOL_NAME = "pan";
@@ -124,19 +131,22 @@ export class PointerEventPipeline {
     this.activePointerId = event.pointerId;
     this.options.element.setPointerCapture?.(event.pointerId);
     const point = this.toScenePoint(event.clientX, event.clientY, this.gestureCamera);
-    machine.dispatchGestureStart(point, extractModifiers(event));
+    const { pressure, pointerType } = extractPointerSample(event);
+    machine.dispatchGestureStart(point, extractModifiers(event), pressure, pointerType);
   };
 
   private readonly handlePointerMove = (event: PointerLikeEvent): void => {
     if (this.activePointerId !== event.pointerId || !this.gestureCamera) return;
     const point = this.toScenePoint(event.clientX, event.clientY, this.gestureCamera);
-    this.options.toolStateMachine.dispatchGestureMove(point, extractModifiers(event));
+    const { pressure, pointerType } = extractPointerSample(event);
+    this.options.toolStateMachine.dispatchGestureMove(point, extractModifiers(event), pressure, pointerType);
   };
 
   private readonly handlePointerUp = (event: PointerLikeEvent): void => {
     if (this.activePointerId !== event.pointerId || !this.gestureCamera) return;
     const point = this.toScenePoint(event.clientX, event.clientY, this.gestureCamera);
-    this.options.toolStateMachine.dispatchGestureEnd(point, extractModifiers(event));
+    const { pressure, pointerType } = extractPointerSample(event);
+    this.options.toolStateMachine.dispatchGestureEnd(point, extractModifiers(event), pressure, pointerType);
     this.options.element.releasePointerCapture?.(event.pointerId);
     this.endGesture();
   };
