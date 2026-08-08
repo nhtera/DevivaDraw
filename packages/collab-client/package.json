@@ -1,0 +1,22 @@
+{
+  "name": "@deviva-draw/collab-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Realtime sync client for Deviva Draw: WebSocket transport, E2E crypto, presence, conflict resolution",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@deviva-draw/engine": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

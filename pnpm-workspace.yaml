@@ -1,0 +1,9 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Native/binary deps that legitimately need install scripts.
+allowBuilds:
+  esbuild: true
+  # Downloads the Workers runtime binary wrangler uses for local preview/build.
+  workerd: true

@@ -1,0 +1,10 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "deviva-draw-collab",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // 8787 (wrangler's default) is often taken by other local tools; fix a port
+  // so `pnpm dev` is deterministic on every machine.
+  "dev": { "port": 8788 }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@deviva-draw/engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Framework-agnostic whiteboard core: element model, scene store, history, renderer, geometry, tools",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

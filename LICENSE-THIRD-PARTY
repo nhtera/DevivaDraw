@@ -1,0 +1,14 @@
+# Third-Party Licenses
+
+This project is a clean-room implementation and contains no code from
+Excalidraw or tldraw. The following MIT-licensed libraries are (or will be)
+used at runtime; their license texts ship with the packages in node_modules
+and are reproduced in distribution bundles as required.
+
+| Library | License | Purpose | Status |
+|---|---|---|---|
+| roughjs | MIT | Hand-drawn/sketchy shape rendering | planned |
+| perfect-freehand | MIT | Pressure-sensitive freehand ink strokes | planned |
+| fractional-indexing | CC0 | Stable ordering keys for element z-index | planned |
+
+Update this file whenever a runtime dependency is added or removed.

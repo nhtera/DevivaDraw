@@ -1,0 +1,26 @@
+{
+  "name": "deviva-draw",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deviva Draw — infinite canvas whiteboard: engine, React lib, and collaborative web app",
+  "packageManager": "pnpm@11.12.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"./apps/*\" dev",
+    "dev:web": "pnpm --filter @deviva-draw/web dev",
+    "dev:collab": "pnpm --filter @deviva-draw/collab-server dev",
+    "build": "pnpm --filter @deviva-draw/web build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.33.0",
+    "eslint": "^9.33.0",
+    "eslint-plugin-unicorn": "^60.0.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.39.0"
+  }
+}

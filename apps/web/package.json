@@ -1,0 +1,29 @@
+{
+  "name": "@deviva-draw/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deviva Draw standalone web app (draw.deviva.app) — Vite + React SPA",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src e2e",
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "@deviva-draw/react": "workspace:*",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^26.1.2",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.0"
+  }
+}
