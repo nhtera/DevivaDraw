@@ -46,7 +46,7 @@ deviva-draw/
 | 04 | [Input pipeline & tools state machine](phase-04-input-pipeline-and-tools-state-machine.md) | 02, 03 | ✅ done (2026-08-08, 190 engine tests) |
 | 05 | [Shape tools & style system](phase-05-shape-tools-and-style-system.md) | 03, 04 | ✅ done (2026-08-08, 288 engine tests) |
 | 06 | [Freehand drawing tool](phase-06-freehand-drawing-tool.md) | 03, 04 | ✅ done (2026-08-08, 339 engine tests) |
-| 07 | [Text editing & bound containers](phase-07-text-editing-and-bound-containers.md) | 04, 05 | pending |
+| 07 | [Text editing & bound containers](phase-07-text-editing-and-bound-containers.md) | 04, 05 | ✅ done (2026-08-08, 431 engine + 5 react tests) |
 | 08 | [Arrows & element bindings](phase-08-arrows-and-element-bindings.md) | 05, 07 | pending |
 | 09 | [Image elements](phase-09-image-elements.md) | 02, 03, 04 | pending |
 | 10 | [Selection, transforms, snapping & grid](phase-10-selection-transforms-snapping-grid.md) | 05, 06, 07, 08, 09 | pending |
