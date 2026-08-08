@@ -50,7 +50,7 @@ deviva-draw/
 | 08 | [Arrows & element bindings](phase-08-arrows-and-element-bindings.md) | 05, 07 | ✅ done (2026-08-08, 572 engine tests) |
 | 09 | [Image elements](phase-09-image-elements.md) | 02, 03, 04 | ✅ done (2026-08-08, 639 engine + 22 react tests) |
 | 10 | [Selection, transforms, snapping & grid](phase-10-selection-transforms-snapping-grid.md) | 05, 06, 07, 08, 09 | ✅ done (2026-08-08, 835 engine tests) |
-| 11 | [Persistence & export](phase-11-persistence-and-export.md) | 10 | pending |
+| 11 | [Persistence & export](phase-11-persistence-and-export.md) | 10 | ✅ done (2026-08-09, 991 engine tests) — M1 complete |
 | 12 | [UI chrome, shortcuts, mobile, theming & i18n](phase-12-ui-chrome-shortcuts-mobile-theming-i18n.md) | 10, 11 | pending |
 | 13 | [Share links (E2E encrypted, R2)](phase-13-share-links-e2e-encryption.md) | 11 | pending |
 | 14 | [Collab server (Durable Objects) & client sync](phase-14-collab-server-and-client-sync.md) | 02, 11, 13 | pending |
