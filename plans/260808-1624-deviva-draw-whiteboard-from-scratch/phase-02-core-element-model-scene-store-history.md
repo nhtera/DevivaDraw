@@ -7,7 +7,7 @@
 
 ## Overview
 - **Priority:** 🔴 blocking — every tool/renderer/collab phase depends on this schema
-- **Status:** pending
+- **Status:** ✅ done (2026-08-08) — 67 unit tests; review fixes applied (frozen elements, queued notify, cancelBatch, duplicate-id throw)
 - Define the element data model, the in-memory scene store (CRUD + subscriptions), and the undo/redo history stack. This is the single source of truth every other package reads/writes.
 
 ## Key Insights

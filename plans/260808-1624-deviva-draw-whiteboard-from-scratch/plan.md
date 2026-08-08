@@ -41,7 +41,7 @@ deviva-draw/
 | # | Phase | Depends on | Status |
 |---|---|---|---|
 | 01 | [Monorepo scaffold & tooling](phase-01-monorepo-scaffold-and-tooling.md) | — | ✅ done (2026-08-08) |
-| 02 | [Core element model, scene store & history](phase-02-core-element-model-scene-store-history.md) | 01 | pending |
+| 02 | [Core element model, scene store & history](phase-02-core-element-model-scene-store-history.md) | 01 | ✅ done (2026-08-08, 67 tests) |
 | 03 | [Canvas renderer: dual-layer, viewport, culling](phase-03-canvas-renderer-dual-layer-viewport.md) | 02 | pending |
 | 04 | [Input pipeline & tools state machine](phase-04-input-pipeline-and-tools-state-machine.md) | 02, 03 | pending |
 | 05 | [Shape tools & style system](phase-05-shape-tools-and-style-system.md) | 03, 04 | pending |
