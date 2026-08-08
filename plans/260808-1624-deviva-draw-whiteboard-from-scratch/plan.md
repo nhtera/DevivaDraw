@@ -53,7 +53,7 @@ deviva-draw/
 | 11 | [Persistence & export](phase-11-persistence-and-export.md) | 10 | ✅ done (2026-08-09, 991 engine tests) — M1 complete |
 | 12 | [UI chrome, shortcuts, mobile, theming & i18n](phase-12-ui-chrome-shortcuts-mobile-theming-i18n.md) | 10, 11 | ✅ done (2026-08-09, 1005 engine + 137 react + 10 e2e) |
 | 13 | [Share links (E2E encrypted, R2)](phase-13-share-links-e2e-encryption.md) | 11 | ✅ done (2026-08-09, 30 worker tests, key-leak proven absent) |
-| 14 | [Collab server (Durable Objects) & client sync](phase-14-collab-server-and-client-sync.md) | 02, 11, 13 | pending |
+| 14 | [Collab server (Durable Objects) & client sync](phase-14-collab-server-and-client-sync.md) | 02, 11, 13 | ✅ done (2026-08-09, 111 collab-client + 71 worker tests) — M3 complete |
 | 15 | [React lib extraction & deviva.app integration](phase-15-react-lib-package-and-deviva-integration.md) | 05, 06, 07, 08, 09, 10, 11, 12 | pending |
 | 16 | [Marketing site & deployment](phase-16-marketing-site-and-deployment.md) | 12, 13, 15 (soft: 14) | pending |
 
