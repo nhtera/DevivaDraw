@@ -18,6 +18,8 @@ export interface ThemeTokens {
   textSecondary: string;
   accent: string;
   accentContrast: string;
+  /** Translucent accent used as the *active* control background — a soft tint (with accent-colored icon/text on top) instead of a loud, fully-saturated accent fill, matching modern whiteboard chrome. */
+  accentSoft: string;
   danger: string;
   overlayScrim: string;
 }
@@ -31,6 +33,7 @@ const LIGHT_TOKENS: ThemeTokens = {
   textSecondary: "#5c5f66",
   accent: "#3457d5",
   accentContrast: "#ffffff",
+  accentSoft: "rgba(52, 87, 213, 0.13)",
   danger: "#c92a2a",
   overlayScrim: "rgba(15, 16, 20, 0.35)",
 };
@@ -44,6 +47,7 @@ const DARK_TOKENS: ThemeTokens = {
   textSecondary: "#a3a6ad",
   accent: "#6a8dff",
   accentContrast: "#0b0c10",
+  accentSoft: "rgba(106, 141, 255, 0.22)",
   danger: "#ff6b6b",
   overlayScrim: "rgba(0, 0, 0, 0.55)",
 };

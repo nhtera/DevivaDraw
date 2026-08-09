@@ -8,12 +8,22 @@
  */
 import type { CSSProperties } from "react";
 
+/** One radius scale for the whole chrome (Shape Consistency Lock): buttons/controls share `control`, floating surfaces use `panel`. */
+export const RADIUS = { control: 8, panel: 12 } as const;
+
+/**
+ * Soft, background-tinted elevation (not a hard pure-black drop shadow) — two layers give a close
+ * contact shadow plus a wider ambient one, the look modern floating chrome uses. The tint is a dark
+ * neutral at low alpha, subtle enough to read on both the light and dark elevated surfaces.
+ */
+export const PANEL_SHADOW = "0 6px 24px rgba(15, 16, 20, 0.14), 0 1px 3px rgba(15, 16, 20, 0.10)";
+
 export const panelStyle: CSSProperties = {
   background: "var(--dd-chrome-background-elevated)",
   color: "var(--dd-text-primary)",
   border: "1px solid var(--dd-chrome-border)",
-  borderRadius: 8,
-  boxShadow: "0 2px 12px rgba(0,0,0,0.15)",
+  borderRadius: RADIUS.panel,
+  boxShadow: PANEL_SHADOW,
   fontFamily: "system-ui, sans-serif",
   fontSize: 13,
 };
@@ -26,12 +36,16 @@ export function buttonStyle(active = false): CSSProperties {
     gap: 6,
     padding: "6px 8px",
     border: "none",
-    borderRadius: 6,
+    borderRadius: RADIUS.control,
     cursor: "pointer",
-    background: active ? "var(--dd-accent)" : "transparent",
-    color: active ? "var(--dd-accent-contrast)" : "var(--dd-text-primary)",
+    // Active is a soft accent *tint* with an accent-colored glyph, not a loud fully-saturated fill —
+    // lighter, more modern, and it keeps the icon (which inherits `currentColor`) legible on top.
+    background: active ? "var(--dd-accent-soft)" : "transparent",
+    color: active ? "var(--dd-accent)" : "var(--dd-text-primary)",
+    fontWeight: active ? 600 : 400,
     fontSize: 13,
     fontFamily: "inherit",
+    transition: "background 120ms ease, color 120ms ease",
   };
 }
 
