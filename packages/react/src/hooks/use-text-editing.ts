@@ -9,7 +9,6 @@ import { useEffect, useReducer } from "react";
 import type { CSSProperties, KeyboardEvent } from "react";
 import type { Camera, Scene, TextAlign, TextEditSession } from "@deviva-draw/engine";
 import { sceneToScreen, TEXT_FONT_FAMILY_CSS } from "@deviva-draw/engine";
-import { shouldCommitOnEnter } from "./should-commit-on-enter";
 
 export interface UseTextEditingOptions {
   session: TextEditSession;
@@ -131,21 +130,13 @@ export function useTextEditing(options: UseTextEditingOptions): TextEditingOverl
     onChange: (value: string) => session.updateDraft(value),
     onBlur: () => session.commit(),
     onKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        session.cancel();
-        return;
-      }
-
-      // `isComposing` (plus the legacy `keyCode === 229` fallback some browsers/timing still need
-      // — Safari in particular has historically reported `isComposing: false` for the very keydown
-      // that confirms an IME candidate) guards against the Enter that accepts a Vietnamese/CJK IME
-      // composition also committing the editor — see `should-commit-on-enter.ts`'s module doc.
+      // Matches Excalidraw/tldraw's text-box conventions: Enter inserts a newline (the textarea's own
+      // native handling, left untouched here), and Escape commits/exits keeping the text (an empty
+      // draft is discarded by `commit()` itself). Clicking away also commits via `onBlur`. Escape is
+      // ignored mid-IME-composition so the key that cancels a composition candidate doesn't also exit
+      // the editor (the browser consumes that Escape for the IME first).
       const isComposing = event.nativeEvent.isComposing || event.keyCode === 229;
-      if (shouldCommitOnEnter(event.key, event.shiftKey, isComposing)) {
-        // Plain Enter commits/exits (matches a chat-input-style "Enter to send"); Shift+Enter
-        // inserts a newline via the textarea's own native handling (left alone here) — multi-line
-        // text is still fully supported, just via the shifted chord instead of a bare Enter.
+      if (event.key === "Escape" && !isComposing) {
         event.preventDefault();
         session.commit();
       }

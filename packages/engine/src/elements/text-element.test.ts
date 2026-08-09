@@ -7,7 +7,7 @@ describe("createTextElement", () => {
 
     expect(element.type).toBe("text");
     expect(element.text).toBe("");
-    expect(element.fontFamily).toBe("normal");
+    expect(element.fontFamily).toBe("hand-drawn-slot"); // the bundled hand-drawn font is the default face
     expect(element.fontSize).toBe(20);
     expect(element.textAlign).toBe("left");
     expect(element.verticalAlign).toBe("top");

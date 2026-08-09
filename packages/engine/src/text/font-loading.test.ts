@@ -1,13 +1,22 @@
 import { describe, expect, it, vi } from "vitest";
-import { FONT_SIZE_LEVELS, loadTextFonts, TEXT_FONT_FAMILY_CSS } from "./font-loading";
+import { DEFAULT_TEXT_FONT_SOURCES, FONT_SIZE_LEVELS, loadTextFonts, TEXT_FONT_FAMILY_CSS } from "./font-loading";
+import { HAND_DRAWN_FONT_FAMILY } from "./hand-drawn-font-data";
 
 describe("TEXT_FONT_FAMILY_CSS", () => {
-  it("defines a CSS stack for every TextFontFamily slot, including the not-yet-licensed hand-drawn slot", () => {
+  it("defines a CSS stack for every TextFontFamily slot; the hand-drawn slot leads with the bundled font and falls back to sans", () => {
     expect(TEXT_FONT_FAMILY_CSS.normal).toContain("sans-serif");
     expect(TEXT_FONT_FAMILY_CSS.code).toContain("monospace");
-    // No licensed hand-drawn asset exists yet (see module doc) — it must still resolve to a real,
-    // renderable stack rather than an empty/undefined string.
-    expect(TEXT_FONT_FAMILY_CSS["hand-drawn-slot"]).toBe(TEXT_FONT_FAMILY_CSS.normal);
+    // Leads with the bundled Excalifont family, then the sans stack for any glyph the subset lacks.
+    expect(TEXT_FONT_FAMILY_CSS["hand-drawn-slot"]).toContain(HAND_DRAWN_FONT_FAMILY);
+    expect(TEXT_FONT_FAMILY_CSS["hand-drawn-slot"]).toContain("sans-serif");
+  });
+});
+
+describe("DEFAULT_TEXT_FONT_SOURCES", () => {
+  it("ships the bundled hand-drawn font as a self-contained base64 woff2 data URI (no external host)", () => {
+    expect(DEFAULT_TEXT_FONT_SOURCES).toHaveLength(1);
+    expect(DEFAULT_TEXT_FONT_SOURCES[0]!.family).toBe(HAND_DRAWN_FONT_FAMILY);
+    expect(DEFAULT_TEXT_FONT_SOURCES[0]!.url.startsWith("data:font/woff2;base64,")).toBe(true);
   });
 });
 
@@ -20,9 +29,9 @@ describe("FONT_SIZE_LEVELS", () => {
 });
 
 describe("loadTextFonts", () => {
-  it("resolves once the injected target's fonts.ready settles, with no sources to register", async () => {
+  it("resolves once the injected target's fonts.ready settles, registering nothing when given an empty source list", async () => {
     const target = { fonts: { add: vi.fn(), ready: Promise.resolve(undefined) } };
-    await expect(loadTextFonts(target)).resolves.toBeUndefined();
+    await expect(loadTextFonts(target, [])).resolves.toBeUndefined();
     expect(target.fonts.add).not.toHaveBeenCalled();
   });
 

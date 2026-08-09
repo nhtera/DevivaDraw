@@ -7,13 +7,13 @@
  * `tools/shape-style-state.ts`'s doc — it already does both, one call).
  */
 import { DEFAULT_BACKGROUND_COLOR_PALETTE, DEFAULT_STROKE_COLOR_PALETTE, ROUNDNESS_LEVELS, SLOPPINESS_LEVELS, STROKE_WIDTH_LEVELS } from "@deviva-draw/engine";
-import type { FillStyle, RoundnessValue, ShapeStyle, StrokeStyle } from "@deviva-draw/engine";
-import { useReducer } from "react";
+import type { AnyElement, FillStyle, RoundnessValue, ShapeStyle, StrokeStyle, TextElement } from "@deviva-draw/engine";
+import { useEffect, useReducer } from "react";
 import { ColorPicker } from "./color-picker";
 import { LayerActionsSection } from "./layer-actions-section";
 import { panelStyle, labelStyle } from "./chrome-styles";
 import { StyleSection } from "./style-section";
-import { ArrowStyleSection, TextStyleSection } from "./type-style-sections";
+import { ArrowStyleSection, TextPropertiesPanel, TextStyleSection } from "./type-style-sections";
 import { useTranslation } from "../i18n/use-translation";
 import { useSceneVersion, useSelectionVersion } from "../runtime/use-live-version";
 import type { DevivaRuntime } from "../runtime/runtime-types";
@@ -23,6 +23,30 @@ const STROKE_STYLE_OPTIONS: StrokeStyle[] = ["solid", "dashed", "dotted"];
 
 function roundnessKey(value: RoundnessValue | null): "sharp" | "round" {
   return value === null ? "sharp" : "round";
+}
+
+/** The text elements the panel should write style through: the live edit-session element (if a text is being edited — it isn't part of the selection) plus any selected text elements, deduped by id. */
+function textStyleTargets(runtime: DevivaRuntime): TextElement[] {
+  const targets: TextElement[] = [];
+  const editing = runtime.editSession.getState();
+  if (editing.status === "editing") {
+    const element = runtime.scene.getElement(editing.elementId);
+    if (element && element.type === "text" && !element.isDeleted) targets.push(element);
+  }
+  for (const id of runtime.selection.getSelectedIds()) {
+    const element = runtime.scene.getElement(id);
+    if (element && element.type === "text" && !element.isDeleted && !targets.some((t) => t.id === element.id)) targets.push(element);
+  }
+  return targets;
+}
+
+/** Selected non-text elements — their presence means a *mixed* selection, which keeps the full shape panel rather than the text-only one. */
+function hasNonTextSelected(runtime: DevivaRuntime): boolean {
+  for (const id of runtime.selection.getSelectedIds()) {
+    const element = runtime.scene.getElement(id);
+    if (element && !element.isDeleted && (element as AnyElement).type !== "text") return true;
+  }
+  return false;
 }
 
 function currentDisplayStyle(runtime: DevivaRuntime): ShapeStyle {
@@ -53,6 +77,9 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
   useSceneVersion(runtime.scene);
   useSelectionVersion(runtime.selection);
   const [, forceRender] = useReducer((count: number) => count + 1, 0);
+  // Re-render when a text-edit session opens/closes (re-editing an existing element mutates no scene
+  // state on open, so `useSceneVersion` alone wouldn't switch the panel into text mode).
+  useEffect(() => runtime.editSession.subscribe(forceRender), [runtime.editSession]);
 
   const style = currentDisplayStyle(runtime);
   const apply = (partial: Partial<ShapeStyle>) => {
@@ -67,6 +94,26 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
     if (hasSelection) runtime.history.endBatch(runtime.scene.getElements());
     forceRender();
   };
+
+  // While editing a text, or when the selection is text-only, show a focused text panel (color, font
+  // family, size, align, opacity) — matching Excalidraw/tldraw — instead of the shape controls
+  // (fill/stroke-width/sloppiness/edges) that don't apply to text. A mixed selection keeps the full
+  // shape panel (which already appends `TextStyleSection` for whatever text it contains).
+  const textTargets = textStyleTargets(runtime);
+  if (textTargets.length > 0 && !hasNonTextSelected(runtime)) {
+    return (
+      <div style={{ ...panelStyle, position: "absolute", top: 12, right: 12, width: 220, padding: 12, display: "flex", flexDirection: "column", gap: 10 }} data-testid="properties-panel-text">
+        <TextPropertiesPanel runtime={runtime} targets={textTargets} />
+        {runtime.selection.size > 0 && (
+          <>
+            <div style={{ height: 1, background: "var(--dd-chrome-border)" }} />
+            <span style={labelStyle}>{t("panel.layers")}</span>
+            <LayerActionsSection runtime={runtime} />
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={{ ...panelStyle, position: "absolute", top: 12, right: 12, width: 220, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>

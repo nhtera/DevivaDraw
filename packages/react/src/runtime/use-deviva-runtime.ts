@@ -23,6 +23,7 @@ import {
   createCanvasTextMeasurer,
   CanvasStage,
   ImageDecodeCache,
+  loadTextFonts,
   Scene,
 } from "@deviva-draw/engine";
 import type { AnyElement, RemoteCursorOverlay, SceneDocument, TextEditSession } from "@deviva-draw/engine";
@@ -109,6 +110,14 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
     stage.mount(container);
     const unsubscribeInvalidate = scene.subscribe(() => stage.staticLayer.invalidate());
 
+    // Register the bundled hand-drawn font, then force one repaint so any already-painted text
+    // reflows from the fallback sans into the real face once it's ready (a data-URI font settles fast,
+    // but not necessarily before the first frame). `cancelled` guards a late resolve after unmount.
+    let fontsCancelled = false;
+    void loadTextFonts(document).then(() => {
+      if (!fontsCancelled) stage.staticLayer.invalidate();
+    });
+
     const usingHostManagedData = Boolean(initialData);
     const autosave = usingHostManagedData ? null : startBrowserAutosave(scene, persistenceKey);
 
@@ -175,6 +184,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
     });
 
     return () => {
+      fontsCancelled = true;
       stopRenderLoop();
       if (debounceTimer !== null) clearTimeout(debounceTimer);
       unsubscribeOnChange();

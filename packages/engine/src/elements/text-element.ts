@@ -14,10 +14,10 @@ import type { ElementCreationInput } from "./element-factory-defaults";
 import { createElementBase } from "./element-factory-defaults";
 
 /**
- * `"normal"`/`"code"` ship with unambiguous open-licensed fonts (a standard sans-serif + monospace,
- * see `text/font-loading.ts`). `"hand-drawn-slot"` is a swappable slot with no bundled asset yet —
- * commissioning/licensing a Deviva-owned hand-drawn font is an open blocker, not a code task; the
- * slot exists so wiring one in later needs zero element-model rework.
+ * `"normal"`/`"code"` resolve to OS font stacks (a standard sans-serif + monospace). `"hand-drawn-slot"`
+ * is the default face: the bundled Excalifont (SIL OFL), a sketchy hand-drawn font that matches the
+ * rough.js shape rendering — see `text/font-loading.ts`. The slot name is kept for backward-compatible
+ * stored data even though a real font now backs it.
  */
 export type TextFontFamily = "normal" | "code" | "hand-drawn-slot";
 
@@ -50,7 +50,7 @@ export interface TextElementCreationInput extends ElementCreationInput {
   containerId?: string | null;
 }
 
-export const DEFAULT_TEXT_FONT_FAMILY: TextFontFamily = "normal";
+export const DEFAULT_TEXT_FONT_FAMILY: TextFontFamily = "hand-drawn-slot";
 export const DEFAULT_TEXT_FONT_SIZE = 20;
 export const DEFAULT_TEXT_ALIGN: TextAlign = "left";
 export const DEFAULT_TEXT_VERTICAL_ALIGN: VerticalAlign = "top";

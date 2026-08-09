@@ -14,9 +14,9 @@ test("places and edits a text element via the text tool", async ({ page }) => {
   await textarea.fill("Hello Deviva Draw");
   await expect(textarea).toHaveValue("Hello Deviva Draw");
 
-  // Plain Enter commits/exits the editor (see `should-commit-on-enter.ts`) and the text tool hands
-  // control back to the select tool (see `text-tool.ts`'s `onPlaced` callback).
-  await textarea.press("Enter");
+  // Escape commits/exits the editor (Enter inserts a newline, matching Excalidraw/tldraw) and the
+  // text tool hands control back to the select tool (see `text-tool.ts`'s `onPlaced` callback).
+  await textarea.press("Escape");
   await expect(page.getByTestId("text-editor-overlay-textarea")).not.toBeVisible();
   await expect(page.getByTestId("toolbar-select-tool")).toHaveAttribute("aria-pressed", "true");
 
@@ -57,8 +57,26 @@ test("while editing, the glyphs are painted on the canvas and the textarea is a 
   });
   expect(draftInk).toBeGreaterThan(50);
 
-  await textarea.press("Enter");
+  await textarea.press("Escape");
   await expect(page.getByTestId("text-editor-overlay-textarea")).not.toBeVisible();
+});
+
+test("editing text shows a focused text panel (font family/size/align), not the shape controls", async ({ page }) => {
+  await page.getByTestId("toolbar-text-tool").click();
+  await page.mouse.click(400, 350);
+  await expect(page.getByTestId("text-editor-overlay-textarea")).toBeVisible();
+
+  // The focused text panel is shown, with the text-only controls...
+  await expect(page.getByTestId("properties-panel-text")).toBeVisible();
+  await expect(page.getByText("Font family", { exact: true })).toBeVisible();
+  await expect(page.getByText("Font size", { exact: true })).toBeVisible();
+  await expect(page.getByText("Text align", { exact: true })).toBeVisible();
+  // ...and none of the shape-only controls (which don't apply to text).
+  await expect(page.getByText("Sloppiness", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Edges", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Fill", { exact: true })).toHaveCount(0);
+
+  await page.getByTestId("text-editor-overlay-textarea").press("Escape");
 });
 
 test("double-clicking existing standalone text re-edits it in place instead of dropping a duplicate", async ({ page }) => {
@@ -68,7 +86,7 @@ test("double-clicking existing standalone text re-edits it in place instead of d
   const textarea = page.getByTestId("text-editor-overlay-textarea");
   await expect(textarea).toBeVisible();
   await textarea.fill("sss");
-  await textarea.press("Enter");
+  await textarea.press("Escape");
   await expect(page.getByTestId("text-editor-overlay-textarea")).not.toBeVisible();
 
   // Double-click on the committed glyphs: this must re-open THAT element (seeded with its text),
@@ -79,7 +97,7 @@ test("double-clicking existing standalone text re-edits it in place instead of d
   await expect(reedit).toHaveValue("sss");
 
   // Commit unchanged, then a second edit round still finds a single element (no drift, no duplicate).
-  await reedit.press("Enter");
+  await reedit.press("Escape");
   await expect(page.getByTestId("text-editor-overlay-textarea")).not.toBeVisible();
   await page.mouse.dblclick(508, 356);
   await expect(page.getByTestId("text-editor-overlay-textarea")).toHaveValue("sss");
@@ -119,7 +137,7 @@ test("committed text lands where it was typed (no vertical jump between the edit
   await page.waitForTimeout(100);
   const whileEditing = await textTopY();
 
-  await textarea.press("Enter");
+  await textarea.press("Escape");
   await expect(page.getByTestId("text-editor-overlay-textarea")).not.toBeVisible();
   await page.waitForTimeout(150);
   const afterCommit = await textTopY();
@@ -130,14 +148,36 @@ test("committed text lands where it was typed (no vertical jump between the edit
   expect(Math.abs(afterCommit - whileEditing)).toBeLessThanOrEqual(2);
 });
 
-test("Escape cancels an in-progress text edit without committing", async ({ page }) => {
+test("Escape commits the text and exits (matching Excalidraw/tldraw), keeping the content", async ({ page }) => {
   await page.getByTestId("toolbar-text-tool").click();
   await page.mouse.click(400, 350);
 
   const textarea = page.getByTestId("text-editor-overlay-textarea");
   await expect(textarea).toBeVisible();
-  await textarea.fill("Discarded draft");
+  await textarea.fill("Kept on escape");
   await page.keyboard.press("Escape");
 
+  await expect(page.getByTestId("text-editor-overlay-textarea")).not.toBeVisible();
+  // The text was committed (not discarded) — undo is available and re-opening it shows the content.
+  await expect(page.getByTestId("top-bar-undo")).toBeEnabled();
+  await page.mouse.dblclick(410, 356);
+  await expect(page.getByTestId("text-editor-overlay-textarea")).toHaveValue("Kept on escape");
+  await page.getByTestId("text-editor-overlay-textarea").press("Escape");
+});
+
+test("Enter inserts a newline instead of committing (multi-line text)", async ({ page }) => {
+  await page.getByTestId("toolbar-text-tool").click();
+  await page.mouse.click(400, 350);
+
+  const textarea = page.getByTestId("text-editor-overlay-textarea");
+  await expect(textarea).toBeVisible();
+  await textarea.type("line one");
+  await textarea.press("Enter");
+  await textarea.type("line two");
+  // Still editing (Enter did not commit), and the value now spans two lines.
+  await expect(textarea).toBeVisible();
+  await expect(textarea).toHaveValue("line one\nline two");
+
+  await textarea.press("Escape");
   await expect(page.getByTestId("text-editor-overlay-textarea")).not.toBeVisible();
 });

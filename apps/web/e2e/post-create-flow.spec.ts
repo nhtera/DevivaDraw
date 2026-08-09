@@ -55,7 +55,7 @@ test("double-clicking empty canvas creates a new text element", async ({ page })
   const textarea = page.getByTestId("text-editor-overlay-textarea");
   await expect(textarea).toBeVisible();
   await textarea.fill("hello");
-  await textarea.press("Enter");
+  await textarea.press("Escape"); // Escape commits (Enter is a newline now)
   await expect(page.getByTestId("text-editor-overlay-textarea")).not.toBeVisible();
   await expect(page.getByTestId("top-bar-undo")).toBeEnabled();
 });

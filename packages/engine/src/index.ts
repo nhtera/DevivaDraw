@@ -147,7 +147,7 @@ export { DEFAULT_POINTER_TYPE, DEFAULT_SIMULATED_PRESSURE, PointerEventPipeline 
 export { createElementTarget, createGlobalTarget } from "./input/dom-event-target-adapter";
 
 export type { FontLoaderTarget, TextFontFaceSource } from "./text/font-loading";
-export { FONT_SIZE_LEVELS, loadTextFonts, TEXT_FONT_FAMILY_CSS } from "./text/font-loading";
+export { DEFAULT_TEXT_FONT_SOURCES, FONT_SIZE_LEVELS, loadTextFonts, TEXT_FONT_FAMILY_CSS } from "./text/font-loading";
 
 export type {
   MeasureWrappedTextOptions,

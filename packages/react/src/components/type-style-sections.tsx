@@ -4,8 +4,10 @@
  * shape" style set), so these write via `Scene.updateElement` for every matching selected element in
  * one batched history step instead of through `styleState.applyToSelection`.
  */
-import { FONT_SIZE_LEVELS } from "@deviva-draw/engine";
+import { DEFAULT_STROKE_COLOR_PALETTE, FONT_SIZE_LEVELS } from "@deviva-draw/engine";
 import type { AnyElement, ArrowElement, Arrowhead, TextAlign, TextElement, TextFontFamily } from "@deviva-draw/engine";
+import { ColorPicker } from "./color-picker";
+import { labelStyle } from "./chrome-styles";
 import { StyleSection } from "./style-section";
 import { useTranslation } from "../i18n/use-translation";
 import type { DevivaRuntime } from "../runtime/runtime-types";
@@ -57,6 +59,60 @@ export function TextStyleSection(props: { runtime: DevivaRuntime }) {
         onChange={(value) => updateBatched(runtime, textElements, { textAlign: value })}
       />
     </div>
+  );
+}
+
+/**
+ * The focused text property panel shown while a text element is being edited or is the whole
+ * selection — only the controls that apply to text (color, font family, size, align, opacity), matching
+ * Excalidraw/tldraw, instead of the shape panel's fill/stroke-width/sloppiness/edges. `targets` is the
+ * element(s) to write through: the live edit-session element (even though it isn't "selected") and/or
+ * the selected text elements, so restyling works the same whether editing or just selected. Every field
+ * lives directly on the element, so all of them go through `updateBatched`.
+ */
+export function TextPropertiesPanel(props: { runtime: DevivaRuntime; targets: TextElement[] }) {
+  const { runtime, targets } = props;
+  const { t } = useTranslation();
+  const first = targets[0];
+  if (!first) return null;
+  const set = (changes: Partial<TextElement>) => updateBatched(runtime, targets, changes);
+
+  return (
+    <>
+      <ColorPicker
+        label={t("panel.stroke")}
+        testId="stroke-color"
+        value={first.strokeColor}
+        palette={DEFAULT_STROKE_COLOR_PALETTE}
+        recentColors={runtime.styleState.getRecentColors()}
+        customColorLabel={t("panel.customColor")}
+        onChange={(color) => set({ strokeColor: color })}
+      />
+      <StyleSection
+        label={t("panel.fontFamily")}
+        value={first.fontFamily}
+        options={FONT_FAMILY_OPTIONS.map((value) => ({ value, label: t(`fontFamily.${value}`) }))}
+        onChange={(value) => set({ fontFamily: value as TextFontFamily })}
+      />
+      <StyleSection
+        label={t("panel.fontSize")}
+        value={String(first.fontSize)}
+        options={Object.entries(FONT_SIZE_LEVELS).map(([label, value]) => ({ value: String(value), label }))}
+        onChange={(value) => set({ fontSize: Number(value) })}
+      />
+      <StyleSection
+        label={t("panel.textAlign")}
+        value={first.textAlign}
+        options={TEXT_ALIGN_OPTIONS.map((value) => ({ value, label: t(`textAlign.${value}`), icon: TEXT_ALIGN_ICONS[value] }))}
+        onChange={(value) => set({ textAlign: value as TextAlign })}
+      />
+      <div>
+        <span style={labelStyle}>
+          {t("panel.opacity")}: {first.opacity}
+        </span>
+        <input type="range" min={0} max={100} value={first.opacity} onChange={(event) => set({ opacity: Number(event.target.value) })} style={{ width: "100%" }} />
+      </div>
+    </>
   );
 }
 
