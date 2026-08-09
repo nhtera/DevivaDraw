@@ -12,6 +12,7 @@
  */
 import { STYLE_GLYPHS } from "./icon-style-glyphs";
 import { TOOL_GLYPHS } from "./icon-tool-glyphs";
+import { MENU_GLYPHS } from "./icon-menu-glyphs";
 const GLYPHS: Record<string, string> = {
   cursor: "⟡",
   hand: "✋",
@@ -77,7 +78,7 @@ export interface IconProps {
 
 export function Icon(props: IconProps) {
   const { name, size = 16 } = props;
-  const svgGlyph = STYLE_GLYPHS[name] ?? TOOL_GLYPHS[name];
+  const svgGlyph = STYLE_GLYPHS[name] ?? TOOL_GLYPHS[name] ?? MENU_GLYPHS[name];
   if (svgGlyph) {
     return (
       <span aria-hidden="true" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: size, height: size }}>

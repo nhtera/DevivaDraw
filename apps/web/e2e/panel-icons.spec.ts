@@ -11,6 +11,14 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByTestId("deviva-draw-root")).toBeVisible();
 });
 
+test("main-menu items render monochrome SVG icons (not emoji glyphs)", async ({ page }) => {
+  await page.getByTestId("top-bar-menu").click();
+  await expect(page.getByTestId("main-menu")).toBeVisible();
+  // Menu actions carry an SVG icon alongside their text label.
+  await expect(page.getByTestId("main-menu-export-png").locator("svg")).toHaveCount(1);
+  await expect(page.getByTestId("main-menu-share").locator("svg")).toHaveCount(1);
+});
+
 test("stroke-width controls are icon buttons that keep their label and still toggle", async ({ page }) => {
   const thin = page.getByTestId("stroke-width-thin");
   const bold = page.getByTestId("stroke-width-bold");
