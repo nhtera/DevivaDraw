@@ -62,14 +62,20 @@ export function TextEditorOverlay(props: TextEditorOverlayProps) {
     return () => cancelAnimationFrame(frame);
   }, [overlay?.elementId]);
 
-  // Auto-grows the textarea's height to fit its content as the user types — the standard
-  // reset-then-measure-scrollHeight technique; CSS alone can't do this for a `<textarea>`.
+  // Auto-grows the textarea to fit its content as the user types — the standard reset-then-measure
+  // technique; CSS alone can't size a `<textarea>` to its content. Height always; width only for
+  // standalone (non-wrapping) text, so a long line isn't clipped by the element's near-zero initial
+  // width (the edit session never resizes the scene element mid-edit — see `use-text-editing.ts`).
   useEffect(() => {
     const node = textareaRef.current;
     if (!node || !overlay) return;
+    if (overlay.autoWidth) {
+      node.style.width = "auto";
+      node.style.width = `${node.scrollWidth}px`;
+    }
     node.style.height = "auto";
     node.style.height = `${node.scrollHeight}px`;
-  }, [overlay?.value, overlay?.elementId]);
+  }, [overlay?.value, overlay?.elementId, overlay?.autoWidth]);
 
   if (!overlay) return null;
 

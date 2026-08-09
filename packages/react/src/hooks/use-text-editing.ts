@@ -43,6 +43,8 @@ export interface TextEditingOverlay {
   containerStyle: CSSProperties;
   /** Font/color/wrap styling for the `<textarea>` itself. */
   textareaStyle: CSSProperties;
+  /** `true` for standalone (non-wrapping) text — the component grows the textarea's width to fit the draft so long lines aren't clipped by the initial (near-zero) element width, since `updateDraft` never resizes the scene element mid-edit. `false` for bound text, which wraps within its container's fixed width instead. */
+  autoWidth: boolean;
   onChange(value: string): void;
   onBlur(): void;
   onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void;
@@ -90,14 +92,18 @@ export function useTextEditing(options: UseTextEditingOptions): TextEditingOverl
     position: "absolute",
     left: topLeft.x,
     top: topLeft.y,
-    width: widthPx,
+    // Bound text keeps the container's fixed width so its textarea can wrap within it; standalone text
+    // lets the container shrink-wrap the (component-grown) textarea instead of clipping it to the
+    // element's near-zero initial width.
+    ...(isBound ? { width: widthPx } : {}),
     zIndex: 10,
     ...(element.angle !== 0 ? { transform: `rotate(${element.angle}rad)`, transformOrigin: "top left" } : {}),
   };
 
   const textareaStyle: CSSProperties = {
     display: "block",
-    width: "100%",
+    width: isBound ? "100%" : "auto",
+    ...(isBound ? {} : { minWidth: widthPx }),
     minHeight: minHeightPx,
     margin: 0,
     padding: 0,
@@ -125,6 +131,7 @@ export function useTextEditing(options: UseTextEditingOptions): TextEditingOverl
     textAlign: element.textAlign,
     containerStyle,
     textareaStyle,
+    autoWidth: !isBound,
     onChange: (value: string) => session.updateDraft(value),
     onBlur: () => session.commit(),
     onKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => {

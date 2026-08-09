@@ -18,3 +18,10 @@ export function click(tool: LineTool, point: { x: number; y: number }): void {
   tool.onGestureStart(point, NO_MODIFIERS);
   tool.onGestureEnd(point, NO_MODIFIERS);
 }
+
+/** Simulates a press-drag-release: down at `from`, a move to `to`, then release at `to`. */
+export function drag(tool: LineTool, from: { x: number; y: number }, to: { x: number; y: number }): void {
+  tool.onGestureStart(from, NO_MODIFIERS);
+  tool.onGestureMove(to, NO_MODIFIERS);
+  tool.onGestureEnd(to, NO_MODIFIERS);
+}

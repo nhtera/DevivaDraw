@@ -1,13 +1,16 @@
 /**
- * Multi-point line/polyline tool: click adds a vertex, a click near the first vertex closes the
- * shape into a filled polygon, and Enter/double-click/Escape commit whatever's been placed so far
- * as an open polyline. Unlike the single-drag shape tools (`drag-shape-tool-base.ts`), one polyline
- * spans *multiple* pointer gestures — each click is its own down/up cycle — so state persists across
- * `onGestureStart`/`onGestureEnd` calls instead of resetting every gesture.
+ * Line/polyline tool with two creation affordances, matching `arrow-tool.ts` (its sibling) and every
+ * mainstream whiteboard: a real drag (pointer movement beyond a small threshold between down and up)
+ * commits an instant straight 2-point line; a plain click (no meaningful movement) instead enters
+ * multi-point mode — click to add each further vertex, a click near the first vertex closes the shape
+ * into a filled polygon, and Enter/double-click/Escape commit whatever's been placed as an open
+ * polyline. One polyline spans multiple pointer gestures (each click is its own down/up cycle), so
+ * state persists across `onGestureStart`/`onGestureEnd` instead of resetting every gesture.
  *
- * A vertex is only committed on `onGestureEnd` (pointer-up), not `onGestureStart` — so a tiny
- * pointer-jitter between down and up never adds two vertices for what the user experienced as one
- * click.
+ * The draft element is created on the first `onGestureStart` so a drag can live-preview its second
+ * endpoint via `onGestureMove`; whether that first gesture was a click or a drag is decided from the
+ * down-to-up distance at `onGestureEnd`, which is also what keeps a tiny pointer-jitter during a click
+ * from being mistaken for a drag.
  */
 import type { LineElement } from "../elements/shape-elements";
 import { createLineElement } from "../elements/shape-elements";
@@ -23,10 +26,10 @@ export interface LineToolDeps {
   styleState: ShapeStyleState;
   history: ShapeToolHistory;
   /**
-   * Current camera zoom. Click-proximity thresholds (double-click, "close near start") are defined
-   * in screen pixels and converted to scene units at comparison time via this — otherwise the same
-   * *scene-unit* threshold would feel wildly more/less forgiving depending on zoom level (a 10-unit
-   * radius is trivial to hit zoomed in, and nearly impossible to hit precisely zoomed out).
+   * Current camera zoom. Click-proximity thresholds (drag-vs-click, double-click, "close near start")
+   * are defined in screen pixels and converted to scene units at comparison time via this — otherwise
+   * the same *scene-unit* threshold would feel wildly more/less forgiving depending on zoom level (a
+   * 10-unit radius is trivial to hit zoomed in, and nearly impossible to hit precisely zoomed out).
    */
   getZoom(): number;
 }
@@ -35,6 +38,8 @@ export interface LineToolDeps {
 const DOUBLE_CLICK_WINDOW_MS = 300;
 /** Max screen-pixel distance between two clicks to count as "the same spot" for double-click detection. */
 const DOUBLE_CLICK_PROXIMITY_PX = 6;
+/** Pointer movement beyond this (screen px) between the first down and up counts as a real drag, not a click. */
+const DRAG_VS_CLICK_THRESHOLD_PX = 4;
 /** Screen-pixel distance from the first vertex within which a click closes the shape into a polygon. */
 const CLOSE_POLYGON_DISTANCE_PX = 10;
 /** Vertices already placed (before the closing click) required before "close near start" applies — a 2-vertex loop has no area. */
@@ -56,6 +61,9 @@ export class LineTool extends NoOpToolHandler {
   private readonly deps: LineToolDeps;
   private points: Point[] = [];
   private elementId: string | null = null;
+  private firstGestureStartPoint: Point | null = null;
+  /** True only before the very first `onGestureEnd` of a new polyline — see module doc on the drag-vs-click split. */
+  private isFirstVertexGesture = true;
   private lastClickAt = 0;
   private lastClickPoint: Point | null = null;
 
@@ -64,46 +72,61 @@ export class LineTool extends NoOpToolHandler {
     this.deps = deps;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see module doc: the vertex is captured on gesture end, not start
-  override onGestureStart(point: Point, modifiers: ModifierKeys): void {}
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `modifiers` kept to match `ToolHandler`'s signature
+  override onGestureStart(point: Point, modifiers: ModifierKeys): void {
+    if (this.points.length > 0) return; // multi-point continuation: vertex only added at gesture end
+    this.deps.history.beginBatch();
+    this.points = [point];
+    this.firstGestureStartPoint = point;
+    const element: LineElement = createLineElement({ x: point.x, y: point.y, width: 0, height: 0, points: [{ x: 0, y: 0 }], ...this.deps.styleState.getStyle() });
+    this.elementId = this.deps.scene.addElement(element).id;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `modifiers` kept to match `ToolHandler`'s signature
+  override onGestureMove(point: Point, modifiers: ModifierKeys): void {
+    if (!this.elementId || !this.isFirstVertexGesture) return;
+    const start = this.points[0];
+    if (start) this.syncElement([start, point]); // live-preview the drag's second endpoint
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `modifiers` kept to match `ToolHandler`'s signature
   override onGestureEnd(point: Point, modifiers: ModifierKeys): void {
-    const zoom = this.deps.getZoom();
-    const doubleClickProximity = DOUBLE_CLICK_PROXIMITY_PX / zoom;
-    const closePolygonDistance = CLOSE_POLYGON_DISTANCE_PX / zoom;
+    if (!this.elementId) return;
 
-    const now = Date.now();
-    const isDoubleClick =
-      this.points.length > 0 &&
-      now - this.lastClickAt <= DOUBLE_CLICK_WINDOW_MS &&
-      this.lastClickPoint !== null &&
-      distance(this.lastClickPoint, point) <= doubleClickProximity;
-    this.lastClickAt = now;
-    this.lastClickPoint = point;
+    if (this.isFirstVertexGesture) {
+      this.isFirstVertexGesture = false;
+      const start = this.firstGestureStartPoint ?? point;
+      if (distance(start, point) > DRAG_VS_CLICK_THRESHOLD_PX / this.deps.getZoom()) {
+        this.points = [start, point];
+        this.finish(); // a drag: commit an instant straight 2-point line
+        return;
+      }
+      // A click, not a drag: stay in multi-point mode with just vertex 1 committed so far.
+      this.points = [start];
+      this.syncElement();
+      return;
+    }
 
-    if (isDoubleClick) {
+    if (this.isDoubleClick(point)) {
       this.finish();
       return;
     }
 
     const first = this.points[0];
-    if (this.points.length >= MIN_VERTICES_TO_CLOSE && first && distance(first, point) <= closePolygonDistance) {
+    if (this.points.length >= MIN_VERTICES_TO_CLOSE && first && distance(first, point) <= CLOSE_POLYGON_DISTANCE_PX / this.deps.getZoom()) {
       this.finish(true);
       return;
     }
 
-    this.addVertex(point);
+    this.points = [...this.points, point];
+    this.syncElement();
   }
 
   /**
    * Abort path (Escape mid-click, `pointercancel`, blur): the pipeline already cancels any open
-   * history batch before calling this — see `input/pointer-event-pipeline.ts` — regardless of which
-   * click in the polyline was interrupted. With the batch gone there is no partial state worth
-   * keeping: the whole in-progress polyline (not just the interrupted click) is abandoned, so any
-   * vertices already placed are soft-deleted along with the draft element instead of surviving for a
-   * later `finish()` that would have nothing valid to commit them into (the un-undoable-element bug
-   * this guards against).
+   * history batch before calling this — see `input/pointer-event-pipeline.ts`. With the batch gone
+   * there is no partial state worth keeping: the whole in-progress polyline (not just the interrupted
+   * click) is abandoned, so any vertices already placed are soft-deleted along with the draft element.
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `modifiers` kept to match `ToolHandler`'s signature
   override onGestureCancel(modifiers: ModifierKeys): void {
@@ -115,34 +138,23 @@ export class LineTool extends NoOpToolHandler {
     if (key === "Enter" || key === "Escape") this.finish();
   }
 
-  private addVertex(point: Point): void {
-    if (this.points.length === 0) {
-      this.deps.history.beginBatch();
-      this.points = [point];
-      const element: LineElement = createLineElement({
-        x: point.x,
-        y: point.y,
-        width: 0,
-        height: 0,
-        points: [{ x: 0, y: 0 }],
-        ...this.deps.styleState.getStyle(),
-      });
-      this.elementId = this.deps.scene.addElement(element).id;
-      return;
-    }
-    this.points = [...this.points, point];
-    this.syncElement();
+  private isDoubleClick(point: Point): boolean {
+    const now = Date.now();
+    const proximity = DOUBLE_CLICK_PROXIMITY_PX / this.deps.getZoom();
+    const isDouble = this.lastClickPoint !== null && now - this.lastClickAt <= DOUBLE_CLICK_WINDOW_MS && distance(this.lastClickPoint, point) <= proximity;
+    this.lastClickAt = now;
+    this.lastClickPoint = point;
+    return isDouble;
   }
 
-  private syncElement(): void {
+  private syncElement(points: readonly Point[] = this.points): void {
     if (!this.elementId) return;
-    const bounds = boundsOf(this.points);
-    const relativePoints = this.points.map((point) => ({ x: point.x - bounds.x, y: point.y - bounds.y }));
+    const bounds = boundsOf(points);
+    const relativePoints = points.map((point) => ({ x: point.x - bounds.x, y: point.y - bounds.y }));
     // `Scene.updateElement`'s `ElementUpdate` type is built from `keyof AnyElement`, which (being a
     // union) only includes fields common to *every* member — `points` is `LineElement`-only, so a
-    // pre-typed `Partial<LineElement>` local (structurally wider, not an inline literal) is needed
-    // to pass it through; `Scene` itself just spreads `changes`, so this is a type-level-only gap,
-    // not a runtime one.
+    // pre-typed `Partial<LineElement>` local (structurally wider, not an inline literal) is needed to
+    // pass it through; `Scene` itself just spreads `changes`, so this is a type-level-only gap.
     const changes: Partial<LineElement> = { ...bounds, points: relativePoints };
     this.deps.scene.updateElement(this.elementId, changes);
   }
@@ -177,6 +189,8 @@ export class LineTool extends NoOpToolHandler {
   private reset(): void {
     this.points = [];
     this.elementId = null;
+    this.firstGestureStartPoint = null;
+    this.isFirstVertexGesture = true;
     // Cleared too: a fresh polyline's first click must never be mistaken for a double-click/close
     // against a click that belonged to a now-abandoned previous one.
     this.lastClickAt = 0;

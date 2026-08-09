@@ -65,7 +65,7 @@ function buildPipelineActionHandlers(runtime: DevivaRuntime): Record<string, () 
 
 export function buildRuntime(options: BuildRuntimeOptions): DevivaRuntime {
   const { container, scene, getCamera, setCamera, ui, createPersistence, shareApiBaseUrl, getThemeMode, toggleThemeMode, isChromeOverlayOpen } = options;
-  const tools = buildTools(container, scene, getCamera, setCamera);
+  const tools = buildTools(container, scene, getCamera, setCamera, getThemeMode);
   const persistence = createPersistence({ history: tools.historyStack, selection: tools.selectionState });
   const actionRegistry = buildActionRegistry({ shareEnabled: Boolean(shareApiBaseUrl) });
 

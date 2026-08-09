@@ -7,6 +7,7 @@ import {
   ArrowTool,
   computeElementsBounds,
   createCanvasTextMeasurer,
+  DEFAULT_STROKE_COLOR_PALETTE,
   DiamondTool,
   EllipseTool,
   FreedrawTool,
@@ -26,6 +27,8 @@ import {
 } from "@deviva-draw/engine";
 import type { AnyElement, Camera, Scene, TextMeasurer } from "@deviva-draw/engine";
 import type { GridState } from "../actions/action-types";
+import { adaptStrokeColorForTheme } from "../theme/canvas-color-inversion";
+import type { ThemeMode } from "../theme/theme-tokens";
 import {
   ARROW_TOOL_NAME,
   DIAMOND_TOOL_NAME,
@@ -53,7 +56,13 @@ export interface BuiltTools {
   disposeHooks(): void;
 }
 
-export function buildTools(container: HTMLElement, scene: Scene, getCamera: () => Camera, setCamera: (camera: Camera) => void): BuiltTools {
+export function buildTools(
+  container: HTMLElement,
+  scene: Scene,
+  getCamera: () => Camera,
+  setCamera: (camera: Camera) => void,
+  getThemeMode: () => ThemeMode,
+): BuiltTools {
   const panZoomTool = new PanZoomTool({
     getCamera,
     setCamera,
@@ -61,7 +70,13 @@ export function buildTools(container: HTMLElement, scene: Scene, getCamera: () =
     getSceneBounds: () => computeElementsBounds(scene.elementsUnsorted()),
   });
 
-  const styleState = new ShapeStyleState();
+  // New shapes/text must be legible against the *current* theme's canvas background: in dark mode the
+  // "next shape" default stroke starts as the dark-palette counterpart of the light default, so a
+  // freshly-drawn line or typed text is visible immediately instead of rendering a near-black stroke
+  // onto the near-black dark canvas. `use-apply-theme-swap.ts` keeps this default in sync on a later
+  // theme change; the palette's first entry is the canonical default stroke.
+  const [defaultStroke = "#1e1e1e"] = DEFAULT_STROKE_COLOR_PALETTE;
+  const styleState = new ShapeStyleState({ strokeColor: adaptStrokeColorForTheme(defaultStroke, getThemeMode()) });
   const historyStack = new HistoryStack<AnyElement[]>(scene.getElements());
   const shapeToolDeps = { scene, styleState, history: historyStack };
   const rectangleTool = new RectangleTool(shapeToolDeps);

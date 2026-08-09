@@ -2,9 +2,41 @@ import { describe, expect, it } from "vitest";
 import { Scene } from "../scene/scene";
 import { LineTool } from "./line-tool";
 import { ShapeStyleState } from "./shape-style-state";
-import { click, fakeHistory, NO_MODIFIERS } from "./line-tool-test-helpers";
+import { click, drag, fakeHistory, NO_MODIFIERS } from "./line-tool-test-helpers";
 
 describe("LineTool", () => {
+  it("a press-drag-release commits an instant straight 2-point line (no extra clicks needed)", () => {
+    const scene = new Scene();
+    const history = fakeHistory();
+    const tool = new LineTool({ scene, styleState: new ShapeStyleState(), history, getZoom: () => 1 });
+
+    drag(tool, { x: 10, y: 10 }, { x: 60, y: 40 });
+
+    const live = scene.getElements().filter((element) => !element.isDeleted);
+    expect(live).toHaveLength(1);
+    expect(history.endBatch).toHaveBeenCalledTimes(1); // committed on release, not left waiting for more clicks
+    const line = live[0];
+    expect(line).toMatchObject({ type: "line", x: 10, y: 10, width: 50, height: 30 });
+    if (line?.type === "line") {
+      expect(line.points).toHaveLength(2);
+      expect(line.points.at(0)).toEqual({ x: 0, y: 0 });
+      expect(line.points.at(-1)).toEqual({ x: 50, y: 30 });
+    }
+  });
+
+  it("a movement below the drag threshold is treated as a click, not a drag (stays in multi-point mode)", () => {
+    const scene = new Scene();
+    const history = fakeHistory();
+    const tool = new LineTool({ scene, styleState: new ShapeStyleState(), history, getZoom: () => 1 });
+
+    drag(tool, { x: 10, y: 10 }, { x: 12, y: 11 }); // ~2.2px < 4px threshold
+
+    expect(history.endBatch).not.toHaveBeenCalled(); // not committed — awaits further clicks
+    tool.onKeyDown("Enter", NO_MODIFIERS);
+    const live = scene.getElements().filter((element) => !element.isDeleted);
+    expect(live).toHaveLength(0); // single-vertex draft discarded on finish
+  });
+
   it("adds a line element to the scene on the first click, with a single [0,0] relative point", () => {
     const scene = new Scene();
     const tool = new LineTool({ scene, styleState: new ShapeStyleState(), history: fakeHistory(), getZoom: () => 1 });

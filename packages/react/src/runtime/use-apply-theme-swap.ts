@@ -5,7 +5,7 @@
  * while no runtime is mounted yet.
  */
 import { useEffect, useRef } from "react";
-import { applyThemeToSceneElements } from "../theme/canvas-color-inversion";
+import { adaptBackgroundColorForTheme, adaptStrokeColorForTheme, applyThemeToSceneElements } from "../theme/canvas-color-inversion";
 import type { ThemeMode } from "../theme/theme-tokens";
 import type { DevivaRuntime } from "./runtime-types";
 
@@ -22,5 +22,13 @@ export function useApplyThemeSwap(runtime: DevivaRuntime | null, mode: ThemeMode
     if (!runtime || mode === previousMode.current) return;
     previousMode.current = mode;
     applyThemeToSceneElements(runtime.scene, mode, runtime.history);
+    // Adapt the "next shape" style default too (same default-palette-only swap the scene got), so a
+    // shape drawn *after* the theme change is legible against the new canvas instead of inheriting the
+    // previous theme's stroke — mirrors `build-tools.ts`'s mount-time initialization.
+    const style = runtime.styleState.getStyle();
+    runtime.styleState.setStyle({
+      strokeColor: adaptStrokeColorForTheme(style.strokeColor, mode),
+      backgroundColor: adaptBackgroundColorForTheme(style.backgroundColor, mode),
+    });
   }, [runtime, mode]);
 }
