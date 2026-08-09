@@ -11,7 +11,8 @@
     "dev": "pnpm --parallel --filter \"./apps/*\" dev",
     "dev:web": "pnpm --filter @deviva-draw/web dev",
     "dev:collab": "pnpm --filter @deviva-draw/collab-server dev",
-    "build": "pnpm --filter @deviva-draw/web build",
+    "build": "pnpm --filter @deviva-draw/engine build && pnpm --filter @deviva-draw/collab-client build && pnpm --filter @deviva-draw/react build && pnpm --filter @deviva-draw/web build",
+    "build:packages": "pnpm --filter @deviva-draw/engine build && pnpm --filter @deviva-draw/collab-client build && pnpm --filter @deviva-draw/react build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test"

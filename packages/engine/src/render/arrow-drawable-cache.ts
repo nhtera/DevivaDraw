@@ -6,7 +6,7 @@
  * `(element.version, camera)` it was built under — see `RoughDrawableCache`'s doc for why camera
  * fields must be part of the key, not just `version`.
  */
-import type { Drawable } from "roughjs/bin/core";
+import type { Drawable } from "roughjs/bin/core.js";
 import type { AnyElement } from "../elements/element-types";
 import type { Camera } from "./camera";
 

@@ -1,13 +1,52 @@
 {
   "name": "@deviva-draw/react",
   "version": "0.1.0",
-  "private": true,
   "description": "React bindings for the Deviva Draw engine: <DevivaDraw/> component, hooks, UI chrome, scene-read API",
   "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "whiteboard",
+    "react",
+    "react-component",
+    "canvas",
+    "infinite-canvas",
+    "drawing",
+    "collaboration"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deviva/deviva-draw.git",
+    "directory": "packages/react"
+  },
+  "homepage": "https://github.com/deviva/deviva-draw#readme",
+  "bugs": "https://github.com/deviva/deviva-draw/issues",
+  "engines": {
+    "node": ">=22"
+  },
   "exports": {
     ".": "./src/index.ts"
   },
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
+    "build": "tsc -p tsconfig.build.json && node ../../scripts/add-esm-import-extensions.mjs dist",
+    "prepublishOnly": "pnpm run build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "vitest run --passWithNoTests"

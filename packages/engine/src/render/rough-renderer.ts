@@ -12,7 +12,7 @@
  * applied as a plain canvas transform/`globalAlpha` wrap around the `RoughShapeDrawer` call, via the
  * separate, narrow `RoughDrawContext2D` surface `drawElementRough` takes.
  */
-import type { Drawable, Options as RoughOptions } from "roughjs/bin/core";
+import type { Drawable, Options as RoughOptions } from "roughjs/bin/core.js";
 import type { AnyElement } from "../elements/element-types";
 import type { LineElement } from "../elements/shape-elements";
 import type { Camera } from "./camera";

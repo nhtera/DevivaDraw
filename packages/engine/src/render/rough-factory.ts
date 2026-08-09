@@ -7,6 +7,7 @@
  * `canvas-stage.ts`'s existing `import rough from "roughjs"` pattern.
  */
 import rough from "roughjs";
+import type { RoughGenerator } from "roughjs/bin/generator.js";
 import type { RoughCanvasDrawer } from "./rough-renderer";
 
 /** Real, canvas-bound rough.js drawer for `canvas` — paints directly onto it, see `RoughCanvasDrawer`'s doc. */
@@ -14,7 +15,12 @@ export function createBrowserRoughCanvas(canvas: HTMLCanvasElement): RoughCanvas
   return rough.canvas(canvas);
 }
 
-/** Headless rough.js generator — no `<canvas>`/DOM needed; used for `export/export-to-svg.ts`'s `RoughSvgGenerator`. */
-export function createRoughGenerator() {
+/**
+ * Headless rough.js generator — no `<canvas>`/DOM needed; used for `export/export-to-svg.ts`'s
+ * `RoughSvgGenerator`. Explicit return type: without it, declaration emit can't portably name
+ * rough.js's own inferred generator type across a package boundary (see `RoughCanvasDrawer` above,
+ * which sidesteps the same problem via its own explicit annotation).
+ */
+export function createRoughGenerator(): RoughGenerator {
   return rough.generator();
 }

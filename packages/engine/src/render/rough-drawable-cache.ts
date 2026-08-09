@@ -11,7 +11,7 @@
  * `version` alone would keep painting stale, pre-pan screen positions until each element happened to
  * be edited again.
  */
-import type { Drawable } from "roughjs/bin/core";
+import type { Drawable } from "roughjs/bin/core.js";
 import type { AnyElement } from "../elements/element-types";
 import type { Camera } from "./camera";
 

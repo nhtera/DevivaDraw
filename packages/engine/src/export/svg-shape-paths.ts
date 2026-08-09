@@ -7,7 +7,7 @@
  * `Drawable` into SVG path-data strings instead of a canvas painting it, so no `<canvas>`/DOM is
  * needed here at all — this runs the same in the engine's Node test environment as in a browser.
  */
-import type { Drawable, PathInfo } from "roughjs/bin/core";
+import type { Drawable, PathInfo } from "roughjs/bin/core.js";
 import type { AnyElement } from "../elements/element-types";
 import type { ArrowElement } from "../elements/arrow-element";
 import { buildArrowDrawables } from "../render/arrow-renderer";

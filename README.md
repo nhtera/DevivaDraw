@@ -15,8 +15,11 @@ apps/web                Standalone app (draw.deviva.app) — Vite + React SPA
 apps/collab-server      Cloudflare Worker: Durable Objects rooms + R2 blobs
 ```
 
-Packages are source-only (consumers compile TypeScript directly) — no build
-artifacts to keep in sync.
+In-repo consumers (`apps/web` via Vite, and any sibling checkout via pnpm's `link:`) compile each
+package's TypeScript source directly — no build step needed for local development. Published npm
+packages resolve to a `tsc`-built `dist/` instead (see each package's own README); `pnpm run
+build:packages` produces those artifacts in dependency order (`engine` → `collab-client` →
+`react`).
 
 ## Setup
 

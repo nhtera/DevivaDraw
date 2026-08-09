@@ -4,10 +4,16 @@ React bindings for [Deviva Draw](../../README.md): the `<DevivaDraw/>` component
 chrome, theming, i18n, persistence, export, sharing, live collaboration), plus the lower-level
 hooks/building blocks a host that wants its own chrome can use directly.
 
-Source-only — consumers compile the TypeScript directly (no build step, no CJS/ESM dual-publish to
-keep in sync).
-
 ## Install
+
+```bash
+npm install @deviva-draw/react @deviva-draw/engine react react-dom
+```
+
+`@deviva-draw/collab-client` is pulled in automatically as a dependency (used by the live
+collaboration hooks) — no separate install needed unless you want to use it directly.
+
+## Local development against a sibling checkout
 
 Inside this monorepo, packages depend on each other via `workspace:*`. Consuming from a **separate**
 repository (e.g. a Next.js app that isn't part of this pnpm workspace) that has a sibling checkout of
@@ -31,9 +37,9 @@ just symlinks the target directory as-is and skips that resolution step, relying
 `pnpm install` (run once, in *this* repo) having already wired `packages/react/node_modules/@deviva-draw/engine`
 etc. correctly. Re-run `pnpm install` here whenever this repo's own dependency tree changes.
 
-This is a **local sibling-checkout workflow for development**, not a production consumption story —
-it requires both repos checked out side by side on the same machine. Production consumption of a
-compiled, versioned `@deviva-draw/react` (npm or another registry) is a decision still pending.
+This is a **local sibling-checkout workflow for development**, not the production consumption
+story — it requires both repos checked out side by side on the same machine. For production, use
+the npm-published package instead (see Install above), which resolves to a pre-built `dist/`.
 
 ## Basic usage
 
@@ -134,3 +140,7 @@ function App() {
   return <DevivaDraw ref={ref} />;
 }
 ```
+
+## License
+
+MIT

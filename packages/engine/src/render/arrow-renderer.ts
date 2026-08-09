@@ -14,7 +14,7 @@
  * that array per element instead, keyed and invalidated the same `(version, camera)` way. `StaticLayer`
  * owns and prunes it, mirroring how it already owns `RoughDrawableCache`/`FreedrawOutlineCache`.
  */
-import type { Drawable, Options as RoughOptions } from "roughjs/bin/core";
+import type { Drawable, Options as RoughOptions } from "roughjs/bin/core.js";
 import type { ArrowElement, Arrowhead } from "../elements/arrow-element";
 import { absolutePoints, arrowheadBarEnds, arrowheadDotCenter, arrowheadWings, outwardDirectionAt, smoothedPathFromPoints } from "./arrow-geometry";
 import type { ArrowDrawableCache } from "./arrow-drawable-cache";

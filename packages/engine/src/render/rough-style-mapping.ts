@@ -3,7 +3,7 @@
  * shape. Fill styles (hachure/cross-hatch/solid/zigzag) and hand-drawn `roughness` are rough.js's
  * native options — this is pass-through configuration, not a custom fill implementation.
  */
-import type { Options as RoughOptions } from "roughjs/bin/core";
+import type { Options as RoughOptions } from "roughjs/bin/core.js";
 import type { AnyElement } from "../elements/element-types";
 
 /** Element field value meaning "no fill" — matches `element-factory-defaults.ts`'s default. */

@@ -1,13 +1,51 @@
 {
   "name": "@deviva-draw/collab-client",
   "version": "0.1.0",
-  "private": true,
   "description": "Realtime sync client for Deviva Draw: WebSocket transport, E2E crypto, presence, conflict resolution",
   "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "whiteboard",
+    "realtime",
+    "websocket",
+    "collaboration",
+    "e2e-encryption",
+    "presence"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deviva/deviva-draw.git",
+    "directory": "packages/collab-client"
+  },
+  "homepage": "https://github.com/deviva/deviva-draw#readme",
+  "bugs": "https://github.com/deviva/deviva-draw/issues",
+  "engines": {
+    "node": ">=22"
+  },
   "exports": {
     ".": "./src/index.ts"
   },
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
+    "build": "tsc -p tsconfig.build.json && node ../../scripts/add-esm-import-extensions.mjs dist",
+    "prepublishOnly": "pnpm run build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "vitest run --passWithNoTests"
