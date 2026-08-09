@@ -44,3 +44,22 @@ export function startStandaloneTextEdit(scene: Scene, editSession: TextEditSessi
   });
   return stored.id;
 }
+
+/**
+ * Re-opens editing on an *existing* standalone text element (double-clicking its glyphs to edit the
+ * content), seeding the draft with its current text so typing appends/edits rather than replacing from
+ * blank. Without this, a double-click on already-committed standalone text misses every bindable/arrow
+ * hit test and falls through to `startStandaloneTextEdit`, spawning a second overlapping text box
+ * offset to the click point instead of editing the one that's there — the "text jumps to a new spot on
+ * edit" duplicate. `isNewElement: false` so abandoning the edit (Escape) leaves the original intact.
+ */
+export function startExistingStandaloneTextEdit(scene: Scene, editSession: TextEditSession, measurer: TextMeasurer, elementId: string): void {
+  const element = scene.getElement(elementId);
+  if (!element || element.isDeleted || element.type !== "text") return;
+  editSession.start({
+    elementId,
+    initialText: element.text,
+    isNewElement: false,
+    onCommitted: (id, finalText) => syncStandaloneTextSize(scene, id, finalText, measurer),
+  });
+}

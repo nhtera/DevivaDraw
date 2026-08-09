@@ -174,7 +174,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     >
       <div ref={canvasHostRef} data-testid="deviva-draw-canvas-host" style={{ position: "absolute", inset: 0, background: "var(--dd-canvas-background)" }}>
         {runtime && editSession && (
-          <TextEditorOverlay session={editSession} scene={runtime.scene} getCamera={getCamera} subscribeCamera={cameraStore.subscribe} canvasBackgroundColor={tokens.canvasBackground} />
+          <TextEditorOverlay session={editSession} scene={runtime.scene} getCamera={getCamera} subscribeCamera={cameraStore.subscribe} />
         )}
       </div>
       {runtime && !zenMode.value && (isNarrow ? <BottomToolbar runtime={runtime} /> : <Toolbar runtime={runtime} toolLocked={toolLock.value} onToggleLock={() => toolLock.set(!toolLock.value)} />)}

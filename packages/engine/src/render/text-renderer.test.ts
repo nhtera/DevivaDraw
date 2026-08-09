@@ -17,6 +17,8 @@ function fakeCtx(): TextDrawContext2D {
     textAlign: "left",
     textBaseline: "alphabetic",
     fillText: vi.fn(),
+    // Font-level vertical metrics the renderer reads to reproduce the textarea's CSS line box.
+    measureText: () => ({ fontBoundingBoxAscent: 16, fontBoundingBoxDescent: 4 }),
   };
 }
 
@@ -81,8 +83,11 @@ describe("drawElementText", () => {
     // fontSize 20 * lineHeight 1.25 (default) = 25px line height, 1 line -> 25px block; box height 100.
     const element = createTextElement({ x: 0, y: 10, width: 100, height: 100, text: "hi", verticalAlign: "middle" });
     drawElementText(ctx, element, createCamera(), measurer);
-    // startY = rect.y(10) + (100 - 25) / 2 = 10 + 37.5 = 47.5
-    expect(ctx.fillText).toHaveBeenCalledWith("hi", expect.any(Number), 47.5);
+    // startY = rect.y(10) + (100 - 25) / 2 = 47.5. Each line's baseline reconstructs the textarea's CSS
+    // line box from the font metrics (asc 16 / desc 4): (25 - (16 + 4)) / 2 + 16 = 18.5 into the line,
+    // so y = 47.5 + 18.5 = 66 with an alphabetic baseline.
+    expect(ctx.textBaseline).toBe("alphabetic");
+    expect(ctx.fillText).toHaveBeenCalledWith("hi", expect.any(Number), 66);
   });
 
   it("scales font size and geometry by camera.zoom", () => {

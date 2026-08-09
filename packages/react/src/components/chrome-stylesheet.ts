@@ -19,6 +19,8 @@ ${ROOT} button:hover:not(:disabled) { background: rgba(127, 127, 127, 0.14); }
 ${ROOT} button[aria-pressed="true"] { background: var(--dd-accent-soft); }
 ${ROOT} button[aria-pressed="true"]:hover:not(:disabled) { background: var(--dd-accent-soft); }
 ${ROOT} :focus-visible { outline: 2px solid var(--dd-accent); outline-offset: 1px; border-radius: 5px; }
+${ROOT} [data-testid="text-editor-overlay-textarea"] { outline: none; }
+${ROOT} [data-testid="text-editor-overlay-textarea"]::selection { background: transparent; }
 @keyframes dd-pop-in { from { opacity: 0; transform: scale(0.97) translateY(-3px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: no-preference) {
   ${ROOT} button { transition: background 120ms ease, color 120ms ease, transform 90ms ease; }

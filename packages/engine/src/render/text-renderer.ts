@@ -11,7 +11,7 @@
 import type { TextElement } from "../elements/text-element";
 import { TEXT_FONT_FAMILY_CSS } from "../text/font-loading";
 import { buildFontCssString, wrapText } from "../text/text-measurement";
-import type { TextMeasurer } from "../text/text-measurement";
+import type { MeasurementContext2D, TextMeasurer } from "../text/text-measurement";
 import type { Camera } from "./camera";
 import type { RoughDrawContext2D } from "./rough-renderer";
 import { screenRectOf } from "./rough-shape-geometry";
@@ -23,7 +23,14 @@ import { screenRectOf } from "./rough-shape-geometry";
  * to assign a real context into this narrower interface, and this module only ever writes a plain
  * color string to it.
  */
-export interface TextDrawContext2D extends RoughDrawContext2D {
+/**
+ * Extends `MeasurementContext2D` (rather than redeclaring its own `measureText`) so this and the
+ * width-only measurer share one signature — `RenderSceneContext2D`/`StaticLayerContext` extend both,
+ * and two differently-typed `measureText`s would be a TS conflict. `drawElementText` reads the
+ * font-level vertical metrics off that same `measureText` result (a real `CanvasRenderingContext2D`
+ * returns the full `TextMetrics`, which includes them).
+ */
+export interface TextDrawContext2D extends RoughDrawContext2D, MeasurementContext2D {
   fillStyle: string | CanvasGradient | CanvasPattern;
   font: string;
   textAlign: CanvasTextAlign;
@@ -41,6 +48,20 @@ export function verticalStartOffsetPx(verticalAlign: TextElement["verticalAlign"
     case "middle":
       return (boxHeightPx - blockHeightPx) / 2;
   }
+}
+
+/**
+ * Distance from a line box's top down to the text baseline, reconstructing where a CSS line box (and
+ * so the editing `<textarea>`) puts it: the font's content area (ascent + descent) is centered in the
+ * `lineHeightPx` box, then the baseline sits `ascent` below that content-area top. Read from the
+ * font's own `fontBoundingBox` metrics so it's exact across fonts/sizes; falls back to the common
+ * ~0.8/0.2 ascent/descent split when a context can't report them (older engines / minimal fakes).
+ */
+function baselineOffsetWithinLinePx(ctx: MeasurementContext2D, lineHeightPx: number, fontSizePx: number): number {
+  const metrics = ctx.measureText("Mg") as { fontBoundingBoxAscent?: number; fontBoundingBoxDescent?: number };
+  const ascent = metrics.fontBoundingBoxAscent ?? fontSizePx * 0.8;
+  const descent = metrics.fontBoundingBoxDescent ?? fontSizePx * 0.2;
+  return (lineHeightPx - (ascent + descent)) / 2 + ascent;
 }
 
 /** Exported for the same reason as `verticalStartOffsetPx` — shared with SVG `<text>` export. */
@@ -88,11 +109,19 @@ export function drawElementText(ctx: TextDrawContext2D, element: TextElement, ca
   const startY = rect.y + verticalStartOffsetPx(element.verticalAlign, rect.height, blockHeightPx);
   const anchorX = horizontalAnchorPx(element.textAlign, rect);
 
+  // Place each line's baseline exactly where the editing `<textarea>`'s CSS line box puts it, so text
+  // never shifts vertically on commit (WYSIWYG). CSS distributes the `line-height` leading evenly and
+  // centers the font's *content area* (ascent + descent) — which is vertically asymmetric — inside the
+  // line box; a symmetric `textBaseline: "middle"` (em-square center) left the committed text ~1px
+  // high. Reconstructing the exact CSS placement from the font's own bounding-box metrics removes that
+  // residual: contentTop = lineTop + (lineHeight - (ascent + descent)) / 2, baseline = contentTop +
+  // ascent. Metrics are font-level (independent of the measured string), so one measure covers all lines.
   ctx.font = fontCss;
   ctx.fillStyle = element.strokeColor;
   ctx.textAlign = element.textAlign;
-  ctx.textBaseline = "top";
-  lines.forEach((line, index) => ctx.fillText(line, anchorX, startY + index * lineHeightPx));
+  ctx.textBaseline = "alphabetic";
+  const baselineWithinLinePx = baselineOffsetWithinLinePx(ctx, lineHeightPx, screenFontSizePx);
+  lines.forEach((line, index) => ctx.fillText(line, anchorX, startY + index * lineHeightPx + baselineWithinLinePx));
 
   ctx.restore();
 }

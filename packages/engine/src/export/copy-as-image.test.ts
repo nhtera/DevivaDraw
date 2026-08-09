@@ -11,7 +11,7 @@ function fakeRenderSceneContext(): RenderSceneContext2D {
   return {
     clearRect: vi.fn(), save: vi.fn(), restore: vi.fn(), translate: vi.fn(), rotate: vi.fn(), globalAlpha: 1,
     fillStyle: "", beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), closePath: vi.fn(), fill: vi.fn(),
-    font: "", textAlign: "left", textBaseline: "alphabetic", fillText: vi.fn(), measureText: vi.fn(() => ({ width: 0 })),
+    font: "", textAlign: "left", textBaseline: "alphabetic", fillText: vi.fn(), measureText: vi.fn(() => ({ width: 0, fontBoundingBoxAscent: 16, fontBoundingBoxDescent: 4 })),
     strokeStyle: "", lineWidth: 1, fillRect: vi.fn(), strokeRect: vi.fn(), drawImage: vi.fn(),
   };
 }

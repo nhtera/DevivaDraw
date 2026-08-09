@@ -91,7 +91,7 @@ test("a line drawn in light mode renders as a visible (dark) stroke", async ({ p
   expect(opaque).toBeGreaterThan(0);
 });
 
-test("text typed in dark mode is legible (light text on the dark editor backing) and the box grows to fit", async ({ page }) => {
+test("text typed in dark mode is legible (light text drawn on the dark canvas) and the box grows to fit", async ({ page }) => {
   await selectTheme(page, "dark");
   await page.getByTestId("toolbar-text-tool").click();
   await page.mouse.click(400, 350);
@@ -101,18 +101,26 @@ test("text typed in dark mode is legible (light text on the dark editor backing)
 
   const emptyWidth = (await textarea.boundingBox())!.width;
   await textarea.fill("The quick brown fox jumps over the lazy dog");
+  // The canvas static layer paints the live draft on the next frame(s) — wait for it before scanning.
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))));
 
-  // Text color must contrast the editor backing (light-on-dark), not repeat the near-black default.
-  const { color, background } = await textarea.evaluate((node) => {
-    const cs = getComputedStyle(node);
-    return { color: cs.color, background: cs.backgroundColor };
-  });
+  // The editing textarea is a transparent input/caret layer — it must NOT paint its own glyphs (that
+  // second, differently-rasterized copy is exactly what used to make text shift on commit). Only the
+  // caret is tinted, to the theme-adapted (light, in dark mode) stroke color.
   const lum = (rgb: string) => rgb.match(/\d+/g)!.slice(0, 3).map(Number).reduce((a, b) => a + b, 0);
-  expect(lum(color)).toBeGreaterThan(400); // light text
-  expect(lum(background)).toBeLessThan(160); // dark backing
-  expect(lum(color) - lum(background)).toBeGreaterThan(300); // clearly legible contrast
+  const { color, background, caret } = await textarea.evaluate((node) => {
+    const cs = getComputedStyle(node);
+    return { color: cs.color, background: cs.backgroundColor, caret: cs.caretColor };
+  });
+  expect(color).toMatch(/rgba?\(0,\s*0,\s*0,\s*0\)/); // fully transparent text
+  expect(background).toMatch(/rgba?\(0,\s*0,\s*0,\s*0\)/); // no opaque/selection box
+  expect(lum(caret)).toBeGreaterThan(400); // light caret in dark mode
 
-  // The overlay grows to fit the long line instead of clipping it at the initial near-zero width.
+  // The legible glyphs live on the CANVAS now: the text region must contain light pixels on the dark surface.
+  const { brightestSum } = await scanStroke(page, { x: 400, y: 350, w: 320, h: 40 });
+  expect(brightestSum).toBeGreaterThan(400); // light text painted on the dark canvas
+
+  // The overlay still grows to fit the long line (its layout drives caret placement) instead of clipping.
   const filledWidth = (await textarea.boundingBox())!.width;
   expect(filledWidth).toBeGreaterThan(emptyWidth + 50);
 });

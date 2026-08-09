@@ -34,7 +34,7 @@ function fakeContext(width = 800, height = 600): StaticLayerContext {
     textAlign: "left",
     textBaseline: "alphabetic",
     fillText: vi.fn(),
-    measureText: vi.fn(() => ({ width: 0 })),
+    measureText: vi.fn(() => ({ width: 0, fontBoundingBoxAscent: 16, fontBoundingBoxDescent: 4 })),
     strokeStyle: "",
     lineWidth: 1,
     fillRect: vi.fn(),

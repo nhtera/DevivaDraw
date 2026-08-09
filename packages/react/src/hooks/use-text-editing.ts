@@ -25,14 +25,6 @@ export interface UseTextEditingOptions {
    * `<DevivaDraw/>` app shell always supplies it.
    */
   subscribeCamera?: (listener: () => void) => () => void;
-  /**
-   * Opaque background so the overlay fully covers the last-committed canvas render underneath while
-   * editing, instead of the two overlapping into a double-vision blur. Must match the canvas's own
-   * current background (the active theme's `canvasBackground` token — see `theme/theme-tokens.ts`),
-   * not a fixed color, or dark mode shows a white flash around the text caret. Defaults to white for
-   * a host that hasn't wired theming.
-   */
-  canvasBackgroundColor?: string;
 }
 
 export interface TextEditingOverlay {
@@ -69,7 +61,7 @@ function useForceRender(): () => void {
  * emit anything for a pan-only change) is the third subscription below.
  */
 export function useTextEditing(options: UseTextEditingOptions): TextEditingOverlay | null {
-  const { session, scene, getCamera, subscribeCamera, canvasBackgroundColor = "#ffffff" } = options;
+  const { session, scene, getCamera, subscribeCamera } = options;
   const forceRender = useForceRender();
 
   useEffect(() => session.subscribe(forceRender), [session, forceRender]);
@@ -112,8 +104,12 @@ export function useTextEditing(options: UseTextEditingOptions): TextEditingOverl
     resize: "none",
     overflow: "hidden",
     boxSizing: "border-box",
-    backgroundColor: canvasBackgroundColor,
-    color: element.strokeColor,
+    // The canvas (static layer, via `textDraft`) is what actually paints the glyphs while editing, so
+    // this textarea is a transparent input/caret layer stacked exactly over them — never a second,
+    // slightly-differently-rasterized copy of the text. Only the caret is tinted (to the text color).
+    backgroundColor: "transparent",
+    color: "transparent",
+    caretColor: element.strokeColor,
     fontSize: fontSizePx,
     fontFamily: TEXT_FONT_FAMILY_CSS[element.fontFamily],
     lineHeight: element.lineHeight,

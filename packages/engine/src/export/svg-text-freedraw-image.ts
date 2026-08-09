@@ -32,9 +32,10 @@ const SVG_TEXT_ANCHOR: Record<TextAlign, string> = { left: "start", center: "mid
 
 /**
  * One `<text>` element per wrapped line, positioned/aligned identically to `text-renderer.ts`'s canvas
- * paint call — `dominant-baseline="hanging"` is SVG's equivalent of canvas's `textBaseline: "top"`, so
- * `y` can reuse the exact same `verticalStartOffsetPx` value without a hand-tuned baseline offset
- * constant. Returns `""` for empty text (matches `drawElementText`'s no-op).
+ * paint call — each line centered in its `lineHeightPx` line box (`dominant-baseline="central"` is
+ * SVG's equivalent of canvas's `textBaseline: "middle"`, `y` at the line-box center), the same
+ * leading-aware placement the canvas and the editing `<textarea>` use so exports match on-screen text.
+ * Returns `""` for empty text (matches `drawElementText`'s no-op).
  */
 export function buildTextSvgFragment(element: TextElement, camera: Camera, measurer: TextMeasurer): string {
   if (element.text === "") return "";
@@ -54,10 +55,10 @@ export function buildTextSvgFragment(element: TextElement, camera: Camera, measu
 
   return lines
     .map((line, index) => {
-      const y = startY + index * lineHeightPx;
+      const y = startY + index * lineHeightPx + lineHeightPx / 2;
       return (
         `<text x="${anchorX}" y="${y}" font-size="${screenFontSizePx}" font-family="${fontFamily}" ` +
-        `text-anchor="${anchor}" dominant-baseline="hanging" fill="${fill}">${escapeXmlText(line)}</text>`
+        `text-anchor="${anchor}" dominant-baseline="central" fill="${fill}">${escapeXmlText(line)}</text>`
       );
     })
     .join("");

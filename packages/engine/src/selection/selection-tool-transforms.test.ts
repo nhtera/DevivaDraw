@@ -53,6 +53,21 @@ describe("SelectionTool — resize", () => {
     expect(resized.points).toEqual([[0, 0, 0.5], [20, 20, 0.5]]);
   });
 
+  it("a click on a resize handle without dragging leaves geometry untouched (no click-triggered rescale)", () => {
+    const { scene, selection, history, tool } = setup();
+    const rect = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 100, height: 50, backgroundColor: "#fff" }));
+    selection.selectOnly([rect.id]);
+
+    // Grab the se handle a couple px off its exact corner (as a real click on an 8px hitbox would),
+    // then release essentially in place — below DRAG_ACTIVATE_PX. This is the second click of a
+    // double-click-to-edit landing inside a handle: it must not resize.
+    tool.onGestureStart({ x: 98, y: 48 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: 99, y: 49 }, NO_MODIFIERS);
+
+    expect(scene.getElement(rect.id)).toMatchObject({ x: 0, y: 0, width: 100, height: 50 });
+    expect(history.canUndo()).toBe(false); // no-op click opened no undoable step
+  });
+
   it("onGestureCancel restores the pre-resize geometry", () => {
     const { scene, selection, tool } = setup();
     const rect = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 100, height: 50, backgroundColor: "#fff" }));

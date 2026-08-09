@@ -6,10 +6,11 @@
  * whiteboards have. Only armed while the select tool is active, so it never fights the shape/arrow/text
  * tools' own click handling.
  */
-import { screenToScene, startArrowLabelEdit, startBoundTextEdit, startStandaloneTextEdit } from "@deviva-draw/engine";
+import { screenToScene, startArrowLabelEdit, startBoundTextEdit, startExistingStandaloneTextEdit, startStandaloneTextEdit } from "@deviva-draw/engine";
 import type { Camera, Scene, ShapeStyleState, TextEditSession, TextMeasurer, ToolStateMachine } from "@deviva-draw/engine";
 import { findArrowAt } from "../browser/find-arrow-at-point";
 import { findBindableContainerAt } from "../browser/find-bindable-container-at-point";
+import { findStandaloneTextAt } from "../browser/find-standalone-text-at-point";
 
 export interface DoubleClickEditOptions {
   container: HTMLElement;
@@ -40,6 +41,14 @@ export function attachDoubleClickToEditListener(options: DoubleClickEditOptions)
     const arrowHit = findArrowAt(scene, scenePoint);
     if (arrowHit) {
       startArrowLabelEdit(scene, editSession, arrowHit.id, textMeasurer);
+      return;
+    }
+    // Existing standalone text under the cursor: re-open *it* for editing (not a duplicate at the click
+    // point) — the double-click-to-edit-your-own-text affordance, and the fix for the "text jumps to a
+    // new offset box on edit" bug this hit test would otherwise fall through into below.
+    const textHit = findStandaloneTextAt(scene, scenePoint);
+    if (textHit) {
+      startExistingStandaloneTextEdit(scene, editSession, textMeasurer, textHit.id);
       return;
     }
     // Empty canvas: place a new standalone text element right where the user double-clicked.

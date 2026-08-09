@@ -50,6 +50,16 @@ export interface RenderSceneOptions {
   grid?: GridRenderState;
   /** Overrides which elements are considered for this pass — defaults to `scene.getElements()` (the whole live scene). An export's "selection only" mode passes just the selected elements instead. */
   elements?: readonly AnyElement[];
+  /**
+   * The live, uncommitted text of the element currently being edited. While a text-edit session is
+   * open the committed element still holds its OLD text (`updateDraft` deliberately never writes to
+   * `Scene` — IME/collab safety, see `text-edit-session.ts`), so this pass substitutes the draft when
+   * painting that one element. The editing overlay's `<textarea>` is transparent (input + caret only),
+   * so the canvas is the *sole* thing that ever renders glyphs — committed or mid-edit — which is what
+   * keeps text from shifting even a sub-pixel between editing and commit (the two text rasterizers,
+   * DOM vs canvas, never both draw the same glyphs). Omit/`null` when nothing is being edited.
+   */
+  textDraft?: { elementId: string; text: string } | null;
   /** Solid fill painted immediately after `clearRect`, before the grid/elements — e.g. an export's opaque-background option. Omit for a transparent background (canvas default), the same as every live render. */
   background?: string;
 }
@@ -61,7 +71,7 @@ export interface RenderSceneOptions {
  */
 export function renderSceneToCanvas(ctx: RenderSceneContext2D, scene: Scene, camera: Camera, viewportSize: ViewportSize, options: RenderSceneOptions): void {
   const { width, height } = viewportSize;
-  const { roughCanvas, textMeasurer, imageDecodeCache, drawableCache, arrowDrawableCache, freedrawOutlineCache, grid, background } = options;
+  const { roughCanvas, textMeasurer, imageDecodeCache, drawableCache, arrowDrawableCache, freedrawOutlineCache, grid, background, textDraft } = options;
   const elements = options.elements ?? scene.getElements();
 
   ctx.clearRect(0, 0, width, height);
@@ -76,7 +86,10 @@ export function renderSceneToCanvas(ctx: RenderSceneContext2D, scene: Scene, cam
     if (element.type === "freedraw") {
       drawElementFreedraw(ctx, element, camera, freedrawOutlineCache);
     } else if (element.type === "text") {
-      drawElementText(ctx, element, camera, textMeasurer);
+      // Paint the live draft for the element being edited (its committed `text` is stale mid-edit);
+      // every other text element paints its own committed `text`. See `textDraft`'s doc.
+      const overridden = textDraft && element.id === textDraft.elementId ? { ...element, text: textDraft.text } : element;
+      drawElementText(ctx, overridden, camera, textMeasurer);
     } else if (element.type === "arrow") {
       drawElementArrow(ctx, roughCanvas, element, camera, arrowDrawableCache);
     } else if (element.type === "image") {

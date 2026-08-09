@@ -35,6 +35,16 @@ type Mode = "idle" | "marquee" | "move" | "resize" | "rotate";
 const HANDLE_HIT_PX = 8;
 const ROTATE_HANDLE_OFFSET_PX = 28;
 const CLICK_HIT_PX = 5;
+/**
+ * A pointer must travel at least this far (screen px, so divided by zoom in scene space) before a
+ * resize/rotate/move gesture actually transforms anything. Resize and rotate map the pointer position
+ * *directly* onto geometry, so grabbing a handle even a few px off its exact center and releasing
+ * without dragging (most notably the second click of a double-click-to-edit landing inside a handle's
+ * 8px hitbox) would otherwise snap the element to that offset — a visible jump/rescale on what the
+ * user experienced as a click, not a drag. Gating apply() on real movement makes a click a no-op,
+ * matching every mainstream editor. 4px mirrors the drag-vs-click threshold the line/arrow tools use.
+ */
+const DRAG_ACTIVATE_PX = 4;
 
 export class SelectionTool extends NoOpToolHandler {
   private readonly deps: SelectionToolDeps;
@@ -43,6 +53,9 @@ export class SelectionTool extends NoOpToolHandler {
   private readonly rotate: RotateGesture;
   private readonly marquee: MarqueeGesture;
   private mode: Mode = "idle";
+  /** Pointer-down point of the in-flight gesture + whether it has crossed `DRAG_ACTIVATE_PX` yet — the "was this a real drag or just a click" gate for move/resize/rotate (see that constant's doc). Marquee is exempt: a zero-size marquee just selects nothing, no spurious transform. */
+  private gestureStartPoint: Point | null = null;
+  private dragActivated = false;
 
   constructor(deps: SelectionToolDeps) {
     super();
@@ -53,7 +66,19 @@ export class SelectionTool extends NoOpToolHandler {
     this.marquee = new MarqueeGesture(deps);
   }
 
+  /** Once the pointer has moved `DRAG_ACTIVATE_PX` from the gesture's start, the drag is "real" and stays activated for the rest of the gesture. Returns the current activation state. */
+  private updateDragActivation(point: Point): boolean {
+    if (this.dragActivated) return true;
+    if (!this.gestureStartPoint) return false;
+    const dx = point.x - this.gestureStartPoint.x;
+    const dy = point.y - this.gestureStartPoint.y;
+    if (Math.hypot(dx, dy) >= DRAG_ACTIVATE_PX / this.deps.getZoom()) this.dragActivated = true;
+    return this.dragActivated;
+  }
+
   override onGestureStart(point: Point, modifiers: ModifierKeys): void {
+    this.gestureStartPoint = point;
+    this.dragActivated = false;
     const zoom = this.deps.getZoom();
     const selectedElements = [...this.deps.selection.getSelectedIds()]
       .map((id) => this.deps.scene.getElement(id))
@@ -86,8 +111,12 @@ export class SelectionTool extends NoOpToolHandler {
   }
 
   override onGestureMove(point: Point, modifiers: ModifierKeys): void {
-    if (this.mode === "marquee") this.marquee.apply(point);
-    else if (this.mode === "move") this.move.apply(point, modifiers);
+    if (this.mode === "marquee") {
+      this.marquee.apply(point);
+      return;
+    }
+    if (!this.updateDragActivation(point)) return; // a not-yet-a-drag click never transforms
+    if (this.mode === "move") this.move.apply(point, modifiers);
     else if (this.mode === "resize") this.resize.apply(point, modifiers);
     else if (this.mode === "rotate") this.rotate.apply(point, modifiers);
   }
@@ -98,15 +127,19 @@ export class SelectionTool extends NoOpToolHandler {
     // whatever `apply()` last computed mid-drag (mirrors every drag-to-create tool's own
     // `onGestureEnd`, which recomputes from `(startPoint, point)` directly rather than trusting
     // the last `onGestureMove`).
+    // A gesture can cross the drag threshold on the up-point alone (a fast flick with no intermediate
+    // move events), so re-check here; if it never became a drag, skip apply() entirely and let each
+    // gesture's finish() cancel its (empty) history batch — a click leaves geometry untouched.
+    const dragged = this.updateDragActivation(point);
     if (this.mode === "marquee") this.marquee.finish(point, modifiers);
     else if (this.mode === "move") {
-      this.move.apply(point, modifiers);
+      if (dragged) this.move.apply(point, modifiers);
       this.move.finish();
     } else if (this.mode === "resize") {
-      this.resize.apply(point, modifiers);
+      if (dragged) this.resize.apply(point, modifiers);
       this.resize.finish();
     } else if (this.mode === "rotate") {
-      this.rotate.apply(point, modifiers);
+      if (dragged) this.rotate.apply(point, modifiers);
       this.rotate.finish();
     }
     this.mode = "idle";

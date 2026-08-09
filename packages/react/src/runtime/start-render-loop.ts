@@ -18,14 +18,16 @@ export interface RenderLoopDeps {
   grid: { enabled: boolean; size: number };
   /** Live collaborator cursors for the interactive layer — omitted when collaboration isn't wired up (see `use-collab-session.ts`'s opt-in doc), same "getter, not a value, so a rebuilt-only-on-scene-swap loop still reads the latest" contract as `getMarqueeRect`/`getSnapGuides`. */
   getRemoteCursors?(): readonly RemoteCursorOverlay[];
+  /** The element/text of the open text-edit session (or `null`), so the static layer paints the live draft on the canvas instead of the editing `<textarea>` doing it — the canvas is the sole glyph renderer, which is what makes text not shift between editing and commit. Same getter contract as the others. */
+  getTextDraft(): { elementId: string; text: string } | null;
 }
 
 /** Starts the loop; returns a stop function for the owning effect's cleanup. */
 export function startRenderLoop(deps: RenderLoopDeps): () => void {
-  const { stage, scene, cameraStore, selection, getMarqueeRect, getSnapGuides, grid, getRemoteCursors } = deps;
+  const { stage, scene, cameraStore, selection, getMarqueeRect, getSnapGuides, grid, getRemoteCursors, getTextDraft } = deps;
   let frameHandle = requestAnimationFrame(function renderFrame() {
     const camera = cameraStore.getCamera();
-    stage.staticLayer.render(scene, camera, grid);
+    stage.staticLayer.render(scene, camera, grid, getTextDraft());
     const selectedElements = [...selection.getSelectedIds()]
       .map((id) => scene.getElement(id))
       .filter((element): element is AnyElement => !!element);

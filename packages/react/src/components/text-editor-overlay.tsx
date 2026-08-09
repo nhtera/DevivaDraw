@@ -1,13 +1,14 @@
 /**
- * The real `<textarea>` WYSIWYG overlay — the first genuine DOM component in this package (native
- * text input/IME/spellcheck instead of hand-rolled canvas text editing, per the engine's
- * `text-edit-session.ts` module doc). Absolutely positioned over the canvas via
- * `use-text-editing.ts`'s derived geometry; swapped back for the canvas-rendered text on
- * blur/Escape/Enter, all handled by that hook — this component only wires the DOM events to it.
- * The composed `<DevivaDraw/>` app shell passes `subscribeCamera` (a `runtime/camera-store.ts`
- * subscription) so this overlay's position tracks a live pan/zoom instead of drifting stale mid-edit,
- * and passes the active theme's `canvasBackground` token as `canvasBackgroundColor` so the overlay's
- * opaque backing matches the canvas in both light and dark mode.
+ * The `<textarea>` WYSIWYG overlay — a transparent input/caret layer stacked exactly over the canvas
+ * (native text input/IME/spellcheck instead of hand-rolled canvas text editing, per the engine's
+ * `text-edit-session.ts` module doc). The glyphs the user sees while editing are painted by the canvas
+ * static layer from the live draft (`start-render-loop.ts`'s `getTextDraft` -> `renderSceneToCanvas`'s
+ * `textDraft`), NOT by this textarea — its text is `color: transparent` (only the caret is tinted). That
+ * single-renderer design is why text no longer shifts a sub-pixel between editing and commit: the DOM
+ * textarea and the canvas never both rasterize the same glyphs. Absolutely positioned over the canvas
+ * via `use-text-editing.ts`'s derived geometry. The composed `<DevivaDraw/>` app shell passes
+ * `subscribeCamera` (a `runtime/camera-store.ts` subscription) so this overlay's position tracks a live
+ * pan/zoom instead of drifting stale mid-edit.
  *
  * Not unit tested: `HTMLTextAreaElement`/focus/`scrollHeight` behavior don't exist in this
  * package's node-based vitest environment (no `jsdom` dependency, same trade-off

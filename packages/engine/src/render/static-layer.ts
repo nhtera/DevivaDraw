@@ -89,6 +89,8 @@ interface RenderSnapshot {
   height: number;
   gridEnabled: boolean;
   gridSize: number;
+  /** The live text-edit draft, flattened into the snapshot so a keystroke (which never touches `Scene`, so never bumps the fingerprint) still forces a redraw — and so opening/closing the editor redraws too. `""` when nothing is being edited. */
+  draftKey: string;
 }
 
 function sameSnapshot(a: RenderSnapshot, b: RenderSnapshot): boolean {
@@ -102,7 +104,8 @@ function sameSnapshot(a: RenderSnapshot, b: RenderSnapshot): boolean {
     a.width === b.width &&
     a.height === b.height &&
     a.gridEnabled === b.gridEnabled &&
-    a.gridSize === b.gridSize
+    a.gridSize === b.gridSize &&
+    a.draftKey === b.draftKey
   );
 }
 
@@ -140,7 +143,7 @@ export class StaticLayer {
    * element. The actual draw dispatch is `render-scene-to-canvas.ts`'s `renderSceneToCanvas` — shared
    * with PNG export, see that module's doc.
    */
-  render(scene: Scene, camera: Camera, grid: GridRenderState = GRID_DISABLED): void {
+  render(scene: Scene, camera: Camera, grid: GridRenderState = GRID_DISABLED, textDraft: { elementId: string; text: string } | null = null): void {
     const width = this.ctx.canvas.clientWidth;
     const height = this.ctx.canvas.clientHeight;
     const snapshot: RenderSnapshot = {
@@ -154,6 +157,7 @@ export class StaticLayer {
       height,
       gridEnabled: grid.enabled,
       gridSize: grid.size,
+      draftKey: textDraft ? `${textDraft.elementId} ${textDraft.text}` : "",
     };
 
     if (this.lastSnapshot && sameSnapshot(this.lastSnapshot, snapshot)) return;
@@ -167,6 +171,7 @@ export class StaticLayer {
       arrowDrawableCache: this.arrowDrawableCache,
       freedrawOutlineCache: this.freedrawOutlineCache,
       grid,
+      textDraft,
     });
   }
 

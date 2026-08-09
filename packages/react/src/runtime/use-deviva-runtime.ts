@@ -156,6 +156,10 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
       getSnapGuides: builtRuntime.getSnapGuides,
       grid: builtRuntime.grid,
       getRemoteCursors,
+      getTextDraft: () => {
+        const state = builtRuntime.editSession.getState();
+        return state.status === "editing" ? { elementId: state.elementId, text: state.draftText } : null;
+      },
     });
 
     // Always subscribed (not gated on whether `onChange` was passed at *mount* time) — `stableOnChange`
