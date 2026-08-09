@@ -61,6 +61,44 @@ test("while editing, the glyphs are painted on the canvas and the textarea is a 
   await expect(page.getByTestId("text-editor-overlay-textarea")).not.toBeVisible();
 });
 
+test("editing a text hides the selection frame/handles (clean editing mode like competitors)", async ({ page }) => {
+  // Counts selection-frame/handle pixels (drawn in #1971c2 = rgb(25,113,194)) on the interactive canvas.
+  const selectionBlue = async (): Promise<number> =>
+    page.evaluate(() => {
+      const canvases = [...document.querySelectorAll("canvas")];
+      const cv = canvases[canvases.length - 1]!; // interactive layer is on top
+      const ctx = cv.getContext("2d")!;
+      const d = ctx.getImageData(0, 0, cv.width, cv.height).data;
+      let n = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3]! > 40 && Math.abs(d[i]! - 25) < 40 && Math.abs(d[i + 1]! - 113) < 40 && Math.abs(d[i + 2]! - 194) < 40) n++;
+      }
+      return n;
+    });
+  const raf = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))));
+
+  await page.getByTestId("toolbar-text-tool").click();
+  await page.mouse.click(300, 300);
+  const ta = page.getByTestId("text-editor-overlay-textarea");
+  await expect(ta).toBeVisible();
+  await ta.fill("Hi");
+  await ta.press("Escape");
+  await expect(page.getByTestId("text-editor-overlay-textarea")).not.toBeVisible();
+
+  // Select the committed text — the frame + handles are drawn.
+  await page.mouse.click(305, 306);
+  await raf();
+  expect(await selectionBlue()).toBeGreaterThan(0);
+
+  // Double-click to edit it — the frame/handles must disappear while editing.
+  await page.mouse.dblclick(305, 306);
+  await expect(page.getByTestId("text-editor-overlay-textarea")).toBeVisible();
+  await raf();
+  expect(await selectionBlue()).toBe(0);
+
+  await page.getByTestId("text-editor-overlay-textarea").press("Escape");
+});
+
 test("editing text shows a focused text panel (font family/size/align), not the shape controls", async ({ page }) => {
   await page.getByTestId("toolbar-text-tool").click();
   await page.mouse.click(400, 350);

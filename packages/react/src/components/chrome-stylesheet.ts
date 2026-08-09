@@ -20,7 +20,12 @@ ${ROOT} button[aria-pressed="true"] { background: var(--dd-accent-soft); }
 ${ROOT} button[aria-pressed="true"]:hover:not(:disabled) { background: var(--dd-accent-soft); }
 ${ROOT} :focus-visible { outline: 2px solid var(--dd-accent); outline-offset: 1px; border-radius: 5px; }
 ${ROOT} [data-testid="text-editor-overlay-textarea"] { outline: none; }
-${ROOT} [data-testid="text-editor-overlay-textarea"]::selection { background: transparent; }
+/* The editor textarea is transparent (the canvas paints the glyphs), so its ::selection is the only
+   thing that shows a text selection — e.g. the select-all on double-click-to-edit, matching how
+   Excalidraw/tldraw show the highlighted text. A semi-transparent tint sits over the canvas glyphs
+   (they read through it) and hugs exactly the selected characters, so it's a normal text highlight,
+   not the opaque background box the old always-on backing used to draw. */
+${ROOT} [data-testid="text-editor-overlay-textarea"]::selection { background: rgba(51, 103, 214, 0.30); }
 @keyframes dd-pop-in { from { opacity: 0; transform: scale(0.97) translateY(-3px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: no-preference) {
   ${ROOT} button { transition: background 120ms ease, color 120ms ease, transform 90ms ease; }

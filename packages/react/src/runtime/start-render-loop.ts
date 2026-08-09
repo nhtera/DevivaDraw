@@ -27,10 +27,15 @@ export function startRenderLoop(deps: RenderLoopDeps): () => void {
   const { stage, scene, cameraStore, selection, getMarqueeRect, getSnapGuides, grid, getRemoteCursors, getTextDraft } = deps;
   let frameHandle = requestAnimationFrame(function renderFrame() {
     const camera = cameraStore.getCamera();
-    stage.staticLayer.render(scene, camera, grid, getTextDraft());
-    const selectedElements = [...selection.getSelectedIds()]
-      .map((id) => scene.getElement(id))
-      .filter((element): element is AnyElement => !!element);
+    const textDraft = getTextDraft();
+    stage.staticLayer.render(scene, camera, grid, textDraft);
+    // While a text-edit session is open, hide the selection frame/handles entirely — text editing is a
+    // focused mode (just the glyphs + caret + the textarea's own selection highlight), the same clean
+    // look Excalidraw/tldraw show; the bounding box + resize/rotate handles would otherwise sit on top
+    // of the text being typed. The selection *state* is untouched, so the handles return on commit.
+    const selectedElements = textDraft
+      ? []
+      : [...selection.getSelectedIds()].map((id) => scene.getElement(id)).filter((element): element is AnyElement => !!element);
     stage.interactiveLayer.render(
       { selectedElements, marqueeRect: getMarqueeRect(), snapGuides: getSnapGuides(), remoteCursors: getRemoteCursors?.() ?? [] },
       camera,
