@@ -170,6 +170,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
         return state.status === "editing" ? { elementId: state.elementId, text: state.draftText } : null;
       },
       getPendingEraseIds: builtRuntime.getPendingEraseIds,
+      getLaserTrail: builtRuntime.getLaserTrail,
     });
 
     // Always subscribed (not gated on whether `onChange` was passed at *mount* time) — `stableOnChange`

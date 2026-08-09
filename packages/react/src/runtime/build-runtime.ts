@@ -93,6 +93,7 @@ export function buildRuntime(options: BuildRuntimeOptions): DevivaRuntime {
     getMarqueeRect: () => tools.selectionTool.getMarqueeRect(),
     getSnapGuides: () => tools.selectionTool.getSnapGuides(),
     getPendingEraseIds: () => tools.eraserTool.getPendingEraseIds(),
+    getLaserTrail: () => tools.laserTool.getTrail(),
     dispose: () => {
       /* replaced below */
     },

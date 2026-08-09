@@ -20,6 +20,7 @@ export const catalogEn = {
   "tool.freedraw": "Draw",
   "tool.text": "Text",
   "tool.eraser": "Eraser",
+  "tool.laser": "Laser pointer",
   "tool.image": "Insert image",
   "tool.lock": "Keep tool active after drawing",
 

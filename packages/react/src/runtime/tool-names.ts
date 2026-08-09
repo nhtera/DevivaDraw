@@ -13,3 +13,4 @@ export const FREEDRAW_TOOL_NAME = "freedraw";
 export const TEXT_TOOL_NAME = "text";
 export const ARROW_TOOL_NAME = "arrow";
 export const ERASER_TOOL_NAME = "eraser";
+export const LASER_TOOL_NAME = "laser";

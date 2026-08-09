@@ -87,3 +87,26 @@ test("the image toolbar button inserts an image via the file picker and selects 
   await expect(page.getByTestId("top-bar-undo")).toBeEnabled();
   await expect(page.locator('[data-testid^="layer-action-"]').first()).toBeVisible();
 });
+
+test("the laser pointer draws a fading red trail and leaves nothing on the canvas", async ({ page }) => {
+  // Counts laser-red pixels (rgb ~255,45,45) on the interactive (top) canvas.
+  const redPixels = (): Promise<number> =>
+    page.evaluate(() => {
+      const canvases = [...document.querySelectorAll("canvas")];
+      const cv = canvases[canvases.length - 1]!; // interactive overlay is on top
+      const d = cv.getContext("2d")!.getImageData(0, 0, cv.width, cv.height).data;
+      let red = 0;
+      for (let i = 0; i < d.length; i += 4) if (d[i]! > 150 && d[i + 1]! < 110 && d[i + 2]! < 110 && d[i + 3]! > 50) red++;
+      return red;
+    });
+
+  await page.getByTestId("toolbar-laser-tool").click();
+  await page.mouse.move(300, 400);
+  await page.mouse.down();
+  for (let x = 320; x <= 700; x += 20) await page.mouse.move(x, 400);
+  await page.mouse.up();
+
+  expect(await redPixels()).toBeGreaterThan(20); // the trail is visible right after drawing
+  await expect(page.getByTestId("top-bar-undo")).toBeDisabled(); // purely ephemeral — nothing added to the scene
+  await expect.poll(redPixels, { timeout: 3000 }).toBe(0); // and it fades away completely
+});

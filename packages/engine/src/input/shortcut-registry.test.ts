@@ -112,6 +112,7 @@ describe("registerToolShortcuts", () => {
     expect(registry.resolve("t", NO_MODIFIERS)).toBe("text-tool");
     expect(registry.resolve("a", NO_MODIFIERS)).toBe("arrow-tool");
     expect(registry.resolve("e", NO_MODIFIERS)).toBe("eraser-tool");
+    expect(registry.resolve("k", NO_MODIFIERS)).toBe("laser-tool");
   });
 });
 

@@ -14,6 +14,7 @@ import {
   FreedrawTool,
   HistoryStack,
   InternalClipboard,
+  LaserTool,
   LineTool,
   PanZoomTool,
   RectangleTool,
@@ -36,6 +37,7 @@ import {
   ELLIPSE_TOOL_NAME,
   ERASER_TOOL_NAME,
   FREEDRAW_TOOL_NAME,
+  LASER_TOOL_NAME,
   LINE_TOOL_NAME,
   PAN_TOOL_NAME,
   RECTANGLE_TOOL_NAME,
@@ -53,6 +55,7 @@ export interface BuiltTools {
   grid: GridState;
   selectionTool: SelectionTool;
   eraserTool: EraserTool;
+  laserTool: LaserTool;
   editSession: TextEditSession;
   textMeasurer: TextMeasurer;
   /** Unregisters the binding/bound-text sync hooks — call from the owning effect's cleanup. */
@@ -103,6 +106,8 @@ export function buildTools(
   // The eraser deletes rather than creates, so it takes no style/onCreated — just the scene, history
   // (one drag = one undo step), and zoom (for a zoom-independent pointer hit tolerance).
   const eraserTool = new EraserTool({ scene, history: historyStack, getZoom: () => getCamera().zoom });
+  // The laser pointer is purely ephemeral overlay chrome (no scene/history/style at all).
+  const laserTool = new LaserTool();
 
   const measurementCtx = document.createElement("canvas").getContext("2d");
   if (!measurementCtx) throw new Error("build-tools: 2d measurement context unavailable");
@@ -145,6 +150,7 @@ export function buildTools(
       [TEXT_TOOL_NAME]: textTool,
       [ARROW_TOOL_NAME]: arrowTool,
       [ERASER_TOOL_NAME]: eraserTool,
+      [LASER_TOOL_NAME]: laserTool,
     },
     SELECT_TOOL_NAME,
   );
@@ -165,6 +171,7 @@ export function buildTools(
     grid,
     selectionTool,
     eraserTool,
+    laserTool,
     editSession,
     textMeasurer,
     disposeHooks: () => {

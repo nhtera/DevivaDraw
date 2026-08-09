@@ -19,7 +19,7 @@ const TOOL_GROUPS: readonly (readonly string[])[] = [
   ["select-tool", "pan-tool"],
   ["rectangle-tool", "ellipse-tool", "diamond-tool"],
   ["line-tool", "arrow-tool", "freedraw-tool"],
-  ["text-tool", "eraser-tool"],
+  ["text-tool", "eraser-tool", "laser-tool"],
 ];
 
 /** Flat list (group order preserved) — shared with `mobile/bottom-toolbar.tsx` so both layouts list the exact same tools in the exact same order. */

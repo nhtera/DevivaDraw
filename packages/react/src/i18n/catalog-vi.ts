@@ -20,6 +20,7 @@ export const catalogVi: Record<TranslationKey, string> = {
   "tool.freedraw": "Vẽ tay",
   "tool.text": "Văn bản",
   "tool.eraser": "Tẩy",
+  "tool.laser": "Con trỏ laser",
   "tool.image": "Chèn hình ảnh",
   "tool.lock": "Giữ công cụ sau khi vẽ",
 

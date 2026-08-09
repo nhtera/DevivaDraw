@@ -47,4 +47,11 @@ export const TOOL_GLYPHS: Record<string, ReactNode> = {
       <path d="M4 14 L8 10 L11 13 L13 11 L16 14" strokeLinejoin="round" />
     </>
   ),
+  // A pointer beam: a filled dot with radiating rays, reading as a laser point.
+  laser: (
+    <>
+      <circle cx="10" cy="10" r="2.4" fill="currentColor" stroke="none" />
+      <path d="M10 3 V5.5 M10 14.5 V17 M3 10 H5.5 M14.5 10 H17 M5.4 5.4 L7.1 7.1 M12.9 12.9 L14.6 14.6 M14.6 5.4 L12.9 7.1 M7.1 12.9 L5.4 14.6" strokeLinecap="round" />
+    </>
+  ),
 };

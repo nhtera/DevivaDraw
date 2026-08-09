@@ -245,6 +245,9 @@ export { ArrowTool } from "./tools/arrow-tool";
 export type { EraserToolDeps } from "./tools/eraser-tool";
 export { EraserTool } from "./tools/eraser-tool";
 
+export type { LaserToolDeps, LaserTrailPoint } from "./tools/laser-tool";
+export { LaserTool, LASER_FADE_MS } from "./tools/laser-tool";
+
 // --- Selection, transforms, snapping & grid ---
 
 export type { SelectionListener } from "./selection/selection-state";

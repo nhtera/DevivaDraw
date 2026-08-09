@@ -13,6 +13,7 @@ import { rotatePointAroundCenter } from "../selection/selection-geometry";
 import { buildSelectionFrame } from "../selection/selection-tool-frame";
 import type { SelectionFrame } from "../selection/selection-tool-frame";
 import type { SnapGuide } from "../selection/snapping";
+import type { LaserTrailPoint } from "../tools/laser-tool";
 import type { Camera, Point } from "./camera";
 import { sceneToScreen } from "./camera";
 import type { SceneRect } from "./viewport-culling";
@@ -61,6 +62,8 @@ export interface OverlayState {
   snapGuides: readonly SnapGuide[];
   /** Other collaborators' live cursors — optional and defaults to none drawn, so every non-collab host/test stays unaffected. */
   remoteCursors?: readonly RemoteCursorOverlay[];
+  /** Laser-pointer trail (scene space, oldest→newest, each with its fade opacity), or `[]`/omitted when the laser isn't in use — see `tools/laser-tool.ts`. */
+  laserTrail?: readonly LaserTrailPoint[];
 }
 
 const SELECTION_COLOR = "#1971c2";
@@ -69,6 +72,8 @@ const ROTATE_HANDLE_OFFSET_PX = 28;
 const SNAP_GUIDE_COLOR = "#e64980";
 const MARQUEE_FILL = "rgba(25, 113, 194, 0.08)";
 const REMOTE_CURSOR_SIZE_PX = 12;
+const LASER_COLOR_RGB = "255, 45, 45";
+const LASER_WIDTH_PX = 4;
 
 /** Local-space rect corners rotated by `frame.angle` around `frame.pivot`, in scene space. */
 function frameOutlineScene(frame: SelectionFrame): Point[] {
@@ -98,6 +103,35 @@ export class InteractiveLayer {
     if (frame) this.drawSelectionFrame(frame, camera);
 
     this.drawRemoteCursors(overlayState.remoteCursors ?? [], camera);
+    this.drawLaserTrail(overlayState.laserTrail ?? [], camera);
+  }
+
+  /**
+   * The laser trail as a chain of round-capped segments, each drawn at the fade opacity of its newer
+   * endpoint so the tail dissolves oldest-first. Opacity rides in the `rgba()` stroke color (this
+   * layer's context has no `globalAlpha`), and a solid dot marks the head (the current pointer spot).
+   */
+  private drawLaserTrail(trail: readonly LaserTrailPoint[], camera: Camera): void {
+    if (trail.length === 0) return;
+    this.ctx.save();
+    this.ctx.setLineDash([]);
+    this.ctx.lineWidth = LASER_WIDTH_PX;
+    for (let i = 1; i < trail.length; i += 1) {
+      const from = sceneToScreen(trail[i - 1]!, camera);
+      const to = sceneToScreen(trail[i]!, camera);
+      this.ctx.strokeStyle = `rgba(${LASER_COLOR_RGB}, ${trail[i]!.opacity})`;
+      this.ctx.beginPath();
+      this.ctx.moveTo(from.x, from.y);
+      this.ctx.lineTo(to.x, to.y);
+      this.ctx.stroke();
+    }
+    const head = trail[trail.length - 1]!;
+    const headScreen = sceneToScreen(head, camera);
+    this.ctx.fillStyle = `rgba(${LASER_COLOR_RGB}, ${head.opacity})`;
+    this.ctx.beginPath();
+    // A small round head; `arc` isn't in the minimal context surface, so approximate with a filled square-ish dot via fillRect.
+    this.ctx.fillRect(headScreen.x - LASER_WIDTH_PX / 2, headScreen.y - LASER_WIDTH_PX / 2, LASER_WIDTH_PX, LASER_WIDTH_PX);
+    this.ctx.restore();
   }
 
   /** Each cursor is a small filled triangle pointer plus an optional name-tag label — the label is skipped entirely on a context that doesn't implement `fillText` (see `InteractiveLayerContext`'s doc) rather than throwing. */

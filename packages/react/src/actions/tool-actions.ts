@@ -11,6 +11,7 @@ import {
   ELLIPSE_TOOL_NAME,
   ERASER_TOOL_NAME,
   FREEDRAW_TOOL_NAME,
+  LASER_TOOL_NAME,
   LINE_TOOL_NAME,
   PAN_TOOL_NAME,
   RECTANGLE_TOOL_NAME,
@@ -34,5 +35,6 @@ export function buildToolActions(): Action[] {
     toolAction("freedraw-tool", "tool.freedraw", "pencil", FREEDRAW_TOOL_NAME, "p"),
     toolAction("text-tool", "tool.text", "text", TEXT_TOOL_NAME, "t"),
     toolAction("eraser-tool", "tool.eraser", "eraser", ERASER_TOOL_NAME, "e"),
+    toolAction("laser-tool", "tool.laser", "laser", LASER_TOOL_NAME, "k"),
   ];
 }
