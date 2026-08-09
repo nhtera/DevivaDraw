@@ -26,6 +26,8 @@ export interface ArrowToolDeps {
   history: ShapeToolHistory;
   /** Current camera zoom — screen-pixel thresholds (drag-vs-click, double-click, bind proximity) are converted to scene units at comparison time via this, same reasoning as `line-tool.ts`'s `getZoom`. */
   getZoom(): number;
+  /** Called once an arrow is committed (not on a discarded <2-vertex draft), with its id — see `drag-shape-tool-base.ts`'s `onCreated`. */
+  onCreated?: (elementId: string) => void;
 }
 
 const DOUBLE_CLICK_WINDOW_MS = 300;
@@ -146,6 +148,7 @@ export class ArrowTool extends NoOpToolHandler {
 
     this.deps.history.endBatch(this.deps.scene.getElements());
     this.reset();
+    this.deps.onCreated?.(elementId);
   }
 
   private discardDraft(): void {

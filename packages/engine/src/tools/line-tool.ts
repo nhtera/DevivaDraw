@@ -32,6 +32,8 @@ export interface LineToolDeps {
    * 10-unit radius is trivial to hit zoomed in, and nearly impossible to hit precisely zoomed out).
    */
   getZoom(): number;
+  /** Called once a polyline is committed (not on a discarded <2-vertex draft), with its id — see `drag-shape-tool-base.ts`'s `onCreated`. */
+  onCreated?: (elementId: string) => void;
 }
 
 /** Window (ms) within which two clicks near the same spot count as a finishing double-click. */
@@ -171,7 +173,9 @@ export class LineTool extends NoOpToolHandler {
     }
     this.syncElement();
     this.deps.history.endBatch(this.deps.scene.getElements());
+    const createdId = this.elementId;
     this.reset();
+    if (createdId) this.deps.onCreated?.(createdId);
   }
 
   /** Fewer than 2 vertices placed when finishing: nothing meaningful to keep, so this also cancels the still-open batch. */

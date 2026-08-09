@@ -185,6 +185,8 @@ export { getLabel } from "./text/get-label";
 
 export type { TextEditSessionDeps, TextEditSessionStartOptions, TextEditSessionState } from "./text/text-edit-session";
 export { TextEditSession } from "./text/text-edit-session";
+export type { StandaloneTextStyle } from "./text/standalone-text-edit";
+export { startStandaloneTextEdit, syncStandaloneTextSize } from "./text/standalone-text-edit";
 
 export type { BindableShapeType, BorderRect } from "./bindings/shape-border-intersection";
 export {

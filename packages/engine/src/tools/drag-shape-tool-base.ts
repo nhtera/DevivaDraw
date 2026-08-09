@@ -33,6 +33,8 @@ export interface DragShapeToolDeps {
   scene: Scene;
   styleState: ShapeStyleState;
   history: ShapeToolHistory;
+  /** Called once a shape is committed (not on a discarded zero-size click), with its id — the host uses this to select the new element and hand back to the select tool, the "draw then immediately adjust" flow every mainstream whiteboard uses. */
+  onCreated?: (elementId: string) => void;
 }
 
 export abstract class DragShapeTool extends NoOpToolHandler {
@@ -77,7 +79,9 @@ export abstract class DragShapeTool extends NoOpToolHandler {
 
     this.deps.scene.updateElement(this.draftId, rect);
     this.deps.history.endBatch(this.deps.scene.getElements());
+    const createdId = this.draftId;
     this.reset();
+    this.deps.onCreated?.(createdId);
   }
 
   /* eslint-disable @typescript-eslint/no-unused-vars -- `modifiers` kept to match `ToolHandler`'s signature */

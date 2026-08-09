@@ -40,6 +40,8 @@ export interface BuildRuntimeOptions {
   shareApiBaseUrl?: string;
   getThemeMode(): ThemeMode;
   toggleThemeMode(): void;
+  /** `true` while the tool lock is engaged — a creation tool then stays active after drawing (repeated-draw workflow) instead of handing back to the select tool. See `build-tools.ts`'s `handleCreated`. */
+  getToolLocked(): boolean;
   /**
    * `true` while the command palette, shortcuts dialog, main menu, or context menu is open —
    * combined (via `should-suppress-global-shortcuts.ts`) with the existing text-editing check to
@@ -64,8 +66,8 @@ function buildPipelineActionHandlers(runtime: DevivaRuntime): Record<string, () 
 }
 
 export function buildRuntime(options: BuildRuntimeOptions): DevivaRuntime {
-  const { container, scene, getCamera, setCamera, ui, createPersistence, shareApiBaseUrl, getThemeMode, toggleThemeMode, isChromeOverlayOpen } = options;
-  const tools = buildTools(container, scene, getCamera, setCamera, getThemeMode);
+  const { container, scene, getCamera, setCamera, ui, createPersistence, shareApiBaseUrl, getThemeMode, toggleThemeMode, getToolLocked, isChromeOverlayOpen } = options;
+  const tools = buildTools(container, scene, getCamera, setCamera, getThemeMode, getToolLocked);
   const persistence = createPersistence({ history: tools.historyStack, selection: tools.selectionState });
   const actionRegistry = buildActionRegistry({ shareEnabled: Boolean(shareApiBaseUrl) });
 
@@ -120,6 +122,7 @@ export function buildRuntime(options: BuildRuntimeOptions): DevivaRuntime {
     editSession: tools.editSession,
     textMeasurer: tools.textMeasurer,
     getCamera,
+    styleState: tools.styleState,
   });
 
   runtime.dispose = () => {

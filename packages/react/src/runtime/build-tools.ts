@@ -62,6 +62,7 @@ export function buildTools(
   getCamera: () => Camera,
   setCamera: (camera: Camera) => void,
   getThemeMode: () => ThemeMode,
+  getToolLocked: () => boolean,
 ): BuiltTools {
   const panZoomTool = new PanZoomTool({
     getCamera,
@@ -78,7 +79,18 @@ export function buildTools(
   const [defaultStroke = "#1e1e1e"] = DEFAULT_STROKE_COLOR_PALETTE;
   const styleState = new ShapeStyleState({ strokeColor: adaptStrokeColorForTheme(defaultStroke, getThemeMode()) });
   const historyStack = new HistoryStack<AnyElement[]>(scene.getElements());
-  const shapeToolDeps = { scene, styleState, history: historyStack };
+
+  // After a shape/line/arrow/stroke is committed, hand control back to the select tool and select the
+  // new element — the "draw then immediately adjust" flow Excalidraw/tldraw use — unless the tool lock
+  // is on (then keep the tool active for repeated drawing and skip the auto-select). Placed text just
+  // hands back the tool (it is already being edited, so it is not auto-selected mid-edit). Assigned
+  // below once `selectionState`/`toolStateMachine` exist; a commit can only happen via a live gesture
+  // long after this function returns, so the deferred assignment is always in place by call time.
+  let handleCreated: (elementId: string, options?: { select?: boolean }) => void = () => {};
+  const onShapeCreated = (elementId: string) => handleCreated(elementId, { select: true });
+  const onTextPlaced = (elementId: string) => handleCreated(elementId, { select: false });
+
+  const shapeToolDeps = { scene, styleState, history: historyStack, onCreated: onShapeCreated };
   const rectangleTool = new RectangleTool(shapeToolDeps);
   const ellipseTool = new EllipseTool(shapeToolDeps);
   const diamondTool = new DiamondTool(shapeToolDeps);
@@ -112,7 +124,7 @@ export function buildTools(
     styleState,
     editSession,
     measurer: textMeasurer,
-    onPlaced: () => toolStateMachine.setTool(SELECT_TOOL_NAME),
+    onPlaced: onTextPlaced,
   });
 
   const toolStateMachine = new ToolStateMachine(
@@ -129,6 +141,12 @@ export function buildTools(
     },
     SELECT_TOOL_NAME,
   );
+
+  handleCreated = (elementId: string, options?: { select?: boolean }) => {
+    if (getToolLocked()) return;
+    if (options?.select !== false) selectionState.selectOnly([elementId]);
+    toolStateMachine.setTool(SELECT_TOOL_NAME);
+  };
 
   return {
     toolStateMachine,

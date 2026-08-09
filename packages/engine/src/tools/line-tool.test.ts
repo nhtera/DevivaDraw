@@ -24,6 +24,20 @@ describe("LineTool", () => {
     }
   });
 
+  it("calls onCreated with the committed line's id on a drag, and not for a discarded single-vertex draft", () => {
+    const scene = new Scene();
+    const created: string[] = [];
+    const tool = new LineTool({ scene, styleState: new ShapeStyleState(), history: fakeHistory(), getZoom: () => 1, onCreated: (id) => created.push(id) });
+
+    drag(tool, { x: 10, y: 10 }, { x: 60, y: 40 });
+    const live = scene.getElements().filter((element) => !element.isDeleted);
+    expect(created).toEqual([live[0]?.id]);
+
+    click(tool, { x: 100, y: 100 });
+    tool.onKeyDown("Enter", NO_MODIFIERS); // single vertex → discarded
+    expect(created).toHaveLength(1); // no onCreated for the discarded draft
+  });
+
   it("a movement below the drag threshold is treated as a click, not a drag (stays in multi-point mode)", () => {
     const scene = new Scene();
     const history = fakeHistory();

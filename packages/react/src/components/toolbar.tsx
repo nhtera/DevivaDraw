@@ -27,10 +27,13 @@ export const TOOL_ACTION_IDS = TOOL_GROUPS.flat();
 
 export interface ToolbarProps {
   runtime: DevivaRuntime;
+  /** Whether the tool lock is engaged — when on, a creation tool stays active after drawing instead of handing back to select. */
+  toolLocked: boolean;
+  onToggleLock(): void;
 }
 
 export function Toolbar(props: ToolbarProps) {
-  const { runtime } = props;
+  const { runtime, toolLocked, onToggleLock } = props;
   const { t } = useTranslation();
   useToolVersion(runtime.toolStateMachine);
   const activeTool = runtime.toolStateMachine.getActiveToolName();
@@ -65,6 +68,18 @@ export function Toolbar(props: ToolbarProps) {
       aria-label={t("app.title")}
       style={{ ...panelStyle, display: "flex", alignItems: "center", gap: 2, padding: 5, position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)" }}
     >
+      <button
+        type="button"
+        data-testid="toolbar-lock"
+        title={t("tool.lock")}
+        aria-label={t("tool.lock")}
+        aria-pressed={toolLocked}
+        style={buttonStyle(toolLocked)}
+        onClick={onToggleLock}
+      >
+        <Icon name="lock" />
+      </button>
+      <div style={dividerStyle} />
       {TOOL_GROUPS.map((group, index) => (
         <div key={group[0] ?? index} style={{ display: "contents" }}>
           {index > 0 && <div style={dividerStyle} />}

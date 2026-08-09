@@ -62,6 +62,8 @@ export interface UseDevivaRuntimeOptions {
   shareApiBaseUrl?: string;
   getThemeMode(): ThemeMode;
   toggleThemeMode(): void;
+  /** `true` while the tool lock is engaged — see `build-runtime.ts`'s `getToolLocked` doc. */
+  getToolLocked(): boolean;
   /** `true` while the command palette, shortcuts dialog, main menu, or context menu is open — suppresses the global keyboard-shortcut resolver so typing into an overlay's search input can never leak through and switch tools (see `build-runtime.ts`'s `isChromeOverlayOpen` doc). */
   isChromeOverlayOpen(): boolean;
   /** Live collaborator cursors for the interactive layer — see `start-render-loop.ts`'s `RenderLoopDeps.getRemoteCursors` doc. Omitted when the host never wires `useCollabSession` up. */
@@ -84,7 +86,7 @@ function buildInitialScene(initialData: SceneDocument | null | undefined, persis
 }
 
 export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRuntimeResult {
-  const { containerRef, cameraStore, initialData, persistenceKey, onChange, ui, shareApiBaseUrl, getThemeMode, toggleThemeMode, isChromeOverlayOpen, getRemoteCursors } = options;
+  const { containerRef, cameraStore, initialData, persistenceKey, onChange, ui, shareApiBaseUrl, getThemeMode, toggleThemeMode, getToolLocked, isChromeOverlayOpen, getRemoteCursors } = options;
   const sceneRef = useRef<Scene | null>(null);
   if (sceneRef.current === null) sceneRef.current = buildInitialScene(initialData, persistenceKey);
 
@@ -126,6 +128,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
       shareApiBaseUrl,
       getThemeMode,
       toggleThemeMode,
+      getToolLocked,
       isChromeOverlayOpen,
     });
 

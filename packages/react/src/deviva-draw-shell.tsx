@@ -67,6 +67,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const cameraStore = cameraStoreRef.current;
 
   const zenMode = useToggleState(false);
+  const toolLock = useToggleState(false);
   const viewOnly = useToggleState(initialViewOnly ?? false);
   const statsPanel = useToggleState(false);
   const commandPaletteOpen = useToggleState(false);
@@ -122,6 +123,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     shareApiBaseUrl,
     getThemeMode,
     toggleThemeMode,
+    getToolLocked: toolLock.get,
     isChromeOverlayOpen,
     getRemoteCursors,
   });
@@ -175,7 +177,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
           <TextEditorOverlay session={editSession} scene={runtime.scene} getCamera={getCamera} subscribeCamera={cameraStore.subscribe} canvasBackgroundColor={tokens.canvasBackground} />
         )}
       </div>
-      {runtime && !zenMode.value && (isNarrow ? <BottomToolbar runtime={runtime} /> : <Toolbar runtime={runtime} />)}
+      {runtime && !zenMode.value && (isNarrow ? <BottomToolbar runtime={runtime} /> : <Toolbar runtime={runtime} toolLocked={toolLock.value} onToggleLock={() => toolLock.set(!toolLock.value)} />)}
       {runtime && !zenMode.value && !isNarrow && <CanvasHint runtime={runtime} />}
       {runtime && !zenMode.value && <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} />}
       {runtime && !zenMode.value && !viewOnly.value && <PropertiesPanel runtime={runtime} />}

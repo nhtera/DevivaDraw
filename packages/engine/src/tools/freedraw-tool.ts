@@ -31,6 +31,8 @@ export interface FreedrawToolDeps {
   scene: Scene;
   styleState: ShapeStyleState;
   history: ShapeToolHistory;
+  /** Called once a stroke/dot is committed, with its id — see `drag-shape-tool-base.ts`'s `onCreated`. */
+  onCreated?: (elementId: string) => void;
 }
 
 interface AbsoluteSample {
@@ -105,7 +107,9 @@ export class FreedrawTool extends NoOpToolHandler {
     }
 
     this.deps.history.endBatch(this.deps.scene.getElements());
+    const createdId = this.elementId;
     this.reset();
+    if (createdId) this.deps.onCreated?.(createdId);
   }
 
   /* eslint-disable @typescript-eslint/no-unused-vars -- `modifiers` kept to match `ToolHandler`'s signature */
