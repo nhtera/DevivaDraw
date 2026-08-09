@@ -31,6 +31,16 @@ export const panelStyle: CSSProperties = {
   fontSize: 13,
 };
 
+/**
+ * `active` drives only the glyph weight here; the *background* (a soft accent tint when active, a hover
+ * tint otherwise), the press/focus states, and their transitions live in the injected chrome
+ * stylesheet (`chrome-stylesheet.ts`), keyed on `[aria-pressed="true"]` — CSS can express `:hover`/
+ * `:focus-visible`/`:active`/reduced-motion, which an inline style object cannot. Every active button
+ * therefore MUST also set `aria-pressed`, which is both what the stylesheet targets and the correct a11y
+ * signal. The foreground stays the normal text color (not accent) so an active *label* keeps full WCAG
+ * AA contrast against the translucent tint in both themes — the soft background + weight are the active
+ * cue (the Excalidraw-style treatment), not a low-contrast accent-colored foreground.
+ */
 export function buttonStyle(active = false): CSSProperties {
   return {
     display: "inline-flex",
@@ -41,14 +51,10 @@ export function buttonStyle(active = false): CSSProperties {
     border: "none",
     borderRadius: RADIUS.control,
     cursor: "pointer",
-    // Active is a soft accent *tint* with an accent-colored glyph, not a loud fully-saturated fill —
-    // lighter, more modern, and it keeps the icon (which inherits `currentColor`) legible on top.
-    background: active ? "var(--dd-accent-soft)" : "transparent",
-    color: active ? "var(--dd-accent)" : "var(--dd-text-primary)",
+    color: "var(--dd-text-primary)",
     fontWeight: active ? 600 : 400,
     fontSize: 13,
     fontFamily: "inherit",
-    transition: "background 120ms ease, color 120ms ease",
   };
 }
 

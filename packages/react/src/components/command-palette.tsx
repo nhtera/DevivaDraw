@@ -60,7 +60,7 @@ export function CommandPalette(props: CommandPaletteProps) {
 
   return (
     <div style={dialogOverlayStyle} onClick={onClose} data-testid="command-palette-overlay">
-      <div style={dialogStyle} onClick={(event) => event.stopPropagation()} role="dialog" data-testid="command-palette">
+      <div className="dd-animate-in" style={dialogStyle} onClick={(event) => event.stopPropagation()} role="dialog" data-testid="command-palette">
         <input
           type="text"
           autoFocus

@@ -43,6 +43,7 @@ export function ContextMenu(props: ContextMenuProps) {
       ref={menuRef}
       role="menu"
       data-testid="context-menu"
+      className="dd-animate-in"
       style={{ ...panelStyle, position: "fixed", left: screenPoint.x, top: screenPoint.y, padding: 4, display: "flex", flexDirection: "column", minWidth: 160, zIndex: 90 }}
     >
       {MENU_ACTION_IDS.map((id) => {

@@ -122,6 +122,7 @@ export function ColorPicker(props: ColorPickerProps) {
       </div>
       {open && (
         <div
+          className="dd-animate-in"
           data-testid={testId ? `${testId}-popover` : undefined}
           style={{ ...panelStyle, position: "absolute", right: 0, top: "100%", marginTop: 6, zIndex: 20, padding: 10, width: 176, display: "flex", flexDirection: "column", gap: 8 }}
         >

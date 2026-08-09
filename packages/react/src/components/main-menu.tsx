@@ -54,7 +54,7 @@ export function MainMenu(props: MainMenuProps) {
   };
 
   return (
-    <div ref={menuRef} role="menu" data-testid="main-menu" style={{ ...panelStyle, position: "absolute", top: 56, left: 12, padding: 4, width: 220, zIndex: 90 }}>
+    <div ref={menuRef} role="menu" data-testid="main-menu" className="dd-animate-in" style={{ ...panelStyle, position: "absolute", top: 56, left: 12, padding: 4, width: 220, zIndex: 90 }}>
       <MenuButton testId="main-menu-open" icon="folder-open" onClick={() => run("open-scene")}>
         {t("action.openScene")}
       </MenuButton>
@@ -91,7 +91,7 @@ export function MainMenu(props: MainMenuProps) {
       <div style={{ padding: "4px 8px", fontSize: 11, color: "var(--dd-text-secondary)" }}>{t("menu.theme")}</div>
       <div style={{ display: "flex", gap: 2, padding: "0 4px 4px" }}>
         {(["light", "dark"] as const).map((option) => (
-          <button key={option} type="button" data-testid={`main-menu-theme-${option}`} style={{ ...buttonStyle(mode === option), flex: 1 }} onClick={() => setMode(option)}>
+          <button key={option} type="button" data-testid={`main-menu-theme-${option}`} aria-pressed={mode === option} style={{ ...buttonStyle(mode === option), flex: 1 }} onClick={() => setMode(option)}>
             {t(`theme.${option}`)}
           </button>
         ))}
@@ -99,7 +99,7 @@ export function MainMenu(props: MainMenuProps) {
       <div style={{ padding: "4px 8px", fontSize: 11, color: "var(--dd-text-secondary)" }}>{t("menu.language")}</div>
       <div style={{ display: "flex", gap: 2, padding: "0 4px 4px" }}>
         {LOCALES.map((option) => (
-          <button key={option} type="button" data-testid={`main-menu-locale-${option}`} style={{ ...buttonStyle(locale === option), flex: 1 }} onClick={() => setLocale(option)}>
+          <button key={option} type="button" data-testid={`main-menu-locale-${option}`} aria-pressed={locale === option} style={{ ...buttonStyle(locale === option), flex: 1 }} onClick={() => setLocale(option)}>
             {t(`language.${option}`)}
           </button>
         ))}

@@ -21,6 +21,7 @@ import { useCollabCursorTracking } from "./hooks/use-collab-cursor-tracking";
 import { useCollabSession } from "./hooks/use-collab-session";
 import { TextEditorOverlay } from "./components/text-editor-overlay";
 import { CanvasHint } from "./components/canvas-hint";
+import { ensureChromeStylesheet } from "./components/chrome-stylesheet";
 import { Toolbar } from "./components/toolbar";
 import { TopBar } from "./components/top-bar";
 import { PropertiesPanel } from "./components/properties-panel";
@@ -53,6 +54,10 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const { t } = useTranslation();
   const { mode, tokens, cssVariables, toggleMode } = useTheme();
   const isNarrow = useIsNarrowViewport();
+
+  // Inject the chrome's pseudo-class/motion stylesheet once (hover/focus-visible/press states +
+  // reduced-motion-aware transitions) — see `chrome-stylesheet.ts`.
+  useEffect(() => ensureChromeStylesheet(), []);
 
   // Owned here (not by `useDevivaRuntime`) so `useContextMenuTriggers` below — which needs a live
   // `CameraStore` to feed its `TouchGestureAdapter` — can be constructed *before* the runtime exists;
