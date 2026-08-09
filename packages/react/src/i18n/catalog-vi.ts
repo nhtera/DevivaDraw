@@ -165,4 +165,14 @@ export const catalogVi: Record<TranslationKey, string> = {
   "collab.error.notConfigured": "Ứng dụng này chưa được cấu hình cho cộng tác trực tiếp.",
   "collab.error.startFailed": "Không thể bắt đầu phiên cộng tác. Vui lòng thử lại.",
   "collab.error.joinFailed": "Không thể tham gia phiên này — liên kết có thể không hợp lệ hoặc đã hết hạn.",
+
+  "hint.select": "Kéo để chọn một vùng, hoặc nhấp vào một hình. Giữ Space để di chuyển canvas.",
+  "hint.pan": "Kéo để di chuyển canvas.",
+  "hint.rectangle": "Kéo để vẽ hình chữ nhật.",
+  "hint.ellipse": "Kéo để vẽ hình elip.",
+  "hint.diamond": "Kéo để vẽ hình thoi.",
+  "hint.line": "Kéo để vẽ đường thẳng, hoặc nhấp để thêm điểm. Enter hoặc nhấp đúp để hoàn tất.",
+  "hint.arrow": "Kéo để vẽ mũi tên, hoặc nhấp để thêm điểm. Enter để hoàn tất.",
+  "hint.freedraw": "Kéo để vẽ tự do.",
+  "hint.text": "Nhấp để đặt văn bản, rồi gõ. Enter để hoàn tất, Shift+Enter để xuống dòng.",
 };

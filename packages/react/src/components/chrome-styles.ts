@@ -18,13 +18,16 @@ export const RADIUS = { control: 8, panel: 12 } as const;
  */
 export const PANEL_SHADOW = "0 6px 24px rgba(15, 16, 20, 0.14), 0 1px 3px rgba(15, 16, 20, 0.10)";
 
+/** One font stack for all chrome text, so panels/buttons/hints stay visually consistent. */
+export const chromeFontFamily = "system-ui, -apple-system, 'Segoe UI', sans-serif";
+
 export const panelStyle: CSSProperties = {
   background: "var(--dd-chrome-background-elevated)",
   color: "var(--dd-text-primary)",
   border: "1px solid var(--dd-chrome-border)",
   borderRadius: RADIUS.panel,
   boxShadow: PANEL_SHADOW,
-  fontFamily: "system-ui, sans-serif",
+  fontFamily: chromeFontFamily,
   fontSize: 13,
 };
 

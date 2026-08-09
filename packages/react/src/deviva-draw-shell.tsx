@@ -20,6 +20,7 @@ import { usePasteAndDrop } from "./hooks/use-paste-and-drop";
 import { useCollabCursorTracking } from "./hooks/use-collab-cursor-tracking";
 import { useCollabSession } from "./hooks/use-collab-session";
 import { TextEditorOverlay } from "./components/text-editor-overlay";
+import { CanvasHint } from "./components/canvas-hint";
 import { Toolbar } from "./components/toolbar";
 import { TopBar } from "./components/top-bar";
 import { PropertiesPanel } from "./components/properties-panel";
@@ -170,6 +171,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
         )}
       </div>
       {runtime && !zenMode.value && (isNarrow ? <BottomToolbar runtime={runtime} /> : <Toolbar runtime={runtime} />)}
+      {runtime && !zenMode.value && !isNarrow && <CanvasHint runtime={runtime} />}
       {runtime && !zenMode.value && <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} />}
       {runtime && !zenMode.value && !viewOnly.value && <PropertiesPanel runtime={runtime} />}
       {runtime && mainMenuOpen.value && (

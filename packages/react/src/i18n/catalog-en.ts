@@ -165,6 +165,16 @@ export const catalogEn = {
   "collab.error.notConfigured": "Live collaboration isn't configured for this app.",
   "collab.error.startFailed": "Couldn't start a collaboration session. Please try again.",
   "collab.error.joinFailed": "Couldn't join that session — the link may be invalid or expired.",
+
+  "hint.select": "Drag to select an area, or click a shape. Hold Space to pan.",
+  "hint.pan": "Drag to move the canvas.",
+  "hint.rectangle": "Drag to draw a rectangle.",
+  "hint.ellipse": "Drag to draw an ellipse.",
+  "hint.diamond": "Drag to draw a diamond.",
+  "hint.line": "Drag for a straight line, or click to add points. Enter or double-click to finish.",
+  "hint.arrow": "Drag to draw an arrow, or click to add points. Enter to finish.",
+  "hint.freedraw": "Drag to draw freehand.",
+  "hint.text": "Click to place text, then type. Enter to finish, Shift+Enter for a new line.",
 } as const;
 
 /** Every valid message key — `catalog-vi.ts` (and any future locale) is typed against this so a missing/extra key is a compile error. */

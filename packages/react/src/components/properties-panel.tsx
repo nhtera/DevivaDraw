@@ -72,6 +72,7 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
     <div style={{ ...panelStyle, position: "absolute", top: 12, right: 12, width: 220, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
       <ColorPicker
         label={t("panel.stroke")}
+        testId="stroke-color"
         value={style.strokeColor}
         palette={DEFAULT_STROKE_COLOR_PALETTE}
         recentColors={runtime.styleState.getRecentColors()}
@@ -80,6 +81,7 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
       />
       <ColorPicker
         label={t("panel.background")}
+        testId="background-color"
         value={style.backgroundColor}
         palette={DEFAULT_BACKGROUND_COLOR_PALETTE}
         recentColors={runtime.styleState.getRecentColors()}
