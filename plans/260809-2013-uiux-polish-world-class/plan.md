@@ -15,11 +15,11 @@ The "line and text drawing bugs" + "classic look" are mostly **one theme-consist
 
 | # | Phase | Priority | Status | Fixes / Delivers |
 |---|-------|----------|--------|------------------|
-| 01 | [Theme consistency & drawing bugs](phase-01-theme-consistency-and-drawing-bugs.md) | P0 | ⬜ Not started | F1 canvas bg, F2 text overlay, invisible line/text |
-| 02 | [Iconography & compact properties panel](phase-02-iconography-and-compact-panel.md) | P1 | ⬜ Not started | F3 text-label controls → icon buttons |
-| 03 | [Chrome visual language refresh](phase-03-chrome-visual-language.md) | P1 | ⬜ Not started | token scale, toolbar/panel restyle, shadows, type |
-| 04 | [Signature interactions](phase-04-signature-interactions.md) | P2 | ⬜ Not started | color-picker popover, selection toolbar, theme toggle, hints |
-| 05 | [Motion, a11y & cross-theme QA](phase-05-motion-a11y-qa.md) | P2 | ⬜ Not started | spring motion, WCAG AA, Playwright visual checks |
+| 01 | [Theme consistency & drawing bugs](phase-01-theme-consistency-and-drawing-bugs.md) | P0 | ✅ Done (bd95f40) | canvas bg + adapted defaults + text overlay + drag-to-draw lines |
+| 02 | [Iconography & compact properties panel](phase-02-iconography-and-compact-panel.md) | P1 | ✅ Done (ab7d442) | SVG icon glyphs for fill/width/style/sloppiness/edges/align/arrowheads |
+| 03 | [Chrome visual language refresh](phase-03-chrome-visual-language.md) | P1 | ✅ Done (c76dfb9) | soft active state, tinted shadow, radius scale, toolbar groups, SVG tool icons |
+| 04 | [Signature interactions](phase-04-signature-interactions.md) | P2 | ✅ Done (a039184) | color popover (shades/hex/eyedropper) + contextual hints; theme toggle already in menu; selection action bar deferred (redundant w/ always-visible panel) |
+| 05 | [Motion, a11y & cross-theme QA](phase-05-motion-a11y-qa.md) | P2 | ✅ Done (f6a686f) | injected stylesheet: hover/focus-visible/press + reduced-motion; AA contrast; e2e |
 
 ## Sequencing & Dependencies
 - **01 first, non-negotiable** — it is the actual bug the user sees; everything else is cosmetic on top.
