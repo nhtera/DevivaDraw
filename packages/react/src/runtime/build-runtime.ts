@@ -36,6 +36,8 @@ export interface BuildRuntimeOptions {
    * sequence the dependency correctly.
    */
   createPersistence(deps: { history: BuiltTools["historyStack"]; selection: BuiltTools["selectionState"] }): PersistenceOperations;
+  /** Same config `createPersistence`'s "Share" implementation depends on — gates whether the "Share" action is registered at all (see `buildActionRegistry`'s `shareEnabled` doc) rather than registering an action that would just reject every time it ran. */
+  shareApiBaseUrl?: string;
   getThemeMode(): ThemeMode;
   toggleThemeMode(): void;
   /**
@@ -62,10 +64,10 @@ function buildPipelineActionHandlers(runtime: DevivaRuntime): Record<string, () 
 }
 
 export function buildRuntime(options: BuildRuntimeOptions): DevivaRuntime {
-  const { container, scene, getCamera, setCamera, ui, createPersistence, getThemeMode, toggleThemeMode, isChromeOverlayOpen } = options;
+  const { container, scene, getCamera, setCamera, ui, createPersistence, shareApiBaseUrl, getThemeMode, toggleThemeMode, isChromeOverlayOpen } = options;
   const tools = buildTools(container, scene, getCamera, setCamera);
   const persistence = createPersistence({ history: tools.historyStack, selection: tools.selectionState });
-  const actionRegistry = buildActionRegistry();
+  const actionRegistry = buildActionRegistry({ shareEnabled: Boolean(shareApiBaseUrl) });
 
   const runtime: DevivaRuntime = {
     scene,

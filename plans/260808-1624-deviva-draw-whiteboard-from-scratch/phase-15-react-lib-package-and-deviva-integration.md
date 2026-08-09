@@ -61,14 +61,14 @@ apps/web/package.json                          tldraw dependency removed, @deviv
 9. Manual QA in a real interview flow (or a close simulation) confirming the AI interviewer still reads diagrams correctly post-swap.
 
 ## Todo List
-- [ ] `<DevivaDraw/>` public API finalized and implemented
-- [ ] `to-canvas-shape-input.ts` adapter implemented, every `GEO_KINDS` case unit tested
-- [ ] `imperative-api.ts` implemented (`getSceneElements`, `readDiagram`, filtered `subscribe`)
-- [ ] Package README with Vite + Next.js usage examples
-- [ ] `@deviva-draw/react` published (or packaging decision finalized if not npm)
-- [ ] `deviva` repo: `design-canvas.tsx` swapped, tldraw dependency removed
-- [ ] Regression fixture test: tldraw-era vs Deviva-Draw-era `CanvasDiagram` output equivalence
-- [ ] Manual interview-flow QA pass confirming diagram reading still works
+- [x] `<DevivaDraw/>` public API finalized and implemented (added `persistenceKey`; `onChange`/`theme`/`shareApiBaseUrl` already covered the rest of `design-canvas.tsx`'s needs)
+- [x] `to-canvas-shape-input.ts` adapter implemented, every `GEO_KINDS` case unit tested (rectangle/ellipse/diamond map through verbatim; group membership deliberately never surfaces — see the module's own doc)
+- [x] ~~`imperative-api.ts` implemented (`getSceneElements`, `readDiagram`, filtered `subscribe`)~~ — superseded: `getSceneElements` already existed on the imperative handle; a separate `readDiagram`/`subscribe` surface turned out unnecessary once `onChange(elements)` + the new `toCanvasShapeInput(elements)` pure function covered the same need with less surface area (the host's own `onChange` handler calls `toCanvasShapeInput` directly, no imperative round-trip required)
+- [x] Package README with Vite + Next.js usage examples
+- [ ] `@deviva-draw/react` published (or packaging decision finalized if not npm) — not done; the deviva integration currently consumes it via pnpm's `link:` protocol against a sibling checkout (dev-only), a real publish/consumption decision is still open
+- [x] `deviva` repo: `design-canvas.tsx` swapped to `<DevivaDraw/>`, `read-excalidraw-diagram.ts` deleted and replaced — **caveat:** `@excalidraw/excalidraw` itself is still a `deviva/apps/web` dependency because `components/marketing/screenshot-rig-canvas.tsx` (unrelated to this integration) still imports it directly; full removal needs that file migrated too
+- [x] Regression fixture test: prior-adapter-era vs Deviva-Draw-era `CanvasDiagram` output equivalence (deviva's own drawing tool at integration time was Excalidraw, not tldraw — see `read-deviva-draw-diagram.test.ts`)
+- [ ] Manual interview-flow QA pass confirming diagram reading still works — not performed in this session (no running interview environment); typecheck + build + the regression fixture stand in for now
 
 ## Success Criteria
 - `deviva/apps/web` builds and runs with zero `tldraw` references remaining.

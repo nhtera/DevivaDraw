@@ -47,7 +47,7 @@ import type { ShareDialogState } from "./actions/action-types";
 import type { DevivaDrawProps } from "./deviva-draw-app-types";
 
 export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(function DevivaDrawShell(props, ref) {
-  const { initialData, onChange, className, style, initialViewOnly, shareApiBaseUrl } = props;
+  const { initialData, persistenceKey, onChange, className, style, initialViewOnly, shareApiBaseUrl } = props;
   const canvasHostRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
   const { mode, tokens, cssVariables, toggleMode } = useTheme();
@@ -97,6 +97,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     containerRef: canvasHostRef,
     cameraStore,
     initialData,
+    persistenceKey,
     onChange,
     ui: {
       getZenMode: zenMode.get,
@@ -167,6 +168,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
           onClose={() => mainMenuOpen.set(false)}
           onOpenShortcuts={() => shortcutsDialogOpen.set(true)}
           onOpenCollab={() => collabDialogOpen.set(true)}
+          shareEnabled={Boolean(shareApiBaseUrl)}
         />
       )}
       {runtime && shortcutsDialogOpen.value && <ShortcutsDialog runtime={runtime} onClose={() => shortcutsDialogOpen.set(false)} />}

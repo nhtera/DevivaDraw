@@ -83,6 +83,18 @@ describe("buildActionRegistry", () => {
     expect(shortcutRegistry.resolve("d", { shift: false, alt: false, ctrl: false, meta: true })).toBeUndefined();
     expect(shortcutRegistry.resolve("g", { shift: false, alt: false, ctrl: false, meta: true })).toBeUndefined();
   });
+
+  it('registers "share-scene" by default (bare call, no options — matches every pre-gating call site)', () => {
+    expect(buildActionRegistry().get("share-scene")).toBeDefined();
+  });
+
+  it('registers "share-scene" when shareEnabled is explicitly true — the host configured shareApiBaseUrl', () => {
+    expect(buildActionRegistry({ shareEnabled: true }).get("share-scene")).toBeDefined();
+  });
+
+  it('excludes "share-scene" when shareEnabled is false — the host never configured shareApiBaseUrl, so the action would only ever reject; the main menu\'s "Share"/"Collaborate…" entries are gated on the exact same boolean (see MainMenuProps.shareEnabled), which this same value drives in `build-runtime.ts`', () => {
+    expect(buildActionRegistry({ shareEnabled: false }).get("share-scene")).toBeUndefined();
+  });
 });
 
 function buildTestRuntime(scene: Scene): ActionRuntime {

@@ -54,6 +54,8 @@ export interface UseDevivaRuntimeOptions {
    */
   cameraStore: CameraStore;
   initialData?: SceneDocument | null;
+  /** Scopes localStorage autosave to this key — see `DevivaDrawProps.persistenceKey`'s doc. Ignored whenever `initialData` is supplied (host-managed persistence, autosave stays off). */
+  persistenceKey?: string;
   onChange?(elements: AnyElement[], files: Record<string, LiveStoredFile>): void;
   ui: UiToggleState;
   /** The collab-server's base URL, forwarded to `buildPersistenceOperations` for the "Share" action — see that module's `shareApiBaseUrl` doc. */
@@ -72,19 +74,19 @@ export interface UseDevivaRuntimeResult {
   handle: DevivaDrawHandle | null;
 }
 
-function buildInitialScene(initialData: SceneDocument | null | undefined): Scene {
+function buildInitialScene(initialData: SceneDocument | null | undefined, persistenceKey: string | undefined): Scene {
   if (initialData) {
     const result = Scene.fromJSON(initialData);
     if (result.ok) return result.scene;
     console.warn("deviva-draw: initialData failed validation, starting with an empty scene");
   }
-  return restoreBrowserAutosave() ?? new Scene();
+  return restoreBrowserAutosave(persistenceKey) ?? new Scene();
 }
 
 export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRuntimeResult {
-  const { containerRef, cameraStore, initialData, onChange, ui, shareApiBaseUrl, getThemeMode, toggleThemeMode, isChromeOverlayOpen, getRemoteCursors } = options;
+  const { containerRef, cameraStore, initialData, persistenceKey, onChange, ui, shareApiBaseUrl, getThemeMode, toggleThemeMode, isChromeOverlayOpen, getRemoteCursors } = options;
   const sceneRef = useRef<Scene | null>(null);
-  if (sceneRef.current === null) sceneRef.current = buildInitialScene(initialData);
+  if (sceneRef.current === null) sceneRef.current = buildInitialScene(initialData, persistenceKey);
 
   const [runtime, setRuntime] = useState<DevivaRuntime | null>(null);
   const [editSession, setEditSession] = useState<TextEditSession | null>(null);
@@ -106,7 +108,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
     const unsubscribeInvalidate = scene.subscribe(() => stage.staticLayer.invalidate());
 
     const usingHostManagedData = Boolean(initialData);
-    const autosave = usingHostManagedData ? null : startBrowserAutosave(scene);
+    const autosave = usingHostManagedData ? null : startBrowserAutosave(scene, persistenceKey);
 
     const onSceneReplaced = (opened: Scene) => {
       sceneRef.current = opened;
@@ -121,6 +123,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
       setCamera: cameraStore.setCamera,
       ui,
       createPersistence: ({ history, selection }) => buildPersistenceOperations({ getScene: () => sceneRef.current!, history, selection, onSceneReplaced, shareApiBaseUrl }),
+      shareApiBaseUrl,
       getThemeMode,
       toggleThemeMode,
       isChromeOverlayOpen,
@@ -177,9 +180,11 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
       setHandle(null);
     };
     // Deliberately keyed only on `sceneVersion` — this mount effect rebuilds the whole runtime only
-    // on an explicit scene swap ("Open"). `containerRef`/`ui` are expected stable for the component's
-    // lifetime; `onChange`/`getThemeMode`/`toggleThemeMode`/`isChromeOverlayOpen` are read through
-    // stable wrappers (see the module doc) precisely so they *don't* need to be stable themselves.
+    // on an explicit scene swap ("Open"). `containerRef`/`ui`/`initialData`/`persistenceKey` are
+    // expected stable for the component's lifetime (both are read once, at mount, to seed the initial
+    // scene/autosave key — a later change is not meant to hot-swap either); `onChange`/`getThemeMode`/
+    // `toggleThemeMode`/`isChromeOverlayOpen` are read through stable wrappers (see the module doc)
+    // precisely so they *don't* need to be stable themselves.
   }, [sceneVersion]);
 
   return { runtime, editSession, handle };

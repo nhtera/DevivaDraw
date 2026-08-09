@@ -64,6 +64,11 @@ export { findFirstImageItem, isImageMimeType, looksLikeSvgMarkup, SVG_MIME_TYPE,
 export type { UsePasteAndDropOptions } from "./hooks/use-paste-and-drop";
 export { usePasteAndDrop } from "./hooks/use-paste-and-drop";
 
+// --- Scene-read / diagram extraction (embedding hosts that read structure off the canvas) ---
+
+export type { CanvasArrowBindingInput, CanvasShapeInput, CanvasShapeProps, ToCanvasShapeInputResult } from "./scene-read/to-canvas-shape-input";
+export { toCanvasShapeInput } from "./scene-read/to-canvas-shape-input";
+
 // --- Share links (E2E encrypted, R2-backed) ---
 
 export type { SharedSceneViewerProps } from "./share/shared-scene-viewer";

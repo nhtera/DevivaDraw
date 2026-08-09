@@ -23,19 +23,20 @@ import { createBrowserExportRenderTarget, createRoughSvgGenerator, pickAndReadFi
 
 const SCENE_FILE_EXTENSION = ".devivadraw";
 
-/** Starts localStorage autosave for `scene` — call once per mounted `Scene` instance; `dispose()` on unmount/scene-swap. */
-export function startBrowserAutosave(scene: Scene): AutosaveController {
+/** Starts localStorage autosave for `scene` — call once per mounted `Scene` instance; `dispose()` on unmount/scene-swap. `storageKey` scopes the save slot (e.g. one per embedded instance); omit to use the package-wide default. */
+export function startBrowserAutosave(scene: Scene, storageKey?: string): AutosaveController {
   return startAutosave({
     scene,
     storage: window.localStorage,
+    storageKey,
     onQuotaExceeded: (error) => console.warn("deviva-draw: autosave skipped a write — localStorage quota exceeded", error),
     onError: (error) => console.error("deviva-draw: autosave write failed", error),
   });
 }
 
-/** Restores the last autosaved scene from localStorage, or `null` if there's nothing saved / it failed validation — never throws. */
-export function restoreBrowserAutosave(): Scene | null {
-  return restoreAutosave(window.localStorage);
+/** Restores the last autosaved scene from localStorage, or `null` if there's nothing saved / it failed validation — never throws. `storageKey` must match whatever `startBrowserAutosave` was given. */
+export function restoreBrowserAutosave(storageKey?: string): Scene | null {
+  return restoreAutosave(window.localStorage, storageKey);
 }
 
 /** Downloads the live scene as a `.devivadraw` JSON file (or opens the native save dialog when available). */

@@ -19,6 +19,8 @@ export interface MainMenuProps {
   onClose(): void;
   onOpenShortcuts(): void;
   onOpenCollab(): void;
+  /** Whether the host configured `shareApiBaseUrl` — gates both "Share" and "Collaborate…", which both depend on the same collab-server endpoint (see `deviva-draw-app-types.ts`'s `shareApiBaseUrl` doc). `false` hides them entirely rather than showing a menu entry that would just fail every time. */
+  shareEnabled: boolean;
 }
 
 const LOCALES: Locale[] = ["en", "vi"];
@@ -33,7 +35,7 @@ function MenuButton(props: { onClick: () => void; icon: string; children: string
 }
 
 export function MainMenu(props: MainMenuProps) {
-  const { runtime, onClose, onOpenShortcuts, onOpenCollab } = props;
+  const { runtime, onClose, onOpenShortcuts, onOpenCollab, shareEnabled } = props;
   const { t, locale, setLocale } = useTranslation();
   const { mode, setMode } = useTheme();
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -68,19 +70,23 @@ export function MainMenu(props: MainMenuProps) {
       <MenuButton testId="main-menu-copy-image" icon="copy-image" onClick={() => run("copy-as-image")}>
         {t("action.copyAsImage")}
       </MenuButton>
-      <MenuButton testId="main-menu-share" icon="share" onClick={() => run("share-scene")}>
-        {t("action.share")}
-      </MenuButton>
-      <MenuButton
-        testId="main-menu-collab"
-        icon="users"
-        onClick={() => {
-          onOpenCollab();
-          onClose();
-        }}
-      >
-        {t("action.collab")}
-      </MenuButton>
+      {shareEnabled && (
+        <MenuButton testId="main-menu-share" icon="share" onClick={() => run("share-scene")}>
+          {t("action.share")}
+        </MenuButton>
+      )}
+      {shareEnabled && (
+        <MenuButton
+          testId="main-menu-collab"
+          icon="users"
+          onClick={() => {
+            onOpenCollab();
+            onClose();
+          }}
+        >
+          {t("action.collab")}
+        </MenuButton>
+      )}
       <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
       <div style={{ padding: "4px 8px", fontSize: 11, color: "var(--dd-text-secondary)" }}>{t("menu.theme")}</div>
       <div style={{ display: "flex", gap: 2, padding: "0 4px 4px" }}>

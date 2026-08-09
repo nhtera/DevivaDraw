@@ -13,6 +13,8 @@ export interface DevivaDrawStoredFile {
 export interface DevivaDrawProps {
   /** A previously-saved scene document (e.g. `handle.getSceneElements()`'s host-persisted counterpart via `Scene.toJSON()`) to load on mount — omit to restore from localStorage autosave instead (the standalone-app default). */
   initialData?: SceneDocument | null;
+  /** Scopes the built-in localStorage autosave to this key instead of the package-wide default (`AUTOSAVE_STORAGE_KEY`) — lets an embedding host mount several independent instances (e.g. one per interview session) without one overwriting another's saved scene. Ignored when `initialData` is supplied: an embedder passing its own snapshot is managing persistence itself, and this component must never write to `window.localStorage` under it (see `initialData`'s doc). */
+  persistenceKey?: string;
   /** Fired (debounced) after any user-authored scene change — the embedding-host integration point. */
   onChange?(elements: AnyElement[], files: Record<string, DevivaDrawStoredFile>): void;
   /** `"light"`/`"dark"` to force a theme; omit to use the persisted preference, then the system's `prefers-color-scheme`. */
