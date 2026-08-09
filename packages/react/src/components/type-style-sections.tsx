@@ -26,6 +26,8 @@ function updateBatched(runtime: DevivaRuntime, elements: AnyElement[], changes: 
 const FONT_FAMILY_OPTIONS: TextFontFamily[] = ["normal", "code", "hand-drawn-slot"];
 const TEXT_ALIGN_OPTIONS: TextAlign[] = ["left", "center", "right"];
 const ARROWHEAD_OPTIONS: Arrowhead[] = ["none", "arrow", "triangle", "bar", "dot"];
+/** Text-align values reuse the existing chrome align glyphs; arrowheads use the self-authored SVG set (`icon-style-glyphs.tsx`). */
+const TEXT_ALIGN_ICONS: Record<TextAlign, string> = { left: "align-left", center: "align-center-h", right: "align-right" };
 
 export function TextStyleSection(props: { runtime: DevivaRuntime }) {
   const { runtime } = props;
@@ -51,7 +53,7 @@ export function TextStyleSection(props: { runtime: DevivaRuntime }) {
       <StyleSection
         label={t("panel.textAlign")}
         value={first.textAlign}
-        options={TEXT_ALIGN_OPTIONS.map((value) => ({ value, label: t(`textAlign.${value}`) }))}
+        options={TEXT_ALIGN_OPTIONS.map((value) => ({ value, label: t(`textAlign.${value}`), icon: TEXT_ALIGN_ICONS[value] }))}
         onChange={(value) => updateBatched(runtime, textElements, { textAlign: value })}
       />
     </div>
@@ -70,13 +72,13 @@ export function ArrowStyleSection(props: { runtime: DevivaRuntime }) {
       <StyleSection
         label={t("panel.arrowheadStart")}
         value={first.startArrowhead}
-        options={ARROWHEAD_OPTIONS.map((value) => ({ value, label: t(`arrowhead.${value}`) }))}
+        options={ARROWHEAD_OPTIONS.map((value) => ({ value, label: t(`arrowhead.${value}`), icon: `arrowhead-${value}` }))}
         onChange={(value) => updateBatched(runtime, arrows, { startArrowhead: value })}
       />
       <StyleSection
         label={t("panel.arrowheadEnd")}
         value={first.endArrowhead}
-        options={ARROWHEAD_OPTIONS.map((value) => ({ value, label: t(`arrowhead.${value}`) }))}
+        options={ARROWHEAD_OPTIONS.map((value) => ({ value, label: t(`arrowhead.${value}`), icon: `arrowhead-${value}` }))}
         onChange={(value) => updateBatched(runtime, arrows, { endArrowhead: value })}
       />
     </div>
