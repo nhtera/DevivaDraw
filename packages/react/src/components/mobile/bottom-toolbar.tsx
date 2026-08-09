@@ -12,10 +12,12 @@ import type { DevivaRuntime } from "../../runtime/runtime-types";
 
 export interface BottomToolbarProps {
   runtime: DevivaRuntime;
+  /** Opens the OS file picker to insert an image — see `toolbar.tsx`'s `onInsertImage`. */
+  onInsertImage(): void;
 }
 
 export function BottomToolbar(props: BottomToolbarProps) {
-  const { runtime } = props;
+  const { runtime, onInsertImage } = props;
   const { t } = useTranslation();
   useToolVersion(runtime.toolStateMachine);
   const activeTool = runtime.toolStateMachine.getActiveToolName();
@@ -55,6 +57,15 @@ export function BottomToolbar(props: BottomToolbarProps) {
           </button>
         );
       })}
+      <button
+        type="button"
+        data-testid="bottom-toolbar-image"
+        aria-label={t("tool.image")}
+        style={{ ...buttonStyle(false), flex: "0 0 auto", padding: 10 }}
+        onClick={onInsertImage}
+      >
+        <Icon name="image" size={20} />
+      </button>
     </div>
   );
 }

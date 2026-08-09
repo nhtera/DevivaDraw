@@ -39,4 +39,12 @@ export const TOOL_GLYPHS: Record<string, ReactNode> = {
       <line x1="7" y1="16.5" x2="16.5" y2="16.5" strokeWidth="1.4" />
     </>
   ),
+  // A framed picture: a sun in the corner and a mountain range, the universal "image" mark.
+  image: (
+    <>
+      <rect x="3.5" y="4.5" width="13" height="11" rx="1.5" />
+      <circle cx="7.5" cy="8" r="1.2" />
+      <path d="M4 14 L8 10 L11 13 L13 11 L16 14" strokeLinejoin="round" />
+    </>
+  ),
 };

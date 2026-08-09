@@ -30,10 +30,12 @@ export interface ToolbarProps {
   /** Whether the tool lock is engaged — when on, a creation tool stays active after drawing instead of handing back to select. */
   toolLocked: boolean;
   onToggleLock(): void;
+  /** Opens the OS file picker to insert an image — an action (opens a dialog), not a `ToolStateMachine` tool, so it's a plain button rather than a `renderTool` entry. */
+  onInsertImage(): void;
 }
 
 export function Toolbar(props: ToolbarProps) {
-  const { runtime, toolLocked, onToggleLock } = props;
+  const { runtime, toolLocked, onToggleLock, onInsertImage } = props;
   const { t } = useTranslation();
   useToolVersion(runtime.toolStateMachine);
   const activeTool = runtime.toolStateMachine.getActiveToolName();
@@ -86,6 +88,17 @@ export function Toolbar(props: ToolbarProps) {
           {group.map(renderTool)}
         </div>
       ))}
+      <div style={dividerStyle} />
+      <button
+        type="button"
+        data-testid="toolbar-image"
+        title={`${t("tool.image")} (9)`}
+        aria-label={t("tool.image")}
+        style={buttonStyle(false)}
+        onClick={onInsertImage}
+      >
+        <Icon name="image" />
+      </button>
     </div>
   );
 }

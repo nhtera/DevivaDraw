@@ -17,6 +17,8 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 
 import { createCamera } from "@deviva-draw/engine";
 import type { RemoteCursorOverlay } from "@deviva-draw/engine";
 import { usePasteAndDrop } from "./hooks/use-paste-and-drop";
+import { useImageFilePicker } from "./hooks/use-image-file-picker";
+import { shouldSuppressGlobalShortcuts } from "./runtime/should-suppress-global-shortcuts";
 import { useCollabCursorTracking } from "./hooks/use-collab-cursor-tracking";
 import { useCollabSession } from "./hooks/use-collab-session";
 import { TextEditorOverlay } from "./components/text-editor-overlay";
@@ -144,6 +146,32 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     decodeNaturalSize,
     onInsertError: (error) => console.warn("deviva-draw: image insert rejected", error),
   });
+  const { openImagePicker } = useImageFilePicker({
+    scene: runtime?.scene ?? null,
+    history: runtime?.history ?? null,
+    selection: runtime?.selection ?? null,
+    getCamera,
+    getViewportSize,
+    decodeNaturalSize,
+    onInsertError: (error) => console.warn("deviva-draw: image insert rejected", error),
+  });
+
+  // The "9" image shortcut (matching Excalidraw) — image insert is a DOM file-picker action, not an
+  // engine tool, so it's handled here rather than through the engine's ShortcutRegistry. Suppressed
+  // whenever a text edit or chrome overlay owns the keyboard, and ignored while any input is focused.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "9" || event.metaKey || event.ctrlKey || event.altKey) return;
+      const isEditingText = editSession?.getState().status === "editing";
+      if (shouldSuppressGlobalShortcuts(Boolean(isEditingText), isChromeOverlayOpen())) return;
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) return;
+      event.preventDefault();
+      openImagePicker();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editSession, isChromeOverlayOpen, openImagePicker]);
 
   // Collaboration is opt-in and reuses the same collab-server base URL the "Share" action already
   // requires (`shareApiBaseUrl` — both are that Worker's endpoints, see `use-collab-session.ts`'s
@@ -177,7 +205,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
           <TextEditorOverlay session={editSession} scene={runtime.scene} getCamera={getCamera} subscribeCamera={cameraStore.subscribe} />
         )}
       </div>
-      {runtime && !zenMode.value && (isNarrow ? <BottomToolbar runtime={runtime} /> : <Toolbar runtime={runtime} toolLocked={toolLock.value} onToggleLock={() => toolLock.set(!toolLock.value)} />)}
+      {runtime && !zenMode.value && (isNarrow ? <BottomToolbar runtime={runtime} onInsertImage={openImagePicker} /> : <Toolbar runtime={runtime} toolLocked={toolLock.value} onToggleLock={() => toolLock.set(!toolLock.value)} onInsertImage={openImagePicker} />)}
       {runtime && !zenMode.value && !isNarrow && <CanvasHint runtime={runtime} />}
       {runtime && !zenMode.value && <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} />}
       {runtime && !zenMode.value && !viewOnly.value && <PropertiesPanel runtime={runtime} />}

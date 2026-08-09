@@ -73,3 +73,17 @@ test("the eraser tool removes an element dragged over, and has a toolbar button 
 
   await expect.poll(inkInRegion).toBeLessThan(5);
 });
+
+test("the image toolbar button inserts an image via the file picker and selects it", async ({ page }) => {
+  // A minimal valid 1x1 PNG — enough to exercise the decode + insert + select pipeline.
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("toolbar-image").click()]);
+  await chooser.setFiles({ name: "pixel.png", mimeType: "image/png", buffer: png });
+
+  // The image was inserted (undoable) and auto-selected — the layer actions only render for a selection.
+  await expect(page.getByTestId("top-bar-undo")).toBeEnabled();
+  await expect(page.locator('[data-testid^="layer-action-"]').first()).toBeVisible();
+});
