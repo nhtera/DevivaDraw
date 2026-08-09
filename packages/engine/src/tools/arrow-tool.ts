@@ -17,6 +17,7 @@ import type { Point } from "../render/camera";
 import { rebaseArrowPoints } from "../render/arrow-geometry";
 import type { Scene } from "../scene/scene";
 import { applyEndpointBindingsOnFinish } from "./arrow-endpoint-binding";
+import { constrainSegmentAngle } from "./constrain-segment-angle";
 import type { ShapeToolHistory } from "./drag-shape-tool-base";
 import type { ShapeStyleState } from "./shape-style-state";
 
@@ -67,13 +68,12 @@ export class ArrowTool extends NoOpToolHandler {
     this.elementId = this.deps.scene.addElement(element).id;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `modifiers` kept to match `ToolHandler`'s signature
   override onGestureMove(point: Point, modifiers: ModifierKeys): void {
     if (!this.elementId || !this.isFirstVertexGesture) return;
-    this.syncElement([this.vertices[0]!, point]);
+    const start = this.vertices[0]!;
+    this.syncElement([start, constrainSegmentAngle(start, point, modifiers.shift)]); // shift = angle-locked preview
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `modifiers` kept to match `ToolHandler`'s signature
   override onGestureEnd(point: Point, modifiers: ModifierKeys): void {
     if (!this.elementId) return;
 
@@ -82,7 +82,7 @@ export class ArrowTool extends NoOpToolHandler {
       const startPoint = this.firstGestureStartPoint ?? point;
       const threshold = DRAG_VS_CLICK_THRESHOLD_PX / this.deps.getZoom();
       if (distance(startPoint, point) > threshold) {
-        this.vertices = [startPoint, point];
+        this.vertices = [startPoint, constrainSegmentAngle(startPoint, point, modifiers.shift)];
         this.finish();
         return;
       }
@@ -95,7 +95,9 @@ export class ArrowTool extends NoOpToolHandler {
       this.finish();
       return;
     }
-    this.vertices = [...this.vertices, point];
+    // Each further vertex snaps its angle relative to the previously placed vertex when shift is held.
+    const previous = this.vertices[this.vertices.length - 1] ?? point;
+    this.vertices = [...this.vertices, constrainSegmentAngle(previous, point, modifiers.shift)];
     this.syncElement(this.vertices);
   }
 

@@ -189,4 +189,19 @@ describe("ArrowTool — endpoint binding on create", () => {
     expect(arrow.startBinding).toBeNull();
     expect(arrow.endBinding).toBeNull();
   });
+
+  it("a shift-held drag snaps the arrow to a straight axis (angle constraint, matching competitors)", () => {
+    const scene = new Scene();
+    const tool = new ArrowTool({ scene, styleState: new ShapeStyleState(), history: fakeHistory(), getZoom: () => 1 });
+    const SHIFT = { shift: true, alt: false, ctrl: false, meta: false };
+
+    // A drag that ends slightly off-vertical snaps to a perfectly vertical arrow while shift is held.
+    tool.onGestureStart({ x: 500, y: 500 }, SHIFT);
+    tool.onGestureMove({ x: 508, y: 600 }, SHIFT);
+    tool.onGestureEnd({ x: 508, y: 600 }, SHIFT);
+
+    const arrow = arrowOf(scene);
+    expect(arrow.points.at(-1)?.x).toBeCloseTo(0, 5); // snapped straight down (no horizontal drift)
+    expect(arrow.points.at(-1)?.y).toBeGreaterThan(99); // distance preserved
+  });
 });

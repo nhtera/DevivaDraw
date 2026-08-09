@@ -173,4 +173,22 @@ describe("LineTool", () => {
     expect(liveElements).toHaveLength(1);
     expect(liveElements[0]).toMatchObject({ x: 5, y: 5, width: 10, height: 0 });
   });
+
+  it("a shift-held drag snaps the line to a straight axis (angle constraint, matching competitors)", () => {
+    const scene = new Scene();
+    const tool = new LineTool({ scene, styleState: new ShapeStyleState(), history: fakeHistory(), getZoom: () => 1 });
+    const SHIFT = { shift: true, alt: false, ctrl: false, meta: false };
+
+    // A drag that ends slightly off-horizontal snaps to a perfectly horizontal line while shift is held.
+    tool.onGestureStart({ x: 0, y: 0 }, SHIFT);
+    tool.onGestureMove({ x: 100, y: 9 }, SHIFT);
+    tool.onGestureEnd({ x: 100, y: 9 }, SHIFT);
+
+    const line = scene.getElements().filter((element) => !element.isDeleted)[0];
+    expect(line?.type).toBe("line");
+    if (line?.type === "line") {
+      expect(line.points.at(-1)?.y).toBeCloseTo(0, 5); // snapped flat
+      expect(line.points.at(-1)?.x).toBeGreaterThan(99); // distance preserved
+    }
+  });
 });

@@ -18,6 +18,7 @@ import { NoOpToolHandler } from "../input/tool-handler";
 import type { ModifierKeys } from "../input/tool-handler";
 import type { Point } from "../render/camera";
 import type { Scene } from "../scene/scene";
+import { constrainSegmentAngle } from "./constrain-segment-angle";
 import type { ShapeToolHistory } from "./drag-shape-tool-base";
 import type { ShapeStyleState } from "./shape-style-state";
 
@@ -84,14 +85,12 @@ export class LineTool extends NoOpToolHandler {
     this.elementId = this.deps.scene.addElement(element).id;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `modifiers` kept to match `ToolHandler`'s signature
   override onGestureMove(point: Point, modifiers: ModifierKeys): void {
     if (!this.elementId || !this.isFirstVertexGesture) return;
     const start = this.points[0];
-    if (start) this.syncElement([start, point]); // live-preview the drag's second endpoint
+    if (start) this.syncElement([start, constrainSegmentAngle(start, point, modifiers.shift)]); // live-preview the drag's second endpoint (shift = angle-locked)
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `modifiers` kept to match `ToolHandler`'s signature
   override onGestureEnd(point: Point, modifiers: ModifierKeys): void {
     if (!this.elementId) return;
 
@@ -99,7 +98,7 @@ export class LineTool extends NoOpToolHandler {
       this.isFirstVertexGesture = false;
       const start = this.firstGestureStartPoint ?? point;
       if (distance(start, point) > DRAG_VS_CLICK_THRESHOLD_PX / this.deps.getZoom()) {
-        this.points = [start, point];
+        this.points = [start, constrainSegmentAngle(start, point, modifiers.shift)];
         this.finish(); // a drag: commit an instant straight 2-point line
         return;
       }
@@ -109,18 +108,22 @@ export class LineTool extends NoOpToolHandler {
       return;
     }
 
+    // Each further vertex snaps its angle relative to the previously placed vertex when shift is held.
+    const previous = this.points[this.points.length - 1] ?? point;
+    const vertex = constrainSegmentAngle(previous, point, modifiers.shift);
+
     if (this.isDoubleClick(point)) {
       this.finish();
       return;
     }
 
     const first = this.points[0];
-    if (this.points.length >= MIN_VERTICES_TO_CLOSE && first && distance(first, point) <= CLOSE_POLYGON_DISTANCE_PX / this.deps.getZoom()) {
+    if (this.points.length >= MIN_VERTICES_TO_CLOSE && first && distance(first, vertex) <= CLOSE_POLYGON_DISTANCE_PX / this.deps.getZoom()) {
       this.finish(true);
       return;
     }
 
-    this.points = [...this.points, point];
+    this.points = [...this.points, vertex];
     this.syncElement();
   }
 
