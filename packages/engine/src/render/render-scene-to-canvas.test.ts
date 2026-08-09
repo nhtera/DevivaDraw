@@ -99,4 +99,36 @@ describe("renderSceneToCanvas", () => {
     expect(() => renderSceneToCanvas(ctx, scene, createCamera(), { width: 100, height: 100 }, baseOptions(roughCanvas))).not.toThrow();
     expect(roughCanvas.rectangle).toHaveBeenCalledTimes(1);
   });
+
+  it("dims an element marked for erasing (pendingEraseIds) by scaling its opacity down at draw time", () => {
+    const scene = new Scene();
+    const rect = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 10, height: 10 })); // default opacity 100
+    const ctx = fakeContext();
+    const roughCanvas = fakeRoughCanvas();
+    let alphaAtDraw = -1;
+    (roughCanvas.rectangle as ReturnType<typeof vi.fn>).mockImplementation(() => {
+      alphaAtDraw = ctx.globalAlpha; // the no-cache path paints via roughCanvas.rectangle, after globalAlpha is set from opacity
+      return { shape: "rectangle", options: {}, sets: [] };
+    });
+
+    renderSceneToCanvas(ctx, scene, createCamera(), { width: 100, height: 100 }, { ...baseOptions(roughCanvas), pendingEraseIds: new Set([rect.id]) });
+
+    expect(alphaAtDraw).toBeCloseTo(0.35, 5); // 100 opacity × 0.35 preview factor
+  });
+
+  it("draws at full opacity when the element is not marked for erasing", () => {
+    const scene = new Scene();
+    scene.addElement(createRectangleElement({ x: 0, y: 0, width: 10, height: 10 }));
+    const ctx = fakeContext();
+    const roughCanvas = fakeRoughCanvas();
+    let alphaAtDraw = -1;
+    (roughCanvas.rectangle as ReturnType<typeof vi.fn>).mockImplementation(() => {
+      alphaAtDraw = ctx.globalAlpha;
+      return { shape: "rectangle", options: {}, sets: [] };
+    });
+
+    renderSceneToCanvas(ctx, scene, createCamera(), { width: 100, height: 100 }, { ...baseOptions(roughCanvas), pendingEraseIds: new Set(["some-other-id"]) });
+
+    expect(alphaAtDraw).toBeCloseTo(1, 5);
+  });
 });

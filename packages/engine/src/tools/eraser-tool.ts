@@ -1,7 +1,9 @@
 /**
- * Eraser tool: drag over elements to delete them, the same affordance Excalidraw/tldraw expose. The
- * whole erase-drag is one history batch ("one drag = one undo step", matching every drag-to-create
- * tool), so a swipe that removes several elements undoes in a single step. Deletes are soft (see
+ * Eraser tool: drag over elements to delete them, the same affordance Excalidraw/tldraw expose.
+ * Elements the swipe touches are *marked* (not deleted immediately) and rendered dimmed as a preview
+ * — see `getPendingEraseIds`, read by the render loop — then all deleted together on release, so the
+ * whole swipe is one history batch ("one drag = one undo step"). Escape/blur mid-swipe cancels with
+ * nothing deleted (the marks just clear), matching competitors. Deletes are soft (see
  * `Scene.deleteElement`), so undo restores them.
  *
  * Unlike the creation tools this never calls an `onCreated` hook — erasing doesn't hand back to the
@@ -20,72 +22,71 @@ export interface EraserToolDeps {
   getZoom(): number;
 }
 
-/** Screen-pixel radius around the pointer within which an element is erased. */
+/** Screen-pixel radius around the pointer within which an element is marked for erasing. */
 const ERASE_TOLERANCE_PX = 6;
 
 export class EraserTool extends NoOpToolHandler {
   private readonly deps: EraserToolDeps;
   private active = false;
-  private erasedAny = false;
   private lastPoint: Point | null = null;
+  /** Elements the current swipe has touched — dimmed as a delete-preview, removed together on release. */
+  private readonly pending = new Set<string>();
 
   constructor(deps: EraserToolDeps) {
     super();
     this.deps = deps;
   }
 
+  /** Ids marked for erasing this swipe (empty when idle) — the render loop dims these as a live preview. */
+  getPendingEraseIds(): ReadonlySet<string> {
+    return this.pending;
+  }
+
   override onGestureStart(point: Point): void {
-    this.deps.history.beginBatch();
     this.active = true;
-    this.erasedAny = false;
+    this.pending.clear();
     this.lastPoint = point;
-    this.eraseAt(point);
+    this.markAt(point);
   }
 
   override onGestureMove(point: Point): void {
     if (!this.active) return;
-    // Erase along the whole swept segment since the last sample, not just at this point, so a fast
-    // drag that jumps far between two frames still erases everything the path crossed (competitors do
-    // the same). Step size is the hit tolerance so no gap between samples is ever left unchecked.
+    // Mark along the whole swept segment since the last sample, not just this point, so a fast drag
+    // that jumps far between frames still catches everything the path crossed (competitors do the
+    // same). Step size is the hit tolerance so no gap between samples is left unchecked.
     const from = this.lastPoint ?? point;
     const tolerance = ERASE_TOLERANCE_PX / this.deps.getZoom();
     const dx = point.x - from.x;
     const dy = point.y - from.y;
     const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / Math.max(tolerance, 1)));
     for (let step = 1; step <= steps; step++) {
-      this.eraseAt({ x: from.x + (dx * step) / steps, y: from.y + (dy * step) / steps });
+      this.markAt({ x: from.x + (dx * step) / steps, y: from.y + (dy * step) / steps });
     }
     this.lastPoint = point;
   }
 
   override onGestureEnd(): void {
-    this.commit();
-  }
-
-  /**
-   * Abort path (Escape/blur mid-swipe): commit whatever was already erased rather than trying to
-   * un-erase it — matches competitors, where releasing/Escaping keeps the erased state, and keeps it
-   * undoable (an open batch closed with a snapshot). The pipeline's own post-cancel `cancelBatch` is
-   * then a no-op since the batch is already closed.
-   */
-  override onGestureCancel(): void {
-    this.commit();
-  }
-
-  private eraseAt(point: Point): void {
-    const tolerance = ERASE_TOLERANCE_PX / this.deps.getZoom();
-    const target = topmostElementAt(this.deps.scene, point, tolerance);
-    if (target) {
-      this.deps.scene.deleteElement(target.id);
-      this.erasedAny = true;
-    }
-  }
-
-  private commit(): void {
     if (!this.active) return;
     this.active = false;
     this.lastPoint = null;
-    if (this.erasedAny) this.deps.history.endBatch(this.deps.scene.getElements());
-    else this.deps.history.cancelBatch();
+    if (this.pending.size === 0) return;
+    // Commit the whole swipe as one undo step.
+    this.deps.history.beginBatch();
+    for (const id of this.pending) this.deps.scene.deleteElement(id);
+    this.deps.history.endBatch(this.deps.scene.getElements());
+    this.pending.clear();
+  }
+
+  /** Abort path (Escape/blur mid-swipe): nothing was deleted yet, so just drop the marks — a true cancel, matching competitors' Escape. */
+  override onGestureCancel(): void {
+    this.active = false;
+    this.lastPoint = null;
+    this.pending.clear();
+  }
+
+  private markAt(point: Point): void {
+    const tolerance = ERASE_TOLERANCE_PX / this.deps.getZoom();
+    const target = topmostElementAt(this.deps.scene, point, tolerance);
+    if (target) this.pending.add(target.id);
   }
 }

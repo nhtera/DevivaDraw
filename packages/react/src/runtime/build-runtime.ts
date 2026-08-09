@@ -92,6 +92,7 @@ export function buildRuntime(options: BuildRuntimeOptions): DevivaRuntime {
     pipeline: undefined as unknown as PointerEventPipeline,
     getMarqueeRect: () => tools.selectionTool.getMarqueeRect(),
     getSnapGuides: () => tools.selectionTool.getSnapGuides(),
+    getPendingEraseIds: () => tools.eraserTool.getPendingEraseIds(),
     dispose: () => {
       /* replaced below */
     },

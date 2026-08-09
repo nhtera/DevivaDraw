@@ -10,6 +10,8 @@ export interface DevivaRuntime extends ActionRuntime {
   getMarqueeRect(): SceneRect | null;
   /** Live object-snap alignment guides for the interactive layer, or `[]` outside a snapping move. */
   getSnapGuides(): readonly SnapGuide[];
+  /** Ids the eraser tool is previewing-to-delete this swipe (empty when idle) — the render loop dims these. */
+  getPendingEraseIds(): ReadonlySet<string>;
   /** Detaches the pointer pipeline, the double-click listener, and the binding/bound-text sync hooks — call from the owning effect's cleanup. */
   dispose(): void;
 }

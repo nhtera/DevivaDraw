@@ -169,6 +169,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
         const state = builtRuntime.editSession.getState();
         return state.status === "editing" ? { elementId: state.elementId, text: state.draftText } : null;
       },
+      getPendingEraseIds: builtRuntime.getPendingEraseIds,
     });
 
     // Always subscribed (not gated on whether `onChange` was passed at *mount* time) — `stableOnChange`

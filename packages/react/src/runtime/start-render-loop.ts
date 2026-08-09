@@ -20,15 +20,18 @@ export interface RenderLoopDeps {
   getRemoteCursors?(): readonly RemoteCursorOverlay[];
   /** The element/text of the open text-edit session (or `null`), so the static layer paints the live draft on the canvas instead of the editing `<textarea>` doing it — the canvas is the sole glyph renderer, which is what makes text not shift between editing and commit. Same getter contract as the others. */
   getTextDraft(): { elementId: string; text: string } | null;
+  /** Ids the eraser is previewing-to-delete this swipe — the static layer dims them as a live preview. Empty when the eraser isn't mid-swipe. Same getter contract as the others. */
+  getPendingEraseIds(): ReadonlySet<string>;
 }
 
 /** Starts the loop; returns a stop function for the owning effect's cleanup. */
 export function startRenderLoop(deps: RenderLoopDeps): () => void {
-  const { stage, scene, cameraStore, selection, getMarqueeRect, getSnapGuides, grid, getRemoteCursors, getTextDraft } = deps;
+  const { stage, scene, cameraStore, selection, getMarqueeRect, getSnapGuides, grid, getRemoteCursors, getTextDraft, getPendingEraseIds } = deps;
   let frameHandle = requestAnimationFrame(function renderFrame() {
     const camera = cameraStore.getCamera();
     const textDraft = getTextDraft();
-    stage.staticLayer.render(scene, camera, grid, textDraft);
+    const pendingEraseIds = getPendingEraseIds();
+    stage.staticLayer.render(scene, camera, grid, textDraft, pendingEraseIds);
     // While a text-edit session is open, hide the selection frame/handles entirely — text editing is a
     // focused mode (just the glyphs + caret + the textarea's own selection highlight), the same clean
     // look Excalidraw/tldraw show; the bounding box + resize/rotate handles would otherwise sit on top

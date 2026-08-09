@@ -15,7 +15,7 @@ function liveCount(scene: Scene): number {
 }
 
 describe("EraserTool", () => {
-  it("erases the element under the pointer on press", () => {
+  it("deletes the element under the pointer on release", () => {
     const scene = new Scene();
     scene.addElement(createRectangleElement({ x: 0, y: 0, width: 40, height: 40, backgroundColor: "#ff0000" }));
     const history = fakeHistory();
@@ -26,11 +26,23 @@ describe("EraserTool", () => {
 
     expect(liveCount(scene)).toBe(0);
     expect(history.beginBatch).toHaveBeenCalledTimes(1);
-    expect(history.endBatch).toHaveBeenCalledTimes(1); // one drag = one undo step
-    expect(history.cancelBatch).not.toHaveBeenCalled();
+    expect(history.endBatch).toHaveBeenCalledTimes(1); // one swipe = one undo step
   });
 
-  it("erases every element a single swipe passes over, in one history batch", () => {
+  it("marks (but does not yet delete) touched elements as a preview until release", () => {
+    const scene = new Scene();
+    const rect = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 40, height: 40, backgroundColor: "#ff0000" }));
+    const tool = new EraserTool({ scene, history: fakeHistory(), getZoom: () => 1 });
+
+    tool.onGestureStart({ x: 20, y: 20 }, NO_MODIFIERS);
+    tool.onGestureMove({ x: 21, y: 21 }, NO_MODIFIERS);
+
+    // Marked for the dimmed preview, but still present on the canvas until the pointer is released.
+    expect([...tool.getPendingEraseIds()]).toEqual([rect.id]);
+    expect(liveCount(scene)).toBe(1);
+  });
+
+  it("deletes every element a single swipe passes over, in one history batch", () => {
     const scene = new Scene();
     scene.addElement(createRectangleElement({ x: 0, y: 0, width: 20, height: 20, backgroundColor: "#ff0000" }));
     scene.addElement(createRectangleElement({ x: 100, y: 0, width: 20, height: 20, backgroundColor: "#00ff00" }));
@@ -45,7 +57,7 @@ describe("EraserTool", () => {
     expect(history.endBatch).toHaveBeenCalledTimes(1);
   });
 
-  it("a click over empty canvas erases nothing and cancels the empty batch (no undo entry)", () => {
+  it("a release over empty canvas deletes nothing and opens no history batch", () => {
     const scene = new Scene();
     scene.addElement(createRectangleElement({ x: 0, y: 0, width: 20, height: 20, backgroundColor: "#ff0000" }));
     const history = fakeHistory();
@@ -55,11 +67,11 @@ describe("EraserTool", () => {
     tool.onGestureEnd({ x: 500, y: 500 }, NO_MODIFIERS);
 
     expect(liveCount(scene)).toBe(1);
-    expect(history.cancelBatch).toHaveBeenCalledTimes(1);
+    expect(history.beginBatch).not.toHaveBeenCalled();
     expect(history.endBatch).not.toHaveBeenCalled();
   });
 
-  it("keeps (and commits) what was erased when the swipe is aborted mid-gesture", () => {
+  it("aborting a swipe (Escape/blur) cancels the erase — nothing is deleted", () => {
     const scene = new Scene();
     scene.addElement(createRectangleElement({ x: 0, y: 0, width: 40, height: 40, backgroundColor: "#ff0000" }));
     const history = fakeHistory();
@@ -68,7 +80,8 @@ describe("EraserTool", () => {
     tool.onGestureStart({ x: 20, y: 20 }, NO_MODIFIERS);
     tool.onGestureCancel(NO_MODIFIERS);
 
-    expect(liveCount(scene)).toBe(0);
-    expect(history.endBatch).toHaveBeenCalledTimes(1); // committed so the erase stays undoable
+    expect(liveCount(scene)).toBe(1); // marks cleared, element restored to normal
+    expect([...tool.getPendingEraseIds()]).toEqual([]);
+    expect(history.beginBatch).not.toHaveBeenCalled();
   });
 });

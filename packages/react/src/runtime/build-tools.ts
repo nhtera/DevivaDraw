@@ -52,6 +52,7 @@ export interface BuiltTools {
   clipboard: InternalClipboard;
   grid: GridState;
   selectionTool: SelectionTool;
+  eraserTool: EraserTool;
   editSession: TextEditSession;
   textMeasurer: TextMeasurer;
   /** Unregisters the binding/bound-text sync hooks — call from the owning effect's cleanup. */
@@ -163,6 +164,7 @@ export function buildTools(
     clipboard,
     grid,
     selectionTool,
+    eraserTool,
     editSession,
     textMeasurer,
     disposeHooks: () => {

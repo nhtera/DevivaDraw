@@ -91,6 +91,8 @@ interface RenderSnapshot {
   gridSize: number;
   /** The live text-edit draft, flattened into the snapshot so a keystroke (which never touches `Scene`, so never bumps the fingerprint) still forces a redraw — and so opening/closing the editor redraws too. `""` when nothing is being edited. */
   draftKey: string;
+  /** Sorted ids the eraser is previewing-to-delete, flattened so growing/clearing that set (which never touches `Scene`) still forces the dim-preview redraw. `""` when the eraser isn't mid-swipe. */
+  eraseKey: string;
 }
 
 function sameSnapshot(a: RenderSnapshot, b: RenderSnapshot): boolean {
@@ -105,7 +107,8 @@ function sameSnapshot(a: RenderSnapshot, b: RenderSnapshot): boolean {
     a.height === b.height &&
     a.gridEnabled === b.gridEnabled &&
     a.gridSize === b.gridSize &&
-    a.draftKey === b.draftKey
+    a.draftKey === b.draftKey &&
+    a.eraseKey === b.eraseKey
   );
 }
 
@@ -143,7 +146,7 @@ export class StaticLayer {
    * element. The actual draw dispatch is `render-scene-to-canvas.ts`'s `renderSceneToCanvas` — shared
    * with PNG export, see that module's doc.
    */
-  render(scene: Scene, camera: Camera, grid: GridRenderState = GRID_DISABLED, textDraft: { elementId: string; text: string } | null = null): void {
+  render(scene: Scene, camera: Camera, grid: GridRenderState = GRID_DISABLED, textDraft: { elementId: string; text: string } | null = null, pendingEraseIds: ReadonlySet<string> | null = null): void {
     const width = this.ctx.canvas.clientWidth;
     const height = this.ctx.canvas.clientHeight;
     const snapshot: RenderSnapshot = {
@@ -157,7 +160,8 @@ export class StaticLayer {
       height,
       gridEnabled: grid.enabled,
       gridSize: grid.size,
-      draftKey: textDraft ? `${textDraft.elementId} ${textDraft.text}` : "",
+      draftKey: textDraft ? `${textDraft.elementId} ${textDraft.text}` : "",
+      eraseKey: pendingEraseIds && pendingEraseIds.size > 0 ? [...pendingEraseIds].sort().join(" ") : "",
     };
 
     if (this.lastSnapshot && sameSnapshot(this.lastSnapshot, snapshot)) return;
@@ -172,6 +176,7 @@ export class StaticLayer {
       freedrawOutlineCache: this.freedrawOutlineCache,
       grid,
       textDraft,
+      pendingEraseIds,
     });
   }
 

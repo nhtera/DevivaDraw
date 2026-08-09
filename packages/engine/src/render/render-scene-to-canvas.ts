@@ -60,9 +60,20 @@ export interface RenderSceneOptions {
    * DOM vs canvas, never both draw the same glyphs). Omit/`null` when nothing is being edited.
    */
   textDraft?: { elementId: string; text: string } | null;
+  /**
+   * Ids of elements the eraser tool is currently hovering/dragging over — painted dimmed as a live
+   * "will be erased" preview (matching Excalidraw/tldraw), then actually deleted on pointer release
+   * (see `tools/eraser-tool.ts`). Dimming is done by scaling each element's own opacity, so it flows
+   * through every renderer's existing opacity handling with no per-renderer change. Omit when the
+   * eraser isn't mid-swipe.
+   */
+  pendingEraseIds?: ReadonlySet<string> | null;
   /** Solid fill painted immediately after `clearRect`, before the grid/elements — e.g. an export's opaque-background option. Omit for a transparent background (canvas default), the same as every live render. */
   background?: string;
 }
+
+/** Opacity multiplier applied to an element marked for erasing — dims it to a faint preview without hiding it. */
+const ERASE_PREVIEW_OPACITY_FACTOR = 0.35;
 
 /**
  * Clears `ctx`, optionally fills a background, optionally draws the grid, then paints every
@@ -71,8 +82,11 @@ export interface RenderSceneOptions {
  */
 export function renderSceneToCanvas(ctx: RenderSceneContext2D, scene: Scene, camera: Camera, viewportSize: ViewportSize, options: RenderSceneOptions): void {
   const { width, height } = viewportSize;
-  const { roughCanvas, textMeasurer, imageDecodeCache, drawableCache, arrowDrawableCache, freedrawOutlineCache, grid, background, textDraft } = options;
+  const { roughCanvas, textMeasurer, imageDecodeCache, drawableCache, arrowDrawableCache, freedrawOutlineCache, grid, background, textDraft, pendingEraseIds } = options;
   const elements = options.elements ?? scene.getElements();
+  /** Dims an element (via its own opacity) when the eraser is about to remove it — see `pendingEraseIds`. */
+  const withErasePreview = <T extends AnyElement>(element: T): T =>
+    pendingEraseIds?.has(element.id) ? { ...element, opacity: element.opacity * ERASE_PREVIEW_OPACITY_FACTOR } : element;
 
   ctx.clearRect(0, 0, width, height);
   if (background) {
@@ -84,18 +98,18 @@ export function renderSceneToCanvas(ctx: RenderSceneContext2D, scene: Scene, cam
   const visible = filterVisibleElements(elements, camera, { width, height });
   for (const element of visible) {
     if (element.type === "freedraw") {
-      drawElementFreedraw(ctx, element, camera, freedrawOutlineCache);
+      drawElementFreedraw(ctx, withErasePreview(element), camera, freedrawOutlineCache);
     } else if (element.type === "text") {
       // Paint the live draft for the element being edited (its committed `text` is stale mid-edit);
       // every other text element paints its own committed `text`. See `textDraft`'s doc.
       const overridden = textDraft && element.id === textDraft.elementId ? { ...element, text: textDraft.text } : element;
-      drawElementText(ctx, overridden, camera, textMeasurer);
+      drawElementText(ctx, withErasePreview(overridden), camera, textMeasurer);
     } else if (element.type === "arrow") {
-      drawElementArrow(ctx, roughCanvas, element, camera, arrowDrawableCache);
+      drawElementArrow(ctx, roughCanvas, withErasePreview(element), camera, arrowDrawableCache);
     } else if (element.type === "image") {
-      drawElementImage(ctx, element, camera, scene, imageDecodeCache);
+      drawElementImage(ctx, withErasePreview(element), camera, scene, imageDecodeCache);
     } else {
-      drawElementRough(ctx, roughCanvas, element, camera, drawableCache);
+      drawElementRough(ctx, roughCanvas, withErasePreview(element), camera, drawableCache);
     }
   }
 
