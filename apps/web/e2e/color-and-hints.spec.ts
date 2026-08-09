@@ -13,6 +13,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("the color popover opens with shades + hex and a typed hex updates the current color", async ({ page }) => {
+  // The properties panel is shown once a creation tool is active (idle select shows a clean canvas,
+  // matching competitors) — pick the rectangle tool so its "next shape" style controls are present.
+  await page.getByTestId("toolbar-rectangle-tool").click();
   const trigger = page.getByTestId("stroke-color-more");
   await trigger.click();
   const popover = page.getByTestId("stroke-color-popover");

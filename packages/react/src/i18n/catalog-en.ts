@@ -19,6 +19,7 @@ export const catalogEn = {
   "tool.arrow": "Arrow",
   "tool.freedraw": "Draw",
   "tool.text": "Text",
+  "tool.eraser": "Eraser",
   "tool.lock": "Keep tool active after drawing",
 
   "action.undo": "Undo",

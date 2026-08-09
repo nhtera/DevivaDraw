@@ -18,6 +18,9 @@ import type { DragRect } from "./shape-drag-geometry";
 import { computeDragRect } from "./shape-drag-geometry";
 import type { ShapeStyle, ShapeStyleState } from "./shape-style-state";
 
+/** Side length of the shape a plain click (no drag) drops — see `onGestureEnd`'s click branch. */
+const DEFAULT_CLICK_SHAPE_SIZE = 100;
+
 /**
  * Structural subset of `HistoryStack<AnyElement[]>` the shape tools need (see
  * `history/history-stack.ts`) — kept narrow so tests can supply a plain fake instead of a real
@@ -67,17 +70,21 @@ export abstract class DragShapeTool extends NoOpToolHandler {
     if (!this.startPoint || !this.draftId) return;
     const rect = computeDragRect(this.startPoint, point, modifiers);
 
-    // A plain click (no drag distance at all) has nothing to commit: discard the draft and cancel
-    // the batch this gesture opened, rather than leaving a zero-size, invisible element behind with
-    // its own undo entry.
-    if (rect.width === 0 && rect.height === 0) {
-      this.deps.scene.deleteElement(this.draftId);
-      this.deps.history.cancelBatch();
-      this.reset();
-      return;
-    }
+    // A plain click (no drag distance at all): drop a default-sized shape centered on the click,
+    // instead of leaving nothing behind — the same "click to place a default shape" affordance
+    // Excalidraw/tldraw offer. The click point becomes the shape's center so it appears under the
+    // cursor rather than growing off to one side.
+    const finalRect =
+      rect.width === 0 && rect.height === 0
+        ? {
+            x: this.startPoint.x - DEFAULT_CLICK_SHAPE_SIZE / 2,
+            y: this.startPoint.y - DEFAULT_CLICK_SHAPE_SIZE / 2,
+            width: DEFAULT_CLICK_SHAPE_SIZE,
+            height: DEFAULT_CLICK_SHAPE_SIZE,
+          }
+        : rect;
 
-    this.deps.scene.updateElement(this.draftId, rect);
+    this.deps.scene.updateElement(this.draftId, finalRect);
     this.deps.history.endBatch(this.deps.scene.getElements());
     const createdId = this.draftId;
     this.reset();

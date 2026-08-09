@@ -32,4 +32,11 @@ export const TOOL_GLYPHS: Record<string, ReactNode> = {
       <line x1="11" y1="6" x2="14" y2="9" />
     </>
   ),
+  // An angled eraser block sitting on the canvas line it's rubbing out.
+  eraser: (
+    <>
+      <path d="M9 15.5 L4.5 11 L11 4.5 L15.5 9 Z" strokeLinejoin="round" />
+      <line x1="7" y1="16.5" x2="16.5" y2="16.5" strokeWidth="1.4" />
+    </>
+  ),
 };

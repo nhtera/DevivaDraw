@@ -20,6 +20,8 @@ test("main-menu items render monochrome SVG icons (not emoji glyphs)", async ({ 
 });
 
 test("stroke-width controls are icon buttons that keep their label and still toggle", async ({ page }) => {
+  // The panel shows once a creation tool is active (idle select is a clean canvas, matching competitors).
+  await page.getByTestId("toolbar-rectangle-tool").click();
   const thin = page.getByTestId("stroke-width-thin");
   const bold = page.getByTestId("stroke-width-bold");
 

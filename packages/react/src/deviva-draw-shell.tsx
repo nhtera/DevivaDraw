@@ -52,7 +52,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const { initialData, persistenceKey, onChange, className, style, initialViewOnly, shareApiBaseUrl, initialRoomUrl } = props;
   const canvasHostRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
-  const { mode, tokens, cssVariables, toggleMode } = useTheme();
+  const { mode, cssVariables, toggleMode } = useTheme();
   const isNarrow = useIsNarrowViewport();
 
   // Inject the chrome's pseudo-class/motion stylesheet once (hover/focus-visible/press states +

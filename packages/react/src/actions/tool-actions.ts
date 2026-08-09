@@ -9,6 +9,7 @@ import {
   ARROW_TOOL_NAME,
   DIAMOND_TOOL_NAME,
   ELLIPSE_TOOL_NAME,
+  ERASER_TOOL_NAME,
   FREEDRAW_TOOL_NAME,
   LINE_TOOL_NAME,
   PAN_TOOL_NAME,
@@ -32,5 +33,6 @@ export function buildToolActions(): Action[] {
     toolAction("arrow-tool", "tool.arrow", "arrow", ARROW_TOOL_NAME, "a"),
     toolAction("freedraw-tool", "tool.freedraw", "pencil", FREEDRAW_TOOL_NAME, "p"),
     toolAction("text-tool", "tool.text", "text", TEXT_TOOL_NAME, "t"),
+    toolAction("eraser-tool", "tool.eraser", "eraser", ERASER_TOOL_NAME, "e"),
   ];
 }

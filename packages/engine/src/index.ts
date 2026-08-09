@@ -242,6 +242,9 @@ export { applyEndpointBindingsOnFinish } from "./tools/arrow-endpoint-binding";
 export type { ArrowToolDeps } from "./tools/arrow-tool";
 export { ArrowTool } from "./tools/arrow-tool";
 
+export type { EraserToolDeps } from "./tools/eraser-tool";
+export { EraserTool } from "./tools/eraser-tool";
+
 // --- Selection, transforms, snapping & grid ---
 
 export type { SelectionListener } from "./selection/selection-state";

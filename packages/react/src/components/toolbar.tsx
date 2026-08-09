@@ -12,14 +12,14 @@ import { useToolVersion } from "../runtime/use-live-version";
 import type { DevivaRuntime } from "../runtime/runtime-types";
 
 /**
- * Tools grouped by purpose (navigation | shapes | connectors/freehand | text) so the toolbar reads as
- * clusters with thin dividers between them instead of one long undifferentiated row.
+ * Tools grouped by purpose (navigation | shapes | connectors/freehand | text | eraser) so the toolbar
+ * reads as clusters with thin dividers between them instead of one long undifferentiated row.
  */
 const TOOL_GROUPS: readonly (readonly string[])[] = [
   ["select-tool", "pan-tool"],
   ["rectangle-tool", "ellipse-tool", "diamond-tool"],
   ["line-tool", "arrow-tool", "freedraw-tool"],
-  ["text-tool"],
+  ["text-tool", "eraser-tool"],
 ];
 
 /** Flat list (group order preserved) — shared with `mobile/bottom-toolbar.tsx` so both layouts list the exact same tools in the exact same order. */

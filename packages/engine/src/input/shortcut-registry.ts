@@ -58,6 +58,16 @@ export class ShortcutRegistry {
 export function registerCoreShortcuts(registry: ShortcutRegistry): void {
   registry.register("1", "select-tool");
   registry.register("h", "pan-tool");
+  // Digit tool shortcuts, matching Excalidraw's numbering exactly so the muscle memory carries over
+  // (1 select is above; letters are the second binding for each, see `registerToolShortcuts`).
+  registry.register("2", "rectangle-tool");
+  registry.register("3", "diamond-tool");
+  registry.register("4", "ellipse-tool");
+  registry.register("5", "arrow-tool");
+  registry.register("6", "line-tool");
+  registry.register("7", "freedraw-tool");
+  registry.register("8", "text-tool");
+  registry.register("0", "eraser-tool");
   registry.register("shift+1", "zoom-to-fit");
   for (const modifier of ["ctrl", "meta"]) {
     registry.register(`${modifier}+=`, "zoom-in");
@@ -69,7 +79,8 @@ export function registerCoreShortcuts(registry: ShortcutRegistry): void {
 /**
  * No-modifier letter shortcuts for every remaining tool, matching this genre's conventional
  * mnemonics: R/O/D/L for rectangle/ellipse("oval")/diamond/line, P for the pencil (freehand), T for
- * text, A for arrow. `V` is the second common binding for the select tool alongside `registerCoreShortcuts`'s `1`.
+ * text, A for arrow, E for eraser. `V` is the second common binding for the select tool alongside
+ * `registerCoreShortcuts`'s `1`.
  */
 export function registerToolShortcuts(registry: ShortcutRegistry): void {
   registry.register("v", "select-tool");
@@ -80,6 +91,7 @@ export function registerToolShortcuts(registry: ShortcutRegistry): void {
   registry.register("p", "freedraw-tool");
   registry.register("t", "text-tool");
   registry.register("a", "arrow-tool");
+  registry.register("e", "eraser-tool");
 }
 
 /** Undo/redo — `Ctrl/Cmd+Z` and `Ctrl/Cmd+Shift+Z`, the one shortcut pair no tool's own `onKeyDown` owns (undo/redo is global chrome, not a tool concern). */

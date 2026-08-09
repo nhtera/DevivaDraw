@@ -10,6 +10,7 @@ import {
   DEFAULT_STROKE_COLOR_PALETTE,
   DiamondTool,
   EllipseTool,
+  EraserTool,
   FreedrawTool,
   HistoryStack,
   InternalClipboard,
@@ -33,6 +34,7 @@ import {
   ARROW_TOOL_NAME,
   DIAMOND_TOOL_NAME,
   ELLIPSE_TOOL_NAME,
+  ERASER_TOOL_NAME,
   FREEDRAW_TOOL_NAME,
   LINE_TOOL_NAME,
   PAN_TOOL_NAME,
@@ -97,6 +99,9 @@ export function buildTools(
   const lineTool = new LineTool({ ...shapeToolDeps, getZoom: () => getCamera().zoom });
   const arrowTool = new ArrowTool({ ...shapeToolDeps, getZoom: () => getCamera().zoom });
   const freedrawTool = new FreedrawTool(shapeToolDeps);
+  // The eraser deletes rather than creates, so it takes no style/onCreated — just the scene, history
+  // (one drag = one undo step), and zoom (for a zoom-independent pointer hit tolerance).
+  const eraserTool = new EraserTool({ scene, history: historyStack, getZoom: () => getCamera().zoom });
 
   const measurementCtx = document.createElement("canvas").getContext("2d");
   if (!measurementCtx) throw new Error("build-tools: 2d measurement context unavailable");
@@ -138,6 +143,7 @@ export function buildTools(
       [FREEDRAW_TOOL_NAME]: freedrawTool,
       [TEXT_TOOL_NAME]: textTool,
       [ARROW_TOOL_NAME]: arrowTool,
+      [ERASER_TOOL_NAME]: eraserTool,
     },
     SELECT_TOOL_NAME,
   );

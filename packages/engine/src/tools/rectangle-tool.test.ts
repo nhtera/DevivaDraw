@@ -162,7 +162,7 @@ describe("RectangleTool", () => {
     expect(scene.getElements()).toHaveLength(0);
   });
 
-  it("a plain click (zero-size drag) discards the draft and cancels the batch instead of committing an invisible element", () => {
+  it("a plain click (zero-size drag) drops a default-sized shape centered on the click, matching competitors", () => {
     const scene = new Scene();
     const history = fakeHistory();
     const tool = new RectangleTool({ scene, styleState: new ShapeStyleState(), history });
@@ -171,12 +171,14 @@ describe("RectangleTool", () => {
     tool.onGestureEnd({ x: 30, y: 30 }, NO_MODIFIERS); // same point — no drag distance at all
 
     const liveElements = scene.getElements().filter((element) => !element.isDeleted);
-    expect(liveElements).toHaveLength(0);
-    expect(history.cancelBatch).toHaveBeenCalledTimes(1);
-    expect(history.endBatch).not.toHaveBeenCalled();
+    expect(liveElements).toHaveLength(1);
+    // 100×100 default, centered on the click (so it appears under the cursor).
+    expect(liveElements[0]).toMatchObject({ x: -20, y: -20, width: 100, height: 100 });
+    expect(history.endBatch).toHaveBeenCalledTimes(1);
+    expect(history.cancelBatch).not.toHaveBeenCalled();
   });
 
-  it("end-to-end with a real HistoryStack: a plain click leaves no undo entry, and a real drag right after is unaffected", () => {
+  it("end-to-end with a real HistoryStack: a plain click commits an undoable default shape", () => {
     const scene = new Scene();
     const history = new HistoryStack<AnyElement[]>(scene.getElements());
     const tool = new RectangleTool({ scene, styleState: new ShapeStyleState(), history });
@@ -184,17 +186,16 @@ describe("RectangleTool", () => {
     tool.onGestureStart({ x: 0, y: 0 }, NO_MODIFIERS);
     tool.onGestureEnd({ x: 0, y: 0 }, NO_MODIFIERS);
 
-    expect(scene.getElements().filter((element) => !element.isDeleted)).toHaveLength(0);
+    expect(scene.getElements().filter((element) => !element.isDeleted)).toHaveLength(1);
     expect(history.isBatchOpen()).toBe(false);
-    expect(history.canUndo()).toBe(false); // the discarded click never became a real undo step
+    expect(history.canUndo()).toBe(true); // the click is a real, undoable creation now
 
     tool.onGestureStart({ x: 10, y: 10 }, NO_MODIFIERS);
     tool.onGestureEnd({ x: 40, y: 30 }, NO_MODIFIERS);
 
-    expect(history.canUndo()).toBe(true);
     const liveElements = scene.getElements().filter((element) => !element.isDeleted);
-    expect(liveElements).toHaveLength(1);
-    expect(liveElements[0]).toMatchObject({ x: 10, y: 10, width: 30, height: 20 });
+    expect(liveElements).toHaveLength(2);
+    expect(liveElements[1]).toMatchObject({ x: 10, y: 10, width: 30, height: 20 });
   });
 
   it("a drag that ends with only one axis at zero size still commits (not a plain click)", () => {

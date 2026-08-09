@@ -83,6 +83,16 @@ describe("registerCoreShortcuts", () => {
     expect(registry.resolve("=", { ...NO_MODIFIERS, ctrl: true })).toBe("zoom-in");
     expect(registry.resolve("=", { ...NO_MODIFIERS, meta: true })).toBe("zoom-in");
     expect(registry.resolve("-", { ...NO_MODIFIERS, ctrl: true })).toBe("zoom-out");
+
+    // Digit tool shortcuts mirror Excalidraw's numbering exactly.
+    expect(registry.resolve("2", NO_MODIFIERS)).toBe("rectangle-tool");
+    expect(registry.resolve("3", NO_MODIFIERS)).toBe("diamond-tool");
+    expect(registry.resolve("4", NO_MODIFIERS)).toBe("ellipse-tool");
+    expect(registry.resolve("5", NO_MODIFIERS)).toBe("arrow-tool");
+    expect(registry.resolve("6", NO_MODIFIERS)).toBe("line-tool");
+    expect(registry.resolve("7", NO_MODIFIERS)).toBe("freedraw-tool");
+    expect(registry.resolve("8", NO_MODIFIERS)).toBe("text-tool");
+    expect(registry.resolve("0", NO_MODIFIERS)).toBe("eraser-tool");
   });
 });
 
@@ -101,6 +111,7 @@ describe("registerToolShortcuts", () => {
     expect(registry.resolve("p", NO_MODIFIERS)).toBe("freedraw-tool");
     expect(registry.resolve("t", NO_MODIFIERS)).toBe("text-tool");
     expect(registry.resolve("a", NO_MODIFIERS)).toBe("arrow-tool");
+    expect(registry.resolve("e", NO_MODIFIERS)).toBe("eraser-tool");
   });
 });
 

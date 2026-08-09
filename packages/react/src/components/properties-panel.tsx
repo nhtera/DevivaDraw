@@ -15,7 +15,8 @@ import { panelStyle, labelStyle } from "./chrome-styles";
 import { StyleSection } from "./style-section";
 import { ArrowStyleSection, TextPropertiesPanel, TextStyleSection } from "./type-style-sections";
 import { useTranslation } from "../i18n/use-translation";
-import { useSceneVersion, useSelectionVersion } from "../runtime/use-live-version";
+import { useSceneVersion, useSelectionVersion, useToolVersion } from "../runtime/use-live-version";
+import { ERASER_TOOL_NAME, PAN_TOOL_NAME, SELECT_TOOL_NAME } from "../runtime/tool-names";
 import type { DevivaRuntime } from "../runtime/runtime-types";
 
 const FILL_STYLE_OPTIONS: FillStyle[] = ["hachure", "cross-hatch", "solid", "zigzag"];
@@ -76,10 +77,20 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
   const { t } = useTranslation();
   useSceneVersion(runtime.scene);
   useSelectionVersion(runtime.selection);
+  useToolVersion(runtime.toolStateMachine);
   const [, forceRender] = useReducer((count: number) => count + 1, 0);
   // Re-render when a text-edit session opens/closes (re-editing an existing element mutates no scene
   // state on open, so `useSceneVersion` alone wouldn't switch the panel into text mode).
   useEffect(() => runtime.editSession.subscribe(forceRender), [runtime.editSession]);
+
+  // Clean idle canvas, like Excalidraw/tldraw: with a non-creating tool (select/pan/eraser) active,
+  // nothing selected, and no text being edited, there is nothing to style — hide the panel entirely
+  // rather than showing "next shape" defaults nobody asked for. A creation tool (shape/line/arrow/
+  // freehand/text) keeps the panel visible so its defaults can be set before drawing.
+  const activeTool = runtime.toolStateMachine.getActiveToolName();
+  const isIdleTool = activeTool === SELECT_TOOL_NAME || activeTool === PAN_TOOL_NAME || activeTool === ERASER_TOOL_NAME;
+  const isEditingText = runtime.editSession.getState().status === "editing";
+  if (isIdleTool && runtime.selection.size === 0 && !isEditingText) return null;
 
   const style = currentDisplayStyle(runtime);
   const apply = (partial: Partial<ShapeStyle>) => {
@@ -116,7 +127,7 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
   }
 
   return (
-    <div style={{ ...panelStyle, position: "absolute", top: 12, right: 12, width: 220, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+    <div style={{ ...panelStyle, position: "absolute", top: 12, right: 12, width: 220, padding: 12, display: "flex", flexDirection: "column", gap: 10 }} data-testid="properties-panel">
       <ColorPicker
         label={t("panel.stroke")}
         testId="stroke-color"
