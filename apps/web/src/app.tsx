@@ -11,10 +11,11 @@ import { SHARE_API_BASE_URL } from "./share-api-config";
  * story). Every actual feature (canvas, tools, toolbar, panels, menus, shortcuts, mobile/touch,
  * theming, i18n) lives in `@deviva-draw/react` — this app is just the browser tab that hosts it.
  *
- * Routing is a single `pathname` check, not a router dependency (YAGNI: this app has exactly two
- * "pages" — the editor and the read-only shared-scene viewer — a full router is unwarranted for that).
- * `/s/{blobId}` share links render `<SharedSceneViewerRoute/>` instead of the editable shell; every
- * other path renders the normal editor.
+ * Routing is a single `pathname` check, not a router dependency (YAGNI: this app has a small, fixed
+ * set of "pages"). `/s/{blobId}` share links render the read-only `<SharedSceneViewerRoute/>`;
+ * `/room/{id}#key=...` collaboration links render the editable shell and auto-join that live session
+ * (the full room URL, fragment key included, is read straight from `window.location`); every other
+ * path renders the normal editor.
  */
 export function App() {
   useEffect(() => {
@@ -22,5 +23,14 @@ export function App() {
   }, []);
 
   if (window.location.pathname.startsWith("/s/")) return <SharedSceneViewerRoute />;
-  return <DevivaDraw shareApiBaseUrl={SHARE_API_BASE_URL} style={{ position: "fixed", inset: 0 }} />;
+
+  const isRoom = window.location.pathname.startsWith("/room/");
+  const initialRoomUrl = isRoom ? window.location.href : undefined;
+  return (
+    <DevivaDraw
+      shareApiBaseUrl={SHARE_API_BASE_URL}
+      initialRoomUrl={initialRoomUrl}
+      style={{ position: "fixed", inset: 0 }}
+    />
+  );
 }

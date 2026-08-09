@@ -47,7 +47,7 @@ import type { ShareDialogState } from "./actions/action-types";
 import type { DevivaDrawProps } from "./deviva-draw-app-types";
 
 export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(function DevivaDrawShell(props, ref) {
-  const { initialData, persistenceKey, onChange, className, style, initialViewOnly, shareApiBaseUrl } = props;
+  const { initialData, persistenceKey, onChange, className, style, initialViewOnly, shareApiBaseUrl, initialRoomUrl } = props;
   const canvasHostRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
   const { mode, tokens, cssVariables, toggleMode } = useTheme();
@@ -147,6 +147,16 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       .map((peer) => ({ id: peer.peerId, name: peer.name, color: peer.color, point: peer.point }));
   }, [collab.peers]);
   useCollabCursorTracking({ containerRef: canvasHostRef, getCamera, onCursorMove: collab.updateCursor, active: collab.status === "connected" });
+
+  // Auto-join a room link exactly once, after the runtime (and thus the scene the session syncs into)
+  // exists. Guarded so a re-render or a status change never re-triggers the join mid-session.
+  const autoJoinedRef = useRef(false);
+  const joinSession = collab.joinSession;
+  useEffect(() => {
+    if (!initialRoomUrl || !runtime || autoJoinedRef.current) return;
+    autoJoinedRef.current = true;
+    void joinSession(initialRoomUrl);
+  }, [initialRoomUrl, runtime, joinSession]);
 
   return (
     <div

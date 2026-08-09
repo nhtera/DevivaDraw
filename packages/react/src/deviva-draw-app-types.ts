@@ -25,6 +25,8 @@ export interface DevivaDrawProps {
   initialViewOnly?: boolean;
   /** The collab-server's base URL (e.g. `http://localhost:8788` in dev) — required for the "Share" main-menu action *and* live collaboration (`useCollabSession`, driven by the "Collaborate…" menu action) to work; omit to leave both disabled (each fails gracefully with an inline error rather than attempting a request to nowhere). */
   shareApiBaseUrl?: string;
+  /** A full room URL (`.../room/{id}#key=...`) to auto-join once on mount — how a host application turns a shared room link into a live session without the recipient opening the Collaborate dialog and pasting it by hand. Requires `shareApiBaseUrl`; a malformed or keyless URL surfaces the same inline collab error as a manual join. */
+  initialRoomUrl?: string;
   className?: string;
   style?: CSSProperties;
 }
