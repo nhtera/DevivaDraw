@@ -12,7 +12,9 @@
 import { NoOpToolHandler } from "../input/tool-handler";
 import type { Point } from "../render/camera";
 import type { Scene } from "../scene/scene";
+import { deleteSelection } from "../selection/delete-selection";
 import { topmostElementAt } from "../selection/hit-test";
+import { findBoundTextRef, isBindableContainer } from "../text/bound-text";
 import type { ShapeToolHistory } from "./drag-shape-tool-base";
 
 export interface EraserToolDeps {
@@ -70,9 +72,11 @@ export class EraserTool extends NoOpToolHandler {
     this.active = false;
     this.lastPoint = null;
     if (this.pending.size === 0) return;
-    // Commit the whole swipe as one undo step.
+    // Commit the whole swipe as one undo step. Delete through the shared cascade (not a raw per-id
+    // soft-delete) so a labeled container takes its bound text with it and any bound arrows unbind —
+    // the same consistency the select-tool delete uses.
     this.deps.history.beginBatch();
-    for (const id of this.pending) this.deps.scene.deleteElement(id);
+    deleteSelection(this.deps.scene, [...this.pending]);
     this.deps.history.endBatch(this.deps.scene.getElements());
     this.pending.clear();
   }
@@ -87,6 +91,13 @@ export class EraserTool extends NoOpToolHandler {
   private markAt(point: Point): void {
     const tolerance = ERASE_TOLERANCE_PX / this.deps.getZoom();
     const target = topmostElementAt(this.deps.scene, point, tolerance);
-    if (target) this.pending.add(target.id);
+    if (!target) return;
+    this.pending.add(target.id);
+    // A labeled container's bound text is deleted along with it (see `deleteSelection`); mark it too so
+    // the dim preview shows the label fading out with its shape instead of lingering behind.
+    if (isBindableContainer(target)) {
+      const boundText = findBoundTextRef(target);
+      if (boundText) this.pending.add(boundText.id);
+    }
   }
 }
