@@ -110,3 +110,45 @@ test("the laser pointer draws a fading red trail and leaves nothing on the canva
   await expect(page.getByTestId("top-bar-undo")).toBeDisabled(); // purely ephemeral — nothing added to the scene
   await expect.poll(redPixels, { timeout: 3000 }).toBe(0); // and it fades away completely
 });
+
+test("a selected element is moved by dragging from inside its bounding box, not only its thin geometry", async ({ page }) => {
+  // Topmost dark-ink Y within the drawing region (the line is dark on the default light canvas).
+  const inkTopY = async (): Promise<number> => {
+    const shot = await page.screenshot();
+    return page.evaluate(async (b64) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${b64}`;
+      await img.decode();
+      const cv = document.createElement("canvas");
+      cv.width = img.width;
+      cv.height = img.height;
+      const ctx = cv.getContext("2d")!;
+      ctx.drawImage(img, 0, 0);
+      const d = ctx.getImageData(0, 0, cv.width, cv.height).data;
+      for (let y = 150; y < 780; y += 1)
+        for (let x = 250; x < 560; x += 1) {
+          const i = (y * cv.width + x) * 4;
+          if (d[i + 3]! > 60 && d[i]! * 0.299 + d[i + 1]! * 0.587 + d[i + 2]! * 0.114 < 110) return y;
+        }
+      return -1;
+    }, shot.toString("base64"));
+  };
+
+  // A diagonal line: its bounding box is 200×200 but the stroke itself is a 1px hairline.
+  await page.getByTestId("toolbar-line-tool").click();
+  await page.mouse.move(300, 300);
+  await page.mouse.down();
+  await page.mouse.move(500, 500);
+  await page.mouse.up();
+  const before = await inkTopY();
+  expect(before).toBeGreaterThan(0);
+
+  // Grab an EMPTY interior point (330,470) — inside the bbox but ~100px off the diagonal — and drag
+  // down. Before the fix this started a marquee (deselect); now it moves the selected line.
+  await page.mouse.move(330, 470);
+  await page.mouse.down();
+  await page.mouse.move(330, 620);
+  await page.mouse.up();
+
+  expect((await inkTopY()) - before).toBeGreaterThan(80); // the line moved down with the interior drag
+});

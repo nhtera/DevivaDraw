@@ -85,6 +85,7 @@ export class SelectionTool extends NoOpToolHandler {
       .filter((element): element is AnyElement => !!element);
     const frame = buildSelectionFrame(selectedElements);
 
+    let insideSelectionBounds = false;
     if (frame) {
       const localPoint = rotatePointAroundCenter(point, frame.pivot, -frame.angle);
       const handle = hitTestHandles(frame.bounds, localPoint, HANDLE_HIT_PX / zoom, ROTATE_HANDLE_OFFSET_PX / zoom);
@@ -98,11 +99,26 @@ export class SelectionTool extends NoOpToolHandler {
         this.resize.begin(frame, handle);
         return;
       }
+      const b = frame.bounds;
+      insideSelectionBounds = localPoint.x >= b.x && localPoint.x <= b.x + b.width && localPoint.y >= b.y && localPoint.y <= b.y + b.height;
     }
 
     const hit = topmostElementAt(this.deps.scene, point, CLICK_HIT_PX / zoom);
     if (hit) {
       this.mode = this.move.begin(point, hit.id, modifiers) ? "move" : "idle";
+      return;
+    }
+
+    // No element geometry was hit, but the pointer is inside the current selection's bounding box:
+    // grab the whole selection to move it. Competitors let you drag from anywhere inside the selection
+    // frame — not only precisely on the (often hairline or unfilled) geometry — which is what makes a
+    // selected line/freehand feel easy to reposition. A no-drag click here keeps the selection (the
+    // move gesture's finish cancels its empty batch), matching Excalidraw. Shift is stripped for
+    // `begin` so an empty-interior grab never toggles the anchor out of the selection (that's a
+    // shift-*click* on an element); axis-lock and alt-duplicate still apply via the move gesture.
+    if (insideSelectionBounds && selectedElements.length > 0) {
+      const anchorId = selectedElements[0]!.id;
+      this.mode = this.move.begin(point, anchorId, { ...modifiers, shift: false }) ? "move" : "idle";
       return;
     }
 

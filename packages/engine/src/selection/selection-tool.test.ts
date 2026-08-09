@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { bindArrowEndpoint, DEFAULT_BINDING_GAP } from "../bindings/binding-model";
 import { registerArrowBindingHooks } from "../bindings/binding-scene-sync";
 import { createArrowElement } from "../elements/arrow-element";
+import { createFreedrawElement } from "../elements/freedraw-element";
 import { createRectangleElement } from "../elements/shape-elements";
 import { HistoryStack } from "../history/history-stack";
 import type { AnyElement } from "../elements/element-types";
@@ -131,6 +132,34 @@ describe("SelectionTool — move", () => {
     tool.onGestureEnd({ x: 10, y: 10 }, NO_MODIFIERS);
 
     expect(history.canUndo()).toBe(before);
+  });
+
+  it("dragging from inside a selected element's bbox but off its geometry still moves it (competitor parity)", () => {
+    const { scene, selection, tool } = setup();
+    // A sparse diagonal freehand stroke: most of its 100×60 bbox interior is empty (off the ink).
+    const stroke = scene.addElement(createFreedrawElement({ x: 0, y: 0, width: 100, height: 60, points: [[0, 0, 0.5], [100, 60, 0.5]] }));
+    selection.selectOnly([stroke.id]);
+
+    // (20,50) is well inside the bbox but ~32px off the diagonal stroke and clear of every handle —
+    // previously this fell through to a marquee; now it grabs the whole selection to move it.
+    tool.onGestureStart({ x: 20, y: 50 }, NO_MODIFIERS);
+    tool.onGestureMove({ x: 120, y: 50 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: 120, y: 50 }, NO_MODIFIERS);
+
+    expect(scene.getElement(stroke.id)).toMatchObject({ x: 100, y: 0 }); // moved +100 in x
+  });
+
+  it("a no-drag click inside a selected element's empty bbox interior keeps the selection (no move, no deselect)", () => {
+    const { scene, selection, history, tool } = setup();
+    const stroke = scene.addElement(createFreedrawElement({ x: 0, y: 0, width: 100, height: 60, points: [[0, 0, 0.5], [100, 60, 0.5]] }));
+    selection.selectOnly([stroke.id]);
+
+    tool.onGestureStart({ x: 20, y: 50 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: 20, y: 50 }, NO_MODIFIERS); // click, no drag
+
+    expect([...selection.getSelectedIds()]).toEqual([stroke.id]); // still selected (matches Excalidraw)
+    expect(scene.getElement(stroke.id)).toMatchObject({ x: 0, y: 0 }); // not moved
+    expect(history.canUndo()).toBe(false);
   });
 
   it("onGestureCancel restores the pre-move position", () => {
