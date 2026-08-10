@@ -3,10 +3,10 @@ import { createArrowElement } from "../elements/arrow-element";
 import { createRectangleElement } from "../elements/shape-elements";
 import { createTextElement } from "../elements/text-element";
 import { Scene } from "../scene/scene";
-import { bindTextToContainer } from "../text/bound-text";
+import { bindTextToContainer, getOrCreateBoundText } from "../text/bound-text";
 import { bindArrowEndpoint } from "../bindings/binding-model";
 import { DEFAULT_BINDING_GAP } from "../bindings/binding-model";
-import { duplicateElements, InternalClipboard } from "./clipboard";
+import { duplicateElements, insertElements, InternalClipboard } from "./clipboard";
 
 describe("duplicateElements", () => {
   it("creates new elements with new ids, offset from the originals, keeping the same seed", () => {
@@ -106,5 +106,26 @@ describe("InternalClipboard", () => {
     const [secondId] = clipboard.paste(scene);
     expect(firstId).not.toBe(secondId);
     expect(scene.getElements().filter((el) => !el.isDeleted)).toHaveLength(3);
+  });
+});
+
+describe("insertElements", () => {
+  it("inserts external elements as fresh copies (new ids), offset, remapping bound text", () => {
+    const source = new Scene();
+    const rect = source.addElement(createRectangleElement({ x: 0, y: 0, width: 40, height: 40 }));
+    const { textElementId } = getOrCreateBoundText(source, rect.id);
+    const saved = source.getElements().filter((el) => !el.isDeleted).map((el) => ({ ...el }));
+
+    const target = new Scene();
+    const newIds = insertElements(target, saved, { dx: 100, dy: 100 });
+
+    expect(newIds).toHaveLength(2);
+    expect(newIds).not.toContain(rect.id);
+    expect(newIds).not.toContain(textElementId);
+    const container = target.getElement(newIds[0]!)!;
+    expect(container.x).toBe(100); // offset applied
+    // The bound-text ref was remapped to the newly-inserted text, not the original id.
+    const boundRef = container.boundElements?.find((r) => r.type === "text");
+    expect(newIds).toContain(boundRef!.id);
   });
 });

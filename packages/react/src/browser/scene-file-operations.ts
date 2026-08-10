@@ -18,7 +18,7 @@ import {
   Scene,
   startAutosave,
 } from "@deviva-draw/engine";
-import type { AutosaveController, ExportScale } from "@deviva-draw/engine";
+import type { AnyElement, AutosaveController, ExportScale } from "@deviva-draw/engine";
 import { createBrowserExportRenderTarget, createRoughSvgGenerator, pickAndReadFile, saveFile, triggerDownload } from "./persistence-adapters";
 
 const SCENE_FILE_EXTENSION = ".devivadraw";
@@ -118,6 +118,14 @@ export async function copySceneImageToClipboard(scene: Scene, background: string
     clipboard: navigator.clipboard,
     createClipboardItem: (blob) => new ClipboardItem({ "image/png": blob }),
   });
+}
+
+/** Renders a detached set of elements (a library item) to a small white-background PNG data URL for use as a preview thumbnail. */
+export async function renderElementsToThumbnail(elements: readonly AnyElement[]): Promise<string> {
+  const scene = new Scene();
+  for (const element of elements) scene.restoreElement(structuredClone(element));
+  const blob = await renderSceneToPngBlob(scene, 1, "#ffffff");
+  return blobToDataUrl(blob);
 }
 
 /** Reads a blob as a data URL (for embedding a rendered PNG into a PDF). */

@@ -100,6 +100,18 @@ export function duplicateElements(scene: Scene, ids: readonly string[], offset: 
   return copies.map((copy) => copy.id);
 }
 
+/**
+ * Inserts fresh copies of externally-provided `elements` (e.g. a saved library item loaded from
+ * localStorage) into `scene`, remapping their mutual references exactly like paste/duplicate. Unlike
+ * `paste`, the source isn't a prior in-scene copy, so the caller supplies the elements directly and
+ * picks the offset (typically computed to drop them at the viewport center). Returns the new ids.
+ */
+export function insertElements(scene: Scene, elements: readonly AnyElement[], offset: DuplicateOffset = { dx: 0, dy: 0 }): string[] {
+  const copies = instantiateCopies(elements, offset);
+  for (const copy of copies) scene.addElement(copy);
+  return copies.map((copy) => copy.id);
+}
+
 /** In-memory "Deviva Draw internal clipboard" — see the module doc for why real OS clipboard MIME I/O lives outside this package. */
 export class InternalClipboard {
   private snapshot: AnyElement[] = [];

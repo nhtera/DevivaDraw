@@ -172,6 +172,14 @@ export const catalogEn = {
   "find.close": "Close",
 
   "menu.canvasBackground": "Canvas background",
+  "menu.library": "Library",
+
+  "library.title": "Library",
+  "library.addSelection": "Add selection to library",
+  "library.empty": "Select something, then add it here to reuse.",
+  "library.remove": "Remove",
+  "library.import": "Import",
+  "library.export": "Export",
 
   "export.title": "Export image",
   "export.scale": "Scale",

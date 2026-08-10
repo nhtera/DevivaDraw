@@ -345,7 +345,7 @@ export type { SnapGuide, SnapGuideOrientation, SnapResult } from "./selection/sn
 export { computeGridSnap, computeObjectSnap, snapPointToGrid } from "./selection/snapping";
 
 export type { DuplicateOffset } from "./selection/clipboard";
-export { DEFAULT_DUPLICATE_OFFSET, duplicateElements, expandForDuplication, InternalClipboard } from "./selection/clipboard";
+export { DEFAULT_DUPLICATE_OFFSET, duplicateElements, expandForDuplication, insertElements, InternalClipboard } from "./selection/clipboard";
 
 export { deleteSelection } from "./selection/delete-selection";
 

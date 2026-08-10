@@ -172,6 +172,14 @@ export const catalogVi: Record<TranslationKey, string> = {
   "find.close": "Đóng",
 
   "menu.canvasBackground": "Nền canvas",
+  "menu.library": "Thư viện",
+
+  "library.title": "Thư viện",
+  "library.addSelection": "Thêm lựa chọn vào thư viện",
+  "library.empty": "Chọn đối tượng rồi thêm vào đây để tái sử dụng.",
+  "library.remove": "Xóa",
+  "library.import": "Nhập",
+  "library.export": "Xuất",
 
   "export.title": "Xuất hình ảnh",
   "export.scale": "Tỷ lệ",
