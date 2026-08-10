@@ -29,7 +29,7 @@ const STROKE_STYLES = ["solid", "dashed", "dotted"] as const;
 const ELEMENT_TYPES = [
   "generic", "rectangle", "ellipse", "diamond", "triangle", "hexagon", "star",
   "block-arrow", "cloud", "heart", "x-box", "check-box",
-  "line", "freedraw", "text", "arrow", "image", "frame", "note",
+  "line", "freedraw", "text", "arrow", "image", "frame", "note", "embed",
 ] as const;
 const BLOCK_ARROW_DIRECTIONS = ["left", "right", "up", "down"] as const;
 const TEXT_FONT_FAMILIES = ["normal", "code", "hand-drawn-slot"] as const;
@@ -130,6 +130,10 @@ function validateTypeSpecificFields(raw: Record<string, unknown>, index: number)
       if (!isString(raw.fileId)) return `${label}.fileId must be a string`;
       if (!isNonNegativeFiniteNumber(raw.naturalWidth)) return `${label}.naturalWidth must be a non-negative finite number`;
       if (!isNonNegativeFiniteNumber(raw.naturalHeight)) return `${label}.naturalHeight must be a non-negative finite number`;
+      return null;
+    }
+    case "embed": {
+      if (!isString(raw.url)) return `${label}.url must be a string`;
       return null;
     }
     case "frame": {

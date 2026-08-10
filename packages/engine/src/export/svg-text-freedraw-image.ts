@@ -6,6 +6,7 @@
  * `text-renderer.ts`'s exported helpers rather than re-derived, so wrapping/alignment can never drift
  * between the canvas and SVG output.
  */
+import type { EmbedElement } from "../elements/embed-element";
 import type { FreedrawElement } from "../elements/freedraw-element";
 import type { ImageElement } from "../elements/image-element";
 import type { TextAlign, TextElement } from "../elements/text-element";
@@ -84,5 +85,25 @@ export function buildImageSvgFragment(element: ImageElement, camera: Camera, fil
   return (
     `<image x="${rect.x}" y="${rect.y}" width="${rect.width}" height="${rect.height}" ` +
     `href="${escapeXmlAttribute(file.dataURL)}" preserveAspectRatio="none" />`
+  );
+}
+
+/**
+ * Placeholder card for an `EmbedElement` in an SVG export — a live cross-origin iframe can't be
+ * rasterized, so exports show the same rounded card + host label the canvas placeholder draws.
+ */
+export function buildEmbedSvgFragment(element: EmbedElement, camera: Camera): string {
+  const rect = screenRectOf(element, camera);
+  let host = "embed";
+  try {
+    host = new URL(element.url).hostname.replace(/^www\./, "");
+  } catch {
+    /* leave the fallback label */
+  }
+  const cx = rect.x + rect.width / 2;
+  const cy = rect.y + rect.height / 2;
+  return (
+    `<rect x="${rect.x}" y="${rect.y}" width="${rect.width}" height="${rect.height}" rx="10" fill="#f1f3f5" stroke="#adb5bd" stroke-width="1.5" />` +
+    `<text x="${cx}" y="${cy}" font-family="system-ui, sans-serif" font-size="13" text-anchor="middle" dominant-baseline="central" fill="#495057">▶ ${escapeXmlText(host)}</text>`
   );
 }

@@ -175,6 +175,11 @@ export const catalogEn = {
   "menu.canvasBackground": "Canvas background",
   "menu.library": "Library",
   "menu.mermaid": "Mermaid to diagram…",
+  "menu.embed": "Insert embed…",
+
+  "embed.title": "Insert embed",
+  "embed.description": "Paste a YouTube, Vimeo, Figma, or CodeSandbox URL.",
+  "embed.insert": "Insert",
 
   "mermaid.title": "Mermaid to diagram",
   "mermaid.description": "Paste a Mermaid flowchart — it becomes editable shapes.",

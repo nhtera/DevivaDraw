@@ -18,6 +18,7 @@ import { createElementBase } from "./element-factory-defaults";
 import type { FrameElement } from "./frame-element";
 import type { FreedrawElement } from "./freedraw-element";
 import type { ImageElement } from "./image-element";
+import type { EmbedElement } from "./embed-element";
 import type { NoteElement } from "./note-element";
 import type {
   BlockArrowElement,
@@ -46,6 +47,8 @@ export type { NoteElement } from "./note-element";
 export { createNoteElement, DEFAULT_NOTE_BACKGROUND } from "./note-element";
 export type { ImageElement, ImageElementCreationInput } from "./image-element";
 export { createImageElement } from "./image-element";
+export type { EmbedElement, EmbedElementCreationInput } from "./embed-element";
+export { createEmbedElement, DEFAULT_EMBED_WIDTH, DEFAULT_EMBED_HEIGHT } from "./embed-element";
 export type {
   BlockArrowDirection,
   BlockArrowElement,
@@ -114,6 +117,7 @@ export type AnyElement =
   | TextElement
   | ArrowElement
   | ImageElement
+  | EmbedElement
   | FrameElement
   | NoteElement;
 

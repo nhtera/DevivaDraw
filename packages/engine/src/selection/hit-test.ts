@@ -113,7 +113,8 @@ export function hitTestElement(element: AnyElement, point: Point, tolerance: num
     case "generic":
     case "text":
     case "image":
-      return hitRectangleLike(local, element.width, element.height, element.type === "text" || element.type === "image" ? true : filled, tolerance);
+    case "embed":
+      return hitRectangleLike(local, element.width, element.height, element.type === "text" || element.type === "image" || element.type === "embed" ? true : filled, tolerance);
     case "note":
       // A note is a solid card — its whole interior is a hit target (like a filled rectangle).
       return hitRectangleLike(local, element.width, element.height, true, tolerance);

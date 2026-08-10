@@ -175,6 +175,11 @@ export const catalogVi: Record<TranslationKey, string> = {
   "menu.canvasBackground": "Nền canvas",
   "menu.library": "Thư viện",
   "menu.mermaid": "Mermaid thành sơ đồ…",
+  "menu.embed": "Chèn nhúng…",
+
+  "embed.title": "Chèn nhúng",
+  "embed.description": "Dán liên kết YouTube, Vimeo, Figma hoặc CodeSandbox.",
+  "embed.insert": "Chèn",
 
   "mermaid.title": "Mermaid thành sơ đồ",
   "mermaid.description": "Dán mã Mermaid flowchart — nó sẽ thành các hình có thể chỉnh sửa.",

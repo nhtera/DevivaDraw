@@ -21,6 +21,8 @@ import type { FreedrawOutlineCache } from "./freedraw-outline-cache";
 import { drawGrid } from "./grid-renderer";
 import type { ImageDrawContext2D } from "./image-renderer";
 import { drawElementImage } from "./image-renderer";
+import type { EmbedDrawContext2D } from "./embed-renderer";
+import { drawElementEmbed } from "./embed-renderer";
 import type { RoughCanvasDrawer } from "./rough-renderer";
 import { drawElementRough } from "./rough-renderer";
 import type { RoughDrawableCache } from "./rough-drawable-cache";
@@ -31,7 +33,7 @@ import type { ViewportSize } from "./viewport-culling";
 import { filterVisibleElements } from "./viewport-culling";
 
 /** Minimal 2D-context surface a draw pass needs — see `static-layer.ts`'s `StaticLayerContext` (which extends this with the `canvas`/`clearRect` bits only `StaticLayer` itself reads). */
-export interface RenderSceneContext2D extends FreedrawDrawContext2D, TextDrawContext2D, MeasurementContext2D, ImageDrawContext2D, FrameDrawContext2D {
+export interface RenderSceneContext2D extends FreedrawDrawContext2D, TextDrawContext2D, MeasurementContext2D, ImageDrawContext2D, FrameDrawContext2D, EmbedDrawContext2D {
   clearRect(x: number, y: number, width: number, height: number): void;
 }
 
@@ -110,6 +112,8 @@ export function renderSceneToCanvas(ctx: RenderSceneContext2D, scene: Scene, cam
       drawElementArrow(ctx, roughCanvas, withErasePreview(element), camera, arrowDrawableCache);
     } else if (element.type === "image") {
       drawElementImage(ctx, withErasePreview(element), camera, scene, imageDecodeCache);
+    } else if (element.type === "embed") {
+      drawElementEmbed(ctx, withErasePreview(element), camera);
     } else if (element.type === "frame") {
       drawElementFrame(ctx, withErasePreview(element), camera);
     } else {

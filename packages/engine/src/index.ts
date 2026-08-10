@@ -70,6 +70,11 @@ export {
 export type { ImageElement, ImageElementCreationInput } from "./elements/image-element";
 export { createImageElement } from "./elements/image-element";
 
+export type { EmbedElement, EmbedElementCreationInput } from "./elements/embed-element";
+export { createEmbedElement, DEFAULT_EMBED_WIDTH, DEFAULT_EMBED_HEIGHT } from "./elements/embed-element";
+export type { EmbedResolution } from "./embed/embed-providers";
+export { isEmbeddable, resolveEmbed } from "./embed/embed-providers";
+
 export type { IndexedItem } from "./scene/fractional-index";
 export { compareIndexedItems, indexBetween, moveBackward, moveForward, moveToBack, moveToFront } from "./scene/fractional-index";
 export { freezeElement, randomVersionNonce, touch } from "./scene/scene-mutations";
@@ -389,7 +394,7 @@ export { exportToPng, readEmbeddedSceneData, SCENE_DATA_PNG_KEYWORD } from "./ex
 export type { RoughSvgGenerator } from "./export/svg-shape-paths";
 export { buildArrowSvgFragment, buildRoughShapeSvgFragment } from "./export/svg-shape-paths";
 
-export { buildFreedrawSvgFragment, buildImageSvgFragment, buildTextSvgFragment } from "./export/svg-text-freedraw-image";
+export { buildEmbedSvgFragment, buildFreedrawSvgFragment, buildImageSvgFragment, buildTextSvgFragment } from "./export/svg-text-freedraw-image";
 
 export { escapeXmlAttribute, escapeXmlText } from "./export/svg-escape";
 

@@ -19,7 +19,7 @@ import type { ExportScale } from "./export-geometry";
 import { escapeXmlAttribute, escapeXmlText } from "./svg-escape";
 import { buildArrowSvgFragment, buildRoughShapeSvgFragment } from "./svg-shape-paths";
 import type { RoughSvgGenerator } from "./svg-shape-paths";
-import { buildFreedrawSvgFragment, buildImageSvgFragment, buildTextSvgFragment } from "./svg-text-freedraw-image";
+import { buildEmbedSvgFragment, buildFreedrawSvgFragment, buildImageSvgFragment, buildTextSvgFragment } from "./svg-text-freedraw-image";
 
 export interface ExportToSvgOptions {
   scene: Scene;
@@ -63,6 +63,8 @@ function elementFragment(element: AnyElement, camera: Camera, generator: RoughSv
       return buildArrowSvgFragment(generator, element, camera);
     case "image":
       return buildImageSvgFragment(element, camera, scene);
+    case "embed":
+      return buildEmbedSvgFragment(element, camera);
     case "frame":
       return buildFrameSvgFragment(element, camera);
     default:

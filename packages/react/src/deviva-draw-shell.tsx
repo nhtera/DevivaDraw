@@ -36,6 +36,8 @@ import { FindPanel } from "./components/find-panel";
 import { ExportDialog } from "./components/export-dialog";
 import { LibraryPanel } from "./components/library-panel";
 import { MermaidDialog } from "./components/mermaid-dialog";
+import { EmbedDialog } from "./components/embed-dialog";
+import { EmbedOverlay } from "./components/embed-overlay";
 import { Minimap } from "./components/minimap";
 import { useCanvasBackground } from "./runtime/use-live-version";
 import { CommandPalette } from "./components/command-palette";
@@ -84,6 +86,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const exportDialogOpen = useToggleState(false);
   const libraryOpen = useToggleState(false);
   const mermaidOpen = useToggleState(false);
+  const embedOpen = useToggleState(false);
   const mainMenuOpen = useToggleState(false);
   const shareDialog = useValueState<ShareDialogState>({ status: "closed" });
   const collabDialogOpen = useToggleState(false);
@@ -101,6 +104,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       findOpen.value ||
       exportDialogOpen.value ||
       mermaidOpen.value ||
+      embedOpen.value ||
       mainMenuOpen.value ||
       shareDialog.value.status !== "closed" ||
       collabDialogOpen.value ||
@@ -228,6 +232,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden", ...cssVariables, ...style }}
     >
       <div ref={canvasHostRef} data-testid="deviva-draw-canvas-host" style={{ position: "absolute", inset: 0, background: canvasBackground ?? "var(--dd-canvas-background)" }}>
+        {runtime && <EmbedOverlay runtime={runtime} cameraStore={cameraStore} />}
         {runtime && editSession && (
           <TextEditorOverlay session={editSession} scene={runtime.scene} getCamera={getCamera} subscribeCamera={cameraStore.subscribe} />
         )}
@@ -248,7 +253,16 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
           onOpenExport={() => exportDialogOpen.set(true)}
           onOpenLibrary={() => libraryOpen.set(true)}
           onOpenMermaid={() => mermaidOpen.set(true)}
+          onOpenEmbed={() => embedOpen.set(true)}
           shareEnabled={Boolean(shareApiBaseUrl)}
+        />
+      )}
+      {runtime && embedOpen.value && (
+        <EmbedDialog
+          runtime={runtime}
+          cameraStore={cameraStore}
+          getViewportSize={() => ({ width: canvasHostRef.current?.clientWidth ?? 0, height: canvasHostRef.current?.clientHeight ?? 0 })}
+          onClose={() => embedOpen.set(false)}
         />
       )}
       {runtime && mermaidOpen.value && (
