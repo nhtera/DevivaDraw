@@ -294,6 +294,9 @@ export { BucketFillTool } from "./tools/bucket-fill-tool";
 export type { RecognizedShape } from "./tools/shape-recognition";
 export { classifyStroke, recognizeFreedrawShape } from "./tools/shape-recognition";
 
+export type { FlowDirection, ParsedFlowchart } from "./mermaid/mermaid-to-elements";
+export { flowchartToElements, mermaidToElements, parseFlowchart } from "./mermaid/mermaid-to-elements";
+
 export type { LaserToolDeps, LaserTrailPoint } from "./tools/laser-tool";
 export { LaserTool, LASER_FADE_MS } from "./tools/laser-tool";
 export type { LassoToolDeps } from "./tools/lasso-tool";

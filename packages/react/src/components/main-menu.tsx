@@ -23,6 +23,7 @@ export interface MainMenuProps {
   onOpenCollab(): void;
   onOpenExport(): void;
   onOpenLibrary(): void;
+  onOpenMermaid(): void;
   /** Whether the host configured `shareApiBaseUrl` — gates both "Share" and "Collaborate…", which both depend on the same collab-server endpoint (see `deviva-draw-app-types.ts`'s `shareApiBaseUrl` doc). `false` hides them entirely rather than showing a menu entry that would just fail every time. */
   shareEnabled: boolean;
 }
@@ -67,7 +68,7 @@ function MenuLink(props: { href: string; icon: string; children: string; testId:
 }
 
 export function MainMenu(props: MainMenuProps) {
-  const { runtime, onClose, onOpenShortcuts, onOpenCollab, onOpenExport, onOpenLibrary, shareEnabled } = props;
+  const { runtime, onClose, onOpenShortcuts, onOpenCollab, onOpenExport, onOpenLibrary, onOpenMermaid, shareEnabled } = props;
   const { t, locale, setLocale } = useTranslation();
   const { preference, setPreference } = useTheme();
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -86,7 +87,7 @@ export function MainMenu(props: MainMenuProps) {
   };
 
   return (
-    <div ref={menuRef} role="menu" data-testid="main-menu" className="dd-animate-in" style={{ ...panelStyle, position: "absolute", top: 56, left: 12, padding: 4, width: 220, zIndex: 90 }}>
+    <div ref={menuRef} role="menu" data-testid="main-menu" className="dd-animate-in" style={{ ...panelStyle, position: "absolute", top: 56, left: 12, padding: 4, width: 220, zIndex: 90, maxHeight: "calc(100vh - 72px)", overflowY: "auto" }}>
       <MenuButton testId="main-menu-open" icon="folder-open" onClick={() => run("open-scene")}>
         {t("action.openScene")}
       </MenuButton>
@@ -118,6 +119,16 @@ export function MainMenu(props: MainMenuProps) {
         }}
       >
         {t("menu.library")}
+      </MenuButton>
+      <MenuButton
+        testId="main-menu-mermaid"
+        icon="shapes"
+        onClick={() => {
+          onOpenMermaid();
+          onClose();
+        }}
+      >
+        {t("menu.mermaid")}
       </MenuButton>
       <MenuButton testId="main-menu-copy-image" icon="copy-image" onClick={() => run("copy-as-image")}>
         {t("action.copyAsImage")}

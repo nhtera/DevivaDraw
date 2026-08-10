@@ -35,6 +35,7 @@ import { ShortcutsDialog } from "./components/shortcuts-dialog";
 import { FindPanel } from "./components/find-panel";
 import { ExportDialog } from "./components/export-dialog";
 import { LibraryPanel } from "./components/library-panel";
+import { MermaidDialog } from "./components/mermaid-dialog";
 import { Minimap } from "./components/minimap";
 import { useCanvasBackground } from "./runtime/use-live-version";
 import { CommandPalette } from "./components/command-palette";
@@ -82,6 +83,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const findOpen = useToggleState(false);
   const exportDialogOpen = useToggleState(false);
   const libraryOpen = useToggleState(false);
+  const mermaidOpen = useToggleState(false);
   const mainMenuOpen = useToggleState(false);
   const shareDialog = useValueState<ShareDialogState>({ status: "closed" });
   const collabDialogOpen = useToggleState(false);
@@ -98,6 +100,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       shortcutsDialogOpen.value ||
       findOpen.value ||
       exportDialogOpen.value ||
+      mermaidOpen.value ||
       mainMenuOpen.value ||
       shareDialog.value.status !== "closed" ||
       collabDialogOpen.value ||
@@ -244,7 +247,16 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
           onOpenCollab={() => collabDialogOpen.set(true)}
           onOpenExport={() => exportDialogOpen.set(true)}
           onOpenLibrary={() => libraryOpen.set(true)}
+          onOpenMermaid={() => mermaidOpen.set(true)}
           shareEnabled={Boolean(shareApiBaseUrl)}
+        />
+      )}
+      {runtime && mermaidOpen.value && (
+        <MermaidDialog
+          runtime={runtime}
+          cameraStore={cameraStore}
+          getViewportSize={() => ({ width: canvasHostRef.current?.clientWidth ?? 0, height: canvasHostRef.current?.clientHeight ?? 0 })}
+          onClose={() => mermaidOpen.set(false)}
         />
       )}
       {runtime && exportDialogOpen.value && <ExportDialog runtime={runtime} onClose={() => exportDialogOpen.set(false)} />}

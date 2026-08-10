@@ -174,6 +174,11 @@ export const catalogEn = {
 
   "menu.canvasBackground": "Canvas background",
   "menu.library": "Library",
+  "menu.mermaid": "Mermaid to diagram…",
+
+  "mermaid.title": "Mermaid to diagram",
+  "mermaid.description": "Paste a Mermaid flowchart — it becomes editable shapes.",
+  "mermaid.insert": "Insert diagram",
 
   "library.title": "Library",
   "library.addSelection": "Add selection to library",
