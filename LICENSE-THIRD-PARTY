@@ -1,9 +1,9 @@
 # Third-Party Licenses
 
 This project is a clean-room implementation and contains no code from
-Excalidraw or tldraw. The following MIT-licensed libraries are (or will be)
-used at runtime; their license texts ship with the packages in node_modules
-and are reproduced in distribution bundles as required.
+Excalidraw or tldraw. The following permissively-licensed libraries are used at
+runtime; their license texts ship with the packages in node_modules and are
+reproduced in distribution bundles as required.
 
 | Library | License | Purpose | Status |
 |---|---|---|---|

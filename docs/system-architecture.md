@@ -1,8 +1,10 @@
 # System Architecture
 
-Scope: `packages/engine` core design as of M1 (solo whiteboard MVP, phases
-01-11). Framework-agnostic by construction — `packages/react` is a thin
-adapter layer on top, no engine internals assume React or a DOM.
+Scope: the `packages/engine` core design. Framework-agnostic by construction —
+`packages/react` is a thin adapter layer on top, `packages/collab-client` layers
+real-time sync on the same element model, and no engine internals assume React or
+a DOM. The invariants below are what make the collab and share-link layers
+possible.
 
 ## Element model: frozen + version/versionNonce invariant
 
@@ -56,7 +58,7 @@ be drawn again (called on each real redraw, not on every mutation).
 
 ## Injectable DOM abstractions
 
-The engine runs its ~991 tests in Node (Vitest, no real `<canvas>`/DOM) by
+The engine runs its full test suite in Node (Vitest, no real `<canvas>`/DOM) by
 depending on narrow injected interfaces instead of concrete browser APIs:
 
 | Abstraction | Real impl | Test impl |

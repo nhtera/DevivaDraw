@@ -15,11 +15,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deviva/deviva-draw.git",
+    "url": "git+https://github.com/nhtera/DevivaDraw.git",
     "directory": "packages/react"
   },
-  "homepage": "https://github.com/deviva/deviva-draw#readme",
-  "bugs": "https://github.com/deviva/deviva-draw/issues",
+  "homepage": "https://github.com/nhtera/DevivaDraw#readme",
+  "bugs": "https://github.com/nhtera/DevivaDraw/issues",
   "engines": {
     "node": ">=22"
   },

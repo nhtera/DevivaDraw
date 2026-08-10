@@ -1,10 +1,10 @@
 # @deviva-draw/collab-client
 
-Realtime sync client for [Deviva Draw](https://github.com/deviva/deviva-draw): WebSocket
+Realtime sync client for [Deviva Draw](https://github.com/nhtera/DevivaDraw): WebSocket
 transport, end-to-end encryption, presence broadcasting, and last-writer-wins conflict resolution
 over [`@deviva-draw/engine`](https://www.npmjs.com/package/@deviva-draw/engine) element versions.
 Pairs with a Durable Objects (or any compatible WebSocket) relay server — see the
-[repository](https://github.com/deviva/deviva-draw)'s `apps/collab-server` for the reference
+[repository](https://github.com/nhtera/DevivaDraw)'s `apps/collab-server` for the reference
 backend.
 
 ## Install

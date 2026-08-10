@@ -1,90 +1,115 @@
 # Codebase Summary
 
-Deviva Draw: infinite-canvas whiteboard built clean-room (no Excalidraw code).
-pnpm monorepo, source-only packages (no build step for consumers). Node 22+.
+Deviva Draw: an open-source, infinite-canvas whiteboard built clean-room (no
+Excalidraw or tldraw code). pnpm monorepo, source-only packages (no build step
+for in-repo consumers). Node 22+. MIT licensed.
 
-Status: **M1 (solo whiteboard MVP) complete** — phases 01-11 done. M2 (UI
-chrome, share links), M3 (collab), M4 (product integration) pending.
+A framework-agnostic engine, a React component library, a real-time collab
+client, a standalone web app, and a Cloudflare Worker backend — a solo
+whiteboard, an embeddable component, and a live-multiplayer canvas all share the
+same core.
 
 ## Layout
 
 ```
 packages/engine         @deviva-draw/engine — framework-agnostic core
-packages/react          @deviva-draw/react — <DevivaDraw/> component, hooks
-packages/collab-client  WS sync client, E2E crypto, presence (stub, M3)
-apps/web                draw.deviva.app — Vite + React 19 SPA
-apps/collab-server      Cloudflare Worker: Durable Objects + R2 (stub, M3)
+packages/react          @deviva-draw/react — <DevivaDraw/> component, hooks, UI chrome
+packages/collab-client  @deviva-draw/collab-client — WS sync, E2E crypto, presence
+apps/web                Standalone web app — Vite + React SPA
+apps/collab-server      Cloudflare Worker: Durable Objects rooms + R2 share blobs
 ```
+
+## Element model
+
+The scene is a set of immutable elements in an `AnyElement` discriminated union.
+Element types currently supported:
+
+`rectangle`, `ellipse`, `diamond`, `triangle`, `hexagon`, `star`, `cloud`,
+`heart`, `x-box`, `check-box`, `line`, `arrow`, `freedraw` (incl. highlighter),
+`block-arrow`, `text`, `note` (sticky note), `frame`, `image`, plus a `generic`
+base.
 
 ## packages/engine/src
 
 | Dir | Responsibility |
 |---|---|
-| `elements/` | Element model — `BaseElement` + per-type factories (generic, arrow, freedraw, shape, text, image). All fields immutable after creation except via `touch()`. |
+| `elements/` | Element model — `BaseElement` + per-type factories. All fields immutable after creation except via `touch()`. Shared shape geometry (polygon/block-arrow unit vertices) lives here as a single source of truth. |
 | `scene/` | `Scene` store (Map-based CRUD, pub-sub), fractional-index z-order, update-hook middleware, files store. |
 | `history/` | `HistoryStack<T>` — undo/redo with batch begin/commit/cancel. |
-| `input/` | `PointerEventPipeline`, `ToolStateMachine`, `ToolHandler` contract, pan/zoom, shortcuts, DOM adapters. |
-| `render/` | `Camera`, viewport culling, per-element renderers (rough shapes, freedraw, text, image, arrow), `StaticLayer`/`InteractiveLayer`/`CanvasStage` dual-layer compositor, per-element drawable caches. |
-| `tools/` | Concrete `ToolHandler`s: rectangle/ellipse/diamond/line, freedraw, text, arrow (+ endpoint binding), shared drag-shape base, style state. |
-| `selection/` | Hit-test, marquee, resize/rotate handles, group transform, align/distribute, group/ungroup, snapping, clipboard, z-order ops, `SelectionTool`. |
+| `input/` | `PointerEventPipeline`, `ToolStateMachine`, `ToolHandler` contract, pan/zoom, shortcut registry, DOM adapters. |
+| `render/` | `Camera`, viewport culling, per-element renderers (rough shapes, freedraw, text, image, arrow, frame), dual-layer `StaticLayer`/`InteractiveLayer` compositor, per-element drawable caches. |
+| `tools/` | Concrete `ToolHandler`s: every shape, freedraw/highlighter, text, note, arrow/line, lasso, frame, eraser, laser; shared `DragShapeTool` base + style state. |
+| `selection/` | Hit-test, marquee, lasso select, resize/rotate handles, group transform, align/distribute, group/ungroup, snapping, clipboard, z-order ops, frame membership, `SelectionTool`. |
 | `bindings/` | Arrow-to-shape binding model, border intersection math, binding recompute, scene-sync hooks, arrow labels. |
-| `text/` | Font loading, text measurement/wrap (injectable `TextMeasurer`), bound-text layout/lifecycle, text edit session. |
+| `text/` | Font loading, text measurement/wrap (injectable `TextMeasurer`), bound-text layout/lifecycle for bindable containers, text edit session. |
 | `images/` | Content-addressed file store (`FilesMap`), image insert (resize/validate), `ImageDecodeCache` (injectable decoder). |
 | `persistence/` | `SceneDocumentV1` schema, migrations registry, validation, serialize/deserialize, localStorage autosave. |
-| `export/` | Export geometry, PNG (with embedded scene data via tEXt chunk), SVG, copy-as-image. |
+| `export/` | Export geometry, PNG (scene embedded via tEXt chunk), SVG, copy-as-image. |
 
 Public API surface: `packages/engine/src/index.ts` — the only import path
-consumers (react package, apps) should use; internal modules are not a
-supported surface.
+consumers (react package, apps) should use; internal modules are not a supported
+surface.
 
 ## packages/react/src
 
-- `index.ts` — package entry, re-exports hooks/components.
-- `components/text-editor-overlay.tsx` — WYSIWYG `<textarea>` overlay for in-place text/bound-text editing.
-- `hooks/use-text-editing.ts` — drives `TextEditSession` lifecycle from React.
-- `hooks/use-paste-and-drop.ts` — paste/drop-to-insert-image wiring.
-- `hooks/clipboard-image-detection.ts` — injectable clipboard-event predicates (testable without real `ClipboardEvent`/DOM).
-- `hooks/should-commit-on-enter.ts` — Enter-vs-Shift+Enter text-commit logic.
+The React adapter — a thin layer over the engine, no engine internals assume
+React or a DOM.
 
-## apps/web/src
-
-Vite SPA dev harness exercising the full engine end-to-end (not yet the
-final production UI — that's phase 12/15 scope):
-- `app.tsx`, `main.tsx` — app shell.
-- `dev-canvas-harness*.ts(x)` — canvas wiring split by concern (runtime, actions, shortcuts, double-click, persistence, tool names, types) — each kept under the 200-line file-size rule.
-- `browser-image-decode.ts`, `persistence-adapters.ts` — browser-side adapters for engine injection points (`ImageDecodeFn`, autosave `StorageLike`).
-- `find-arrow-at-point.ts`, `find-bindable-container-at-point.ts` — hit-test glue for the dev harness.
-- `e2e/smoke.spec.ts` — 1 Playwright test: app shell loads, title correct, engine version visible.
-
-## apps/collab-server/src
-
-- `index.ts` — placeholder Cloudflare Worker entry; Durable Objects rooms and R2 blob storage are M3 scope (phase 14), not yet implemented.
+- `index.ts` — package entry, re-exports the `<DevivaDraw/>` component, hooks, and scene-read helpers.
+- `components/` — the full UI chrome: toolbar, more-tools overflow menu, main menu (open/save/export/theme/language), style panel, context menu, shortcuts dialog, command palette, share & collab dialogs, canvas hint, text-editor overlay.
+- `runtime/` — wires engine tools, actions, and render loop into the React tree (`use-deviva-runtime`, `build-tools`, `build-runtime`, `start-render-loop`).
+- `theme/` — light/dark/system theme provider, tokens, and storage.
+- `i18n/` — translation catalogs (English + Vietnamese) and `useTranslation`.
+- `hooks/` — text editing, paste/drop-to-insert-image, clipboard detection, Enter-vs-Shift+Enter commit logic.
 
 ## packages/collab-client/src
 
-- `index.ts` — placeholder package entry; WS transport, E2E crypto, presence are M3 scope.
+Real-time sync client: WebSocket transport, an end-to-end crypto layer (the
+session key stays in the URL, never on the wire), presence, and conflict
+resolution built on the engine's `version`/`versionNonce` invariant.
+
+## apps/web/src
+
+The standalone web app — a Vite + React SPA that mounts `<DevivaDraw/>` with
+localStorage autosave, share-link routing (`/s/…`), and collab-room routing
+(`/room/…`).
+
+## apps/collab-server/src
+
+Cloudflare Worker backend: Durable Objects host per-room collaboration sessions;
+R2 stores encrypted share-link blobs. `ALLOWED_ORIGINS` gates cross-origin
+access.
 
 ## Dependencies (production)
 
 | Package | Dep | Purpose |
 |---|---|---|
-| engine | `roughjs` ^4.6.6 | hand-drawn/sketchy shape rendering |
-| engine | `perfect-freehand` ^1.2.3 | pressure-sensitive freehand stroke outlines |
-| engine | `fractional-indexing` ^4.0.0 | z-order index generation between elements |
-| react | `@deviva-draw/engine` (workspace) | — |
-| web | `react`/`react-dom` 19.2.4, engine, react pkg | — |
+| engine | `roughjs` | hand-drawn/sketchy shape rendering |
+| engine | `perfect-freehand` | pressure-sensitive freehand stroke outlines |
+| engine | `fractional-indexing` | z-order index generation between elements |
+| react | `@deviva-draw/engine`, `@deviva-draw/collab-client` (workspace) | — |
 
-All three are small, single-purpose MIT libs — consistent with the plan's
-locked decision: zero Excalidraw code, small MIT deps OK.
+All third-party runtime libs are small, single-purpose, and MIT/CC0 — consistent
+with the project's locked decision: zero Excalidraw code, small permissive deps
+OK. See [LICENSE-THIRD-PARTY](../LICENSE-THIRD-PARTY).
 
-## Test counts (as of M1 completion)
+## Tests
 
-- `packages/engine`: 991 tests (Vitest, Node environment — no real DOM canvas needed for geometry/history/serializers; injectable abstractions stand in for DOM elsewhere).
-- `packages/react`: 22 tests (Vitest).
-- `apps/web`: 1 Playwright e2e test (smoke).
+The suite runs across every package and the web app:
+
+- `packages/engine` — the bulk of the tests (Vitest, Node environment; geometry,
+  history, serializers, tools, selection, bindings all run DOM-free via
+  injectable abstractions).
+- `packages/react` — hook and component logic (Vitest).
+- `packages/collab-client` — transport, crypto, presence (Vitest).
+- `apps/collab-server` — Worker/Durable Object logic (Vitest).
+- `apps/web` — Playwright end-to-end (pointer-driven scene assertions).
+
+Run everything with `pnpm test` from the repo root.
 
 ## See also
 
 - [System Architecture](./system-architecture.md)
 - [Code Standards](./code-standards.md)
 - [Project Roadmap](./project-roadmap.md)
+- [Deployment Guide](./deployment-guide.md)

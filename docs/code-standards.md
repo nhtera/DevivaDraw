@@ -35,8 +35,8 @@ codebase (`scene/scene-mutations.ts`):
 ```
 
 — explains the invariant and *why* it exists, not "per phase 02" or
-"see F7". Commit messages and `plans/**/phase-XX-*.md` are where plan
-references belong; source comments never reference them.
+"see F7". Commit messages and pull-request descriptions are where such
+process references belong; source comments never reference them.
 
 ## Tool pattern: `ToolHandler` gesture lifecycle
 
@@ -101,10 +101,10 @@ predicates (`packages/react/src/hooks/clipboard-image-detection.ts`).
 
 ## Testing
 
-- Vitest for `packages/engine` (Node env, no real `<canvas>`) and `packages/react` (hooks). Playwright for `apps/web` e2e.
-- Tests exercise real engine code paths through the injectable-dependency pattern above, not mocks of the behavior under test. `vi.fn()` spies appear only to assert a callback fired (e.g. an update-hook or `onSettled` was invoked) — never to replace scene/render/tool logic itself.
+- Vitest for `packages/engine` (Node env, no real `<canvas>`), `packages/react` (hooks/components), `packages/collab-client` (transport/crypto/presence), and `apps/collab-server` (Worker/Durable Object). Playwright for `apps/web` e2e.
+- Tests exercise real code paths through the injectable-dependency pattern above, not mocks of the behavior under test. `vi.fn()` spies appear only to assert a callback fired (e.g. an update-hook or `onSettled` was invoked) — never to replace scene/render/tool logic itself.
 - No fake data / cheats / temporary solutions to pass a suite — a failing test gets the underlying code fixed, not the assertion loosened.
-- Current counts: 991 engine tests, 22 react tests, 1 Playwright e2e (`apps/web/e2e/smoke.spec.ts`).
+- Run the whole suite with `pnpm test` from the repo root; no change merges with a failing suite.
 
 ## Linting
 
