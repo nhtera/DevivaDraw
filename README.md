@@ -1,5 +1,10 @@
 # Deviva Draw
 
+[![@deviva-draw/engine](https://img.shields.io/npm/v/@deviva-draw/engine?label=%40deviva-draw%2Fengine&color=cb3837&logo=npm)](https://www.npmjs.com/package/@deviva-draw/engine)
+[![@deviva-draw/react](https://img.shields.io/npm/v/@deviva-draw/react?label=%40deviva-draw%2Freact&color=cb3837&logo=npm)](https://www.npmjs.com/package/@deviva-draw/react)
+[![@deviva-draw/collab-client](https://img.shields.io/npm/v/@deviva-draw/collab-client?label=%40deviva-draw%2Fcollab-client&color=cb3837&logo=npm)](https://www.npmjs.com/package/@deviva-draw/collab-client)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 An open-source, infinite-canvas whiteboard — a framework-agnostic drawing
 engine, a React component library, and a collaborative web app. Built entirely
 from scratch (clean-room: no Excalidraw or tldraw code) and released under the
