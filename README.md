@@ -14,6 +14,20 @@ MIT license.
 > the drawing and diagramming canvas inside Deviva, and is published on its own
 > so anyone can use it, embed it, or contribute to it independently.
 
+**Try it live at [draw.deviva.app](https://draw.deviva.app).**
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/images/hero-light.png" alt="Deviva Draw on desktop — a hand-drawn flowchart with a rectangle, ellipse, and diamond connected by arrows, a yellow sticky note, and a freehand stroke, alongside the tool and style panels" width="860">
+</p>
+
+<p align="center">
+  <img src="docs/images/mobile.png" alt="Deviva Draw on a phone — the diagram zoomed to fit, with a compact bottom toolbar and a More button for the rest of the tools" width="300">
+  <br>
+  <em>Responsive: a compact bottom toolbar on phones, with the overflow tools one tap away.</em>
+</p>
+
 ## Features
 
 - **Rich drawing tools** — rectangle, ellipse, diamond, triangle, hexagon, star,
