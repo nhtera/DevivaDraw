@@ -8,6 +8,21 @@
 import type { ReactNode } from "react";
 
 export const MENU_GLYPHS: Record<string, ReactNode> = {
+  // Undo/redo as clean rounded arc-arrows (replacing the earlier ↶/↷ Unicode glyphs, which rendered
+  // as thin off-center hooks): a left-pointing arrowhead whose shaft curls down and around, mirrored
+  // for redo — the same affordance tldraw's toolbar shows.
+  undo: (
+    <>
+      <path d="M6.5 6 L3.5 9 L6.5 12" />
+      <path d="M3.5 9 H11 A5 5 0 0 1 16 14" />
+    </>
+  ),
+  redo: (
+    <>
+      <path d="M13.5 6 L16.5 9 L13.5 12" />
+      <path d="M16.5 9 H9 A5 5 0 0 0 4 14" />
+    </>
+  ),
   trash: (
     <>
       <path d="M4 6 H16" />
