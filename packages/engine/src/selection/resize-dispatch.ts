@@ -83,9 +83,21 @@ export function dispatchResize(element: AnyElement, oldBounds: SceneRect, newBou
       return element.containerId !== null ? null : resizeStandaloneText(element, oldBounds, newBounds);
     case "image":
       return resizeImage(element, oldBounds, newBounds);
+    // Every bounding-box shape (its geometry is recomputed from x/y/width/height by its renderer/hit-test)
+    // resizes by just clamping the new bounds — no per-type point math needed.
     case "rectangle":
     case "ellipse":
     case "diamond":
+    case "triangle":
+    case "hexagon":
+    case "star":
+    case "block-arrow":
+    case "cloud":
+    case "heart":
+    case "x-box":
+    case "check-box":
+    case "note":
+    case "frame":
     case "generic":
       return clampSize(newBounds);
     default:

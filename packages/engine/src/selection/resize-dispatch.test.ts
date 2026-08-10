@@ -4,7 +4,20 @@ import type { ArrowElement } from "../elements/arrow-element";
 import { createFreedrawElement } from "../elements/freedraw-element";
 import type { FreedrawElement } from "../elements/freedraw-element";
 import { createImageElement } from "../elements/image-element";
-import { createLineElement, createRectangleElement } from "../elements/shape-elements";
+import { createFrameElement } from "../elements/frame-element";
+import { createNoteElement } from "../elements/note-element";
+import {
+  createBlockArrowElement,
+  createCheckBoxElement,
+  createCloudElement,
+  createHeartElement,
+  createHexagonElement,
+  createLineElement,
+  createRectangleElement,
+  createStarElement,
+  createTriangleElement,
+  createXBoxElement,
+} from "../elements/shape-elements";
 import type { LineElement } from "../elements/shape-elements";
 import { createTextElement } from "../elements/text-element";
 import type { TextElement } from "../elements/text-element";
@@ -29,6 +42,28 @@ describe("dispatchResize — rectangle/ellipse/diamond/generic", () => {
     expect(result?.width).toBeGreaterThan(0);
     expect(result?.height).toBeGreaterThan(0);
   });
+});
+
+describe("dispatchResize — every bounding-box shape resizes (regression: they used to fall through to null)", () => {
+  const shapes = {
+    triangle: createTriangleElement({ x: 0, y: 0, width: 100, height: 100 }),
+    hexagon: createHexagonElement({ x: 0, y: 0, width: 100, height: 100 }),
+    star: createStarElement({ x: 0, y: 0, width: 100, height: 100 }),
+    cloud: createCloudElement({ x: 0, y: 0, width: 100, height: 100 }),
+    heart: createHeartElement({ x: 0, y: 0, width: 100, height: 100 }),
+    "x-box": createXBoxElement({ x: 0, y: 0, width: 100, height: 100 }),
+    "check-box": createCheckBoxElement({ x: 0, y: 0, width: 100, height: 100 }),
+    "block-arrow": createBlockArrowElement({ x: 0, y: 0, width: 100, height: 100, direction: "right" }),
+    note: createNoteElement({ x: 0, y: 0, width: 100, height: 100 }),
+    frame: createFrameElement({ x: 0, y: 0, width: 100, height: 100, name: "Frame 1" }),
+  };
+
+  for (const [label, element] of Object.entries(shapes)) {
+    it(`${label} scales its bounds instead of returning null`, () => {
+      const result = dispatchResize(stored(element), { x: 0, y: 0, width: 100, height: 100 }, { x: 5, y: 5, width: 200, height: 150 });
+      expect(result).toEqual({ x: 5, y: 5, width: 200, height: 150 });
+    });
+  }
 });
 
 describe("dispatchResize — line/arrow", () => {
