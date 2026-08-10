@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "deviva-draw-web",
+  "compatibility_date": "2026-08-01",
+  // Static-asset-only Worker: serves the Vite build in ./dist. No `main` — there is no server-side
+  // code, just the SPA bundle. `single-page-application` serves index.html for unknown paths so the
+  // client-side routes (/s/{blobId} share viewer, /room/{id} live collab) resolve on hard refresh.
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  },
+  // Public hostname. `custom_domain` provisions the DNS record + edge cert on the deviva.app zone
+  // automatically on deploy. The share/collab backend lives at collab-draw.deviva.app (baked into
+  // the build via VITE_SHARE_API_BASE_URL).
+  "routes": [
+    { "pattern": "draw.deviva.app", "custom_domain": true }
+  ]
+}

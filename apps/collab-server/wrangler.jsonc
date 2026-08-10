@@ -7,6 +7,13 @@
   // 8787 (wrangler's default) is often taken by other local tools; fix a port
   // so `pnpm dev` is deterministic on every machine.
   "dev": { "port": 8788 },
+  // Public hostname for the deployed Worker. `custom_domain` makes Cloudflare provision the DNS
+  // record + edge cert on the deviva.app zone automatically on deploy. The web app is built with
+  // VITE_SHARE_API_BASE_URL pointing here, and this origin serves both share-link blobs and the
+  // live-collab WebSocket relay.
+  "routes": [
+    { "pattern": "collab-draw.deviva.app", "custom_domain": true }
+  ],
   // Ciphertext blob storage for share links (see src/blob-routes.ts) — the bucket itself must be
   // created once via `wrangler r2 bucket create deviva-draw-share-blobs` (or the dashboard) before
   // this Worker can deploy; `wrangler dev` provisions a local miniflare-backed R2 automatically, no
