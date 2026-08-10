@@ -39,7 +39,7 @@ test("the eraser tool removes an element dragged over, and has a toolbar button 
   // Counts "ink" pixels (dark stroke on the default light canvas) in the shape's region.
   const inkInRegion = async (): Promise<number> =>
     page.evaluate(() => {
-      const canvases = [...document.querySelectorAll("canvas")];
+      const canvases = [...document.querySelector('[data-testid="deviva-draw-canvas-host"]')!.querySelectorAll("canvas")];
       const cv = canvases[canvases.length - 2]!; // static layer holds committed elements
       const ctx = cv.getContext("2d")!;
       const dpr = window.devicePixelRatio || 1;
@@ -92,7 +92,7 @@ test("the laser pointer draws a fading red trail and leaves nothing on the canva
   // Counts laser-red pixels (rgb ~255,45,45) on the interactive (top) canvas.
   const redPixels = (): Promise<number> =>
     page.evaluate(() => {
-      const canvases = [...document.querySelectorAll("canvas")];
+      const canvases = [...document.querySelector('[data-testid="deviva-draw-canvas-host"]')!.querySelectorAll("canvas")];
       const cv = canvases[canvases.length - 1]!; // interactive overlay is on top
       const d = cv.getContext("2d")!.getImageData(0, 0, cv.width, cv.height).data;
       let red = 0;

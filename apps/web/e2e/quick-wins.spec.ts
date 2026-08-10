@@ -16,7 +16,7 @@ test.beforeEach(async ({ page }) => {
 async function bluePixels(page: import("@playwright/test").Page, x: number, y: number, w: number, h: number): Promise<number> {
   return page.evaluate(
     ({ x, y, w, h }) => {
-      const canvases = [...document.querySelectorAll("canvas")];
+      const canvases = [...document.querySelector('[data-testid="deviva-draw-canvas-host"]')!.querySelectorAll("canvas")];
       const cv = canvases[canvases.length - 2]!; // static layer holds committed elements
       const ctx = cv.getContext("2d")!;
       const dpr = window.devicePixelRatio || 1;

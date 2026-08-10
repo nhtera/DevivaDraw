@@ -41,7 +41,7 @@ function scanStroke(page: Page, box: { x: number; y: number; w: number; h: numbe
   return page.evaluate((b) => {
     let opaque = 0;
     let brightestSum = -1;
-    for (const cv of Array.from(document.querySelectorAll("canvas"))) {
+    for (const cv of Array.from(document.querySelector('[data-testid="deviva-draw-canvas-host"]')!.querySelectorAll("canvas"))) {
       const ctx = cv.getContext("2d");
       if (!ctx) continue;
       const rect = cv.getBoundingClientRect();

@@ -65,7 +65,7 @@ test("editing a text hides the selection frame/handles (clean editing mode like 
   // Counts selection-frame/handle pixels (drawn in #1971c2 = rgb(25,113,194)) on the interactive canvas.
   const selectionBlue = async (): Promise<number> =>
     page.evaluate(() => {
-      const canvases = [...document.querySelectorAll("canvas")];
+      const canvases = [...document.querySelector('[data-testid="deviva-draw-canvas-host"]')!.querySelectorAll("canvas")];
       const cv = canvases[canvases.length - 1]!; // interactive layer is on top
       const ctx = cv.getContext("2d")!;
       const d = ctx.getImageData(0, 0, cv.width, cv.height).data;

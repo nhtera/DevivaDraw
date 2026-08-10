@@ -34,6 +34,7 @@ import { CollabDialog } from "./components/collab-dialog";
 import { ShortcutsDialog } from "./components/shortcuts-dialog";
 import { FindPanel } from "./components/find-panel";
 import { ExportDialog } from "./components/export-dialog";
+import { Minimap } from "./components/minimap";
 import { useCanvasBackground } from "./runtime/use-live-version";
 import { CommandPalette } from "./components/command-palette";
 import { BottomToolbar } from "./components/mobile/bottom-toolbar";
@@ -230,6 +231,9 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {runtime && !zenMode.value && !isNarrow && <CanvasHint runtime={runtime} />}
       {runtime && !zenMode.value && <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} />}
       {runtime && !zenMode.value && !viewOnly.value && <PropertiesPanel runtime={runtime} />}
+      {runtime && !zenMode.value && !isNarrow && (
+        <Minimap runtime={runtime} cameraStore={cameraStore} getViewportSize={() => ({ width: canvasHostRef.current?.clientWidth ?? 0, height: canvasHostRef.current?.clientHeight ?? 0 })} />
+      )}
       {runtime && mainMenuOpen.value && (
         <MainMenu
           runtime={runtime}
@@ -250,7 +254,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
         <ContextMenu runtime={runtime} screenPoint={contextMenuTriggers.point} onClose={contextMenuTriggers.close} />
       )}
       {statsPanel.value && runtime && (
-        <div data-testid="stats-panel" style={{ position: "absolute", bottom: 8, right: 8, fontSize: 11, color: "var(--dd-text-secondary)" }}>
+        <div data-testid="stats-panel" style={{ position: "absolute", bottom: 146, right: 8, fontSize: 11, color: "var(--dd-text-secondary)" }}>
           {t("panel.layers")}: {runtime.scene.getElements().filter((element) => !element.isDeleted).length}
         </div>
       )}
