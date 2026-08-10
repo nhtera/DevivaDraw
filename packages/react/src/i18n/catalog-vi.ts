@@ -81,6 +81,8 @@ export const catalogVi: Record<TranslationKey, string> = {
   "action.share": "Chia sẻ…",
 
   "menu.title": "Menu",
+  "menu.github": "GitHub",
+  "menu.deviva": "Deviva",
   "menu.theme": "Giao diện",
   "menu.language": "Ngôn ngữ",
   "menu.help": "Phím tắt",

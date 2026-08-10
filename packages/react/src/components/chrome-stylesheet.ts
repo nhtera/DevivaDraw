@@ -16,6 +16,9 @@ const ROOT = '[data-testid="deviva-draw-root"]';
 const CHROME_CSS = `
 ${ROOT} button { background: transparent; }
 ${ROOT} button:hover:not(:disabled) { background: rgba(127, 127, 127, 0.14); }
+/* External-link menu items are real <a> elements (middle-click, copy-link) but share the button hover. */
+${ROOT} a.dd-menu-link { background: transparent; }
+${ROOT} a.dd-menu-link:hover { background: rgba(127, 127, 127, 0.14); }
 ${ROOT} button[aria-pressed="true"] { background: var(--dd-accent-soft); }
 ${ROOT} button[aria-pressed="true"]:hover:not(:disabled) { background: var(--dd-accent-soft); }
 ${ROOT} :focus-visible { outline: 2px solid var(--dd-accent); outline-offset: 1px; border-radius: 5px; }
@@ -28,7 +31,7 @@ ${ROOT} [data-testid="text-editor-overlay-textarea"] { outline: none; }
 ${ROOT} [data-testid="text-editor-overlay-textarea"]::selection { background: rgba(51, 103, 214, 0.30); }
 @keyframes dd-pop-in { from { opacity: 0; transform: scale(0.97) translateY(-3px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: no-preference) {
-  ${ROOT} button { transition: background 120ms ease, color 120ms ease, transform 90ms ease; }
+  ${ROOT} button, ${ROOT} a.dd-menu-link { transition: background 120ms ease, color 120ms ease, transform 90ms ease; }
   ${ROOT} button:active:not(:disabled) { transform: scale(0.95); }
   ${ROOT} .dd-animate-in { animation: dd-pop-in 140ms cubic-bezier(0.16, 1, 0.3, 1); }
 }

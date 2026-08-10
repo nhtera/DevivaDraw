@@ -81,6 +81,8 @@ export const catalogEn = {
   "action.share": "Share…",
 
   "menu.title": "Menu",
+  "menu.github": "GitHub",
+  "menu.deviva": "Deviva",
   "menu.theme": "Theme",
   "menu.language": "Language",
   "menu.help": "Keyboard shortcuts",

@@ -25,6 +25,9 @@ export interface MainMenuProps {
 }
 
 const LOCALES: Locale[] = ["en", "vi"];
+/** External links surfaced in the menu — the source repo and the parent product this canvas ships inside. */
+const GITHUB_URL = "https://github.com/nhtera/DevivaDraw";
+const DEVIVA_URL = "https://deviva.app";
 /** The theme picker's three choices, each with its glyph — a light sun, a dark moon, a system monitor (matching Excalidraw's icon toggle). */
 const THEME_OPTIONS: readonly { value: ThemePreference; icon: string }[] = [
   { value: "light", icon: "theme-light" },
@@ -40,6 +43,23 @@ function MenuButton(props: { onClick: () => void; icon: string; children: string
       <Icon name={props.icon} />
       {props.children}
     </button>
+  );
+}
+
+/** A menu row that opens an external URL in a new tab — a real `<a>` (middle-click / copy-link work) styled to match `MenuButton`. */
+function MenuLink(props: { href: string; icon: string; children: string; testId: string }) {
+  return (
+    <a
+      className="dd-menu-link"
+      href={props.href}
+      target="_blank"
+      rel="noreferrer noopener"
+      data-testid={props.testId}
+      style={{ ...buttonStyle(false), justifyContent: "flex-start", width: "100%", boxSizing: "border-box", textDecoration: "none" }}
+    >
+      <Icon name={props.icon} />
+      {props.children}
+    </a>
   );
 }
 
@@ -96,6 +116,13 @@ export function MainMenu(props: MainMenuProps) {
           {t("action.collab")}
         </MenuButton>
       )}
+      <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
+      <MenuLink testId="main-menu-deviva" icon="external-link" href={DEVIVA_URL}>
+        {t("menu.deviva")}
+      </MenuLink>
+      <MenuLink testId="main-menu-github" icon="github" href={GITHUB_URL}>
+        {t("menu.github")}
+      </MenuLink>
       <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
       <div style={sectionLabelStyle}>{t("menu.theme")}</div>
       <div style={{ display: "flex", gap: 2, padding: "0 4px 4px" }} role="radiogroup" aria-label={t("menu.theme")}>
