@@ -23,6 +23,22 @@ export const MENU_GLYPHS: Record<string, ReactNode> = {
       <path d="M16.5 9 H9 A5 5 0 0 0 4 14" />
     </>
   ),
+  // Theme picker glyphs: a sun (light), a crescent moon (dark), a monitor (follow system).
+  "theme-light": (
+    <>
+      <circle cx="10" cy="10" r="3.2" />
+      <path d="M10 3 V4.8 M10 15.2 V17 M3 10 H4.8 M15.2 10 H17 M5.05 5.05 L6.3 6.3 M13.7 13.7 L14.95 14.95 M14.95 5.05 L13.7 6.3 M6.3 13.7 L5.05 14.95" strokeLinecap="round" />
+    </>
+  ),
+  "theme-dark": <path d="M15.5 11.3 A6 6 0 1 1 8.7 4.5 A4.6 4.6 0 0 0 15.5 11.3 Z" strokeLinejoin="round" />,
+  "theme-system": (
+    <>
+      <rect x="3" y="4.5" width="14" height="9" rx="1.5" />
+      <path d="M7.5 16.5 H12.5 M10 13.5 V16.5" strokeLinecap="round" />
+    </>
+  ),
+  // A clean downward chevron — the custom dropdown indicator for the language <select>.
+  "chevron-down": <path d="M5.5 8 L10 12.5 L14.5 8" strokeLinecap="round" strokeLinejoin="round" />,
   trash: (
     <>
       <path d="M4 6 H16" />

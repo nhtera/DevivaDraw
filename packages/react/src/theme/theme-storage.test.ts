@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readStoredThemeMode, writeStoredThemeMode } from "./theme-storage";
+import { readStoredThemePreference, writeStoredThemePreference } from "./theme-storage";
 
 function fakeStorage(initial: Record<string, string> = {}) {
   const store = new Map(Object.entries(initial));
@@ -11,16 +11,18 @@ function fakeStorage(initial: Record<string, string> = {}) {
 
 describe("theme-storage", () => {
   it("returns null when nothing was ever stored", () => {
-    expect(readStoredThemeMode(fakeStorage())).toBeNull();
+    expect(readStoredThemePreference(fakeStorage())).toBeNull();
   });
 
-  it("round-trips a written theme mode", () => {
+  it("round-trips a written theme preference, including 'system'", () => {
     const storage = fakeStorage();
-    writeStoredThemeMode(storage, "dark");
-    expect(readStoredThemeMode(storage)).toBe("dark");
+    writeStoredThemePreference(storage, "dark");
+    expect(readStoredThemePreference(storage)).toBe("dark");
+    writeStoredThemePreference(storage, "system");
+    expect(readStoredThemePreference(storage)).toBe("system");
   });
 
   it("returns null for a corrupted/foreign stored value rather than throwing", () => {
-    expect(readStoredThemeMode(fakeStorage({ "devivadraw:theme:v1": "solarized" }))).toBeNull();
+    expect(readStoredThemePreference(fakeStorage({ "devivadraw:theme:v1": "solarized" }))).toBeNull();
   });
 });

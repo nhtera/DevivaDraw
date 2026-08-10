@@ -7,11 +7,12 @@
  * design; only this explicit, easy-to-mis-click menu item guards itself).
  */
 import { useEffect, useRef } from "react";
-import { buttonStyle, panelStyle } from "./chrome-styles";
+import { buttonStyle, inputStyle, panelStyle } from "./chrome-styles";
 import { Icon } from "./icon";
 import type { Locale } from "../i18n/locale-storage";
 import { useTranslation } from "../i18n/use-translation";
 import { useTheme } from "../theme/theme-provider";
+import type { ThemePreference } from "../theme/theme-tokens";
 import type { DevivaRuntime } from "../runtime/runtime-types";
 
 export interface MainMenuProps {
@@ -24,6 +25,14 @@ export interface MainMenuProps {
 }
 
 const LOCALES: Locale[] = ["en", "vi"];
+/** The theme picker's three choices, each with its glyph — a light sun, a dark moon, a system monitor (matching Excalidraw's icon toggle). */
+const THEME_OPTIONS: readonly { value: ThemePreference; icon: string }[] = [
+  { value: "light", icon: "theme-light" },
+  { value: "dark", icon: "theme-dark" },
+  { value: "system", icon: "theme-system" },
+];
+/** Shared style for the small uppercase-ish section headers (Theme / Language). */
+const sectionLabelStyle = { padding: "6px 8px 2px", fontSize: 11, color: "var(--dd-text-secondary)" } as const;
 
 function MenuButton(props: { onClick: () => void; icon: string; children: string; testId: string }) {
   return (
@@ -37,7 +46,7 @@ function MenuButton(props: { onClick: () => void; icon: string; children: string
 export function MainMenu(props: MainMenuProps) {
   const { runtime, onClose, onOpenShortcuts, onOpenCollab, shareEnabled } = props;
   const { t, locale, setLocale } = useTranslation();
-  const { mode, setMode } = useTheme();
+  const { preference, setPreference } = useTheme();
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -88,21 +97,46 @@ export function MainMenu(props: MainMenuProps) {
         </MenuButton>
       )}
       <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
-      <div style={{ padding: "4px 8px", fontSize: 11, color: "var(--dd-text-secondary)" }}>{t("menu.theme")}</div>
-      <div style={{ display: "flex", gap: 2, padding: "0 4px 4px" }}>
-        {(["light", "dark"] as const).map((option) => (
-          <button key={option} type="button" data-testid={`main-menu-theme-${option}`} aria-pressed={mode === option} style={{ ...buttonStyle(mode === option), flex: 1 }} onClick={() => setMode(option)}>
-            {t(`theme.${option}`)}
+      <div style={sectionLabelStyle}>{t("menu.theme")}</div>
+      <div style={{ display: "flex", gap: 2, padding: "0 4px 4px" }} role="radiogroup" aria-label={t("menu.theme")}>
+        {THEME_OPTIONS.map(({ value, icon }) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            data-testid={`main-menu-theme-${value}`}
+            title={t(`theme.${value}`)}
+            aria-label={t(`theme.${value}`)}
+            aria-checked={preference === value}
+            aria-pressed={preference === value}
+            style={{ ...buttonStyle(preference === value), flex: 1, justifyContent: "center", padding: "8px 0" }}
+            onClick={() => setPreference(value)}
+          >
+            <Icon name={icon} />
           </button>
         ))}
       </div>
-      <div style={{ padding: "4px 8px", fontSize: 11, color: "var(--dd-text-secondary)" }}>{t("menu.language")}</div>
-      <div style={{ display: "flex", gap: 2, padding: "0 4px 4px" }}>
-        {LOCALES.map((option) => (
-          <button key={option} type="button" data-testid={`main-menu-locale-${option}`} aria-pressed={locale === option} style={{ ...buttonStyle(locale === option), flex: 1 }} onClick={() => setLocale(option)}>
-            {t(`language.${option}`)}
-          </button>
-        ))}
+      <div style={sectionLabelStyle}>{t("menu.language")}</div>
+      <div style={{ padding: "0 4px 6px" }}>
+        <div style={{ position: "relative", display: "flex" }}>
+          <select
+            data-testid="main-menu-locale"
+            aria-label={t("menu.language")}
+            value={locale}
+            onChange={(event) => setLocale(event.target.value as Locale)}
+            // Hide the browser's default dropdown arrow so the custom chevron below is the only indicator.
+            style={{ ...inputStyle, appearance: "none", WebkitAppearance: "none", paddingRight: 30, cursor: "pointer" }}
+          >
+            {LOCALES.map((option) => (
+              <option key={option} value={option}>
+                {t(`language.${option}`)}
+              </option>
+            ))}
+          </select>
+          <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", display: "inline-flex", color: "var(--dd-text-secondary)" }}>
+            <Icon name="chevron-down" size={14} />
+          </span>
+        </div>
       </div>
       <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
       <MenuButton testId="main-menu-toggle-zen-mode" icon="zen" onClick={() => run("toggle-zen-mode")}>

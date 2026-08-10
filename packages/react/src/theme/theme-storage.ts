@@ -1,9 +1,10 @@
 /**
- * Theme-mode persistence — same injected-`StorageLike` pattern as `i18n/locale-storage.ts`, own
+ * Theme-preference persistence — same injected-`StorageLike` pattern as `i18n/locale-storage.ts`, own
  * storage key (independent of the locale key and of the engine's scene-autosave key; see that
- * module's doc for why these stay separate).
+ * module's doc for why these stay separate). Stores the user's *choice* (`light`/`dark`/`system`),
+ * not the resolved mode — so a `system` preference keeps following the OS across reloads.
  */
-import type { ThemeMode } from "./theme-tokens";
+import type { ThemePreference } from "./theme-tokens";
 
 const THEME_STORAGE_KEY = "devivadraw:theme:v1";
 
@@ -12,16 +13,16 @@ export interface StorageLike {
   setItem(key: string, value: string): void;
 }
 
-function isThemeMode(value: string): value is ThemeMode {
-  return value === "light" || value === "dark";
+function isThemePreference(value: string): value is ThemePreference {
+  return value === "light" || value === "dark" || value === "system";
 }
 
-/** Reads the persisted theme mode, or `null` if nothing valid was ever stored. */
-export function readStoredThemeMode(storage: StorageLike): ThemeMode | null {
+/** Reads the persisted theme preference, or `null` if nothing valid was ever stored. */
+export function readStoredThemePreference(storage: StorageLike): ThemePreference | null {
   const raw = storage.getItem(THEME_STORAGE_KEY);
-  return raw !== null && isThemeMode(raw) ? raw : null;
+  return raw !== null && isThemePreference(raw) ? raw : null;
 }
 
-export function writeStoredThemeMode(storage: StorageLike, mode: ThemeMode): void {
-  storage.setItem(THEME_STORAGE_KEY, mode);
+export function writeStoredThemePreference(storage: StorageLike, preference: ThemePreference): void {
+  storage.setItem(THEME_STORAGE_KEY, preference);
 }

@@ -6,7 +6,11 @@
  * flips between near-white and near-black. `resolveThemeTokens` is the only place these values live,
  * so `theme-provider.tsx` and every component reading `var(--dd-*)` stay in sync by construction.
  */
+/** The resolved theme actually applied to chrome + canvas — always a concrete light or dark. */
 export type ThemeMode = "light" | "dark";
+
+/** The user's theme *choice*: an explicit light/dark, or `"system"` (follow the OS `prefers-color-scheme`, resolved to a `ThemeMode` at render time). */
+export type ThemePreference = ThemeMode | "system";
 
 export interface ThemeTokens {
   /** CSS custom-property values, keyed without the `--dd-` prefix (added by `toCssVariables`). */
