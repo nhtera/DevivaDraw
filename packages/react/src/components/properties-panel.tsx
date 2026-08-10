@@ -10,9 +10,10 @@ import { DEFAULT_BACKGROUND_COLOR_PALETTE, DEFAULT_STROKE_COLOR_PALETTE, ROUNDNE
 import type { AnyElement, FillStyle, RoundnessValue, ShapeStyle, StrokeStyle, TextElement } from "@deviva-draw/engine";
 import { useEffect, useReducer } from "react";
 import { ColorPicker } from "./color-picker";
+import { Icon } from "./icon";
 import { LayerActionsSection } from "./layer-actions-section";
 import { LinkSection } from "./link-section";
-import { panelStyle, labelStyle } from "./chrome-styles";
+import { buttonStyle, panelStyle, labelStyle } from "./chrome-styles";
 import { StyleSection } from "./style-section";
 import { ArrowStyleSection, TextPropertiesPanel, TextStyleSection } from "./type-style-sections";
 import { useTranslation } from "../i18n/use-translation";
@@ -40,6 +41,14 @@ function textStyleTargets(runtime: DevivaRuntime): TextElement[] {
     if (element && element.type === "text" && !element.isDeleted && !targets.some((t) => t.id === element.id)) targets.push(element);
   }
   return targets;
+}
+
+/** The id of the sole selected element when it's a freehand stroke (for the "Draw to shape" affordance), else null. */
+function singleFreedrawSelected(runtime: DevivaRuntime): boolean {
+  const ids = [...runtime.selection.getSelectedIds()];
+  if (ids.length !== 1) return false;
+  const element = runtime.scene.getElement(ids[0]!);
+  return !!element && !element.isDeleted && element.type === "freedraw";
 }
 
 /** Selected non-text elements — their presence means a *mixed* selection, which keeps the full shape panel rather than the text-only one. */
@@ -201,6 +210,12 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
       {runtime.selection.size > 0 && (
         <>
           <div style={{ height: 1, background: "var(--dd-chrome-border)" }} />
+          {singleFreedrawSelected(runtime) && (
+            <button type="button" data-testid="draw-to-shape" style={{ ...buttonStyle(false), justifyContent: "flex-start", width: "100%" }} onClick={() => runtime.actionRegistry.run("draw-to-shape", runtime)}>
+              <Icon name="shapes" />
+              {t("action.drawToShape")}
+            </button>
+          )}
           <LinkSection runtime={runtime} />
           <span style={labelStyle}>{t("panel.layers")}</span>
           <LayerActionsSection runtime={runtime} />

@@ -82,6 +82,7 @@ export const catalogVi: Record<TranslationKey, string> = {
   "action.copyAsImage": "Sao chép dưới dạng ảnh",
   "action.copyStyles": "Sao chép kiểu",
   "action.pasteStyles": "Dán kiểu",
+  "action.drawToShape": "Chuyển thành hình",
   "action.link": "Liên kết",
   "action.share": "Chia sẻ…",
 

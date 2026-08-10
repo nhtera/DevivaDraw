@@ -109,6 +109,8 @@ export function registerStyleClipboardShortcuts(registry: ShortcutRegistry): voi
     registry.register(`${modifier}+alt+c`, "copy-styles");
     registry.register(`${modifier}+alt+v`, "paste-styles");
   }
+  // "Draw to shape" — cleans a selected freehand stroke into a recognized shape (Excalidraw's Shift+X).
+  registry.register("shift+x", "draw-to-shape");
 }
 
 /** Undo/redo — `Ctrl/Cmd+Z` and `Ctrl/Cmd+Shift+Z`, the one shortcut pair no tool's own `onKeyDown` owns (undo/redo is global chrome, not a tool concern). */

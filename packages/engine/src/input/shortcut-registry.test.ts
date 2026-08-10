@@ -153,5 +153,6 @@ describe("registerFullShortcutMap", () => {
     expect(registry.resolve("b", NO_MODIFIERS)).toBe("bucket-fill-tool");
     expect(registry.resolve("c", { ...NO_MODIFIERS, meta: true, alt: true })).toBe("copy-styles");
     expect(registry.resolve("v", { ...NO_MODIFIERS, ctrl: true, alt: true })).toBe("paste-styles");
+    expect(registry.resolve("x", { ...NO_MODIFIERS, shift: true })).toBe("draw-to-shape");
   });
 });

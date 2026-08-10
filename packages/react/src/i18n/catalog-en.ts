@@ -82,6 +82,7 @@ export const catalogEn = {
   "action.copyAsImage": "Copy as image",
   "action.copyStyles": "Copy styles",
   "action.pasteStyles": "Paste styles",
+  "action.drawToShape": "Draw to shape",
   "action.link": "Link",
   "action.share": "Share…",
 
