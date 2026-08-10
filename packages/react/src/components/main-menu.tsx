@@ -21,6 +21,7 @@ export interface MainMenuProps {
   onClose(): void;
   onOpenShortcuts(): void;
   onOpenCollab(): void;
+  onOpenExport(): void;
   /** Whether the host configured `shareApiBaseUrl` — gates both "Share" and "Collaborate…", which both depend on the same collab-server endpoint (see `deviva-draw-app-types.ts`'s `shareApiBaseUrl` doc). `false` hides them entirely rather than showing a menu entry that would just fail every time. */
   shareEnabled: boolean;
 }
@@ -65,7 +66,7 @@ function MenuLink(props: { href: string; icon: string; children: string; testId:
 }
 
 export function MainMenu(props: MainMenuProps) {
-  const { runtime, onClose, onOpenShortcuts, onOpenCollab, shareEnabled } = props;
+  const { runtime, onClose, onOpenShortcuts, onOpenCollab, onOpenExport, shareEnabled } = props;
   const { t, locale, setLocale } = useTranslation();
   const { preference, setPreference } = useTheme();
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -96,6 +97,16 @@ export function MainMenu(props: MainMenuProps) {
       </MenuButton>
       <MenuButton testId="main-menu-export-svg" icon="export-svg" onClick={() => run("export-svg")}>
         {t("action.exportSvg")}
+      </MenuButton>
+      <MenuButton
+        testId="main-menu-export-image"
+        icon="export-png"
+        onClick={() => {
+          onOpenExport();
+          onClose();
+        }}
+      >
+        {t("action.exportImage")}
       </MenuButton>
       <MenuButton testId="main-menu-copy-image" icon="copy-image" onClick={() => run("copy-as-image")}>
         {t("action.copyAsImage")}

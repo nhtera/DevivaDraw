@@ -33,6 +33,7 @@ import { ShareDialog } from "./components/share-dialog";
 import { CollabDialog } from "./components/collab-dialog";
 import { ShortcutsDialog } from "./components/shortcuts-dialog";
 import { FindPanel } from "./components/find-panel";
+import { ExportDialog } from "./components/export-dialog";
 import { useCanvasBackground } from "./runtime/use-live-version";
 import { CommandPalette } from "./components/command-palette";
 import { BottomToolbar } from "./components/mobile/bottom-toolbar";
@@ -77,6 +78,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const commandPaletteOpen = useToggleState(false);
   const shortcutsDialogOpen = useToggleState(false);
   const findOpen = useToggleState(false);
+  const exportDialogOpen = useToggleState(false);
   const mainMenuOpen = useToggleState(false);
   const shareDialog = useValueState<ShareDialogState>({ status: "closed" });
   const collabDialogOpen = useToggleState(false);
@@ -92,6 +94,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     commandPaletteOpen.value ||
       shortcutsDialogOpen.value ||
       findOpen.value ||
+      exportDialogOpen.value ||
       mainMenuOpen.value ||
       shareDialog.value.status !== "closed" ||
       collabDialogOpen.value ||
@@ -233,9 +236,11 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
           onClose={() => mainMenuOpen.set(false)}
           onOpenShortcuts={() => shortcutsDialogOpen.set(true)}
           onOpenCollab={() => collabDialogOpen.set(true)}
+          onOpenExport={() => exportDialogOpen.set(true)}
           shareEnabled={Boolean(shareApiBaseUrl)}
         />
       )}
+      {runtime && exportDialogOpen.value && <ExportDialog runtime={runtime} onClose={() => exportDialogOpen.set(false)} />}
       {runtime && shortcutsDialogOpen.value && <ShortcutsDialog runtime={runtime} onClose={() => shortcutsDialogOpen.set(false)} />}
       {runtime && findOpen.value && <FindPanel runtime={runtime} onClose={() => findOpen.set(false)} />}
       {runtime && shareDialog.value.status !== "closed" && <ShareDialog state={shareDialog.value} onClose={() => shareDialog.set({ status: "closed" })} />}

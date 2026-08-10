@@ -53,7 +53,8 @@
   },
   "dependencies": {
     "@deviva-draw/collab-client": "workspace:*",
-    "@deviva-draw/engine": "workspace:*"
+    "@deviva-draw/engine": "workspace:*",
+    "jspdf": "^4.2.1"
   },
   "peerDependencies": {
     "react": "^19.0.0",

@@ -78,6 +78,7 @@ export const catalogEn = {
   "action.saveScene": "Save",
   "action.exportPng": "Export as PNG",
   "action.exportSvg": "Export as SVG",
+  "action.exportImage": "Export image…",
   "action.copyAsImage": "Copy as image",
   "action.copyStyles": "Copy styles",
   "action.pasteStyles": "Paste styles",
@@ -168,6 +169,10 @@ export const catalogEn = {
   "find.close": "Close",
 
   "menu.canvasBackground": "Canvas background",
+
+  "export.title": "Export image",
+  "export.scale": "Scale",
+  "export.background": "Include background",
 
   "theme.light": "Light",
   "theme.dark": "Dark",

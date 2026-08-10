@@ -78,6 +78,7 @@ export const catalogVi: Record<TranslationKey, string> = {
   "action.saveScene": "Lưu",
   "action.exportPng": "Xuất PNG",
   "action.exportSvg": "Xuất SVG",
+  "action.exportImage": "Xuất hình ảnh…",
   "action.copyAsImage": "Sao chép dưới dạng ảnh",
   "action.copyStyles": "Sao chép kiểu",
   "action.pasteStyles": "Dán kiểu",
@@ -168,6 +169,10 @@ export const catalogVi: Record<TranslationKey, string> = {
   "find.close": "Đóng",
 
   "menu.canvasBackground": "Nền canvas",
+
+  "export.title": "Xuất hình ảnh",
+  "export.scale": "Tỷ lệ",
+  "export.background": "Kèm nền",
 
   "theme.light": "Sáng",
   "theme.dark": "Tối",

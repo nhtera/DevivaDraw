@@ -74,41 +74,78 @@ function freshExportDeps() {
   };
 }
 
-/** Exports the live scene to PNG at `scale`x and triggers a download. */
-export async function exportSceneToPngFile(scene: Scene, scale: ExportScale = 1): Promise<void> {
-  const blob = await exportToPng({
+/**
+ * Renders the live scene to a PNG blob. `background` defaults to the scene's own canvas background (so
+ * a plain export matches what's on screen); the export dialog passes an explicit value — `null` for a
+ * transparent PNG, a color to force one. Reused by the PDF export.
+ */
+export async function renderSceneToPngBlob(scene: Scene, scale: ExportScale = 1, background: string | null = scene.getBackground()): Promise<Blob> {
+  return exportToPng({
     scene,
     createRenderTarget: createBrowserExportRenderTarget,
     scale,
     padding: DEFAULT_EXPORT_PADDING,
-    // Bake the scene's canvas background into the export so a PNG matches what's on screen (null = transparent).
-    backgroundColor: scene.getBackground(),
+    backgroundColor: background,
     ...freshExportDeps(),
   });
-  triggerDownload(`scene-${scale}x.png`, blob, "image/png");
+}
+
+/** Exports the live scene to PNG at `scale`x and triggers a download. */
+export async function exportSceneToPngFile(scene: Scene, scale: ExportScale = 1, background: string | null = scene.getBackground()): Promise<void> {
+  triggerDownload(`scene-${scale}x.png`, await renderSceneToPngBlob(scene, scale, background), "image/png");
 }
 
 /** Exports the live scene to SVG and triggers a download. */
-export async function exportSceneToSvgFile(scene: Scene): Promise<void> {
+export async function exportSceneToSvgFile(scene: Scene, background: string | null = scene.getBackground()): Promise<void> {
   const svg = exportToSvg({
     scene,
     roughGenerator: createRoughSvgGenerator(),
     padding: DEFAULT_EXPORT_PADDING,
-    backgroundColor: scene.getBackground(),
+    backgroundColor: background,
     textMeasurer: freshExportDeps().textMeasurer,
   });
   triggerDownload("scene.svg", svg, "image/svg+xml");
 }
 
 /** Renders the live scene to PNG and writes it to the system clipboard instead of downloading. */
-export async function copySceneImageToClipboard(scene: Scene): Promise<void> {
+export async function copySceneImageToClipboard(scene: Scene, background: string | null = scene.getBackground()): Promise<void> {
   await copyAsImage({
     scene,
     createRenderTarget: createBrowserExportRenderTarget,
     padding: DEFAULT_EXPORT_PADDING,
-    backgroundColor: scene.getBackground(),
+    backgroundColor: background,
     ...freshExportDeps(),
     clipboard: navigator.clipboard,
     createClipboardItem: (blob) => new ClipboardItem({ "image/png": blob }),
   });
+}
+
+/** Reads a blob as a data URL (for embedding a rendered PNG into a PDF). */
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Exports the scene to a single-page PDF sized to the drawing. Renders the scene to a PNG first
+ * (reusing the same pipeline as image export), then embeds it via jsPDF — which is dynamically
+ * imported so it stays out of the base bundle for consumers who never export PDF. PDF pages aren't
+ * transparent, so the background defaults to the scene's canvas color, then white.
+ */
+export async function exportScenePdfFile(scene: Scene, scale: ExportScale = 2, background: string = scene.getBackground() ?? "#ffffff"): Promise<void> {
+  const blob = await renderSceneToPngBlob(scene, scale, background);
+  const dataUrl = await blobToDataUrl(blob);
+  const image = new Image();
+  image.src = dataUrl;
+  await image.decode();
+  const width = image.naturalWidth;
+  const height = image.naturalHeight;
+  const { jsPDF } = await import("jspdf");
+  const pdf = new jsPDF({ orientation: width >= height ? "landscape" : "portrait", unit: "px", format: [width, height] });
+  pdf.addImage(dataUrl, "PNG", 0, 0, width, height);
+  pdf.save("scene.pdf");
 }
