@@ -155,4 +155,23 @@ describe("serializeScene — export vs autosave soft-delete handling", () => {
     const document = serializeScene(scene);
     expect(Object.keys(document.files)).toEqual(["used"]);
   });
+
+  it("round-trips the document-level canvas background through serialize/deserialize", () => {
+    const scene = new Scene();
+    scene.setBackground("#fff3bf");
+    scene.addElement(createRectangleElement({ x: 0, y: 0, width: 10, height: 10 }));
+
+    const document = serializeScene(scene);
+    expect(document.appState?.background).toBe("#fff3bf");
+
+    const result = deserializeScene(document);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.scene.getBackground()).toBe("#fff3bf");
+  });
+
+  it("omits appState entirely when there is no background (or camera) to persist", () => {
+    const scene = new Scene();
+    scene.addElement(createRectangleElement({ x: 0, y: 0, width: 10, height: 10 }));
+    expect(serializeScene(scene).appState).toBeUndefined();
+  });
 });

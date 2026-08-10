@@ -38,6 +38,8 @@ export interface SerializedAppState {
   scrollX?: number;
   scrollY?: number;
   zoom?: number;
+  /** Document-level canvas background color (see `Scene.getBackground`); absent ⇒ the theme default. */
+  background?: string;
 }
 
 export interface SceneDocumentV1 {

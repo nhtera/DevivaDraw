@@ -33,6 +33,7 @@ import { ShareDialog } from "./components/share-dialog";
 import { CollabDialog } from "./components/collab-dialog";
 import { ShortcutsDialog } from "./components/shortcuts-dialog";
 import { FindPanel } from "./components/find-panel";
+import { useCanvasBackground } from "./runtime/use-live-version";
 import { CommandPalette } from "./components/command-palette";
 import { BottomToolbar } from "./components/mobile/bottom-toolbar";
 import { useIsNarrowViewport } from "./components/responsive-layout";
@@ -192,6 +193,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   // Collaboration is opt-in and reuses the same collab-server base URL the "Share" action already
   // requires (`shareApiBaseUrl` — both are that Worker's endpoints, see `use-collab-session.ts`'s
   // `apiBaseUrl` doc) rather than introducing a second, near-identical prop.
+  const canvasBackground = useCanvasBackground(runtime?.scene ?? null);
   const collab = useCollabSession({ scene: runtime?.scene ?? null, apiBaseUrl: shareApiBaseUrl });
   useEffect(() => {
     remoteCursorsRef.current = collab.peers
@@ -216,7 +218,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       data-testid="deviva-draw-root"
       style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden", ...cssVariables, ...style }}
     >
-      <div ref={canvasHostRef} data-testid="deviva-draw-canvas-host" style={{ position: "absolute", inset: 0, background: "var(--dd-canvas-background)" }}>
+      <div ref={canvasHostRef} data-testid="deviva-draw-canvas-host" style={{ position: "absolute", inset: 0, background: canvasBackground ?? "var(--dd-canvas-background)" }}>
         {runtime && editSession && (
           <TextEditorOverlay session={editSession} scene={runtime.scene} getCamera={getCamera} subscribeCamera={cameraStore.subscribe} />
         )}

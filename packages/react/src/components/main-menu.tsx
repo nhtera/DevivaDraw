@@ -8,6 +8,7 @@
  */
 import { useEffect, useRef } from "react";
 import { buttonStyle, inputStyle, panelStyle } from "./chrome-styles";
+import { CanvasBackgroundRow } from "./canvas-background-row";
 import { Icon } from "./icon";
 import type { Locale } from "../i18n/locale-storage";
 import { useTranslation } from "../i18n/use-translation";
@@ -164,6 +165,9 @@ export function MainMenu(props: MainMenuProps) {
             <Icon name="chevron-down" size={14} />
           </span>
         </div>
+      </div>
+      <div style={{ padding: "0 4px 6px" }}>
+        <CanvasBackgroundRow scene={runtime.scene} />
       </div>
       <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
       <MenuButton testId="main-menu-toggle-zen-mode" icon="zen" onClick={() => run("toggle-zen-mode")}>

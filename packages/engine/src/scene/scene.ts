@@ -46,6 +46,12 @@ export class Scene {
   private notifying = false;
   /** Set when a mutation happens from inside a listener; drained by the outer `notify()` call. */
   private notifyQueued = false;
+  /**
+   * Document-level canvas background color, or `null` to fall back to the theme's default. A scene
+   * setting (not a per-element field), so it lives on the store and rides the same `toJSON`/`fromJSON`
+   * persistence path every save/autosave/share already uses — no separate wiring per surface.
+   */
+  private background: string | null = null;
 
   /**
    * All elements (including soft-deleted ones), sorted by z-order (`index`, ascending, `id` as a
@@ -197,6 +203,18 @@ export class Scene {
   loadElementsSnapshot(elements: readonly AnyElement[]): void {
     this.elements.clear();
     for (const element of elements) this.elements.set(element.id, element);
+    this.notify();
+  }
+
+  /** Current document-level canvas background color, or `null` when it should fall back to the theme default. */
+  getBackground(): string | null {
+    return this.background;
+  }
+
+  /** Sets (or clears, via `null`) the canvas background color and signals subscribers — so the host repaints and autosave persists it, the same as any element change. */
+  setBackground(color: string | null): void {
+    if (this.background === color) return;
+    this.background = color;
     this.notify();
   }
 

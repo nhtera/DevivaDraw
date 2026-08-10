@@ -167,6 +167,10 @@ function validateAppState(raw: unknown): ValidationResult<SerializedAppState | u
     if (!isFiniteNumber(raw[field])) return fail(`appState.${field} must be a finite number when present`);
     state[field] = raw[field];
   }
+  if (raw.background !== undefined) {
+    if (!isString(raw.background)) return fail("appState.background must be a string when present");
+    state.background = raw.background;
+  }
   return ok(state);
 }
 

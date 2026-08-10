@@ -23,6 +23,16 @@ export function useSceneVersion(scene: Scene): number {
   return version;
 }
 
+/** Live document-level canvas background color (or `null` for the theme default). Null-tolerant so the shell can call it before the runtime/scene exists. */
+export function useCanvasBackground(scene: Scene | null): string | null {
+  const [, dispatch] = useReducer((count: number) => count + 1, 0);
+  useEffect(() => {
+    if (!scene) return;
+    return scene.subscribe(() => dispatch());
+  }, [scene]);
+  return scene?.getBackground() ?? null;
+}
+
 /** Bumps whenever the selected id set changes. */
 export function useSelectionVersion(selection: SelectionState): number {
   const [version, dispatch] = useReducer((count: number) => count + 1, 0);

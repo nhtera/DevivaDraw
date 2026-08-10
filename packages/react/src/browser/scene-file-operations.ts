@@ -81,6 +81,8 @@ export async function exportSceneToPngFile(scene: Scene, scale: ExportScale = 1)
     createRenderTarget: createBrowserExportRenderTarget,
     scale,
     padding: DEFAULT_EXPORT_PADDING,
+    // Bake the scene's canvas background into the export so a PNG matches what's on screen (null = transparent).
+    backgroundColor: scene.getBackground(),
     ...freshExportDeps(),
   });
   triggerDownload(`scene-${scale}x.png`, blob, "image/png");
@@ -92,6 +94,7 @@ export async function exportSceneToSvgFile(scene: Scene): Promise<void> {
     scene,
     roughGenerator: createRoughSvgGenerator(),
     padding: DEFAULT_EXPORT_PADDING,
+    backgroundColor: scene.getBackground(),
     textMeasurer: freshExportDeps().textMeasurer,
   });
   triggerDownload("scene.svg", svg, "image/svg+xml");
@@ -103,6 +106,7 @@ export async function copySceneImageToClipboard(scene: Scene): Promise<void> {
     scene,
     createRenderTarget: createBrowserExportRenderTarget,
     padding: DEFAULT_EXPORT_PADDING,
+    backgroundColor: scene.getBackground(),
     ...freshExportDeps(),
     clipboard: navigator.clipboard,
     createClipboardItem: (blob) => new ClipboardItem({ "image/png": blob }),

@@ -48,7 +48,11 @@ export function serializeScene(scene: Scene, options: SerializeSceneOptions = {}
   }
 
   const document: SceneDocumentV1 = { type: SCENE_DOCUMENT_TYPE, schemaVersion: CURRENT_SCHEMA_VERSION, elements, files };
-  if (appState) document.appState = appState;
+  // Merge the scene's own document-level background into appState so it rides every save/autosave/share
+  // path (all of which go through here) without each caller having to remember to pass it in options.
+  const background = scene.getBackground();
+  const mergedAppState = { ...appState, ...(background !== null ? { background } : {}) };
+  if (Object.keys(mergedAppState).length > 0) document.appState = mergedAppState;
   return document;
 }
 
@@ -125,6 +129,7 @@ export function deserializeScene(raw: unknown): DeserializeSceneResult {
     const scene = new Scene();
     for (const [fileId, file] of Object.entries(validated.value.files)) scene.restoreFile(fileId, file);
     for (const element of validated.value.elements) scene.restoreElement(element);
+    if (validated.value.appState?.background !== undefined) scene.setBackground(validated.value.appState.background);
     repairDanglingReferences(scene);
 
     return { ok: true, scene };
