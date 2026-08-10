@@ -19,8 +19,12 @@ export interface MeasurementContext2D {
 }
 
 /** Builds `CSS font` shorthand (`"<px>px <family stack>"`) — the one format both `ctx.font` and this module's `fontCss` params expect. */
-export function buildFontCssString(fontSizePx: number, fontFamilyCss: string): string {
-  return `${fontSizePx}px ${fontFamilyCss}`;
+export function buildFontCssString(fontSizePx: number, fontFamilyCss: string, options?: { weight?: "normal" | "bold"; style?: "normal" | "italic" }): string {
+  // CSS `font` shorthand order: style, weight, size, family. Both default to normal so every existing
+  // caller (which passes no options) produces the exact same string it did before.
+  const style = options?.style === "italic" ? "italic " : "";
+  const weight = options?.weight === "bold" ? "bold " : "";
+  return `${style}${weight}${fontSizePx}px ${fontFamilyCss}`;
 }
 
 /** Real measurer: sets `ctx.font` before each call since `measureText` reads the context's currently-set font, not a passed-in one. */

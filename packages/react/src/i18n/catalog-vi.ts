@@ -108,6 +108,9 @@ export const catalogVi: Record<TranslationKey, string> = {
   "panel.fontSize": "Cỡ chữ",
   "panel.fontFamily": "Kiểu chữ",
   "panel.textAlign": "Căn văn bản",
+  "panel.textStyle": "Kiểu chữ (đậm/nghiêng)",
+  "panel.bold": "In đậm",
+  "panel.italic": "In nghiêng",
   "panel.layers": "Lớp",
   "panel.customColor": "Màu tùy chỉnh",
 

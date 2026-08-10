@@ -7,7 +7,7 @@
  */
 import { useEffect, useReducer } from "react";
 import type { CSSProperties, KeyboardEvent } from "react";
-import type { Camera, Scene, TextAlign, TextEditSession } from "@deviva-draw/engine";
+import type { Camera, Scene, TextAlign, TextEditSession, TextElement } from "@deviva-draw/engine";
 import { sceneToScreen, TEXT_FONT_FAMILY_CSS } from "@deviva-draw/engine";
 
 export interface UseTextEditingOptions {
@@ -111,6 +111,10 @@ export function useTextEditing(options: UseTextEditingOptions): TextEditingOverl
     caretColor: element.strokeColor,
     fontSize: fontSizePx,
     fontFamily: TEXT_FONT_FAMILY_CSS[element.fontFamily],
+    // Match the element's weight/slant so the caret + selection metrics line up with the glyphs the
+    // canvas paints (keeps the WYSIWYG guarantee for bold/italic text).
+    fontWeight: element.fontWeight === "bold" ? "bold" : "normal",
+    fontStyle: element.fontStyle === "italic" ? "italic" : "normal",
     lineHeight: element.lineHeight,
     textAlign: element.textAlign,
     // Bound text wraps within the container's width (matches `text/bound-text-layout.ts`'s wrap
@@ -139,6 +143,19 @@ export function useTextEditing(options: UseTextEditingOptions): TextEditingOverl
       if (event.key === "Escape" && !isComposing) {
         event.preventDefault();
         session.commit();
+        return;
+      }
+      // Cmd/Ctrl+B / +I toggle whole-block bold/italic while editing (Excalidraw parity). Applied to
+      // the element live so the canvas draft + the textarea's own metrics update together.
+      const modifier = event.metaKey || event.ctrlKey;
+      if (modifier && !event.altKey && (event.key === "b" || event.key === "B")) {
+        event.preventDefault();
+        const changes: Partial<TextElement> = { fontWeight: element.fontWeight === "bold" ? "normal" : "bold" };
+        scene.updateElement(element.id, changes);
+      } else if (modifier && !event.altKey && (event.key === "i" || event.key === "I")) {
+        event.preventDefault();
+        const changes: Partial<TextElement> = { fontStyle: element.fontStyle === "italic" ? "normal" : "italic" };
+        scene.updateElement(element.id, changes);
       }
     },
   };

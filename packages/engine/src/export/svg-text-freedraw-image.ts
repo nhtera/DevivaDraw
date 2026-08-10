@@ -44,7 +44,7 @@ export function buildTextSvgFragment(element: TextElement, camera: Camera, measu
 
   const rect = screenRectOf(element, camera);
   const screenFontSizePx = element.fontSize * camera.zoom;
-  const fontCss = buildFontCssString(screenFontSizePx, TEXT_FONT_FAMILY_CSS[element.fontFamily]);
+  const fontCss = buildFontCssString(screenFontSizePx, TEXT_FONT_FAMILY_CSS[element.fontFamily], { weight: element.fontWeight, style: element.fontStyle });
   const maxWidthPx = element.containerId ? rect.width : Number.POSITIVE_INFINITY;
   const lines = wrapText(element.text, { measurer, fontCss, maxWidth: maxWidthPx });
   const lineHeightPx = screenFontSizePx * element.lineHeight;
@@ -54,12 +54,14 @@ export function buildTextSvgFragment(element: TextElement, camera: Camera, measu
   const anchor = SVG_TEXT_ANCHOR[element.textAlign];
   const fontFamily = escapeXmlAttribute(TEXT_FONT_FAMILY_CSS[element.fontFamily]);
   const fill = escapeXmlAttribute(element.strokeColor);
+  const weightAttr = element.fontWeight === "bold" ? ` font-weight="bold"` : "";
+  const styleAttr = element.fontStyle === "italic" ? ` font-style="italic"` : "";
 
   return lines
     .map((line, index) => {
       const y = startY + index * lineHeightPx + lineHeightPx / 2;
       return (
-        `<text x="${anchorX}" y="${y}" font-size="${screenFontSizePx}" font-family="${fontFamily}" ` +
+        `<text x="${anchorX}" y="${y}" font-size="${screenFontSizePx}" font-family="${fontFamily}"${weightAttr}${styleAttr} ` +
         `text-anchor="${anchor}" dominant-baseline="central" fill="${fill}">${escapeXmlText(line)}</text>`
       );
     })

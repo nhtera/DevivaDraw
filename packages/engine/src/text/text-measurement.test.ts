@@ -41,6 +41,16 @@ describe("buildFontCssString", () => {
   it("joins px size and family stack into CSS font shorthand", () => {
     expect(buildFontCssString(20, "sans-serif")).toBe("20px sans-serif");
   });
+
+  it("prepends bold/italic in CSS shorthand order (style weight size family)", () => {
+    expect(buildFontCssString(20, "sans-serif", { weight: "bold" })).toBe("bold 20px sans-serif");
+    expect(buildFontCssString(20, "sans-serif", { style: "italic" })).toBe("italic 20px sans-serif");
+    expect(buildFontCssString(20, "sans-serif", { weight: "bold", style: "italic" })).toBe("italic bold 20px sans-serif");
+  });
+
+  it("normal weight/style produce the same string as no options (no regression for plain text)", () => {
+    expect(buildFontCssString(16, "serif", { weight: "normal", style: "normal" })).toBe("16px serif");
+  });
 });
 
 describe("wrapText", () => {

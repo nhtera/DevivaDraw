@@ -174,4 +174,16 @@ describe("serializeScene — export vs autosave soft-delete handling", () => {
     scene.addElement(createRectangleElement({ x: 0, y: 0, width: 10, height: 10 }));
     expect(serializeScene(scene).appState).toBeUndefined();
   });
+
+  it("round-trips a text element's bold/italic through serialize/deserialize", () => {
+    const scene = new Scene();
+    scene.addElement(createTextElement({ x: 0, y: 0, text: "hi", fontWeight: "bold", fontStyle: "italic" }));
+
+    const result = deserializeScene(serializeScene(scene));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const text = result.scene.getElements().find((element) => element.type === "text");
+      expect(text).toMatchObject({ fontWeight: "bold", fontStyle: "italic" });
+    }
+  });
 });

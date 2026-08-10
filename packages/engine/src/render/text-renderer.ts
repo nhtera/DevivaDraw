@@ -100,7 +100,7 @@ export function drawElementText(ctx: TextDrawContext2D, element: TextElement, ca
   }
 
   const screenFontSizePx = element.fontSize * camera.zoom;
-  const fontCss = buildFontCssString(screenFontSizePx, TEXT_FONT_FAMILY_CSS[element.fontFamily]);
+  const fontCss = buildFontCssString(screenFontSizePx, TEXT_FONT_FAMILY_CSS[element.fontFamily], { weight: element.fontWeight, style: element.fontStyle });
   const maxWidthPx = element.containerId ? rect.width : Number.POSITIVE_INFINITY;
   const lines = wrapText(element.text, { measurer, fontCss, maxWidth: maxWidthPx });
   const lineHeightPx = screenFontSizePx * element.lineHeight;

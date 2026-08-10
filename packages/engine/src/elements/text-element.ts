@@ -23,6 +23,10 @@ export type TextFontFamily = "normal" | "code" | "hand-drawn-slot";
 
 export type TextAlign = "left" | "center" | "right";
 
+/** Element-level text weight/slant — applied to the whole text block (not per character), so the same render/measure/textarea path stays pixel-stable (WYSIWYG). Optional for backward-compatible stored data: absent ⇒ normal. */
+export type TextFontWeight = "normal" | "bold";
+export type TextFontStyle = "normal" | "italic";
+
 /** How the text block is positioned within its own bounding box (standalone) or its container's inner box (bound). */
 export type VerticalAlign = "top" | "middle" | "bottom";
 
@@ -38,6 +42,10 @@ export interface TextElement extends BaseElement {
   lineHeight: number;
   /** The container this text is bound inside, or `null` for standalone text. */
   containerId: string | null;
+  /** Whole-block bold (optional; absent ⇒ `"normal"`). */
+  fontWeight?: TextFontWeight;
+  /** Whole-block italic (optional; absent ⇒ `"normal"`). */
+  fontStyle?: TextFontStyle;
 }
 
 export interface TextElementCreationInput extends ElementCreationInput {
@@ -48,6 +56,8 @@ export interface TextElementCreationInput extends ElementCreationInput {
   verticalAlign?: VerticalAlign;
   lineHeight?: number;
   containerId?: string | null;
+  fontWeight?: TextFontWeight;
+  fontStyle?: TextFontStyle;
 }
 
 export const DEFAULT_TEXT_FONT_FAMILY: TextFontFamily = "hand-drawn-slot";
@@ -67,5 +77,7 @@ export function createTextElement(input: TextElementCreationInput): TextElement 
     verticalAlign: input.verticalAlign ?? DEFAULT_TEXT_VERTICAL_ALIGN,
     lineHeight: input.lineHeight ?? DEFAULT_TEXT_LINE_HEIGHT,
     containerId: input.containerId ?? null,
+    fontWeight: input.fontWeight ?? "normal",
+    fontStyle: input.fontStyle ?? "normal",
   };
 }

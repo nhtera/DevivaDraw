@@ -108,6 +108,9 @@ export const catalogEn = {
   "panel.fontSize": "Font size",
   "panel.fontFamily": "Font family",
   "panel.textAlign": "Text align",
+  "panel.textStyle": "Text style",
+  "panel.bold": "Bold",
+  "panel.italic": "Italic",
   "panel.layers": "Layer",
   "panel.customColor": "Custom color",
 

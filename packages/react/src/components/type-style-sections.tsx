@@ -7,7 +7,7 @@
 import { DEFAULT_STROKE_COLOR_PALETTE, FONT_SIZE_LEVELS } from "@deviva-draw/engine";
 import type { AnyElement, ArrowElement, Arrowhead, TextAlign, TextElement, TextFontFamily } from "@deviva-draw/engine";
 import { ColorPicker } from "./color-picker";
-import { labelStyle } from "./chrome-styles";
+import { buttonStyle, labelStyle } from "./chrome-styles";
 import { StyleSection } from "./style-section";
 import { useTranslation } from "../i18n/use-translation";
 import type { DevivaRuntime } from "../runtime/runtime-types";
@@ -106,6 +106,33 @@ export function TextPropertiesPanel(props: { runtime: DevivaRuntime; targets: Te
         options={TEXT_ALIGN_OPTIONS.map((value) => ({ value, label: t(`textAlign.${value}`), icon: TEXT_ALIGN_ICONS[value] }))}
         onChange={(value) => set({ textAlign: value as TextAlign })}
       />
+      <div>
+        <span style={labelStyle}>{t("panel.textStyle")}</span>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            type="button"
+            data-testid="text-bold"
+            aria-pressed={first.fontWeight === "bold"}
+            aria-label={t("panel.bold")}
+            title={t("panel.bold")}
+            style={{ ...buttonStyle(first.fontWeight === "bold"), flex: 1, justifyContent: "center", fontWeight: "bold" }}
+            onClick={() => set({ fontWeight: first.fontWeight === "bold" ? "normal" : "bold" })}
+          >
+            B
+          </button>
+          <button
+            type="button"
+            data-testid="text-italic"
+            aria-pressed={first.fontStyle === "italic"}
+            aria-label={t("panel.italic")}
+            title={t("panel.italic")}
+            style={{ ...buttonStyle(first.fontStyle === "italic"), flex: 1, justifyContent: "center", fontStyle: "italic" }}
+            onClick={() => set({ fontStyle: first.fontStyle === "italic" ? "normal" : "italic" })}
+          >
+            I
+          </button>
+        </div>
+      </div>
       <div>
         <span style={labelStyle}>
           {t("panel.opacity")}: {first.opacity}

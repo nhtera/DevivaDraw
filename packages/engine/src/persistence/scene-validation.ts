@@ -122,6 +122,8 @@ function validateTypeSpecificFields(raw: Record<string, unknown>, index: number)
       if (!isOneOf(raw.verticalAlign, VERTICAL_ALIGNS)) return `${label}.verticalAlign must be one of ${VERTICAL_ALIGNS.join(", ")}`;
       if (!isFiniteNumber(raw.lineHeight)) return `${label}.lineHeight must be a finite number`;
       if (!(raw.containerId === null || isString(raw.containerId))) return `${label}.containerId must be a string or null`;
+      if (raw.fontWeight !== undefined && !isOneOf(raw.fontWeight, ["normal", "bold"])) return `${label}.fontWeight must be "normal" or "bold" when present`;
+      if (raw.fontStyle !== undefined && !isOneOf(raw.fontStyle, ["normal", "italic"])) return `${label}.fontStyle must be "normal" or "italic" when present`;
       return null;
     }
     case "image": {
