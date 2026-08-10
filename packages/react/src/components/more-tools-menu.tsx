@@ -7,6 +7,7 @@
  * closes the popover; the button itself shows active whenever the current tool lives in this menu.
  */
 import { useEffect, useRef, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { buttonStyle, panelStyle, RADIUS } from "./chrome-styles";
 import { detectIsMac, formatShortcut } from "../actions/format-shortcut";
 import { Icon } from "./icon";
@@ -35,10 +36,20 @@ export const MORE_TOOL_IDS: readonly string[] = [
 
 export interface MoreToolsMenuProps {
   runtime: DevivaRuntime;
+  /** Which tool actions the popover holds. Defaults to the desktop overflow set. */
+  toolIds?: readonly string[];
+  /** Whether the popover opens below (desktop, top-docked toolbar) or above (mobile, bottom-docked bar). */
+  placement?: "down" | "up";
+  /** Grid column count. Desktop uses 4; the taller mobile sheet uses more. */
+  columns?: number;
+  /** Extra popover cell(s) after the tool grid (e.g. the mobile image button). Receives a `close` callback so the picker can dismiss the popover. */
+  trailing?: (close: () => void) => ReactNode;
+  /** Extra style merged into the trigger button — lets the mobile bar match its larger touch targets. */
+  triggerStyle?: CSSProperties;
 }
 
 export function MoreToolsMenu(props: MoreToolsMenuProps) {
-  const { runtime } = props;
+  const { runtime, toolIds = MORE_TOOL_IDS, placement = "down", columns = 4, trailing, triggerStyle } = props;
   const { t } = useTranslation();
   useToolVersion(runtime.toolStateMachine);
   const [open, setOpen] = useState(false);
@@ -46,7 +57,7 @@ export function MoreToolsMenu(props: MoreToolsMenuProps) {
   const isMac = detectIsMac(typeof navigator !== "undefined" ? navigator.platform : undefined);
   const activeTool = runtime.toolStateMachine.getActiveToolName();
   const activeToolActionId = `${activeTool}-tool`;
-  const menuHoldsActiveTool = MORE_TOOL_IDS.includes(activeToolActionId);
+  const menuHoldsActiveTool = toolIds.includes(activeToolActionId);
 
   // Close on an outside click or Escape — standard popover dismissal.
   useEffect(() => {
@@ -99,7 +110,7 @@ export function MoreToolsMenu(props: MoreToolsMenuProps) {
         aria-haspopup="true"
         aria-expanded={open}
         aria-pressed={menuHoldsActiveTool}
-        style={buttonStyle(menuHoldsActiveTool)}
+        style={{ ...buttonStyle(menuHoldsActiveTool), ...triggerStyle }}
         onClick={() => setOpen((value) => !value)}
       >
         <Icon name="more" />
@@ -108,22 +119,25 @@ export function MoreToolsMenu(props: MoreToolsMenuProps) {
         <div
           role="menu"
           data-testid="more-tools-popover"
+          className="dd-animate-in"
           style={{
             ...panelStyle,
             position: "absolute",
-            top: "calc(100% + 8px)",
+            // Open below for a top-docked toolbar, above for the bottom-docked mobile bar.
+            ...(placement === "up" ? { bottom: "calc(100% + 8px)" } : { top: "calc(100% + 8px)" }),
             right: 0,
             // Above the canvas hint text (and any other chrome) that sits just below the toolbar — without
             // a stacking priority the later-painted hint bleeds through this popover. See `chrome-styles`.
             zIndex: 30,
             padding: 6,
             display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
+            gridTemplateColumns: `repeat(${columns}, 1fr)`,
             gap: 2,
             borderRadius: RADIUS.panel,
           }}
         >
-          {MORE_TOOL_IDS.map(renderTool)}
+          {toolIds.map(renderTool)}
+          {trailing?.(() => setOpen(false))}
         </div>
       )}
     </div>
