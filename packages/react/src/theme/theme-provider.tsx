@@ -30,7 +30,7 @@ export interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export interface ThemeProviderProps {
-  /** Explicit resolved-mode override — omit to fall back to the persisted preference, then `system`. */
+  /** Explicit resolved-mode override — omit to fall back to the persisted preference, then `light`. */
   theme?: ThemeMode;
   children: ReactNode;
 }
@@ -43,8 +43,10 @@ function prefersDark(): boolean {
 
 function resolveInitialPreference(explicit: ThemeMode | undefined): ThemePreference {
   if (explicit) return explicit;
-  if (typeof window === "undefined") return "system";
-  return readStoredThemePreference(window.localStorage) ?? "system";
+  if (typeof window === "undefined") return "light";
+  // Default to light for a first-time visitor (no stored choice); "system" and "dark" remain
+  // available and, once picked, persist and win here on the next load.
+  return readStoredThemePreference(window.localStorage) ?? "light";
 }
 
 export function ThemeProvider(props: ThemeProviderProps) {

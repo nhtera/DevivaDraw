@@ -6,8 +6,8 @@ import { SHARE_API_BASE_URL } from "./share-api-config";
 /**
  * Application shell for the standalone Deviva Draw app (draw.deviva.app) — a thin wrapper around the
  * composed `<DevivaDraw/>` component from `@deviva-draw/react`, full-screen, with no props overridden
- * beyond `shareApiBaseUrl` (theme/locale default to the persisted preference or the browser/system
- * default; scene data defaults to localStorage autosave restore/save, this app's whole persistence
+ * beyond `shareApiBaseUrl` (theme defaults to the persisted preference then light, locale to the
+ * persisted preference then the browser language; scene data defaults to localStorage autosave restore/save, this app's whole persistence
  * story). Every actual feature (canvas, tools, toolbar, panels, menus, shortcuts, mobile/touch,
  * theming, i18n) lives in `@deviva-draw/react` — this app is just the browser tab that hosts it.
  *

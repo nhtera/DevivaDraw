@@ -17,7 +17,7 @@ export interface DevivaDrawProps {
   persistenceKey?: string;
   /** Fired (debounced) after any user-authored scene change — the embedding-host integration point. */
   onChange?(elements: AnyElement[], files: Record<string, DevivaDrawStoredFile>): void;
-  /** `"light"`/`"dark"` to force a theme; omit to use the persisted preference, then the system's `prefers-color-scheme`. */
+  /** `"light"`/`"dark"` to force a theme; omit to use the persisted preference, then default to light. */
   theme?: ThemeMode;
   /** `"en"`/`"vi"` to force a language; omit to use the persisted preference, then the browser's own language. */
   locale?: Locale;
