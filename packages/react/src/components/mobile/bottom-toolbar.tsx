@@ -5,10 +5,14 @@
  */
 import { buttonStyle, panelStyle } from "../chrome-styles";
 import { Icon } from "../icon";
+import { MORE_TOOL_IDS } from "../more-tools-menu";
 import { TOOL_ACTION_IDS } from "../toolbar";
 import { useTranslation } from "../../i18n/use-translation";
 import { useToolVersion } from "../../runtime/use-live-version";
 import type { DevivaRuntime } from "../../runtime/runtime-types";
+
+/** Every tool the bottom bar lists, in order: the primary set, then the overflow set (the narrow bar scrolls, so no popover is needed here — everything fits inline). */
+const BOTTOM_TOOLBAR_IDS: readonly string[] = [...TOOL_ACTION_IDS, ...MORE_TOOL_IDS];
 
 export interface BottomToolbarProps {
   runtime: DevivaRuntime;
@@ -39,7 +43,7 @@ export function BottomToolbar(props: BottomToolbarProps) {
         WebkitOverflowScrolling: "touch",
       }}
     >
-      {TOOL_ACTION_IDS.map((id) => {
+      {BOTTOM_TOOLBAR_IDS.map((id) => {
         const action = runtime.actionRegistry.get(id);
         if (!action) return null;
         const isActive = activeTool === action.id.replace(/-tool$/, "");

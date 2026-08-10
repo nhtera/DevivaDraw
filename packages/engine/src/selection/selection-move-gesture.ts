@@ -9,6 +9,7 @@ import type { ModifierKeys } from "../input/tool-handler";
 import type { Point } from "../render/camera";
 import { dropArrowBindingsMovingAlone } from "./arrow-binding-drop";
 import { duplicateElements } from "./clipboard";
+import { expandMovingIdsWithFrameChildren } from "./frame-membership";
 import { expandToGroupMembers } from "./group-ungroup";
 import { selectionBoundsOf } from "./group-transform";
 import { elementBounds } from "./selection-geometry";
@@ -58,7 +59,11 @@ export class MoveGesture {
       dropArrowBindingsMovingAlone(this.deps.scene, selectedIds);
     }
 
-    const movingIds = [...this.deps.selection.getSelectedIds()];
+    // A frame drags its contents with it: expand the moving set to include every element contained in
+    // any selected frame, without adding those elements to the visible selection (they follow, they
+    // aren't "selected"). Bound text is excluded from this set — it repositions via its container's own
+    // sync hook when the container moves.
+    const movingIds = expandMovingIdsWithFrameChildren(this.deps.scene, [...this.deps.selection.getSelectedIds()]);
     this.originalElements = new Map(movingIds.map((id) => [id, this.deps.scene.getElement(id)!]));
     return true;
   }

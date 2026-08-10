@@ -26,7 +26,12 @@ const isOneOf = <T extends string>(value: unknown, options: readonly T[]): value
 
 const FILL_STYLES = ["hachure", "cross-hatch", "solid", "zigzag"] as const;
 const STROKE_STYLES = ["solid", "dashed", "dotted"] as const;
-const ELEMENT_TYPES = ["generic", "rectangle", "ellipse", "diamond", "line", "freedraw", "text", "arrow", "image"] as const;
+const ELEMENT_TYPES = [
+  "generic", "rectangle", "ellipse", "diamond", "triangle", "hexagon", "star",
+  "block-arrow", "cloud", "heart", "x-box", "check-box",
+  "line", "freedraw", "text", "arrow", "image", "frame", "note",
+] as const;
+const BLOCK_ARROW_DIRECTIONS = ["left", "right", "up", "down"] as const;
 const TEXT_FONT_FAMILIES = ["normal", "code", "hand-drawn-slot"] as const;
 const TEXT_ALIGNS = ["left", "center", "right"] as const;
 const VERTICAL_ALIGNS = ["top", "middle", "bottom"] as const;
@@ -72,7 +77,19 @@ function validateTypeSpecificFields(raw: Record<string, unknown>, index: number)
     case "rectangle":
     case "ellipse":
     case "diamond":
+    case "triangle":
+    case "hexagon":
+    case "star":
+    case "cloud":
+    case "heart":
+    case "x-box":
+    case "check-box":
+    case "note":
       return null;
+    case "block-arrow": {
+      if (!isOneOf(raw.direction, BLOCK_ARROW_DIRECTIONS)) return `${label}.direction must be one of ${BLOCK_ARROW_DIRECTIONS.join(", ")}`;
+      return null;
+    }
     case "line": {
       if (!(Array.isArray(raw.points) && raw.points.length >= 1 && raw.points.every(isPoint))) return `${label}.points must be a non-empty array of {x, y} points`;
       return null;
@@ -111,6 +128,10 @@ function validateTypeSpecificFields(raw: Record<string, unknown>, index: number)
       if (!isString(raw.fileId)) return `${label}.fileId must be a string`;
       if (!isNonNegativeFiniteNumber(raw.naturalWidth)) return `${label}.naturalWidth must be a non-negative finite number`;
       if (!isNonNegativeFiniteNumber(raw.naturalHeight)) return `${label}.naturalHeight must be a non-negative finite number`;
+      return null;
+    }
+    case "frame": {
+      if (!isString(raw.name)) return `${label}.name must be a string`;
       return null;
     }
     default:

@@ -94,6 +94,7 @@ export function buildRuntime(options: BuildRuntimeOptions): DevivaRuntime {
     getSnapGuides: () => tools.selectionTool.getSnapGuides(),
     getPendingEraseIds: () => tools.eraserTool.getPendingEraseIds(),
     getLaserTrail: () => tools.laserTool.getTrail(),
+    getLassoPath: () => tools.lassoTool.getPath(),
     dispose: () => {
       /* replaced below */
     },

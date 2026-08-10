@@ -36,6 +36,10 @@ const DEFAULT_THINNING = 0.6;
 const DEFAULT_SMOOTHING = 0.5;
 /** How aggressively to smooth out (streamline) the input points themselves before outlining. */
 const DEFAULT_STREAMLINE = 0.5;
+/** A highlighter nib is much broader than an ink pen of the same `strokeWidth` — this extra multiplier on top of `FREEDRAW_SIZE_SCALE` gives the wide marker swath. */
+const HIGHLIGHTER_SIZE_MULTIPLIER = 4;
+/** Base translucency for a highlighter stroke (combined with the element's own opacity), so the marker tints rather than covers. */
+const HIGHLIGHTER_ALPHA = 0.4;
 
 export interface FreedrawStrokeOptions {
   size: number;
@@ -47,12 +51,15 @@ export interface FreedrawStrokeOptions {
 
 /** Maps `element`'s style fields onto perfect-freehand's stroke options; `size` already includes `camera.zoom`. */
 export function buildFreedrawStrokeOptions(element: FreedrawElement, camera: Camera): FreedrawStrokeOptions {
+  // A highlighter draws as a broad, even-width swath: no pressure taper (constant nib), and a wider
+  // size than an ink stroke of the same `strokeWidth`, matching how a real marker lays down flat color.
+  const sizeScale = element.highlighter ? FREEDRAW_SIZE_SCALE * HIGHLIGHTER_SIZE_MULTIPLIER : FREEDRAW_SIZE_SCALE;
   return {
-    size: Math.max(1, element.strokeWidth * FREEDRAW_SIZE_SCALE * camera.zoom),
-    thinning: DEFAULT_THINNING,
+    size: Math.max(1, element.strokeWidth * sizeScale * camera.zoom),
+    thinning: element.highlighter ? 0 : DEFAULT_THINNING,
     smoothing: DEFAULT_SMOOTHING,
     streamline: DEFAULT_STREAMLINE,
-    simulatePressure: element.simulatePressure,
+    simulatePressure: element.highlighter ? false : element.simulatePressure,
   };
 }
 
@@ -95,6 +102,8 @@ export function computeFreedrawOutline(element: FreedrawElement, camera: Camera)
  */
 export interface FreedrawDrawContext2D extends RoughDrawContext2D {
   fillStyle: string | CanvasGradient | CanvasPattern;
+  /** Set to `"multiply"` for highlighter strokes so they tint-darken what they cross rather than paint over it; restored by the surrounding `save`/`restore`. Optional so the many plain-object fake contexts in tests need not stub it (a real `CanvasRenderingContext2D` always has it, widened to the full `GlobalCompositeOperation` union). */
+  globalCompositeOperation?: string;
   beginPath(): void;
   moveTo(x: number, y: number): void;
   lineTo(x: number, y: number): void;
@@ -126,7 +135,11 @@ export function drawElementFreedraw(ctx: FreedrawDrawContext2D, element: Freedra
   if (!first) return;
 
   ctx.save();
-  ctx.globalAlpha = Math.min(1, Math.max(0, element.opacity / 100));
+  // A highlighter is translucent (its base alpha times the element's own opacity) and composited with
+  // `multiply` so overlapping strokes and underlying shapes show through, darkened — the marker look.
+  const opacity = Math.min(1, Math.max(0, element.opacity / 100));
+  ctx.globalAlpha = element.highlighter ? opacity * HIGHLIGHTER_ALPHA : opacity;
+  if (element.highlighter) ctx.globalCompositeOperation = "multiply";
 
   if (element.angle !== 0) {
     const rect = screenRectOf(element, camera);

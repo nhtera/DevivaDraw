@@ -25,6 +25,7 @@
  * height — bottoms out in at most one extra pass: the second pass recomputes against the
  * now-already-grown height and finds it unchanged.
  */
+import type { NoteElement } from "../elements/note-element";
 import type { RectangleElement, EllipseElement, DiamondElement } from "../elements/shape-elements";
 import type { Point } from "../render/camera";
 import type { Scene } from "../scene/scene";
@@ -35,7 +36,7 @@ import { buildFontCssString } from "./text-measurement";
 import type { TextMeasurer } from "./text-measurement";
 import type { VerticalAlign } from "../elements/text-element";
 
-type Container = RectangleElement | EllipseElement | DiamondElement;
+type Container = RectangleElement | EllipseElement | DiamondElement | NoteElement;
 
 /** Rotates `point` by `radians` around `center` — a small local copy of the same trick `bindings/shape-border-intersection.ts`'s `rotatePoint` and `selection/selection-geometry.ts`'s `rotatePointAroundCenter` each keep their own copy of, so this module stays independent of the selection subsystem. */
 function rotateAroundCenter(point: Point, center: Point, radians: number): Point {

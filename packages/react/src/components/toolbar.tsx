@@ -7,6 +7,7 @@
 import { buttonStyle, dividerStyle, panelStyle } from "./chrome-styles";
 import { detectIsMac, formatShortcut } from "../actions/format-shortcut";
 import { Icon } from "./icon";
+import { MoreToolsMenu } from "./more-tools-menu";
 import { useTranslation } from "../i18n/use-translation";
 import { useToolVersion } from "../runtime/use-live-version";
 import type { DevivaRuntime } from "../runtime/runtime-types";
@@ -19,7 +20,7 @@ const TOOL_GROUPS: readonly (readonly string[])[] = [
   ["select-tool", "pan-tool"],
   ["rectangle-tool", "ellipse-tool", "diamond-tool"],
   ["line-tool", "arrow-tool", "freedraw-tool"],
-  ["text-tool", "eraser-tool", "laser-tool"],
+  ["text-tool", "note-tool", "eraser-tool"],
 ];
 
 /** Flat list (group order preserved) — shared with `mobile/bottom-toolbar.tsx` so both layouts list the exact same tools in the exact same order. */
@@ -68,7 +69,11 @@ export function Toolbar(props: ToolbarProps) {
     <div
       role="toolbar"
       aria-label={t("app.title")}
-      style={{ ...panelStyle, display: "flex", alignItems: "center", gap: 2, padding: 5, position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)" }}
+      // `transform: translateX(-50%)` makes this toolbar its own stacking context, which would trap the
+      // More popover's z-index *inside* the toolbar — the later-painted `CanvasHint` (also a transformed
+      // sibling) would then bleed over the open popover. A z-index here ranks the whole toolbar subtree
+      // (popover included) above that hint. See `more-tools-menu.tsx`.
+      style={{ ...panelStyle, display: "flex", alignItems: "center", gap: 2, padding: 5, position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: 20 }}
     >
       <button
         type="button"
@@ -99,6 +104,7 @@ export function Toolbar(props: ToolbarProps) {
       >
         <Icon name="image" />
       </button>
+      <MoreToolsMenu runtime={runtime} />
     </div>
   );
 }

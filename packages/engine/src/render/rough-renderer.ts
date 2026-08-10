@@ -17,7 +17,18 @@ import type { AnyElement } from "../elements/element-types";
 import type { LineElement } from "../elements/shape-elements";
 import type { Camera } from "./camera";
 import type { RoughDrawableCache } from "./rough-drawable-cache";
-import { diamondVertices, isClosedPolyline, lineScreenPoints, roundedRectPath, screenRectOf } from "./rough-shape-geometry";
+import {
+  blockArrowVertices,
+  checkBoxPath,
+  cloudPath,
+  heartPath,
+  isClosedPolyline,
+  lineScreenPoints,
+  polygonShapeVertices,
+  roundedRectPath,
+  screenRectOf,
+  xBoxPath,
+} from "./rough-shape-geometry";
 import { buildRoughOptions } from "./rough-style-mapping";
 
 /** The subset of rough.js's `RoughGenerator`/`RoughCanvas` API this dispatch calls — see module doc. */
@@ -84,7 +95,23 @@ export function buildElementDrawable(drawer: RoughShapeDrawer, element: AnyEleme
       return drawer.ellipse(centerX, centerY, rect.width, rect.height, buildRoughOptions(element, strokeWidthPx));
     }
     case "diamond":
-      return drawer.polygon(diamondVertices(rect), buildRoughOptions(element, strokeWidthPx));
+    case "triangle":
+    case "hexagon":
+    case "star":
+      return drawer.polygon(polygonShapeVertices(rect, element.type), buildRoughOptions(element, strokeWidthPx));
+    case "block-arrow":
+      return drawer.polygon(blockArrowVertices(rect, element.direction), buildRoughOptions(element, strokeWidthPx));
+    case "cloud":
+      return drawer.path(cloudPath(rect), buildRoughOptions(element, strokeWidthPx));
+    case "heart":
+      return drawer.path(heartPath(rect), buildRoughOptions(element, strokeWidthPx));
+    case "x-box":
+      return drawer.path(xBoxPath(rect), buildRoughOptions(element, strokeWidthPx));
+    case "check-box":
+      return drawer.path(checkBoxPath(rect), buildRoughOptions(element, strokeWidthPx));
+    case "note":
+      // A sticky note is a solid rounded card; its label is a separate bound-text element.
+      return drawer.path(roundedRectPath(rect), buildRoughOptions(element, strokeWidthPx));
     case "generic":
       // Pre-shape-system placeholder element type; rendered as a plain rectangle until fully retired.
       return drawer.rectangle(rect.x, rect.y, rect.width, rect.height, buildRoughOptions(element, strokeWidthPx));

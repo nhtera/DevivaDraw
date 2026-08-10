@@ -20,15 +20,44 @@ export type { Arrowhead, ArrowBinding, ArrowElement, ArrowElementCreationInput, 
 export { createArrowElement, DEFAULT_ARROW_TYPE, DEFAULT_END_ARROWHEAD, DEFAULT_START_ARROWHEAD } from "./elements/arrow-element";
 export type { FreedrawElement, FreedrawElementCreationInput, FreedrawPoint } from "./elements/freedraw-element";
 export { createFreedrawElement } from "./elements/freedraw-element";
+export type { FrameElement, FrameElementCreationInput } from "./elements/frame-element";
+export { createFrameElement } from "./elements/frame-element";
 export type {
+  BlockArrowDirection,
+  BlockArrowElement,
+  BlockArrowElementCreationInput,
+  CheckBoxElement,
+  CloudElement,
   DiamondElement,
   EllipseElement,
+  HeartElement,
+  HexagonElement,
   LineElement,
   LineElementCreationInput,
   RectangleElement,
   RelativePoint,
+  StarElement,
+  TriangleElement,
+  XBoxElement,
 } from "./elements/shape-elements";
-export { createDiamondElement, createEllipseElement, createLineElement, createRectangleElement } from "./elements/shape-elements";
+export {
+  createBlockArrowElement,
+  createCheckBoxElement,
+  createCloudElement,
+  createDiamondElement,
+  createEllipseElement,
+  createHeartElement,
+  createHexagonElement,
+  createLineElement,
+  createRectangleElement,
+  createStarElement,
+  createTriangleElement,
+  createXBoxElement,
+} from "./elements/shape-elements";
+export type { NoteElement } from "./elements/note-element";
+export { createNoteElement, DEFAULT_NOTE_BACKGROUND } from "./elements/note-element";
+export type { PolygonShapeType } from "./elements/polygon-shape-geometry";
+export { blockArrowUnitVertices, isPolygonShapeType, polygonShapeUnitVertices } from "./elements/polygon-shape-geometry";
 export type { TextAlign, TextElement, TextElementCreationInput, TextFontFamily, VerticalAlign } from "./elements/text-element";
 export {
   createTextElement,
@@ -232,6 +261,15 @@ export { DragShapeTool } from "./tools/drag-shape-tool-base";
 export { RectangleTool } from "./tools/rectangle-tool";
 export { EllipseTool } from "./tools/ellipse-tool";
 export { DiamondTool } from "./tools/diamond-tool";
+export { TriangleTool } from "./tools/triangle-tool";
+export { HexagonTool } from "./tools/hexagon-tool";
+export { StarTool } from "./tools/star-tool";
+export { BlockArrowTool } from "./tools/block-arrow-tool";
+export { CloudTool } from "./tools/cloud-tool";
+export { HeartTool } from "./tools/heart-tool";
+export { XBoxTool } from "./tools/x-box-tool";
+export { CheckBoxTool } from "./tools/check-box-tool";
+export { NoteTool } from "./tools/note-tool";
 export type { LineToolDeps } from "./tools/line-tool";
 export { LineTool } from "./tools/line-tool";
 export type { FreedrawToolDeps } from "./tools/freedraw-tool";
@@ -247,6 +285,11 @@ export { EraserTool } from "./tools/eraser-tool";
 
 export type { LaserToolDeps, LaserTrailPoint } from "./tools/laser-tool";
 export { LaserTool, LASER_FADE_MS } from "./tools/laser-tool";
+export type { LassoToolDeps } from "./tools/lasso-tool";
+export { LassoTool } from "./tools/lasso-tool";
+export type { FrameToolDeps } from "./tools/frame-tool";
+export { FrameTool } from "./tools/frame-tool";
+export { frameContainedElementIds } from "./selection/frame-membership";
 
 // --- Selection, transforms, snapping & grid ---
 
@@ -257,6 +300,7 @@ export { hitTestElement, topmostElementAt } from "./selection/hit-test";
 
 export type { MarqueeMode } from "./selection/marquee-select";
 export { elementsInMarquee, normalizeMarqueeRect } from "./selection/marquee-select";
+export { elementsInLasso } from "./selection/lasso-select";
 
 export type { ElementBounds } from "./selection/selection-geometry";
 export { elementBounds, elementCenter, MIN_ELEMENT_SIZE, rotatedCorners, rotatePointAroundCenter, selectionBoundsOf } from "./selection/selection-geometry";

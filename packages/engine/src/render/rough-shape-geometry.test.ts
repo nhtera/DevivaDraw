@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { createLineElement } from "../elements/shape-elements";
 import { createCamera } from "./camera";
 import {
-  diamondVertices,
   isClosedPolyline,
   lineScreenPoints,
+  polygonShapeVertices,
   roundedRectPath,
   screenRectOf,
 } from "./rough-shape-geometry";
@@ -26,14 +26,27 @@ describe("screenRectOf", () => {
   });
 });
 
-describe("diamondVertices", () => {
-  it("returns the top/right/bottom/left midpoints of the bounding box, clockwise from top", () => {
-    expect(diamondVertices({ x: 0, y: 0, width: 100, height: 50 })).toEqual([
+describe("polygonShapeVertices", () => {
+  it("returns the diamond's top/right/bottom/left midpoints of the bounding box, clockwise from top", () => {
+    expect(polygonShapeVertices({ x: 0, y: 0, width: 100, height: 50 }, "diamond")).toEqual([
       [50, 0],
       [100, 25],
       [50, 50],
       [0, 25],
     ]);
+  });
+
+  it("returns an upward triangle's apex and base corners", () => {
+    expect(polygonShapeVertices({ x: 0, y: 0, width: 100, height: 50 }, "triangle")).toEqual([
+      [50, 0],
+      [100, 50],
+      [0, 50],
+    ]);
+  });
+
+  it("returns 6 vertices for a hexagon and 10 for a star", () => {
+    expect(polygonShapeVertices({ x: 0, y: 0, width: 40, height: 40 }, "hexagon")).toHaveLength(6);
+    expect(polygonShapeVertices({ x: 0, y: 0, width: 40, height: 40 }, "star")).toHaveLength(10);
   });
 });
 

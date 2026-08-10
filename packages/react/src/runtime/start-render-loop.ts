@@ -5,7 +5,7 @@
  * tested, same DOM-only (`requestAnimationFrame`/`CanvasStage`) trade-off `canvas-stage.ts` itself
  * documents in `@deviva-draw/engine`.
  */
-import type { AnyElement, CanvasStage, LaserTrailPoint, RemoteCursorOverlay, Scene, SelectionState } from "@deviva-draw/engine";
+import type { AnyElement, CanvasStage, LaserTrailPoint, Point, RemoteCursorOverlay, Scene, SelectionState } from "@deviva-draw/engine";
 import type { CameraStore } from "./camera-store";
 
 export interface RenderLoopDeps {
@@ -24,11 +24,13 @@ export interface RenderLoopDeps {
   getPendingEraseIds(): ReadonlySet<string>;
   /** The laser pointer's live fading trail (scene space) — drawn on the interactive layer each frame; empty when idle. Same getter contract as the others. */
   getLaserTrail(): readonly LaserTrailPoint[];
+  /** The lasso tool's in-progress free-form loop (scene space) — drawn on the interactive layer each frame; empty when idle. Same getter contract as the others. */
+  getLassoPath(): readonly Point[];
 }
 
 /** Starts the loop; returns a stop function for the owning effect's cleanup. */
 export function startRenderLoop(deps: RenderLoopDeps): () => void {
-  const { stage, scene, cameraStore, selection, getMarqueeRect, getSnapGuides, grid, getRemoteCursors, getTextDraft, getPendingEraseIds, getLaserTrail } = deps;
+  const { stage, scene, cameraStore, selection, getMarqueeRect, getSnapGuides, grid, getRemoteCursors, getTextDraft, getPendingEraseIds, getLaserTrail, getLassoPath } = deps;
   let frameHandle = requestAnimationFrame(function renderFrame() {
     const camera = cameraStore.getCamera();
     const textDraft = getTextDraft();
@@ -42,7 +44,7 @@ export function startRenderLoop(deps: RenderLoopDeps): () => void {
       ? []
       : [...selection.getSelectedIds()].map((id) => scene.getElement(id)).filter((element): element is AnyElement => !!element);
     stage.interactiveLayer.render(
-      { selectedElements, marqueeRect: getMarqueeRect(), snapGuides: getSnapGuides(), remoteCursors: getRemoteCursors?.() ?? [], laserTrail: getLaserTrail() },
+      { selectedElements, marqueeRect: getMarqueeRect(), snapGuides: getSnapGuides(), remoteCursors: getRemoteCursors?.() ?? [], laserTrail: getLaserTrail(), lassoPath: getLassoPath() },
       camera,
     );
     frameHandle = requestAnimationFrame(renderFrame);

@@ -13,6 +13,9 @@
  * click in every whiteboard app of this genre.
  */
 import type { AnyElement } from "../elements/element-types";
+import type { PolygonShapeType } from "../elements/polygon-shape-geometry";
+import { blockArrowUnitVertices, polygonShapeUnitVertices } from "../elements/polygon-shape-geometry";
+import type { BlockArrowDirection } from "../elements/shape-elements";
 import type { Point } from "../render/camera";
 import type { Scene } from "../scene/scene";
 import { elementCenter, rotatePointAroundCenter } from "./selection-geometry";
@@ -28,16 +31,9 @@ function toLocalRelativePoint(element: Pick<AnyElement, "x" | "y" | "width" | "h
   return { x: unrotated.x - element.x, y: unrotated.y - element.y };
 }
 
-/** The diamond inscribed in a `width x height` box's local frame — its 4 edge-midpoint vertices, clockwise from top. */
-function diamondVerticesLocal(width: number, height: number): Point[] {
-  const halfW = width / 2;
-  const halfH = height / 2;
-  return [
-    { x: halfW, y: 0 },
-    { x: width, y: halfH },
-    { x: halfW, y: height },
-    { x: 0, y: halfH },
-  ];
+/** The outline of polygon shape `type` in a `width x height` box's local frame, from the shared unit vertices (`elements/polygon-shape-geometry.ts`). */
+function polygonVerticesLocal(width: number, height: number, type: PolygonShapeType): Point[] {
+  return polygonShapeUnitVertices(type).map((point) => ({ x: point.x * width, y: point.y * height }));
 }
 
 function hitRectangleLike(local: Point, width: number, height: number, filled: boolean, tolerance: number): boolean {
@@ -45,10 +41,31 @@ function hitRectangleLike(local: Point, width: number, height: number, filled: b
   return distanceToRectBorder(local.x, local.y, width, height) <= tolerance;
 }
 
-function hitDiamond(local: Point, width: number, height: number, filled: boolean, tolerance: number): boolean {
-  const vertices = diamondVerticesLocal(width, height);
+function hitPolygonShape(local: Point, width: number, height: number, type: PolygonShapeType, filled: boolean, tolerance: number): boolean {
+  const vertices = polygonVerticesLocal(width, height, type);
   if (filled && pointInPolygon(local, vertices)) return true;
   return distanceToPolyline(local, vertices, true) <= tolerance;
+}
+
+function hitBlockArrow(local: Point, width: number, height: number, direction: BlockArrowDirection, filled: boolean, tolerance: number): boolean {
+  const vertices = blockArrowUnitVertices(direction).map((point) => ({ x: point.x * width, y: point.y * height }));
+  if (filled && pointInPolygon(local, vertices)) return true;
+  return distanceToPolyline(local, vertices, true) <= tolerance;
+}
+
+/** Height (scene units, unscaled by zoom here — tolerance already is) of the clickable header strip above a frame's top edge, matching where the name label renders. */
+const FRAME_HEADER_HIT_HEIGHT = 20;
+/** Max width of that header strip's hit target — the label is short, so a full-width top strip would over-capture clicks meant for elements just above the frame. */
+const FRAME_HEADER_HIT_WIDTH = 160;
+
+/**
+ * A frame is grabbed by its border or its header label — never by clicking through its (transparent)
+ * interior, so the elements it holds stay directly clickable. `filled` is ignored: a frame is always
+ * treated as unfilled for hit purposes.
+ */
+function hitFrame(local: Point, width: number, height: number, tolerance: number): boolean {
+  if (distanceToRectBorder(local.x, local.y, width, height) <= tolerance) return true;
+  return local.x >= -tolerance && local.x <= Math.min(width, FRAME_HEADER_HIT_WIDTH) && local.y >= -FRAME_HEADER_HIT_HEIGHT && local.y <= 0;
 }
 
 function hitEllipse(local: Point, width: number, height: number, filled: boolean, tolerance: number): boolean {
@@ -86,10 +103,26 @@ export function hitTestElement(element: AnyElement, point: Point, tolerance: num
     case "text":
     case "image":
       return hitRectangleLike(local, element.width, element.height, element.type === "text" || element.type === "image" ? true : filled, tolerance);
+    case "note":
+      // A note is a solid card — its whole interior is a hit target (like a filled rectangle).
+      return hitRectangleLike(local, element.width, element.height, true, tolerance);
+    case "cloud":
+    case "heart":
+    case "x-box":
+    case "check-box":
+      // Curve/composite shapes hit-test against their bounding box (filled → whole interior; unfilled → border).
+      return hitRectangleLike(local, element.width, element.height, filled, tolerance);
     case "diamond":
-      return hitDiamond(local, element.width, element.height, filled, tolerance);
+    case "triangle":
+    case "hexagon":
+    case "star":
+      return hitPolygonShape(local, element.width, element.height, element.type, filled, tolerance);
+    case "block-arrow":
+      return hitBlockArrow(local, element.width, element.height, element.direction, filled, tolerance);
     case "ellipse":
       return hitEllipse(local, element.width, element.height, filled, tolerance);
+    case "frame":
+      return hitFrame(local, element.width, element.height, tolerance);
     case "line": {
       const points = relativePoints(element.points);
       const closed = points.length >= 3 && Math.abs(points[0]!.x - points.at(-1)!.x) < 1e-6 && Math.abs(points[0]!.y - points.at(-1)!.y) < 1e-6;

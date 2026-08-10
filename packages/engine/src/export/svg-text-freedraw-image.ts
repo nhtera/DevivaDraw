@@ -25,7 +25,9 @@ export function buildFreedrawSvgFragment(element: FreedrawElement, camera: Camer
   const first = outline[0];
   if (!first) return "";
   const d = [`M ${first[0]} ${first[1]}`, ...outline.slice(1).map(([x, y]) => `L ${x} ${y}`), "Z"].join(" ");
-  return `<path d="${d}" fill="${escapeXmlAttribute(element.strokeColor)}" stroke="none" />`;
+  // A highlighter exports translucent (matching its on-canvas alpha) so the mark tints rather than covers.
+  const fillOpacity = element.highlighter ? ' fill-opacity="0.4"' : "";
+  return `<path d="${d}" fill="${escapeXmlAttribute(element.strokeColor)}" stroke="none"${fillOpacity} />`;
 }
 
 const SVG_TEXT_ANCHOR: Record<TextAlign, string> = { left: "start", center: "middle", right: "end" };

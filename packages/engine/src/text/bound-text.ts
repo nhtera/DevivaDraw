@@ -9,6 +9,7 @@ import type { BoundElementRef } from "../elements/base-element";
 import type { AnyElement } from "../elements/element-types";
 import { createTextElement } from "../elements/text-element";
 import type { TextElement, VerticalAlign } from "../elements/text-element";
+import type { NoteElement } from "../elements/note-element";
 import type { DiamondElement, EllipseElement, RectangleElement } from "../elements/shape-elements";
 import type { Scene } from "../scene/scene";
 import { TEXT_FONT_FAMILY_CSS } from "./font-loading";
@@ -18,8 +19,8 @@ import type { TextMeasurer } from "./text-measurement";
 import type { TextEditSession } from "./text-edit-session";
 
 /** Element types a `TextElement` can bind inside — arrows join this set once arrow-bound labels ship (this linking logic is written to be type-agnostic beyond this list, so extending it needs no rework). */
-type BindableContainer = RectangleElement | EllipseElement | DiamondElement;
-const BINDABLE_CONTAINER_TYPES: ReadonlySet<string> = new Set(["rectangle", "ellipse", "diamond"]);
+type BindableContainer = RectangleElement | EllipseElement | DiamondElement | NoteElement;
+const BINDABLE_CONTAINER_TYPES: ReadonlySet<string> = new Set(["rectangle", "ellipse", "diamond", "note"]);
 
 export function isBindableContainer(element: AnyElement): element is BindableContainer {
   return BINDABLE_CONTAINER_TYPES.has(element.type);

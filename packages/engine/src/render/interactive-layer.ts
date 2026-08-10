@@ -64,6 +64,8 @@ export interface OverlayState {
   remoteCursors?: readonly RemoteCursorOverlay[];
   /** Laser-pointer trail (scene space, oldest→newest, each with its fade opacity), or `[]`/omitted when the laser isn't in use — see `tools/laser-tool.ts`. */
   laserTrail?: readonly LaserTrailPoint[];
+  /** Live free-form lasso-selection loop (scene space), or `[]`/omitted outside a lasso drag — see `tools/lasso-tool.ts`. */
+  lassoPath?: readonly Point[];
 }
 
 const SELECTION_COLOR = "#1971c2";
@@ -97,6 +99,7 @@ export class InteractiveLayer {
   render(overlayState: OverlayState, camera: Camera): void {
     this.ctx.clearRect(0, 0, this.ctx.canvas.clientWidth, this.ctx.canvas.clientHeight);
     this.drawMarquee(overlayState.marqueeRect, camera);
+    this.drawLasso(overlayState.lassoPath ?? [], camera);
     this.drawSnapGuides(overlayState.snapGuides, camera);
 
     const frame = buildSelectionFrame(overlayState.selectedElements);
@@ -173,6 +176,24 @@ export class InteractiveLayer {
     const height = bottomRight.y - topLeft.y;
     this.ctx.fillRect(topLeft.x, topLeft.y, width, height);
     this.ctx.strokeRect(topLeft.x, topLeft.y, width, height);
+    this.ctx.restore();
+  }
+
+  /** The in-progress lasso loop as a translucent-filled dashed outline, mirroring the marquee's colors so the two selection gestures read as the same family. */
+  private drawLasso(path: readonly Point[], camera: Camera): void {
+    if (path.length < 2) return;
+    const screen = path.map((point) => sceneToScreen(point, camera));
+    this.ctx.save();
+    this.ctx.fillStyle = MARQUEE_FILL;
+    this.ctx.strokeStyle = SELECTION_COLOR;
+    this.ctx.lineWidth = 1;
+    this.ctx.setLineDash([4, 4]);
+    this.ctx.beginPath();
+    this.ctx.moveTo(screen[0]!.x, screen[0]!.y);
+    for (const point of screen.slice(1)) this.ctx.lineTo(point.x, point.y);
+    this.ctx.closePath();
+    this.ctx.fill();
+    this.ctx.stroke();
     this.ctx.restore();
   }
 

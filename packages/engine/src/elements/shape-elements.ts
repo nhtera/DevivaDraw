@@ -24,6 +24,45 @@ export interface DiamondElement extends BaseElement {
   type: "diamond";
 }
 
+export interface TriangleElement extends BaseElement {
+  type: "triangle";
+}
+
+export interface HexagonElement extends BaseElement {
+  type: "hexagon";
+}
+
+export interface StarElement extends BaseElement {
+  type: "star";
+}
+
+/** Cardinal direction a block (geo) arrow points. */
+export type BlockArrowDirection = "left" | "right" | "up" | "down";
+
+/** A filled directional block arrow (distinct from the `arrow` *connector*) — one element type carrying its `direction` rather than four near-identical types. */
+export interface BlockArrowElement extends BaseElement {
+  type: "block-arrow";
+  direction: BlockArrowDirection;
+}
+
+export interface CloudElement extends BaseElement {
+  type: "cloud";
+}
+
+export interface HeartElement extends BaseElement {
+  type: "heart";
+}
+
+/** A box with an X through it. */
+export interface XBoxElement extends BaseElement {
+  type: "x-box";
+}
+
+/** A box with a checkmark in it. */
+export interface CheckBoxElement extends BaseElement {
+  type: "check-box";
+}
+
 /** A point relative to the owning element's `(x, y)` origin, in scene units. */
 export interface RelativePoint {
   x: number;
@@ -51,6 +90,42 @@ export function createEllipseElement(input: ElementCreationInput): EllipseElemen
 
 export function createDiamondElement(input: ElementCreationInput): DiamondElement {
   return { ...createElementBase(input), type: "diamond" };
+}
+
+export function createTriangleElement(input: ElementCreationInput): TriangleElement {
+  return { ...createElementBase(input), type: "triangle" };
+}
+
+export function createHexagonElement(input: ElementCreationInput): HexagonElement {
+  return { ...createElementBase(input), type: "hexagon" };
+}
+
+export function createStarElement(input: ElementCreationInput): StarElement {
+  return { ...createElementBase(input), type: "star" };
+}
+
+export interface BlockArrowElementCreationInput extends ElementCreationInput {
+  direction: BlockArrowDirection;
+}
+
+export function createBlockArrowElement(input: BlockArrowElementCreationInput): BlockArrowElement {
+  return { ...createElementBase(input), type: "block-arrow", direction: input.direction };
+}
+
+export function createCloudElement(input: ElementCreationInput): CloudElement {
+  return { ...createElementBase(input), type: "cloud" };
+}
+
+export function createHeartElement(input: ElementCreationInput): HeartElement {
+  return { ...createElementBase(input), type: "heart" };
+}
+
+export function createXBoxElement(input: ElementCreationInput): XBoxElement {
+  return { ...createElementBase(input), type: "x-box" };
+}
+
+export function createCheckBoxElement(input: ElementCreationInput): CheckBoxElement {
+  return { ...createElementBase(input), type: "check-box" };
 }
 
 export interface LineElementCreationInput extends ElementCreationInput {

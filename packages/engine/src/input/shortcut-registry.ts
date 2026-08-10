@@ -93,6 +93,8 @@ export function registerToolShortcuts(registry: ShortcutRegistry): void {
   registry.register("a", "arrow-tool");
   registry.register("e", "eraser-tool");
   registry.register("k", "laser-tool");
+  registry.register("f", "frame-tool");
+  registry.register("n", "note-tool");
 }
 
 /** Undo/redo — `Ctrl/Cmd+Z` and `Ctrl/Cmd+Shift+Z`, the one shortcut pair no tool's own `onKeyDown` owns (undo/redo is global chrome, not a tool concern). */

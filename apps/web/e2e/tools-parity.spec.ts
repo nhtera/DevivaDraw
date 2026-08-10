@@ -100,7 +100,9 @@ test("the laser pointer draws a fading red trail and leaves nothing on the canva
       return red;
     });
 
-  await page.getByTestId("toolbar-laser-tool").click();
+  // The laser now lives in the More overflow menu (it's a specialty tool, off the main row).
+  await page.getByTestId("toolbar-more").click();
+  await page.getByTestId("more-laser-tool").click();
   await page.mouse.move(300, 400);
   await page.mouse.down();
   for (let x = 320; x <= 700; x += 20) await page.mouse.move(x, 400);
@@ -109,6 +111,166 @@ test("the laser pointer draws a fading red trail and leaves nothing on the canva
   expect(await redPixels()).toBeGreaterThan(20); // the trail is visible right after drawing
   await expect(page.getByTestId("top-bar-undo")).toBeDisabled(); // purely ephemeral — nothing added to the scene
   await expect.poll(redPixels, { timeout: 3000 }).toBe(0); // and it fades away completely
+});
+
+test("the More overflow menu opens an icon grid of the secondary tools and closes on outside click", async ({ page }) => {
+  await expect(page.getByTestId("more-tools-popover")).toHaveCount(0);
+
+  await page.getByTestId("toolbar-more").click();
+  await expect(page.getByTestId("more-tools-popover")).toBeVisible();
+  // It houses the extra shapes + specialty tools.
+  for (const id of ["more-triangle-tool", "more-hexagon-tool", "more-star-tool", "more-highlighter-tool", "more-frame-tool", "more-laser-tool", "more-lasso-tool"]) {
+    await expect(page.getByTestId(id)).toBeVisible();
+  }
+
+  // Clicking the canvas (outside the popover) dismisses it.
+  await page.mouse.click(700, 500);
+  await expect(page.getByTestId("more-tools-popover")).toHaveCount(0);
+});
+
+test("picking an extra shape from the More menu drops it and hands back to select", async ({ page }) => {
+  await page.getByTestId("toolbar-more").click();
+  await page.getByTestId("more-star-tool").click();
+  await expect(page.getByTestId("more-tools-popover")).toHaveCount(0); // popover closed on pick
+  await page.mouse.click(500, 380);
+
+  await expect(page.getByTestId("top-bar-undo")).toBeEnabled();
+  await expect(page.getByTestId("toolbar-select-tool")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-testid^="layer-action-"]').first()).toBeVisible();
+});
+
+test("the highlighter (from More) commits a translucent stroke", async ({ page }) => {
+  await page.getByTestId("toolbar-more").click();
+  await page.getByTestId("more-highlighter-tool").click();
+  await page.mouse.move(300, 300);
+  await page.mouse.down();
+  for (let x = 300; x <= 480; x += 20) await page.mouse.move(x, 300);
+  await page.mouse.up();
+
+  // A stroke element was committed (undoable) and control handed back to select.
+  await expect(page.getByTestId("top-bar-undo")).toBeEnabled();
+  await expect(page.getByTestId("toolbar-select-tool")).toHaveAttribute("aria-pressed", "true");
+});
+
+test("a frame drags its contents with it", async ({ page }) => {
+  // Topmost dark-ink Y in the drawing region (the rectangle's dark stroke on the light canvas; the
+  // frame's own gray border is above the ink-luminance threshold, so only the rectangle counts).
+  const inkTopY = async (): Promise<number> => {
+    const shot = await page.screenshot();
+    return page.evaluate(async (b64) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${b64}`;
+      await img.decode();
+      const cv = document.createElement("canvas");
+      cv.width = img.width;
+      cv.height = img.height;
+      const ctx = cv.getContext("2d")!;
+      ctx.drawImage(img, 0, 0);
+      const d = ctx.getImageData(0, 0, cv.width, cv.height).data;
+      for (let y = 150; y < 800; y += 1)
+        for (let x = 250; x < 470; x += 1) {
+          const i = (y * cv.width + x) * 4;
+          if (d[i + 3]! > 60 && d[i]! * 0.299 + d[i + 1]! * 0.587 + d[i + 2]! * 0.114 < 110) return y;
+        }
+      return -1;
+    }, shot.toString("base64"));
+  };
+
+  // Draw a rectangle.
+  await page.getByTestId("toolbar-rectangle-tool").click();
+  await page.mouse.move(320, 300);
+  await page.mouse.down();
+  await page.mouse.move(420, 380);
+  await page.mouse.up();
+  const before = await inkTopY();
+  expect(before).toBeGreaterThan(0);
+
+  // Draw a frame enclosing the rectangle (auto-selected on release).
+  await page.getByTestId("toolbar-more").click();
+  await page.getByTestId("more-frame-tool").click();
+  await page.mouse.move(290, 270);
+  await page.mouse.down();
+  await page.mouse.move(450, 420);
+  await page.mouse.up();
+
+  // Drag the selected frame from an empty interior point (below the rectangle) straight down.
+  await page.mouse.move(300, 410);
+  await page.mouse.down();
+  await page.mouse.move(300, 560);
+  await page.mouse.up();
+
+  expect((await inkTopY()) - before).toBeGreaterThan(80); // the rectangle moved down with the frame
+});
+
+test("the lasso selects every element a traced loop encloses", async ({ page }) => {
+  // Draw a rectangle, then deselect it.
+  await page.getByTestId("toolbar-rectangle-tool").click();
+  await page.mouse.move(320, 300);
+  await page.mouse.down();
+  await page.mouse.move(400, 370);
+  await page.mouse.up();
+  await page.keyboard.press("Escape");
+  await expect(page.locator('[data-testid^="layer-action-"]')).toHaveCount(0); // nothing selected
+
+  // Lasso a loop around the rectangle.
+  await page.getByTestId("toolbar-more").click();
+  await page.getByTestId("more-lasso-tool").click();
+  await page.mouse.move(290, 270);
+  await page.mouse.down();
+  for (const [x, y] of [[430, 270], [430, 400], [290, 400], [290, 270]] as const) await page.mouse.move(x, y);
+  await page.mouse.up();
+
+  // The rectangle is now selected (its layer actions render only for a non-empty selection).
+  await expect(page.locator('[data-testid^="layer-action-"]').first()).toBeVisible();
+});
+
+test("the sticky-note tool sits on the main toolbar and drops a note", async ({ page }) => {
+  await expect(page.getByTestId("toolbar-note-tool")).toBeVisible();
+  await page.getByTestId("toolbar-note-tool").click();
+  await page.mouse.click(500, 400); // click-to-place a default note
+
+  await expect(page.getByTestId("top-bar-undo")).toBeEnabled();
+  await expect(page.getByTestId("toolbar-select-tool")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-testid^="layer-action-"]').first()).toBeVisible();
+});
+
+test("a shape created from the More menu can be resized by its handles (regression: they used to ignore resize)", async ({ page }) => {
+  // Rightmost dark-ink X in the drawing region (the star's dark stroke on the light canvas).
+  const rightmostInkX = async (): Promise<number> => {
+    const shot = await page.screenshot();
+    return page.evaluate(async (b64) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${b64}`;
+      await img.decode();
+      const cv = document.createElement("canvas");
+      cv.width = img.width;
+      cv.height = img.height;
+      const ctx = cv.getContext("2d")!;
+      ctx.drawImage(img, 0, 0);
+      const d = ctx.getImageData(0, 0, cv.width, cv.height).data;
+      for (let x = 760; x >= 380; x -= 1)
+        for (let y = 280; y < 640; y += 1) {
+          const i = (y * cv.width + x) * 4;
+          if (d[i + 3]! > 60 && d[i]! * 0.299 + d[i + 1]! * 0.587 + d[i + 2]! * 0.114 < 110) return x;
+        }
+      return -1;
+    }, shot.toString("base64"));
+  };
+
+  // Click-place a default star (auto-selected); its bbox is ~100px centered on the click.
+  await page.getByTestId("toolbar-more").click();
+  await page.getByTestId("more-star-tool").click();
+  await page.mouse.click(500, 420);
+  const before = await rightmostInkX();
+  expect(before).toBeGreaterThan(0);
+
+  // Drag its bottom-right resize handle outward.
+  await page.mouse.move(550, 470);
+  await page.mouse.down();
+  await page.mouse.move(700, 620);
+  await page.mouse.up();
+
+  expect((await rightmostInkX()) - before).toBeGreaterThan(60); // the star grew to the right
 });
 
 test("a selected element is moved by dragging from inside its bounding box, not only its thin geometry", async ({ page }) => {

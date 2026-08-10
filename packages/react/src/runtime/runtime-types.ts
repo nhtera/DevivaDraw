@@ -1,5 +1,5 @@
 /** The fully-wired runtime `use-deviva-runtime.ts` builds once per mounted canvas — `ActionRuntime` plus the plumbing (pipeline, action registry, marquee/snap-guide readers) only the hook itself and `deviva-draw-app.tsx` need directly. */
-import type { LaserTrailPoint, PointerEventPipeline, SceneRect, SnapGuide } from "@deviva-draw/engine";
+import type { LaserTrailPoint, PointerEventPipeline, Point, SceneRect, SnapGuide } from "@deviva-draw/engine";
 import type { ActionRegistry } from "../actions/action-registry";
 import type { ActionRuntime } from "../actions/action-types";
 
@@ -14,6 +14,8 @@ export interface DevivaRuntime extends ActionRuntime {
   getPendingEraseIds(): ReadonlySet<string>;
   /** The laser pointer's live fading trail (empty when idle) — the interactive layer draws it each frame. */
   getLaserTrail(): readonly LaserTrailPoint[];
+  /** The lasso tool's in-progress free-form loop (empty when idle) — the interactive layer draws it each frame. */
+  getLassoPath(): readonly Point[];
   /** Detaches the pointer pipeline, the double-click listener, and the binding/bound-text sync hooks — call from the owning effect's cleanup. */
   dispose(): void;
 }

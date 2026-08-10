@@ -171,6 +171,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
       },
       getPendingEraseIds: builtRuntime.getPendingEraseIds,
       getLaserTrail: builtRuntime.getLaserTrail,
+      getLassoPath: builtRuntime.getLassoPath,
     });
 
     // Always subscribed (not gated on whether `onChange` was passed at *mount* time) — `stableOnChange`

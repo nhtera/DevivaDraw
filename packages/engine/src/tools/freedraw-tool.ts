@@ -33,6 +33,8 @@ export interface FreedrawToolDeps {
   history: ShapeToolHistory;
   /** Called once a stroke/dot is committed, with its id — see `drag-shape-tool-base.ts`'s `onCreated`. */
   onCreated?: (elementId: string) => void;
+  /** When `true`, every stroke this tool commits is a highlighter mark (see `FreedrawElement.highlighter`) — the one difference between the freehand and highlighter tools, so both share this one class. */
+  highlighter?: boolean;
 }
 
 interface AbsoluteSample {
@@ -74,6 +76,7 @@ export class FreedrawTool extends NoOpToolHandler {
       height: 0,
       points: [[0, 0, firstSample.pressure]],
       simulatePressure,
+      highlighter: this.deps.highlighter ?? false,
       strokeColor: style.strokeColor,
       strokeWidth: style.strokeWidth,
       opacity: style.opacity,

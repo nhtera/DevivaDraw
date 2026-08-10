@@ -16,7 +16,7 @@ import { StyleSection } from "./style-section";
 import { ArrowStyleSection, TextPropertiesPanel, TextStyleSection } from "./type-style-sections";
 import { useTranslation } from "../i18n/use-translation";
 import { useSceneVersion, useSelectionVersion, useToolVersion } from "../runtime/use-live-version";
-import { ERASER_TOOL_NAME, LASER_TOOL_NAME, PAN_TOOL_NAME, SELECT_TOOL_NAME } from "../runtime/tool-names";
+import { ERASER_TOOL_NAME, FRAME_TOOL_NAME, LASER_TOOL_NAME, LASSO_TOOL_NAME, PAN_TOOL_NAME, SELECT_TOOL_NAME } from "../runtime/tool-names";
 import type { DevivaRuntime } from "../runtime/runtime-types";
 
 const FILL_STYLE_OPTIONS: FillStyle[] = ["hachure", "cross-hatch", "solid", "zigzag"];
@@ -88,7 +88,16 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
   // rather than showing "next shape" defaults nobody asked for. A creation tool (shape/line/arrow/
   // freehand/text) keeps the panel visible so its defaults can be set before drawing.
   const activeTool = runtime.toolStateMachine.getActiveToolName();
-  const isIdleTool = activeTool === SELECT_TOOL_NAME || activeTool === PAN_TOOL_NAME || activeTool === ERASER_TOOL_NAME || activeTool === LASER_TOOL_NAME;
+  // Non-creating tools (select/pan/eraser/laser/lasso/frame) have nothing to pre-style, so the panel
+  // hides for them. The frame's look is fixed chrome; the lasso only selects. The highlighter is a
+  // creation tool (its stroke color/width/opacity are set here), so it deliberately keeps the panel.
+  const isIdleTool =
+    activeTool === SELECT_TOOL_NAME ||
+    activeTool === PAN_TOOL_NAME ||
+    activeTool === ERASER_TOOL_NAME ||
+    activeTool === LASER_TOOL_NAME ||
+    activeTool === LASSO_TOOL_NAME ||
+    activeTool === FRAME_TOOL_NAME;
   const isEditingText = runtime.editSession.getState().status === "editing";
   if (isIdleTool && runtime.selection.size === 0 && !isEditingText) return null;
 

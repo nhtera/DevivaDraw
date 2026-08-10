@@ -5,17 +5,25 @@
  */
 import {
   ArrowTool,
+  BlockArrowTool,
+  CheckBoxTool,
+  CloudTool,
   computeElementsBounds,
   createCanvasTextMeasurer,
   DEFAULT_STROKE_COLOR_PALETTE,
   DiamondTool,
   EllipseTool,
   EraserTool,
+  FrameTool,
   FreedrawTool,
+  HeartTool,
+  HexagonTool,
   HistoryStack,
   InternalClipboard,
   LaserTool,
+  LassoTool,
   LineTool,
+  NoteTool,
   PanZoomTool,
   RectangleTool,
   registerArrowBindingHooks,
@@ -23,9 +31,12 @@ import {
   SelectionState,
   SelectionTool,
   ShapeStyleState,
+  StarTool,
   TextEditSession,
   TextTool,
   ToolStateMachine,
+  TriangleTool,
+  XBoxTool,
 } from "@deviva-draw/engine";
 import type { AnyElement, Camera, Scene, TextMeasurer } from "@deviva-draw/engine";
 import type { GridState } from "../actions/action-types";
@@ -33,16 +44,31 @@ import { adaptStrokeColorForTheme } from "../theme/canvas-color-inversion";
 import type { ThemeMode } from "../theme/theme-tokens";
 import {
   ARROW_TOOL_NAME,
+  BLOCK_ARROW_DOWN_TOOL_NAME,
+  BLOCK_ARROW_LEFT_TOOL_NAME,
+  BLOCK_ARROW_RIGHT_TOOL_NAME,
+  BLOCK_ARROW_UP_TOOL_NAME,
+  CHECK_BOX_TOOL_NAME,
+  CLOUD_TOOL_NAME,
   DIAMOND_TOOL_NAME,
   ELLIPSE_TOOL_NAME,
   ERASER_TOOL_NAME,
+  FRAME_TOOL_NAME,
   FREEDRAW_TOOL_NAME,
+  HEART_TOOL_NAME,
+  HEXAGON_TOOL_NAME,
+  HIGHLIGHTER_TOOL_NAME,
   LASER_TOOL_NAME,
+  LASSO_TOOL_NAME,
   LINE_TOOL_NAME,
+  NOTE_TOOL_NAME,
   PAN_TOOL_NAME,
   RECTANGLE_TOOL_NAME,
   SELECT_TOOL_NAME,
+  STAR_TOOL_NAME,
   TEXT_TOOL_NAME,
+  TRIANGLE_TOOL_NAME,
+  X_BOX_TOOL_NAME,
 } from "./tool-names";
 
 export interface BuiltTools {
@@ -56,6 +82,7 @@ export interface BuiltTools {
   selectionTool: SelectionTool;
   eraserTool: EraserTool;
   laserTool: LaserTool;
+  lassoTool: LassoTool;
   editSession: TextEditSession;
   textMeasurer: TextMeasurer;
   /** Unregisters the binding/bound-text sync hooks — call from the owning effect's cleanup. */
@@ -100,14 +127,31 @@ export function buildTools(
   const rectangleTool = new RectangleTool(shapeToolDeps);
   const ellipseTool = new EllipseTool(shapeToolDeps);
   const diamondTool = new DiamondTool(shapeToolDeps);
+  const triangleTool = new TriangleTool(shapeToolDeps);
+  const hexagonTool = new HexagonTool(shapeToolDeps);
+  const starTool = new StarTool(shapeToolDeps);
+  const cloudTool = new CloudTool(shapeToolDeps);
+  const heartTool = new HeartTool(shapeToolDeps);
+  const xBoxTool = new XBoxTool(shapeToolDeps);
+  const checkBoxTool = new CheckBoxTool(shapeToolDeps);
+  const noteTool = new NoteTool(shapeToolDeps);
+  const blockArrowRightTool = new BlockArrowTool(shapeToolDeps, "right");
+  const blockArrowLeftTool = new BlockArrowTool(shapeToolDeps, "left");
+  const blockArrowUpTool = new BlockArrowTool(shapeToolDeps, "up");
+  const blockArrowDownTool = new BlockArrowTool(shapeToolDeps, "down");
   const lineTool = new LineTool({ ...shapeToolDeps, getZoom: () => getCamera().zoom });
   const arrowTool = new ArrowTool({ ...shapeToolDeps, getZoom: () => getCamera().zoom });
   const freedrawTool = new FreedrawTool(shapeToolDeps);
+  // The highlighter is the freehand tool in "marker" mode — same gesture/style handling, but every
+  // stroke it commits is a translucent multiply-blended highlighter (see `FreedrawElement.highlighter`).
+  const highlighterTool = new FreedrawTool({ ...shapeToolDeps, highlighter: true });
   // The eraser deletes rather than creates, so it takes no style/onCreated — just the scene, history
   // (one drag = one undo step), and zoom (for a zoom-independent pointer hit tolerance).
   const eraserTool = new EraserTool({ scene, history: historyStack, getZoom: () => getCamera().zoom });
   // The laser pointer is purely ephemeral overlay chrome (no scene/history/style at all).
   const laserTool = new LaserTool();
+  // The frame tool creates named region elements (no shared shape style — a frame's look is fixed chrome).
+  const frameTool = new FrameTool({ scene, history: historyStack, onCreated: onShapeCreated });
 
   const measurementCtx = document.createElement("canvas").getContext("2d");
   if (!measurementCtx) throw new Error("build-tools: 2d measurement context unavailable");
@@ -128,6 +172,8 @@ export function buildTools(
     getZoom: () => getCamera().zoom,
     getGrid: () => grid,
   });
+  // The lasso is a free-form selection gesture; it feeds the same selection state as the select tool.
+  const lassoTool = new LassoTool({ scene, selection: selectionState });
 
   const editSession = new TextEditSession({ scene, history: historyStack });
   const textTool = new TextTool({
@@ -145,12 +191,27 @@ export function buildTools(
       [RECTANGLE_TOOL_NAME]: rectangleTool,
       [ELLIPSE_TOOL_NAME]: ellipseTool,
       [DIAMOND_TOOL_NAME]: diamondTool,
+      [TRIANGLE_TOOL_NAME]: triangleTool,
+      [HEXAGON_TOOL_NAME]: hexagonTool,
+      [STAR_TOOL_NAME]: starTool,
+      [CLOUD_TOOL_NAME]: cloudTool,
+      [HEART_TOOL_NAME]: heartTool,
+      [X_BOX_TOOL_NAME]: xBoxTool,
+      [CHECK_BOX_TOOL_NAME]: checkBoxTool,
+      [NOTE_TOOL_NAME]: noteTool,
+      [BLOCK_ARROW_RIGHT_TOOL_NAME]: blockArrowRightTool,
+      [BLOCK_ARROW_LEFT_TOOL_NAME]: blockArrowLeftTool,
+      [BLOCK_ARROW_UP_TOOL_NAME]: blockArrowUpTool,
+      [BLOCK_ARROW_DOWN_TOOL_NAME]: blockArrowDownTool,
       [LINE_TOOL_NAME]: lineTool,
       [FREEDRAW_TOOL_NAME]: freedrawTool,
+      [HIGHLIGHTER_TOOL_NAME]: highlighterTool,
       [TEXT_TOOL_NAME]: textTool,
       [ARROW_TOOL_NAME]: arrowTool,
       [ERASER_TOOL_NAME]: eraserTool,
       [LASER_TOOL_NAME]: laserTool,
+      [LASSO_TOOL_NAME]: lassoTool,
+      [FRAME_TOOL_NAME]: frameTool,
     },
     SELECT_TOOL_NAME,
   );
@@ -172,6 +233,7 @@ export function buildTools(
     selectionTool,
     eraserTool,
     laserTool,
+    lassoTool,
     editSession,
     textMeasurer,
     disposeHooks: () => {

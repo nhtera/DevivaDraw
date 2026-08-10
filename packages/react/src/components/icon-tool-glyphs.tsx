@@ -19,6 +19,34 @@ export const TOOL_GLYPHS: Record<string, ReactNode> = {
   rectangle: <rect x="3.5" y="5.5" width="13" height="9" rx="1.5" />,
   ellipse: <circle cx="10" cy="10" r="6.5" />,
   diamond: <path d="M10 3 L17 10 L10 17 L3 10 Z" />,
+  triangle: <path d="M10 3.5 L16.5 16 L3.5 16 Z" strokeLinejoin="round" />,
+  hexagon: <path d="M6 4 L14 4 L17.5 10 L14 16 L6 16 L2.5 10 Z" strokeLinejoin="round" />,
+  star: <path d="M10 2.5 L12.2 7.8 L18 8.3 L13.6 12 L15 17.5 L10 14.4 L5 17.5 L6.4 12 L2 8.3 L7.8 7.8 Z" strokeLinejoin="round" />,
+  cloud: <path d="M6 15 A3.2 3.2 0 0 1 6 8.7 A4 4 0 0 1 13.5 8 A3.3 3.3 0 0 1 14 15 Z" strokeLinejoin="round" />,
+  heart: <path d="M10 16 C4 11.5 3.5 7.5 6.2 6 C8.2 4.9 10 6.5 10 7.8 C10 6.5 11.8 4.9 13.8 6 C16.5 7.5 16 11.5 10 16 Z" strokeLinejoin="round" />,
+  "x-box": (
+    <>
+      <rect x="3.5" y="3.5" width="13" height="13" rx="1.5" />
+      <path d="M6.5 6.5 L13.5 13.5 M13.5 6.5 L6.5 13.5" />
+    </>
+  ),
+  "check-box": (
+    <>
+      <rect x="3.5" y="3.5" width="13" height="13" rx="1.5" />
+      <path d="M6 10.2 L9 13 L14 6.5" strokeLinejoin="round" />
+    </>
+  ),
+  // A folded-corner sticky note.
+  note: (
+    <>
+      <path d="M4 4 H16 V12 L12 16 H4 Z" strokeLinejoin="round" />
+      <path d="M16 12 H12 V16" strokeLinejoin="round" />
+    </>
+  ),
+  "block-arrow-right": <path d="M3 8 H11 V5.5 L17 10 L11 14.5 V12 H3 Z" strokeLinejoin="round" />,
+  "block-arrow-left": <path d="M17 8 H9 V5.5 L3 10 L9 14.5 V12 H17 Z" strokeLinejoin="round" />,
+  "block-arrow-up": <path d="M8 17 V9 H5.5 L10 3 L14.5 9 H12 V17 Z" strokeLinejoin="round" />,
+  "block-arrow-down": <path d="M8 3 V11 H5.5 L10 17 L14.5 11 H12 V3 Z" strokeLinejoin="round" />,
   line: <line x1="4" y1="15.5" x2="16" y2="4.5" />,
   arrow: (
     <>
@@ -54,4 +82,28 @@ export const TOOL_GLYPHS: Record<string, ReactNode> = {
       <path d="M10 3 V5.5 M10 14.5 V17 M3 10 H5.5 M14.5 10 H17 M5.4 5.4 L7.1 7.1 M12.9 12.9 L14.6 14.6 M14.6 5.4 L12.9 7.1 M7.1 12.9 L5.4 14.6" strokeLinecap="round" />
     </>
   ),
+  // A marker: an angled body like the pencil but with a broad chisel nib (the wide base line).
+  highlighter: (
+    <>
+      <path d="M5 15 L5 12 L12.5 4.5 L15.5 7.5 L8 15 Z" strokeLinejoin="round" />
+      <line x1="4.5" y1="16.5" x2="8.5" y2="16.5" strokeWidth="2.4" strokeLinecap="round" />
+    </>
+  ),
+  // A dashed loop with a little tail — the lasso.
+  lasso: (
+    <>
+      <path d="M10 4.5 C14.5 4.5 16.5 8 15 11 C13.5 14 6.5 14 5 11 C3.7 8.5 5.5 4.5 10 4.5 Z" strokeDasharray="2 2" />
+      <path d="M6.2 12.8 L5.5 16.5" strokeLinecap="round" />
+      <circle cx="5.5" cy="16.8" r="0.9" fill="currentColor" stroke="none" />
+    </>
+  ),
+  // Corner brackets, the universal "frame" mark (matches tldraw's frame glyph).
+  frame: (
+    <path
+      d="M6 3.5 H3.5 V6 M14 3.5 H16.5 V6 M6 16.5 H3.5 V14 M14 16.5 H16.5 V14 M7.5 2 V18 M12.5 2 V18 M2 7.5 H18 M2 12.5 H18"
+      strokeLinecap="round"
+    />
+  ),
+  // A downward chevron: the "More tools" overflow toggle (the popover opens below the top toolbar).
+  more: <path d="M5 8 L10 13 L15 8" strokeLinecap="round" strokeLinejoin="round" />,
 };

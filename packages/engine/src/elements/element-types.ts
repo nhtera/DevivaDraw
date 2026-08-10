@@ -15,9 +15,24 @@ import type { BaseElement } from "./base-element";
 import type { ArrowElement } from "./arrow-element";
 import type { ElementCreationInput } from "./element-factory-defaults";
 import { createElementBase } from "./element-factory-defaults";
+import type { FrameElement } from "./frame-element";
 import type { FreedrawElement } from "./freedraw-element";
 import type { ImageElement } from "./image-element";
-import type { DiamondElement, EllipseElement, LineElement, RectangleElement } from "./shape-elements";
+import type { NoteElement } from "./note-element";
+import type {
+  BlockArrowElement,
+  CheckBoxElement,
+  CloudElement,
+  DiamondElement,
+  EllipseElement,
+  HeartElement,
+  HexagonElement,
+  LineElement,
+  RectangleElement,
+  StarElement,
+  TriangleElement,
+  XBoxElement,
+} from "./shape-elements";
 import type { TextElement } from "./text-element";
 
 export type { ElementCreationInput } from "./element-factory-defaults";
@@ -25,17 +40,46 @@ export type { Arrowhead, ArrowBinding, ArrowElement, ArrowElementCreationInput, 
 export { createArrowElement, DEFAULT_ARROW_TYPE, DEFAULT_END_ARROWHEAD, DEFAULT_START_ARROWHEAD } from "./arrow-element";
 export type { FreedrawElement, FreedrawElementCreationInput, FreedrawPoint } from "./freedraw-element";
 export { createFreedrawElement } from "./freedraw-element";
+export type { FrameElement, FrameElementCreationInput } from "./frame-element";
+export { createFrameElement } from "./frame-element";
+export type { NoteElement } from "./note-element";
+export { createNoteElement, DEFAULT_NOTE_BACKGROUND } from "./note-element";
 export type { ImageElement, ImageElementCreationInput } from "./image-element";
 export { createImageElement } from "./image-element";
 export type {
+  BlockArrowDirection,
+  BlockArrowElement,
+  BlockArrowElementCreationInput,
+  CheckBoxElement,
+  CloudElement,
   DiamondElement,
   EllipseElement,
+  HeartElement,
+  HexagonElement,
   LineElement,
   LineElementCreationInput,
   RectangleElement,
   RelativePoint,
+  StarElement,
+  TriangleElement,
+  XBoxElement,
 } from "./shape-elements";
-export { createDiamondElement, createEllipseElement, createLineElement, createRectangleElement } from "./shape-elements";
+export {
+  createBlockArrowElement,
+  createCheckBoxElement,
+  createCloudElement,
+  createDiamondElement,
+  createEllipseElement,
+  createHeartElement,
+  createHexagonElement,
+  createLineElement,
+  createRectangleElement,
+  createStarElement,
+  createTriangleElement,
+  createXBoxElement,
+} from "./shape-elements";
+export type { PolygonShapeType } from "./polygon-shape-geometry";
+export { isPolygonShapeType, polygonShapeUnitVertices } from "./polygon-shape-geometry";
 export type { TextAlign, TextElementCreationInput, TextFontFamily, VerticalAlign } from "./text-element";
 export type { TextElement } from "./text-element";
 export {
@@ -57,11 +101,21 @@ export type AnyElement =
   | RectangleElement
   | EllipseElement
   | DiamondElement
+  | TriangleElement
+  | HexagonElement
+  | StarElement
+  | BlockArrowElement
+  | CloudElement
+  | HeartElement
+  | XBoxElement
+  | CheckBoxElement
   | LineElement
   | FreedrawElement
   | TextElement
   | ArrowElement
-  | ImageElement;
+  | ImageElement
+  | FrameElement
+  | NoteElement;
 
 /**
  * Builds a new `GenericElement` with sane defaults for every field the caller did not supply.

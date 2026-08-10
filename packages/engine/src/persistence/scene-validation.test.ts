@@ -95,7 +95,7 @@ describe("validateSceneDocument — per-element-type structural validation", () 
   });
 
   it("rejects an element with an unrecognized type", () => {
-    const element = { ...stored(createRectangleElement({ x: 0, y: 0 })), type: "hexagon" };
+    const element = { ...stored(createRectangleElement({ x: 0, y: 0 })), type: "octagon" };
     expect(validateSceneDocument(minimalDocument([element])).ok).toBe(false);
   });
 

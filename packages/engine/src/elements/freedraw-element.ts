@@ -30,12 +30,21 @@ export interface FreedrawElement extends BaseElement {
    * the user actually drew instead of re-guessing the input device.
    */
   simulatePressure: boolean;
+  /**
+   * Whether this stroke is a *highlighter* mark rather than plain ink: rendered with a constant thick
+   * nib (no pressure taper), translucent, and `multiply` compositing so it darkens whatever it crosses
+   * without hiding it — the marker affordance tldraw exposes. Stored on the element (not inferred from
+   * the tool) so the renderer draws it correctly regardless of which tool produced it.
+   */
+  highlighter: boolean;
 }
 
 export interface FreedrawElementCreationInput extends ElementCreationInput {
   points: readonly FreedrawPoint[];
   /** Defaults to `true` (simulate) — the safer default for callers that don't know their input device. */
   simulatePressure?: boolean;
+  /** Defaults to `false` (plain ink) — see `FreedrawElement.highlighter`. */
+  highlighter?: boolean;
 }
 
 export function createFreedrawElement(input: FreedrawElementCreationInput): FreedrawElement {
@@ -44,5 +53,6 @@ export function createFreedrawElement(input: FreedrawElementCreationInput): Free
     type: "freedraw",
     points: input.points,
     simulatePressure: input.simulatePressure ?? true,
+    highlighter: input.highlighter ?? false,
   };
 }

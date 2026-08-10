@@ -44,6 +44,15 @@ function wrapElementFragment(inner: string, element: AnyElement, camera: Camera)
   return `<g opacity="${opacity}"${transform}>${inner}</g>`;
 }
 
+/** A frame's border + name label as SVG — the export counterpart to `render/frame-renderer.ts`, kept inline (a couple of tags) rather than as its own module. */
+function buildFrameSvgFragment(element: AnyElement & { type: "frame" }, camera: Camera): string {
+  const rect = screenRectOf(element, camera);
+  const border = "rgba(130, 130, 140, 0.9)";
+  const rectTag = `<rect x="${rect.x}" y="${rect.y}" width="${rect.width}" height="${rect.height}" fill="none" stroke="${border}" stroke-width="1.5" />`;
+  const label = `<text x="${rect.x}" y="${rect.y - 6}" font-family="system-ui, sans-serif" font-size="12" fill="${border}">${escapeXmlText(element.name)}</text>`;
+  return `${rectTag}${label}`;
+}
+
 function elementFragment(element: AnyElement, camera: Camera, generator: RoughSvgGenerator, textMeasurer: TextMeasurer, scene: Scene): string {
   switch (element.type) {
     case "freedraw":
@@ -54,6 +63,8 @@ function elementFragment(element: AnyElement, camera: Camera, generator: RoughSv
       return buildArrowSvgFragment(generator, element, camera);
     case "image":
       return buildImageSvgFragment(element, camera, scene);
+    case "frame":
+      return buildFrameSvgFragment(element, camera);
     default:
       return buildRoughShapeSvgFragment(generator, element, camera);
   }
