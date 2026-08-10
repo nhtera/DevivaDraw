@@ -75,6 +75,14 @@ export const TOOL_GLYPHS: Record<string, ReactNode> = {
       <path d="M4 14 L8 10 L11 13 L13 11 L16 14" strokeLinejoin="round" />
     </>
   ),
+  // A tilted paint bucket tipping out a drop — the universal "fill" mark.
+  bucket: (
+    <>
+      <path d="M4 9.5 L9.5 4 L15 9.5 L10.5 14 A2 2 0 0 1 8 14 Z" strokeLinejoin="round" />
+      <line x1="7.2" y1="6.3" x2="9.5" y2="4" />
+      <path d="M15.5 11 C16.5 12.5 16.8 13.6 15.9 14.3 C15.1 15 14 14.4 14.2 13.2 C14.3 12.4 15.5 11 15.5 11 Z" fill="currentColor" stroke="none" />
+    </>
+  ),
   // A pointer beam: a filled dot with radiating rays, reading as a laser point.
   laser: (
     <>

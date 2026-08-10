@@ -29,6 +29,7 @@ export const MORE_TOOL_IDS: readonly string[] = [
   "block-arrow-up-tool",
   "block-arrow-down-tool",
   "highlighter-tool",
+  "bucket-fill-tool",
   "frame-tool",
   "laser-tool",
   "lasso-tool",

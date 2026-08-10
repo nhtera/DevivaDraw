@@ -90,12 +90,23 @@ function relativePoints(points: readonly (readonly number[] | { x: number; y: nu
 }
 
 /** Dispatches to the correct per-type test. `tolerance` is already in scene units — see the module doc. */
-export function hitTestElement(element: AnyElement, point: Point, tolerance: number): boolean {
+/** Optional hit-test behavior tweaks. */
+export interface HitTestOptions {
+  /**
+   * Treat every closed shape as filled, so a click anywhere in its interior counts as a hit even when
+   * its background is transparent. The bucket-fill tool needs this (you fill an unfilled shape by
+   * clicking inside it); plain selection deliberately does NOT (an unfilled shape is grabbed by its
+   * stroke, matching Excalidraw/tldraw — see `selection-tool.ts`).
+   */
+  interiorForClosedShapes?: boolean;
+}
+
+export function hitTestElement(element: AnyElement, point: Point, tolerance: number, options?: HitTestOptions): boolean {
   if (element.isDeleted || element.locked) return false;
   if (element.type === "text" && element.containerId !== null) return false; // bound text: see module doc
 
   const local = toLocalRelativePoint(element, point);
-  const filled = isFilled(element);
+  const filled = isFilled(element) || (options?.interiorForClosedShapes ?? false);
 
   switch (element.type) {
     case "rectangle":
@@ -147,11 +158,11 @@ export function hitTestElement(element: AnyElement, point: Point, tolerance: num
  * `apps/web`'s `find-arrow-at-point.ts`/`find-bindable-container-at-point.ts` already use for their
  * narrower single-type queries, generalized here across every element type.
  */
-export function topmostElementAt(scene: Scene, point: Point, tolerance: number): AnyElement | null {
+export function topmostElementAt(scene: Scene, point: Point, tolerance: number, options?: HitTestOptions): AnyElement | null {
   const elements = scene.getElements();
   for (let i = elements.length - 1; i >= 0; i -= 1) {
     const element = elements[i];
-    if (element && hitTestElement(element, point, tolerance)) return element;
+    if (element && hitTestElement(element, point, tolerance, options)) return element;
   }
   return null;
 }

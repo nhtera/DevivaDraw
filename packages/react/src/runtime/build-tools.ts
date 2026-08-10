@@ -6,6 +6,7 @@
 import {
   ArrowTool,
   BlockArrowTool,
+  BucketFillTool,
   CheckBoxTool,
   CloudTool,
   computeElementsBounds,
@@ -48,6 +49,7 @@ import {
   BLOCK_ARROW_LEFT_TOOL_NAME,
   BLOCK_ARROW_RIGHT_TOOL_NAME,
   BLOCK_ARROW_UP_TOOL_NAME,
+  BUCKET_FILL_TOOL_NAME,
   CHECK_BOX_TOOL_NAME,
   CLOUD_TOOL_NAME,
   DIAMOND_TOOL_NAME,
@@ -148,6 +150,9 @@ export function buildTools(
   // The eraser deletes rather than creates, so it takes no style/onCreated — just the scene, history
   // (one drag = one undo step), and zoom (for a zoom-independent pointer hit tolerance).
   const eraserTool = new EraserTool({ scene, history: historyStack, getZoom: () => getCamera().zoom });
+  // Bucket fill paints a clicked shape's background with the current fill color (the properties
+  // panel's background swatch) — reads styleState for that color, one history batch per click.
+  const bucketFillTool = new BucketFillTool({ scene, styleState, history: historyStack, getZoom: () => getCamera().zoom });
   // The laser pointer is purely ephemeral overlay chrome (no scene/history/style at all).
   const laserTool = new LaserTool();
   // The frame tool creates named region elements (no shared shape style — a frame's look is fixed chrome).
@@ -209,6 +214,7 @@ export function buildTools(
       [TEXT_TOOL_NAME]: textTool,
       [ARROW_TOOL_NAME]: arrowTool,
       [ERASER_TOOL_NAME]: eraserTool,
+      [BUCKET_FILL_TOOL_NAME]: bucketFillTool,
       [LASER_TOOL_NAME]: laserTool,
       [LASSO_TOOL_NAME]: lassoTool,
       [FRAME_TOOL_NAME]: frameTool,

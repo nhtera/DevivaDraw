@@ -10,7 +10,7 @@ import { Icon } from "./icon";
 import { useTranslation } from "../i18n/use-translation";
 import type { DevivaRuntime } from "../runtime/runtime-types";
 
-const MENU_ACTION_IDS = ["copy", "paste", "duplicate", "delete", "bring-to-front", "bring-forward", "send-backward", "send-to-back", "group", "ungroup", "toggle-lock"];
+const MENU_ACTION_IDS = ["copy", "paste", "copy-styles", "paste-styles", "duplicate", "delete", "bring-to-front", "bring-forward", "send-backward", "send-to-back", "group", "ungroup", "toggle-lock"];
 
 export interface ContextMenuProps {
   runtime: DevivaRuntime;

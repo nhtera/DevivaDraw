@@ -138,3 +138,35 @@ describe("PanZoomTool.zoomToFit", () => {
     expect(state.camera.zoom).toBeGreaterThan(1); // a small 100x100 box fills most of a 1000x800 viewport
   });
 });
+
+describe("PanZoomTool revealRect (find-on-canvas)", () => {
+  it("centers a small rect in the viewport, keeping the current zoom", () => {
+    const deps = buildDeps(createCamera({ zoom: 2 })); // 800x600 viewport
+    const tool = new PanZoomTool(deps);
+
+    tool.revealRect({ x: 100, y: 100, width: 20, height: 10 });
+
+    // Rect center (110, 105) must land at the viewport center (400, 300) in screen space:
+    // (center + scroll) * zoom === viewportCenter.
+    expect((110 + deps.camera.scrollX) * deps.camera.zoom).toBeCloseTo(400, 6);
+    expect((105 + deps.camera.scrollY) * deps.camera.zoom).toBeCloseTo(300, 6);
+    expect(deps.camera.zoom).toBe(2); // small rect fits at current zoom → zoom unchanged
+  });
+
+  it("zooms out (never in) to fit a rect larger than the viewport", () => {
+    const deps = buildDeps(createCamera({ zoom: 4 })); // 800x600 viewport
+    const tool = new PanZoomTool(deps);
+
+    tool.revealRect({ x: 0, y: 0, width: 4000, height: 3000 });
+
+    expect(deps.camera.zoom).toBeLessThan(4); // reduced to fit
+  });
+
+  it("no-ops on a zero-area rect", () => {
+    const deps = buildDeps();
+    const before = deps.camera;
+    const tool = new PanZoomTool(deps);
+    tool.revealRect({ x: 5, y: 5, width: 0, height: 0 });
+    expect(deps.camera).toBe(before);
+  });
+});

@@ -1,7 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { createRectangleElement } from "../elements/shape-elements";
 import { Scene } from "../scene/scene";
-import { DEFAULT_BACKGROUND_COLOR_PALETTE, DEFAULT_STROKE_COLOR_PALETTE, ShapeStyleState } from "./shape-style-state";
+import { DEFAULT_BACKGROUND_COLOR_PALETTE, DEFAULT_STROKE_COLOR_PALETTE, pickShapeStyle, ShapeStyleState } from "./shape-style-state";
+
+describe("pickShapeStyle", () => {
+  it("extracts exactly the style fields from an element (the copy-styles source)", () => {
+    const element = createRectangleElement({ x: 0, y: 0, width: 10, height: 10, strokeColor: "#ff0000", backgroundColor: "#00ff00", strokeWidth: 4 });
+    const style = pickShapeStyle(element);
+    expect(style).toEqual({
+      strokeColor: "#ff0000",
+      backgroundColor: "#00ff00",
+      fillStyle: element.fillStyle,
+      strokeWidth: 4,
+      strokeStyle: element.strokeStyle,
+      roughness: element.roughness,
+      opacity: element.opacity,
+      roundness: element.roundness,
+    });
+    // Must not carry geometry/identity fields — pasting these onto another element would move/replace it.
+    expect(style).not.toHaveProperty("x");
+    expect(style).not.toHaveProperty("id");
+  });
+});
 
 describe("ShapeStyleState", () => {
   it("starts with sane defaults matching the element factory defaults", () => {

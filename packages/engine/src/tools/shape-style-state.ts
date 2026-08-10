@@ -26,6 +26,32 @@ export type ShapeStyle = Pick<
   "strokeColor" | "backgroundColor" | "fillStyle" | "strokeWidth" | "strokeStyle" | "roughness" | "opacity" | "roundness"
 >;
 
+/** The exact `BaseElement` keys `ShapeStyle` covers — the single source both `pickShapeStyle` and the default below key off, so adding a style field can't leave one of them behind. */
+export const SHAPE_STYLE_KEYS = [
+  "strokeColor",
+  "backgroundColor",
+  "fillStyle",
+  "strokeWidth",
+  "strokeStyle",
+  "roughness",
+  "opacity",
+  "roundness",
+] as const satisfies readonly (keyof ShapeStyle)[];
+
+/** Extracts just the style fields from an element — the "copy styles" source (paste applies the result to other elements via `Scene.updateElement`). */
+export function pickShapeStyle(element: Pick<BaseElement, keyof ShapeStyle>): ShapeStyle {
+  return {
+    strokeColor: element.strokeColor,
+    backgroundColor: element.backgroundColor,
+    fillStyle: element.fillStyle,
+    strokeWidth: element.strokeWidth,
+    strokeStyle: element.strokeStyle,
+    roughness: element.roughness,
+    opacity: element.opacity,
+    roundness: element.roundness,
+  };
+}
+
 /** Matches `elements/element-factory-defaults.ts`'s per-field defaults, kept as one object here for `ShapeStyleState`'s initial value. */
 const DEFAULT_STYLE: ShapeStyle = {
   strokeColor: "#1e1e1e",

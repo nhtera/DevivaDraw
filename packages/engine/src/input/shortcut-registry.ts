@@ -95,6 +95,20 @@ export function registerToolShortcuts(registry: ShortcutRegistry): void {
   registry.register("k", "laser-tool");
   registry.register("f", "frame-tool");
   registry.register("n", "note-tool");
+  registry.register("b", "bucket-fill-tool");
+}
+
+/**
+ * Copy/paste *styles* (as opposed to whole elements) — `Ctrl/Cmd+Alt+C` / `Ctrl/Cmd+Alt+V`, matching
+ * Excalidraw. The Alt distinguishes them from the plain `Ctrl/Cmd+C`/`V` element copy/paste that the
+ * select tool's own `onKeyDown` owns; these carry a modifier that tool doesn't handle, so registering
+ * them here routes them to the `copy-styles`/`paste-styles` actions instead.
+ */
+export function registerStyleClipboardShortcuts(registry: ShortcutRegistry): void {
+  for (const modifier of ["ctrl", "meta"]) {
+    registry.register(`${modifier}+alt+c`, "copy-styles");
+    registry.register(`${modifier}+alt+v`, "paste-styles");
+  }
 }
 
 /** Undo/redo — `Ctrl/Cmd+Z` and `Ctrl/Cmd+Shift+Z`, the one shortcut pair no tool's own `onKeyDown` owns (undo/redo is global chrome, not a tool concern). */
@@ -117,4 +131,5 @@ export function registerFullShortcutMap(registry: ShortcutRegistry): void {
   registerToolShortcuts(registry);
   registerHistoryShortcuts(registry);
   registerCommandPaletteShortcut(registry);
+  registerStyleClipboardShortcuts(registry);
 }

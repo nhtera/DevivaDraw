@@ -76,6 +76,8 @@ export { freezeElement, randomVersionNonce, touch } from "./scene/scene-mutation
 export type { ElementUpdate, SceneListener, SceneUpdateHook, StoredFile } from "./scene/scene";
 export { Scene } from "./scene/scene";
 
+export { findTextMatches } from "./scene/find-text-matches";
+
 export type { DecodeNaturalSizeFn, InsertImageFileOptions, InsertImageFileResult } from "./images/insert-image-file";
 export { DEFAULT_MAX_FILE_SIZE_BYTES, fitInitialSize, ImageFileTooLargeError, insertImageFile } from "./images/insert-image-file";
 export { bytesToDataURL, computeFileId, FilesMap } from "./images/files-map";
@@ -158,6 +160,7 @@ export {
   registerCoreShortcuts,
   registerFullShortcutMap,
   registerHistoryShortcuts,
+  registerStyleClipboardShortcuts,
   registerToolShortcuts,
   ShortcutRegistry,
 } from "./input/shortcut-registry";
@@ -249,8 +252,10 @@ export type { ShapeStyle, ShapeStyleSelectionBinding } from "./tools/shape-style
 export {
   DEFAULT_BACKGROUND_COLOR_PALETTE,
   DEFAULT_STROKE_COLOR_PALETTE,
+  pickShapeStyle,
   ROUND_CORNER_ROUNDNESS,
   ROUNDNESS_LEVELS,
+  SHAPE_STYLE_KEYS,
   ShapeStyleState,
   SLOPPINESS_LEVELS,
   STROKE_WIDTH_LEVELS,
@@ -283,6 +288,9 @@ export { ArrowTool } from "./tools/arrow-tool";
 export type { EraserToolDeps } from "./tools/eraser-tool";
 export { EraserTool } from "./tools/eraser-tool";
 
+export type { BucketFillToolDeps } from "./tools/bucket-fill-tool";
+export { BucketFillTool } from "./tools/bucket-fill-tool";
+
 export type { LaserToolDeps, LaserTrailPoint } from "./tools/laser-tool";
 export { LaserTool, LASER_FADE_MS } from "./tools/laser-tool";
 export type { LassoToolDeps } from "./tools/lasso-tool";
@@ -296,6 +304,7 @@ export { frameContainedElementIds } from "./selection/frame-membership";
 export type { SelectionListener } from "./selection/selection-state";
 export { SelectionState } from "./selection/selection-state";
 
+export type { HitTestOptions } from "./selection/hit-test";
 export { hitTestElement, topmostElementAt } from "./selection/hit-test";
 
 export type { MarqueeMode } from "./selection/marquee-select";

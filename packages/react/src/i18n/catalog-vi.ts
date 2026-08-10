@@ -33,6 +33,7 @@ export const catalogVi: Record<TranslationKey, string> = {
   "tool.text": "Văn bản",
   "tool.note": "Ghi chú",
   "tool.eraser": "Tẩy",
+  "tool.bucketFill": "Tô màu nền",
   "tool.laser": "Con trỏ laser",
   "tool.lasso": "Chọn tự do",
   "tool.frame": "Khung",
@@ -78,6 +79,9 @@ export const catalogVi: Record<TranslationKey, string> = {
   "action.exportPng": "Xuất PNG",
   "action.exportSvg": "Xuất SVG",
   "action.copyAsImage": "Sao chép dưới dạng ảnh",
+  "action.copyStyles": "Sao chép kiểu",
+  "action.pasteStyles": "Dán kiểu",
+  "action.link": "Liên kết",
   "action.share": "Chia sẻ…",
 
   "menu.title": "Menu",
@@ -151,6 +155,19 @@ export const catalogVi: Record<TranslationKey, string> = {
   "topbar.zoomPercentage": "{percent}%",
 
   "mobile.moreTools": "Thêm công cụ",
+
+  "link.save": "Lưu",
+  "link.open": "Mở liên kết",
+  "link.remove": "Xóa liên kết",
+
+  "find.placeholder": "Tìm trên canvas…",
+  "find.matches": "{index} / {count}",
+  "find.noResults": "Không tìm thấy",
+  "find.next": "Kết quả sau",
+  "find.previous": "Kết quả trước",
+  "find.close": "Đóng",
+
+  "menu.canvasBackground": "Nền canvas",
 
   "theme.light": "Sáng",
   "theme.dark": "Tối",

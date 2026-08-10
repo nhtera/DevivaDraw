@@ -33,6 +33,7 @@ export const catalogEn = {
   "tool.text": "Text",
   "tool.note": "Sticky note",
   "tool.eraser": "Eraser",
+  "tool.bucketFill": "Bucket fill",
   "tool.laser": "Laser pointer",
   "tool.lasso": "Lasso selection",
   "tool.frame": "Frame",
@@ -78,6 +79,9 @@ export const catalogEn = {
   "action.exportPng": "Export as PNG",
   "action.exportSvg": "Export as SVG",
   "action.copyAsImage": "Copy as image",
+  "action.copyStyles": "Copy styles",
+  "action.pasteStyles": "Paste styles",
+  "action.link": "Link",
   "action.share": "Share…",
 
   "menu.title": "Menu",
@@ -151,6 +155,19 @@ export const catalogEn = {
   "topbar.zoomPercentage": "{percent}%",
 
   "mobile.moreTools": "More tools",
+
+  "link.save": "Save",
+  "link.open": "Open link",
+  "link.remove": "Remove link",
+
+  "find.placeholder": "Find on canvas…",
+  "find.matches": "{index} / {count}",
+  "find.noResults": "No matches",
+  "find.next": "Next match",
+  "find.previous": "Previous match",
+  "find.close": "Close",
+
+  "menu.canvasBackground": "Canvas background",
 
   "theme.light": "Light",
   "theme.dark": "Dark",

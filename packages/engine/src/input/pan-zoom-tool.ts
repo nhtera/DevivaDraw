@@ -9,6 +9,7 @@
  *    different tool active is standard whiteboard behavior, not something that should require
  *    switching tools first.
  */
+import { clampZoom } from "../render/camera";
 import type { Camera, Point } from "../render/camera";
 import type { SceneRect, ViewportSize } from "../render/viewport-culling";
 import { NoOpToolHandler } from "./tool-handler";
@@ -99,5 +100,22 @@ export class PanZoomTool extends NoOpToolHandler {
   zoomToFit(): void {
     const camera = this.deps.getCamera();
     this.deps.setCamera(computeZoomToFitCamera(camera, this.deps.getSceneBounds(), this.deps.getViewportSize()));
+  }
+
+  /**
+   * Centers `rect` in the viewport — used by "find on canvas" to bring a match into view. Keeps the
+   * current zoom unless the rect wouldn't fit within 80% of the viewport at that zoom, in which case
+   * it zooms out just enough to fit (never zooms *in*, so stepping between matches doesn't lurch the
+   * magnification around). No-ops on a zero-area rect.
+   */
+  revealRect(rect: SceneRect): void {
+    if (rect.width <= 0 && rect.height <= 0) return;
+    const camera = this.deps.getCamera();
+    const { width, height } = this.deps.getViewportSize();
+    const fitZoom = Math.min((width * 0.8) / Math.max(rect.width, 1), (height * 0.8) / Math.max(rect.height, 1));
+    const zoom = clampZoom(Math.min(camera.zoom, fitZoom));
+    const centerX = rect.x + rect.width / 2;
+    const centerY = rect.y + rect.height / 2;
+    this.deps.setCamera({ zoom, scrollX: width / (2 * zoom) - centerX, scrollY: height / (2 * zoom) - centerY });
   }
 }

@@ -32,6 +32,7 @@ import { MainMenu } from "./components/main-menu";
 import { ShareDialog } from "./components/share-dialog";
 import { CollabDialog } from "./components/collab-dialog";
 import { ShortcutsDialog } from "./components/shortcuts-dialog";
+import { FindPanel } from "./components/find-panel";
 import { CommandPalette } from "./components/command-palette";
 import { BottomToolbar } from "./components/mobile/bottom-toolbar";
 import { useIsNarrowViewport } from "./components/responsive-layout";
@@ -74,6 +75,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const statsPanel = useToggleState(false);
   const commandPaletteOpen = useToggleState(false);
   const shortcutsDialogOpen = useToggleState(false);
+  const findOpen = useToggleState(false);
   const mainMenuOpen = useToggleState(false);
   const shareDialog = useValueState<ShareDialogState>({ status: "closed" });
   const collabDialogOpen = useToggleState(false);
@@ -88,6 +90,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const isChromeOverlayOpen = useStableGetter(
     commandPaletteOpen.value ||
       shortcutsDialogOpen.value ||
+      findOpen.value ||
       mainMenuOpen.value ||
       shareDialog.value.status !== "closed" ||
       collabDialogOpen.value ||
@@ -173,6 +176,19 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [editSession, isChromeOverlayOpen, openImagePicker]);
 
+  // Cmd/Ctrl+F opens "find on canvas" (Excalidraw parity), overriding the browser's own find. Handled
+  // here (not via the engine ShortcutRegistry) because it toggles a React overlay, not an engine tool.
+  const openFind = findOpen.set;
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "f" || !(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+      event.preventDefault();
+      openFind(true);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [openFind]);
+
   // Collaboration is opt-in and reuses the same collab-server base URL the "Share" action already
   // requires (`shareApiBaseUrl` — both are that Worker's endpoints, see `use-collab-session.ts`'s
   // `apiBaseUrl` doc) rather than introducing a second, near-identical prop.
@@ -219,6 +235,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
         />
       )}
       {runtime && shortcutsDialogOpen.value && <ShortcutsDialog runtime={runtime} onClose={() => shortcutsDialogOpen.set(false)} />}
+      {runtime && findOpen.value && <FindPanel runtime={runtime} onClose={() => findOpen.set(false)} />}
       {runtime && shareDialog.value.status !== "closed" && <ShareDialog state={shareDialog.value} onClose={() => shareDialog.set({ status: "closed" })} />}
       {runtime && collabDialogOpen.value && <CollabDialog collab={collab} onClose={() => collabDialogOpen.set(false)} />}
       {runtime && commandPaletteOpen.value && <CommandPalette runtime={runtime} onClose={() => commandPaletteOpen.set(false)} />}

@@ -13,6 +13,7 @@ export const FREEDRAW_TOOL_NAME = "freedraw";
 export const TEXT_TOOL_NAME = "text";
 export const ARROW_TOOL_NAME = "arrow";
 export const ERASER_TOOL_NAME = "eraser";
+export const BUCKET_FILL_TOOL_NAME = "bucket-fill";
 export const LASER_TOOL_NAME = "laser";
 export const HIGHLIGHTER_TOOL_NAME = "highlighter";
 export const TRIANGLE_TOOL_NAME = "triangle";

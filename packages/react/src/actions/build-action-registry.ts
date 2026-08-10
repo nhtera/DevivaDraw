@@ -4,6 +4,7 @@ import { buildArrangeActions } from "./arrange-actions";
 import { buildEditActions } from "./edit-actions";
 import { buildFileActions } from "./file-actions";
 import { buildShareActions } from "./share-actions";
+import { buildStyleClipboardActions } from "./style-clipboard-actions";
 import { buildToolActions } from "./tool-actions";
 import { buildViewActions } from "./view-actions";
 import { buildZOrderActions } from "./z-order-actions";
@@ -26,6 +27,7 @@ export function buildActionRegistry(options: BuildActionRegistryOptions = {}): A
   for (const action of [
     ...buildToolActions(),
     ...buildEditActions(),
+    ...buildStyleClipboardActions(),
     ...buildZOrderActions(),
     ...buildArrangeActions(),
     ...buildViewActions(),

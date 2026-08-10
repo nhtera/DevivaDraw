@@ -150,5 +150,8 @@ describe("registerFullShortcutMap", () => {
     expect(registry.resolve("r", NO_MODIFIERS)).toBe("rectangle-tool");
     expect(registry.resolve("z", { ...NO_MODIFIERS, meta: true })).toBe("undo");
     expect(registry.resolve("k", { ...NO_MODIFIERS, meta: true })).toBe("open-command-palette");
+    expect(registry.resolve("b", NO_MODIFIERS)).toBe("bucket-fill-tool");
+    expect(registry.resolve("c", { ...NO_MODIFIERS, meta: true, alt: true })).toBe("copy-styles");
+    expect(registry.resolve("v", { ...NO_MODIFIERS, ctrl: true, alt: true })).toBe("paste-styles");
   });
 });

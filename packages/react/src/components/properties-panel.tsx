@@ -11,6 +11,7 @@ import type { AnyElement, FillStyle, RoundnessValue, ShapeStyle, StrokeStyle, Te
 import { useEffect, useReducer } from "react";
 import { ColorPicker } from "./color-picker";
 import { LayerActionsSection } from "./layer-actions-section";
+import { LinkSection } from "./link-section";
 import { panelStyle, labelStyle } from "./chrome-styles";
 import { StyleSection } from "./style-section";
 import { ArrowStyleSection, TextPropertiesPanel, TextStyleSection } from "./type-style-sections";
@@ -127,6 +128,7 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
         {runtime.selection.size > 0 && (
           <>
             <div style={{ height: 1, background: "var(--dd-chrome-border)" }} />
+            <LinkSection runtime={runtime} />
             <span style={labelStyle}>{t("panel.layers")}</span>
             <LayerActionsSection runtime={runtime} />
           </>
@@ -199,6 +201,7 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
       {runtime.selection.size > 0 && (
         <>
           <div style={{ height: 1, background: "var(--dd-chrome-border)" }} />
+          <LinkSection runtime={runtime} />
           <span style={labelStyle}>{t("panel.layers")}</span>
           <LayerActionsSection runtime={runtime} />
         </>
