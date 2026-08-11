@@ -53,9 +53,10 @@ test("inserting an embed shows a static poster with a play button (no live ifram
 test("clicking play mounts the sandboxed iframe; Escape returns to the poster", async ({ page }) => {
   await insertYouTube(page);
 
-  await page.getByTestId("embed-play").click(); // activate
+  await page.getByTestId("embed-play").click(); // activate → mounts already playing
   const iframe = page.getByTestId("embed-iframe");
-  await expect(iframe).toHaveAttribute("src", "https://www.youtube.com/embed/dQw4w9WgXcQ");
+  await expect(iframe).toHaveAttribute("src", "https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1");
+  await expect(iframe).toHaveAttribute("allow", /autoplay/);
   await expect(iframe).toHaveAttribute("sandbox", /allow-scripts/);
   await expect(iframe).toHaveCSS("pointer-events", "auto");
   await expect(page.getByTestId("embed-preview")).toHaveCount(0); // poster replaced by the live frame
@@ -114,5 +115,5 @@ test("double-clicking an embed activates it (and never drops a text element on t
   // Reaching activation proves the embed branch was taken: the dblclick handler returns there, so the
   // "empty canvas → new standalone text" branch (which would drop a text element + open its editor) is
   // never reached. No text editor is open, and the live frame is up.
-  await expect(page.getByTestId("embed-iframe")).toHaveAttribute("src", "https://www.youtube.com/embed/dQw4w9WgXcQ");
+  await expect(page.getByTestId("embed-iframe")).toHaveAttribute("src", "https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1");
 });

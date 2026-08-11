@@ -77,6 +77,12 @@ export function EmbedOverlay(props: { runtime: DevivaRuntime; cameraStore: Camer
         const width = embed.width * camera.zoom;
         const height = embed.height * camera.zoom;
         const interactive = activeId === embed.id;
+        // One-click-to-play (beats Excalidraw's activate-then-press-play): activation mounts the frame
+        // already playing. The click that mounts it is a user gesture and `allow="autoplay"` delegates
+        // the permission into the frame, so a video provider autoplays with sound. Non-video providers
+        // (Figma/CodeSandbox) get their plain embed URL.
+        const isVideo = resolved.provider === "youtube" || resolved.provider === "vimeo";
+        const liveSrc = isVideo ? `${resolved.embedUrl}?autoplay=1` : resolved.embedUrl;
         // Element is rotated around its center, exactly like the canvas placeholder.
         const boxStyle = {
           position: "absolute" as const,
@@ -99,8 +105,10 @@ export function EmbedOverlay(props: { runtime: DevivaRuntime; cameraStore: Camer
               <iframe
                 data-testid="embed-iframe"
                 title={embed.url}
-                src={resolved.embedUrl}
+                src={liveSrc}
                 sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+                allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+                allowFullScreen
                 style={{ ...boxStyle, pointerEvents: "auto" }}
               />
             ) : resolved.previewUrl ? (
