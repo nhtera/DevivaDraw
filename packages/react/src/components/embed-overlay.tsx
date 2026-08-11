@@ -20,6 +20,7 @@
 import { hitTestElement, resolveEmbed, sceneToScreen, screenToScene } from "@deviva-draw/engine";
 import type { EmbedElement } from "@deviva-draw/engine";
 import { Fragment, useEffect, useRef, useState } from "react";
+import { chromeFontFamily } from "./chrome-styles";
 import { SELECT_TOOL_NAME } from "../runtime/tool-names";
 import { useCameraVersion, useSceneVersion, useSelectionVersion, useToolVersion } from "../runtime/use-live-version";
 import { useTranslation } from "../i18n/use-translation";
@@ -157,16 +158,17 @@ export function EmbedOverlay(props: { runtime: DevivaRuntime; cameraStore: Camer
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 8,
-                  background: "rgba(0,0,0,0.35)",
+                  gap: 10,
+                  background: "rgba(0,0,0,0.45)",
                   color: "#fff",
+                  fontFamily: chromeFontFamily,
                   fontSize: 15,
                   fontWeight: 600,
                   letterSpacing: 0.2,
-                  textShadow: "0 1px 3px rgba(0,0,0,0.6)",
+                  textShadow: "0 1px 4px rgba(0,0,0,0.7)",
                 }}
               >
-                <span aria-hidden style={{ fontSize: 18 }}>▶</span>
+                <span aria-hidden style={{ fontSize: 13, filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.7))" }}>▶</span>
                 {t("embed.interact")}
               </div>
             )}
