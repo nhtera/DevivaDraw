@@ -6,7 +6,7 @@
  * whiteboards have. Only armed while the select tool is active, so it never fights the shape/arrow/text
  * tools' own click handling.
  */
-import { screenToScene, startArrowLabelEdit, startBoundTextEdit, startExistingStandaloneTextEdit, startStandaloneTextEdit } from "@deviva-draw/engine";
+import { screenToScene, startArrowLabelEdit, startBoundTextEdit, startExistingStandaloneTextEdit, startStandaloneTextEdit, topmostElementAt } from "@deviva-draw/engine";
 import type { Camera, Scene, ShapeStyleState, TextEditSession, TextMeasurer, ToolStateMachine } from "@deviva-draw/engine";
 import { findArrowAt } from "../browser/find-arrow-at-point";
 import { findBindableContainerAt } from "../browser/find-bindable-container-at-point";
@@ -31,7 +31,18 @@ export function attachDoubleClickToEditListener(options: DoubleClickEditOptions)
   const handleDoubleClick = (event: MouseEvent) => {
     if (toolStateMachine.getActiveToolName() !== selectToolName) return;
     const rect = container.getBoundingClientRect();
-    const scenePoint = screenToScene({ x: event.clientX - rect.left, y: event.clientY - rect.top }, getCamera());
+    const camera = getCamera();
+    const scenePoint = screenToScene({ x: event.clientX - rect.left, y: event.clientY - rect.top }, camera);
+
+    // An embed under the cursor "enters" (activates) on double-click — the tldraw-style gesture — and,
+    // crucially, is claimed here so it never falls through to the "empty canvas → new text" branch
+    // below (which would drop a text element on top of the embed). The overlay owns the activation
+    // state, so we just signal it; a window event keeps this handler decoupled from React.
+    const topmost = topmostElementAt(scene, scenePoint, 4 / camera.zoom);
+    if (topmost && topmost.type === "embed") {
+      window.dispatchEvent(new CustomEvent("deviva:embed-activate", { detail: { id: topmost.id } }));
+      return;
+    }
 
     const containerHit = findBindableContainerAt(scene, scenePoint);
     if (containerHit) {
