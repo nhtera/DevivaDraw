@@ -13,6 +13,7 @@
 import { createArrowElement } from "../elements/arrow-element";
 import type { Arrowhead } from "../elements/arrow-element";
 import type { AnyElement } from "./../elements/element-types";
+import { createRectangleElement } from "../elements/shape-elements";
 import { createTextElement } from "../elements/text-element";
 import { layoutFlowchart } from "./layout/layout-flowchart";
 import type { LayoutInput } from "./layout/types";
@@ -33,6 +34,20 @@ const EDGE_LABEL_CHAR_WIDTH = 9;
 /** Maps an edge head to the engine's arrowhead style (Phase 05 refines circle/cross rendering). */
 function arrowhead(head: Head): Arrowhead {
   return head === "arrow" ? "arrow" : head === "circle" ? "dot" : head === "cross" ? "bar" : "none";
+}
+
+/** The point halfway along a polyline by arc length — where an edge label should sit, clear of both boxes. */
+function polylineMidpoint(points: { x: number; y: number }[]): { x: number; y: number } {
+  const segments = points.slice(1).map((p, i) => Math.hypot(p.x - points[i]!.x, p.y - points[i]!.y));
+  let remaining = segments.reduce((a, b) => a + b, 0) / 2;
+  for (let i = 0; i < segments.length; i++) {
+    if (remaining <= segments[i]!) {
+      const t = segments[i] === 0 ? 0 : remaining / segments[i]!;
+      return { x: points[i]!.x + (points[i + 1]!.x - points[i]!.x) * t, y: points[i]!.y + (points[i + 1]!.y - points[i]!.y) * t };
+    }
+    remaining -= segments[i]!;
+  }
+  return points[Math.floor(points.length / 2)]!;
 }
 
 /** Converts parsed Mermaid into positioned elements (shapes + labels + arrows), anchored at (0,0). */
@@ -90,10 +105,26 @@ export function flowchartToElements(flow: Flowchart): AnyElement[] {
         groupIds,
       }),
     );
-    // Edge label (`A -->|label| B`) — placed at the polyline midpoint, grouped with its arrow.
+    // Edge label (`A -->|label| B`) — placed at the polyline's arc-length midpoint (clear of both
+    // boxes), sitting on a solid pill so the arrow visually breaks around it, like Excalidraw. Pushed
+    // pill-then-text after the arrow so z-order is arrow < pill < text.
     if (edge.label) {
-      const mid = points[Math.floor(points.length / 2)]!;
-      const labelWidth = Math.max(60, edge.label.length * EDGE_LABEL_CHAR_WIDTH);
+      const mid = polylineMidpoint(points);
+      const labelWidth = Math.max(48, edge.label.length * EDGE_LABEL_CHAR_WIDTH);
+      const labelHeight = EDGE_LABEL_FONT_SIZE + 8;
+      elements.push(
+        createRectangleElement({
+          x: mid.x - labelWidth / 2,
+          y: mid.y - labelHeight / 2,
+          width: labelWidth,
+          height: labelHeight,
+          backgroundColor: "#ffffff",
+          fillStyle: "solid",
+          strokeColor: "transparent",
+          roundness: { type: 1 },
+          groupIds,
+        }),
+      );
       elements.push(
         createTextElement({
           x: mid.x - labelWidth / 2,

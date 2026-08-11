@@ -107,12 +107,10 @@ describe("mermaid corpus", () => {
       expect(Number.isFinite(el.width)).toBe(true);
       expect(Number.isFinite(el.height)).toBe(true);
     }
-    const shapes = elements.filter((e) => SHAPE_TYPES.has(e.type)) as {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    }[];
+    // Node shapes only — exclude edge-label pills (rectangles grouped under `mermaid-edge-*`).
+    const shapes = elements.filter(
+      (e) => SHAPE_TYPES.has(e.type) && e.groupIds[0]?.startsWith("mermaid-") && !e.groupIds[0].startsWith("mermaid-edge-"),
+    ) as { x: number; y: number; width: number; height: number }[];
     expect(anyOverlap(shapes)).toBe(false);
   });
 

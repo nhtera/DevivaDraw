@@ -63,7 +63,9 @@ describe("flowchartToElements", () => {
     // relaxation ratchets B's layer down every pass, producing a hugely stretched diagram.
     const flow = parseFlowchart("flowchart TD\n A[Start] --> B{Ready?}\n B -->|yes| C[Ship it]\n B -->|no| D[Keep working]\n D --> B");
     const els = flowchartToElements(flow);
-    const shapes = els.filter((e) => e.type === "rectangle" || e.type === "diamond") as { y: number }[];
+    const shapes = els.filter(
+      (e) => (e.type === "rectangle" || e.type === "diamond") && !e.groupIds[0]!.startsWith("mermaid-edge-"),
+    ) as { y: number }[];
     // 4 nodes ⇒ exactly 3 layer bands (A=0, B=1, C/D=2). A cycle blowup would produce far more. Count
     // distinct rows rather than a pixel bound so auto-sized nodes don't make this brittle.
     const bands = new Set(shapes.map((s) => Math.round(s.y / 10))).size;
@@ -119,5 +121,21 @@ describe("flowchartToElements", () => {
       (e) => e.type === "arrow",
     ) as { strokeStyle: string };
     expect(dotted.strokeStyle).toBe("dotted");
+  });
+
+  it("sits an edge label on a pill in the gap between the two boxes, not on either", () => {
+    const els = flowchartToElements(parseFlowchart("flowchart TD\n A[One] -->|Get money| B[Two]"));
+    const boxes = els.filter(
+      (e) => e.type === "rectangle" && e.groupIds[0]!.startsWith("mermaid-") && !e.groupIds[0]!.startsWith("mermaid-edge-"),
+    ) as { y: number; height: number }[];
+    const pill = els.find((e) => e.type === "rectangle" && e.groupIds[0]!.startsWith("mermaid-edge-")) as {
+      y: number;
+      height: number;
+    };
+    expect(pill).toBeDefined(); // backing pill exists
+    const pillCenter = pill.y + pill.height / 2;
+    const [top, bottom] = boxes;
+    expect(pillCenter).toBeGreaterThan(top!.y + top!.height); // below the source box
+    expect(pillCenter).toBeLessThan(bottom!.y); // above the target box
   });
 });
