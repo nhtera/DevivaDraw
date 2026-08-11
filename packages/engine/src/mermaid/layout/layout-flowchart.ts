@@ -19,7 +19,7 @@ export function layoutFlowchart(input: LayoutInput): LayoutResult {
     acyclic.edges,
   );
   const { nodes, chains, maxRank } = insertDummies(input, acyclic, rank);
-  const { ranks, up, down } = orderRanks(nodes, maxRank, chains);
+  const { ranks, up, down } = orderRanks(nodes, maxRank, chains, input.groups ?? new Map());
   assignCoordinates(nodes, ranks, up, down);
   return route(nodes, maxRank, chains, input.direction);
 }

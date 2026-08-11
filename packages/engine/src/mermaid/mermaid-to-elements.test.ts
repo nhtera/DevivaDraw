@@ -137,6 +137,37 @@ describe("flowchartToElements", () => {
     expect(dotted.strokeStyle).toBe("dotted");
   });
 
+  it("wraps subgraphs in named frames with clustered, non-overlapping boxes", () => {
+    const els = flowchartToElements(
+      parseFlowchart(`flowchart TB
+        subgraph web [Web Tier]
+          LB[Load Balancer] --> S1[Server 1]
+          LB --> S2[Server 2]
+        end
+        subgraph data [Data Tier]
+          S1 --> DB[(Primary)]
+          DB --> R[(Replica)]
+        end
+        Client --> LB`),
+    );
+    const frames = els.filter((e) => e.type === "frame") as {
+      name: string;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }[];
+    expect(frames.map((f) => f.name).sort()).toEqual(["Data Tier", "Web Tier"]);
+    // Members carry the frame's id.
+    const lb = els.find((e) => e.type !== "frame" && e.groupIds[0] === "mermaid-LB") as { frameId: string | null };
+    expect(lb.frameId).toBeTruthy();
+    // Clustering keeps the two tiers from overlapping.
+    const [a, b] = frames;
+    const overlap =
+      a!.x < b!.x + b!.width && a!.x + a!.width > b!.x && a!.y < b!.y + b!.height && a!.y + a!.height > b!.y;
+    expect(overlap).toBe(false);
+  });
+
   it("binds each node label to its shape (two-sided) and maps click hyperlinks", () => {
     const els = flowchartToElements(parseFlowchart('flowchart TD\n A[One] --> B[Two]\n click A "https://x.dev"'));
     const shapeA = els.find((e) => e.type === "rectangle" && e.groupIds[0] === "mermaid-A") as {

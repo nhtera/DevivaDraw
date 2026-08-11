@@ -57,8 +57,17 @@ function medianValue(neighbors: number[]): number {
   return left + right === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : (sorted[mid - 1]! * right + sorted[mid]! * left) / (left + right);
 }
 
-/** Reorders each rank toward the median of its neighbors in the adjacent fixed rank. */
-function wmedianSweep(ranks: string[][], fixedAdj: Map<string, string[]>, topDown: boolean): void {
+/**
+ * Reorders each rank toward the median of its neighbors in the adjacent fixed rank. Subgraph members
+ * are kept contiguous by treating each cluster as a super-node: nodes sort by their cluster's mean
+ * median first (so a whole cluster moves together), then by their own median within the cluster.
+ */
+function wmedianSweep(
+  ranks: string[][],
+  fixedAdj: Map<string, string[]>,
+  topDown: boolean,
+  clusterOf: (id: string) => string,
+): void {
   const rankIndexes = topDown ? [...ranks.keys()] : [...ranks.keys()].reverse();
   for (const r of rankIndexes) {
     const posInFixed = new Map<string, number>();
@@ -67,15 +76,29 @@ function wmedianSweep(ranks: string[][], fixedAdj: Map<string, string[]>, topDow
     const scored = ranks[r]!.map((id, idx) => {
       const neighbors = (fixedAdj.get(id) ?? []).map((n) => posInFixed.get(n)).filter((p): p is number => p !== undefined);
       const median = medianValue(neighbors);
-      return { id, key: median < 0 ? idx : median, idx };
+      return { id, med: median < 0 ? idx : median, idx, cluster: clusterOf(id) };
     });
-    scored.sort((a, b) => a.key - b.key || a.idx - b.idx);
+    const sum = new Map<string, number>();
+    const count = new Map<string, number>();
+    for (const s of scored) {
+      sum.set(s.cluster, (sum.get(s.cluster) ?? 0) + s.med);
+      count.set(s.cluster, (count.get(s.cluster) ?? 0) + 1);
+    }
+    const clusterKey = (c: string): number => sum.get(c)! / count.get(c)!;
+    scored.sort(
+      (a, b) =>
+        clusterKey(a.cluster) - clusterKey(b.cluster) ||
+        (a.cluster < b.cluster ? -1 : a.cluster > b.cluster ? 1 : 0) ||
+        a.med - b.med ||
+        a.idx - b.idx,
+    );
     ranks[r] = scored.map((s) => s.id);
   }
 }
 
-/** Adjacent-swap pass: swaps neighbours within a rank while it reduces crossings on both boundaries. */
-function transpose(ranks: string[][], down: Map<string, string[]>): void {
+/** Adjacent-swap pass: swaps same-cluster neighbours while it reduces crossings (cross-cluster swaps
+ *  are skipped to preserve subgraph contiguity established by the median sweep). */
+function transpose(ranks: string[][], down: Map<string, string[]>, clusterOf: (id: string) => string): void {
   let improved = true;
   let guard = 0;
   while (improved && guard++ < 4) {
@@ -83,6 +106,7 @@ function transpose(ranks: string[][], down: Map<string, string[]>): void {
     for (let r = 0; r < ranks.length; r++) {
       const rank = ranks[r]!;
       for (let i = 0; i < rank.length - 1; i++) {
+        if (clusterOf(rank[i]!) !== clusterOf(rank[i + 1]!)) continue; // don't split a cluster
         const before = boundaryCrossings(ranks, r, down);
         [rank[i], rank[i + 1]] = [rank[i + 1]!, rank[i]!];
         if (boundaryCrossings(ranks, r, down) < before) improved = true;
@@ -100,16 +124,24 @@ function boundaryCrossings(ranks: string[][], r: number, down: Map<string, strin
   return sum;
 }
 
-export function orderRanks(nodes: Map<string, LayoutNode>, maxRank: number, chains: EdgeChain[]): OrderResult {
+export function orderRanks(
+  nodes: Map<string, LayoutNode>,
+  maxRank: number,
+  chains: EdgeChain[],
+  groups: Map<string, string>,
+): OrderResult {
   const { down, up } = buildAdjacency(chains);
+  // Ungrouped nodes (and dummies) each form their own singleton cluster so they order freely; real
+  // subgraph members share their subgraph id and are kept contiguous.
+  const clusterOf = (id: string): string => groups.get(id) ?? `__${id}`;
   const ranks = initialRanks(nodes, maxRank, down);
   let best = ranks.map((r) => [...r]);
   let bestCrossings = countCrossings(ranks, down);
 
   for (let iter = 0; iter < 8 && bestCrossings > 0; iter++) {
     const topDown = iter % 2 === 0;
-    wmedianSweep(ranks, topDown ? up : down, topDown);
-    transpose(ranks, down);
+    wmedianSweep(ranks, topDown ? up : down, topDown, clusterOf);
+    transpose(ranks, down, clusterOf);
     const crossings = countCrossings(ranks, down);
     if (crossings < bestCrossings) {
       bestCrossings = crossings;

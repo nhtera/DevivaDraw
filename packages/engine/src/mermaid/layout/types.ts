@@ -10,6 +10,8 @@ export interface LayoutInput {
   nodes: { id: string; width: number; height: number }[];
   edges: { from: string; to: string; index: number; minlen: number }[];
   direction: FlowDirection;
+  /** nodeId → innermost subgraph id, so the layout keeps subgraph members clustered. Optional. */
+  groups?: Map<string, string>;
 }
 
 /** A node in the layout graph — a real IR node or an inserted dummy that bends a long edge. */

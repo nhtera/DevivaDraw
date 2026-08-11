@@ -20,6 +20,7 @@ import type { LayoutInput } from "./layout/types";
 import { measureNodeSize } from "./map/measure-node-size";
 import { createNodeElements } from "./map/node-elements";
 import { resolveEdgeStyle, resolveNodeStyle } from "./map/style-map";
+import { createSubgraphFrames } from "./map/subgraph-frames";
 import type { Flowchart, Head } from "./parse/flowchart-ir";
 import { parseFlowchart } from "./parse/parse-flowchart";
 
@@ -51,18 +52,26 @@ function polylineMidpoint(points: { x: number; y: number }[]): { x: number; y: n
 
 /** Converts parsed Mermaid into positioned elements (shapes + labels + arrows), anchored at (0,0). */
 export function flowchartToElements(flow: Flowchart): AnyElement[] {
+  const groups = new Map<string, string>();
+  for (const node of flow.nodes) if (node.subgraphId !== undefined) groups.set(node.id, node.subgraphId);
   const input: LayoutInput = {
     direction: flow.direction,
     nodes: flow.nodes.map((node) => ({ id: node.id, ...measureNodeSize(node.label, node.shape) })),
     edges: flow.edges.map((edge) => ({ from: edge.from, to: edge.to, index: edge.index, minlen: edge.minlen })),
+    groups,
   };
   const layout = layoutFlowchart(input);
 
-  const elements: AnyElement[] = [];
+  // Subgraphs → frames, emitted first so they sit behind the nodes; members get `frameId`.
+  const { frames, frameOfNode } = createSubgraphFrames(flow, layout.nodes);
+  const elements: AnyElement[] = [...frames];
   for (const node of flow.nodes) {
     const box = layout.nodes.get(node.id);
     if (!box) continue;
-    elements.push(...createNodeElements(node, box, resolveNodeStyle(node, flow)));
+    const nodeElements = createNodeElements(node, box, resolveNodeStyle(node, flow));
+    const frameId = frameOfNode.get(node.id);
+    if (frameId) for (const element of nodeElements) element.frameId = frameId;
+    elements.push(...nodeElements);
   }
 
   for (const edge of flow.edges) {
