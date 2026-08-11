@@ -123,6 +123,19 @@ describe("flowchartToElements", () => {
     expect(dotted.strokeStyle).toBe("dotted");
   });
 
+  it("binds each node label to its shape (two-sided) and maps click hyperlinks", () => {
+    const els = flowchartToElements(parseFlowchart('flowchart TD\n A[One] --> B[Two]\n click A "https://x.dev"'));
+    const shapeA = els.find((e) => e.type === "rectangle" && e.groupIds[0] === "mermaid-A") as {
+      id: string;
+      link: string | null;
+      boundElements: { id: string; type: string }[] | null;
+    };
+    const textA = els.find((e) => e.type === "text" && e.groupIds[0] === "mermaid-A") as { id: string; containerId: string | null };
+    expect(textA.containerId).toBe(shapeA.id); // label points at its container
+    expect(shapeA.boundElements).toEqual([{ id: textA.id, type: "text" }]); // and back
+    expect(shapeA.link).toBe("https://x.dev"); // click A "url" → element link
+  });
+
   it("sits an edge label on a pill in the gap between the two boxes, not on either", () => {
     const els = flowchartToElements(parseFlowchart("flowchart TD\n A[One] -->|Get money| B[Two]"));
     const boxes = els.filter(

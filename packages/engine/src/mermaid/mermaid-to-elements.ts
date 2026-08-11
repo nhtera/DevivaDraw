@@ -18,7 +18,7 @@ import { createTextElement } from "../elements/text-element";
 import { layoutFlowchart } from "./layout/layout-flowchart";
 import type { LayoutInput } from "./layout/types";
 import { measureNodeSize } from "./map/measure-node-size";
-import { shapeToElement } from "./map/shape-map";
+import { createNodeElements } from "./map/node-elements";
 import { resolveEdgeStyle, resolveNodeStyle } from "./map/style-map";
 import type { Flowchart, Head } from "./parse/flowchart-ir";
 import { parseFlowchart } from "./parse/parse-flowchart";
@@ -26,7 +26,6 @@ import { parseFlowchart } from "./parse/parse-flowchart";
 export type { FlowDirection, Flowchart } from "./parse/flowchart-ir";
 export { parseFlowchart } from "./parse/parse-flowchart";
 
-const LABEL_LINE_HEIGHT = 24;
 /** Edge labels render a touch smaller than node labels, matching Excalidraw. */
 const EDGE_LABEL_FONT_SIZE = 16;
 const EDGE_LABEL_CHAR_WIDTH = 9;
@@ -63,21 +62,7 @@ export function flowchartToElements(flow: Flowchart): AnyElement[] {
   for (const node of flow.nodes) {
     const box = layout.nodes.get(node.id);
     if (!box) continue;
-    const groupIds = [`mermaid-${node.id}`];
-    elements.push(shapeToElement(node.shape, { ...box, groupIds }, resolveNodeStyle(node, flow)));
-    const lines = Math.max(1, node.label.split("\n").length);
-    const textHeight = lines * LABEL_LINE_HEIGHT;
-    elements.push(
-      createTextElement({
-        x: box.x + 8,
-        y: box.y + (box.height - textHeight) / 2,
-        width: box.width - 16,
-        height: textHeight,
-        text: node.label,
-        textAlign: "center",
-        groupIds,
-      }),
-    );
+    elements.push(...createNodeElements(node, box, resolveNodeStyle(node, flow)));
   }
 
   for (const edge of flow.edges) {
