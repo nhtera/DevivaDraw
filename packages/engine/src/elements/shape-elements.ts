@@ -44,6 +44,14 @@ export interface TrapezoidElement extends BaseElement {
   type: "trapezoid";
 }
 
+export interface CylinderElement extends BaseElement {
+  type: "cylinder";
+}
+
+export interface DoubleCircleElement extends BaseElement {
+  type: "double-circle";
+}
+
 /** Cardinal direction a block (geo) arrow points. */
 export type BlockArrowDirection = "left" | "right" | "up" | "down";
 
@@ -118,6 +126,14 @@ export function createParallelogramElement(input: ElementCreationInput): Paralle
 
 export function createTrapezoidElement(input: ElementCreationInput): TrapezoidElement {
   return { ...createElementBase(input), type: "trapezoid" };
+}
+
+export function createCylinderElement(input: ElementCreationInput): CylinderElement {
+  return { ...createElementBase(input), type: "cylinder" };
+}
+
+export function createDoubleCircleElement(input: ElementCreationInput): DoubleCircleElement {
+  return { ...createElementBase(input), type: "double-circle" };
 }
 
 export interface BlockArrowElementCreationInput extends ElementCreationInput {

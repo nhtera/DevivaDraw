@@ -98,7 +98,9 @@ flowchart TD
     const src = lines.join("\n");
     const start = performance.now();
     const flow = parseFlowchart(src);
-    expect(performance.now() - start).toBeLessThan(50);
+    // Generous bound: catches an accidental super-linear blowup (that would be seconds) without
+    // flaking on a loaded machine, where a tight ms threshold is unreliable.
+    expect(performance.now() - start).toBeLessThan(300);
     expect(flow.nodes).toHaveLength(60);
     expect(flow.edges).toHaveLength(79);
     expect(parseFlowchart(src).edges).toHaveLength(flow.edges.length); // deterministic

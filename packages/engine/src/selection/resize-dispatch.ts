@@ -93,6 +93,8 @@ export function dispatchResize(element: AnyElement, oldBounds: SceneRect, newBou
     case "star":
     case "parallelogram":
     case "trapezoid":
+    case "cylinder":
+    case "double-circle":
     case "block-arrow":
     case "cloud":
     case "heart":

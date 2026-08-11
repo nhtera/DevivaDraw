@@ -21,6 +21,8 @@ import {
   blockArrowVertices,
   checkBoxPath,
   cloudPath,
+  cylinderPath,
+  doubleCirclePath,
   heartPath,
   isClosedPolyline,
   lineScreenPoints,
@@ -103,6 +105,10 @@ export function buildElementDrawable(drawer: RoughShapeDrawer, element: AnyEleme
       return drawer.polygon(polygonShapeVertices(rect, element.type), buildRoughOptions(element, strokeWidthPx));
     case "block-arrow":
       return drawer.polygon(blockArrowVertices(rect, element.direction), buildRoughOptions(element, strokeWidthPx));
+    case "cylinder":
+      return drawer.path(cylinderPath(rect), buildRoughOptions(element, strokeWidthPx));
+    case "double-circle":
+      return drawer.path(doubleCirclePath(rect), buildRoughOptions(element, strokeWidthPx));
     case "cloud":
       return drawer.path(cloudPath(rect), buildRoughOptions(element, strokeWidthPx));
     case "heart":

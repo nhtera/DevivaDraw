@@ -24,7 +24,9 @@ import type {
   BlockArrowElement,
   CheckBoxElement,
   CloudElement,
+  CylinderElement,
   DiamondElement,
+  DoubleCircleElement,
   EllipseElement,
   HeartElement,
   HexagonElement,
@@ -57,7 +59,9 @@ export type {
   BlockArrowElementCreationInput,
   CheckBoxElement,
   CloudElement,
+  CylinderElement,
   DiamondElement,
+  DoubleCircleElement,
   EllipseElement,
   HeartElement,
   HexagonElement,
@@ -75,7 +79,9 @@ export {
   createBlockArrowElement,
   createCheckBoxElement,
   createCloudElement,
+  createCylinderElement,
   createDiamondElement,
+  createDoubleCircleElement,
   createEllipseElement,
   createHeartElement,
   createHexagonElement,
@@ -115,6 +121,8 @@ export type AnyElement =
   | StarElement
   | ParallelogramElement
   | TrapezoidElement
+  | CylinderElement
+  | DoubleCircleElement
   | BlockArrowElement
   | CloudElement
   | HeartElement

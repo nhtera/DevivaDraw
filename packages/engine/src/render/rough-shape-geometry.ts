@@ -80,6 +80,35 @@ export function checkBoxPath(rect: ScreenRect): string {
   return `${rectPath} ${check}`;
 }
 
+/** SVG path for a database cylinder: an elliptical top cap over a tube with a bulging base (single Drawable). */
+export function cylinderPath(rect: ScreenRect): string {
+  const rx = rect.width / 2;
+  const ry = Math.min(rect.height * 0.16, rect.width * 0.42);
+  const left = rect.x;
+  const right = rect.x + rect.width;
+  const capY = rect.y + ry;
+  const baseY = rect.y + rect.height - ry;
+  return [
+    `M ${left} ${capY}`,
+    `A ${rx} ${ry} 0 0 1 ${right} ${capY}`, // top-back curve, bulging up over the cap
+    `L ${right} ${baseY}`, // right wall
+    `A ${rx} ${ry} 0 0 1 ${left} ${baseY}`, // base curve, bulging down
+    "Z", // close the left wall
+    `M ${left} ${capY}`,
+    `A ${rx} ${ry} 0 0 0 ${right} ${capY}`, // front seam of the cap, bulging down
+  ].join(" ");
+}
+
+/** SVG path for a double circle: an outer ellipse plus a concentric inner ring (single Drawable). */
+export function doubleCirclePath(rect: ScreenRect): string {
+  const cx = rect.x + rect.width / 2;
+  const cy = rect.y + rect.height / 2;
+  const ring = (rx: number, ry: number): string =>
+    `M ${cx - rx} ${cy} A ${rx} ${ry} 0 1 0 ${cx + rx} ${cy} A ${rx} ${ry} 0 1 0 ${cx - rx} ${cy} Z`;
+  const inset = Math.min(rect.width, rect.height) * 0.12;
+  return `${ring(rect.width / 2, rect.height / 2)} ${ring(rect.width / 2 - inset, rect.height / 2 - inset)}`;
+}
+
 /** Fraction of `min(width, height)` used as the rounded-rectangle corner radius. */
 const ROUNDNESS_RADIUS_RATIO = 0.25;
 /** Upper bound (screen px) so a very large rectangle doesn't grow an absurdly large radius. */

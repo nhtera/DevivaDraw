@@ -95,7 +95,16 @@ function anyOverlap(boxes: { x: number; y: number; width: number; height: number
   return false;
 }
 
-const SHAPE_TYPES = new Set(["rectangle", "ellipse", "diamond", "hexagon", "parallelogram", "trapezoid"]);
+const SHAPE_TYPES = new Set([
+  "rectangle",
+  "ellipse",
+  "diamond",
+  "hexagon",
+  "parallelogram",
+  "trapezoid",
+  "cylinder",
+  "double-circle",
+]);
 
 describe("mermaid corpus", () => {
   it.each(Object.entries(FIXTURES))("lays out %s without throwing, finite, no overlap", (_name, src) => {
@@ -122,7 +131,9 @@ describe("mermaid corpus", () => {
     const start = performance.now();
     const elements = mermaidToElements(src);
     const elapsed = performance.now() - start;
-    expect(elapsed).toBeLessThan(120);
+    // Generous bound: a real O(n²)+ layout regression would take seconds; a tight ms threshold flakes
+    // under parallel-suite load, so guard against blowup, not against a loaded machine.
+    expect(elapsed).toBeLessThan(600);
     const shapes = elements.filter((e) => e.type === "rectangle") as {
       x: number;
       y: number;

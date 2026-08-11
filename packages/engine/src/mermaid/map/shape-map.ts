@@ -6,7 +6,9 @@
  */
 import type { AnyElement } from "../../elements/element-types";
 import {
+  createCylinderElement,
   createDiamondElement,
+  createDoubleCircleElement,
   createEllipseElement,
   createHexagonElement,
   createParallelogramElement,
@@ -26,8 +28,6 @@ export interface NodeGeometry {
 
 /** Shapes rendered with a pill/rounded rectangle outline. */
 const ROUNDED: ReadonlySet<NodeShape> = new Set(["rounded", "stadium"]);
-/** Shapes still approximated to their nearest neighbour (cylinder→rect, double-circle→ellipse) until 02b. */
-const ELLIPSE: ReadonlySet<NodeShape> = new Set(["circle", "double-circle"]);
 const PARALLELOGRAM: ReadonlySet<NodeShape> = new Set(["parallelogram", "parallelogram-alt"]);
 const TRAPEZOID: ReadonlySet<NodeShape> = new Set(["trapezoid", "trapezoid-alt"]);
 
@@ -43,9 +43,11 @@ export function shapeToElement(shape: NodeShape, geo: NodeGeometry, style: Resol
   };
   if (shape === "diamond") return createDiamondElement(input);
   if (shape === "hexagon") return createHexagonElement(input);
+  if (shape === "circle") return createEllipseElement(input);
+  if (shape === "double-circle") return createDoubleCircleElement(input);
+  if (shape === "cylinder") return createCylinderElement(input);
   // The `-alt` variants mirror their base; a single lean is a faithful-enough v1 for both.
   if (PARALLELOGRAM.has(shape)) return createParallelogramElement(input);
   if (TRAPEZOID.has(shape)) return createTrapezoidElement(input);
-  if (ELLIPSE.has(shape)) return createEllipseElement(input);
   return createRectangleElement(input);
 }

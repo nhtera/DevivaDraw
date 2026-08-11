@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createParallelogramElement, createTrapezoidElement } from "./shape-elements";
+import {
+  createCylinderElement,
+  createDoubleCircleElement,
+  createParallelogramElement,
+  createTrapezoidElement,
+} from "./shape-elements";
 import { isPolygonShapeType, polygonShapeUnitVertices } from "./polygon-shape-geometry";
+import { cylinderPath, doubleCirclePath } from "../render/rough-shape-geometry";
 
 describe("parallelogram + trapezoid shapes", () => {
   it("factories tag the element type", () => {
@@ -37,5 +43,23 @@ describe("parallelogram + trapezoid shapes", () => {
     expect(v[1]!.x).toBeLessThan(1); // top-right inset
     expect(v[3]!.x).toBe(0); // bottom spans full width
     expect(v[2]!.x).toBe(1);
+  });
+});
+
+describe("cylinder + double-circle shapes", () => {
+  it("factories tag the element type", () => {
+    expect(createCylinderElement({ x: 0, y: 0 }).type).toBe("cylinder");
+    expect(createDoubleCircleElement({ x: 0, y: 0 }).type).toBe("double-circle");
+  });
+
+  it("cylinder path uses elliptical arcs and closes", () => {
+    const path = cylinderPath({ x: 0, y: 0, width: 120, height: 80 });
+    expect(path).toContain("A "); // elliptical arc commands (cap + base)
+    expect(path).toContain("Z"); // closed body
+  });
+
+  it("double-circle path draws two concentric rings", () => {
+    const path = doubleCirclePath({ x: 0, y: 0, width: 100, height: 100 });
+    expect((path.match(/M /g) ?? []).length).toBe(2); // outer + inner ring
   });
 });

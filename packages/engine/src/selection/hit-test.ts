@@ -122,8 +122,11 @@ export function hitTestElement(element: AnyElement, point: Point, tolerance: num
     case "heart":
     case "x-box":
     case "check-box":
+    case "cylinder":
       // Curve/composite shapes hit-test against their bounding box (filled → whole interior; unfilled → border).
       return hitRectangleLike(local, element.width, element.height, filled, tolerance);
+    case "double-circle":
+      return hitEllipse(local, element.width, element.height, filled, tolerance);
     case "diamond":
     case "triangle":
     case "hexagon":

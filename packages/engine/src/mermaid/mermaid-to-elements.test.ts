@@ -101,6 +101,12 @@ describe("flowchartToElements", () => {
     expect(els.filter((e) => e.type === "trapezoid")).toHaveLength(2); // trapezoid + its alt
   });
 
+  it("maps cylinder and double-circle to their real engine shapes", () => {
+    const els = flowchartToElements(parseFlowchart("flowchart TD\n A[(db)] --> B(((done)))"));
+    expect(els.some((e) => e.type === "cylinder")).toBe(true); // A[(db)]
+    expect(els.some((e) => e.type === "double-circle")).toBe(true); // B(((done)))
+  });
+
   it("maps circle/hexagon shapes and invisible edges", () => {
     const els = flowchartToElements(parseFlowchart("flowchart TD\n A((c)) ~~~ B{{h}}"));
     expect(els.some((e) => e.type === "ellipse")).toBe(true); // circle
