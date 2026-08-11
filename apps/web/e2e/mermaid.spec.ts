@@ -61,12 +61,17 @@ test("a sequence diagram previews and inserts as editable elements", async ({ pa
   await expect(page.locator('[data-testid^="layer-action-"]').first()).toBeVisible();
 });
 
-test("an unsupported diagram type shows an inline error and disables Insert", async ({ page }) => {
+test("an unsupported diagram type rasterizes via the mermaid fallback and inserts as an image", async ({ page }) => {
   await page.getByTestId("top-bar-menu").click();
   await page.getByTestId("main-menu-mermaid").click();
   await expect(page.getByTestId("mermaid-dialog")).toBeVisible();
 
   await page.getByTestId("mermaid-input").fill('pie title Pets\n "Dogs": 3\n "Cats": 2');
-  await expect(page.getByTestId("mermaid-error")).toBeVisible();
-  await expect(page.getByTestId("mermaid-insert")).toBeDisabled();
+  // The lazily-loaded mermaid lib renders it to a PNG preview; give the async import + render room.
+  await expect(page.getByTestId("mermaid-preview").locator("img")).toBeVisible({ timeout: 15000 });
+  await expect(page.getByTestId("mermaid-insert")).toBeEnabled();
+  await page.getByTestId("mermaid-insert").click();
+
+  await expect(page.getByTestId("mermaid-dialog")).toHaveCount(0);
+  await expect(page.locator('[data-testid^="layer-action-"]').first()).toBeVisible();
 });

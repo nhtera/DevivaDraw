@@ -189,6 +189,7 @@ export const catalogEn = {
   "mermaid.error.unsupported": "This diagram type isn't supported yet. Try flowchart, class, or ER.",
   "mermaid.error.invalid": "Couldn't read this Mermaid text — check the syntax.",
   "mermaid.error.generic": "Something went wrong rendering this diagram.",
+  "mermaid.rendering": "Rendering…",
 
   "library.title": "Library",
   "library.addSelection": "Add selection to library",
