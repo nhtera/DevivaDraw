@@ -47,4 +47,25 @@ describe("flowchartToElements", () => {
     const arrow = elements.find((e) => e.type === "arrow") as { endArrowhead: string };
     expect(arrow.endArrowhead).toBe("none");
   });
+
+  it("renders an edge label as a text element grouped with its arrow", () => {
+    const elements = flowchartToElements(parseFlowchart("A[One] -->|Get money| B[Two]"));
+    // 2 node labels + 1 edge label = 3 texts; the edge label text shares the arrow's group.
+    const texts = elements.filter((e) => e.type === "text") as { text: string; groupIds: string[] }[];
+    const arrow = elements.find((e) => e.type === "arrow") as { groupIds: string[] };
+    const edgeLabel = texts.find((t) => t.text === "Get money");
+    expect(edgeLabel).toBeDefined();
+    expect(edgeLabel!.groupIds[0]).toBe(arrow.groupIds[0]);
+  });
+
+  it("centers each layer on a shared axis so a parent sits above the middle of its children", () => {
+    // One root fanning out to three children: the children's center of mass aligns with the parent.
+    const els = flowchartToElements(parseFlowchart("flowchart TD\n A[P] --> B[x]\n A --> C[y]\n A --> D[z]"));
+    const rects = els.filter((e) => e.type === "rectangle") as { x: number; y: number }[];
+    const parent = rects[0]!; // A is emitted first (declared first)
+    const children = rects.slice(1).sort((r1, r2) => r1.x - r2.x);
+    const childrenMidX = (children[0]!.x + children[2]!.x) / 2;
+    expect(childrenMidX).toBeCloseTo(parent.x, 5); // middle child column lines up under the parent
+    expect(children[1]!.y).toBeGreaterThan(parent.y); // and children sit in the next layer down
+  });
 });

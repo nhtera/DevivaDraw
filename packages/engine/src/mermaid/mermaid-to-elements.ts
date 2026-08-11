@@ -37,6 +37,9 @@ const NODE_WIDTH = 160;
 const NODE_HEIGHT = 60;
 const LAYER_GAP = 80;
 const SIBLING_GAP = 40;
+/** Edge labels render a touch smaller than node labels, matching Excalidraw. */
+const EDGE_LABEL_FONT_SIZE = 16;
+const EDGE_LABEL_CHAR_WIDTH = 9;
 
 /** Parses one `id[label]` / `id(label)` / `id{label}` / bare-`id` token into a node descriptor. */
 function parseNodeToken(raw: string, nodes: Map<string, ParsedNode>): string | null {
@@ -114,8 +117,12 @@ export function flowchartToElements(flow: ParsedFlowchart): AnyElement[] {
   const horizontal = flow.direction === "LR" || flow.direction === "RL";
   const pos = new Map<string, { x: number; y: number }>();
   for (const [layerIndex, layerNodes] of byLayer) {
+    const step = horizontal ? NODE_HEIGHT + SIBLING_GAP : NODE_WIDTH + SIBLING_GAP;
+    // Center each layer on a shared axis (0) so a parent sits above the middle of its children and the
+    // arrows fan out symmetrically — Excalidraw's layered look — instead of every layer packing left.
+    const alongOffset = ((layerNodes.length - 1) * step) / 2;
     layerNodes.forEach((node, indexInLayer) => {
-      const along = indexInLayer * (horizontal ? NODE_HEIGHT + SIBLING_GAP : NODE_WIDTH + SIBLING_GAP);
+      const along = indexInLayer * step - alongOffset;
       const across = layerIndex * ((horizontal ? NODE_WIDTH : NODE_HEIGHT) + LAYER_GAP);
       pos.set(node.id, horizontal ? { x: across, y: along } : { x: along, y: across });
     });
@@ -146,6 +153,7 @@ export function flowchartToElements(flow: ParsedFlowchart): AnyElement[] {
     if (!from || !to) continue;
     const start = { x: from.x + NODE_WIDTH / 2, y: from.y + NODE_HEIGHT };
     const end = { x: to.x + NODE_WIDTH / 2, y: to.y };
+    const groupIds = [`mermaid-edge-${edge.from}-${edge.to}`];
     elements.push(
       createArrowElement({
         x: start.x,
@@ -157,8 +165,26 @@ export function flowchartToElements(flow: ParsedFlowchart): AnyElement[] {
           { x: end.x - start.x, y: end.y - start.y },
         ],
         endArrowhead: edge.arrow ? "arrow" : "none",
+        groupIds,
       }),
     );
+    // Edge label (`A -->|label| B`) — Excalidraw renders these on the arrow. Centered on the arrow's
+    // midpoint; grouped with the arrow so they move together.
+    if (edge.label) {
+      const labelWidth = Math.max(60, edge.label.length * EDGE_LABEL_CHAR_WIDTH);
+      elements.push(
+        createTextElement({
+          x: (start.x + end.x) / 2 - labelWidth / 2,
+          y: (start.y + end.y) / 2 - EDGE_LABEL_FONT_SIZE / 2,
+          width: labelWidth,
+          height: EDGE_LABEL_FONT_SIZE + 4,
+          text: edge.label,
+          fontSize: EDGE_LABEL_FONT_SIZE,
+          textAlign: "center",
+          groupIds,
+        }),
+      );
+    }
   }
 
   return elements;
