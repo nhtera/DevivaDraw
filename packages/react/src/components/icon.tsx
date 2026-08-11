@@ -60,7 +60,6 @@ const GLYPHS: Record<string, string> = {
   "export-png": "🖼",
   "export-svg": "🖼",
   "copy-image": "⎘",
-  menu: "☰",
   close: "✕",
   search: "🔍",
   more: "⋯",

@@ -77,6 +77,9 @@ export const MENU_GLYPHS: Record<string, ReactNode> = {
       <path d="M16 4 L9.5 10.5" />
     </>
   ),
+  // Three evenly-spaced horizontal bars centered in the viewBox — the hamburger menu mark (replacing
+  // the Unicode ☰, which renders high in its em-box and looked vertically off-center next to the SVG icons).
+  menu: <path d="M4 6 H16 M4 10 H16 M4 14 H16" strokeLinecap="round" />,
   // Two horizontal control rails with a knob on each — the universal "adjust properties" / sliders
   // mark, used by the mobile properties bar's toggle for the full style sheet.
   sliders: (
