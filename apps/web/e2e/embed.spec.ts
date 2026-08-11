@@ -64,6 +64,25 @@ test("a selected embed is movable by dragging its body (the iframe doesn't steal
   expect(after.x - before.x).toBeGreaterThan(80); // it actually moved with the drag
 });
 
+test("a selected embed can be resized by its bottom-right handle", async ({ page }) => {
+  await page.getByTestId("embed-input").fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+  await page.getByTestId("embed-insert").click();
+  await expect(page.getByTestId("embed-interact-toggle")).toBeVisible();
+
+  const iframe = page.getByTestId("embed-iframe");
+  const before = (await iframe.boundingBox())!;
+  // The bottom-right resize handle sits at the element's bottom-right corner.
+  const hx = before.x + before.width;
+  const hy = before.y + before.height;
+  await page.mouse.move(hx, hy);
+  await page.mouse.down();
+  await page.mouse.move(hx + 160, hy + 100);
+  await page.mouse.up();
+
+  const after = (await iframe.boundingBox())!;
+  expect(after.width - before.width).toBeGreaterThan(100); // regression: embed used to be non-resizable
+});
+
 test("the Interact toggle switches the embed into live (pointer-capturing) mode and back", async ({ page }) => {
   await page.getByTestId("embed-input").fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
   await page.getByTestId("embed-insert").click();

@@ -65,6 +65,9 @@ export function EmbedOverlay(props: { runtime: DevivaRuntime; cameraStore: Camer
                 height: embed.height * camera.zoom,
                 border: "none",
                 borderRadius: 10 * camera.zoom,
+                // Match the element's rotation (rendered around its center, like the canvas placeholder).
+                transform: embed.angle ? `rotate(${embed.angle}rad)` : undefined,
+                transformOrigin: "center",
                 opacity: Math.min(1, Math.max(0, embed.opacity / 100)),
                 // Click-through unless the user explicitly entered interact mode — so selecting,
                 // moving, and resizing the embed always work.

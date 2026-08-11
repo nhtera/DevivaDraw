@@ -97,6 +97,7 @@ export function dispatchResize(element: AnyElement, oldBounds: SceneRect, newBou
     case "x-box":
     case "check-box":
     case "note":
+    case "embed":
     case "frame":
     case "generic":
       return clampSize(newBounds);

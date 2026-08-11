@@ -4,6 +4,7 @@ import type { ArrowElement } from "../elements/arrow-element";
 import { createFreedrawElement } from "../elements/freedraw-element";
 import type { FreedrawElement } from "../elements/freedraw-element";
 import { createImageElement } from "../elements/image-element";
+import { createEmbedElement } from "../elements/embed-element";
 import { createFrameElement } from "../elements/frame-element";
 import { createNoteElement } from "../elements/note-element";
 import {
@@ -124,5 +125,13 @@ describe("dispatchResize — image", () => {
     const result = dispatchResize(image, { x: 0, y: 0, width: 100, height: 50 }, { x: 0, y: 0, width: 100, height: 100 });
     expect(result?.height).toBe(100);
     expect(result?.width).toBe(200);
+  });
+});
+
+describe("dispatchResize — embed", () => {
+  it("resizes an embed by clamping to the new bounds (regression: it returned null and couldn't be resized)", () => {
+    const embed = stored(createEmbedElement({ x: 0, y: 0, width: 460, height: 260, url: "https://youtube.com/watch?v=x" }));
+    const result = dispatchResize(embed, { x: 0, y: 0, width: 460, height: 260 }, { x: 10, y: 20, width: 600, height: 340 });
+    expect(result).toEqual({ x: 10, y: 20, width: 600, height: 340 });
   });
 });
