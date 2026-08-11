@@ -93,6 +93,14 @@ describe("flowchartToElements", () => {
     expect(children[1]!.y).toBeGreaterThan(parent.y); // and children sit in the next layer down
   });
 
+  it("maps parallelogram and trapezoid to their real engine shapes (incl. alt variants)", () => {
+    const els = flowchartToElements(
+      parseFlowchart("flowchart TD\n A[/in/] --> B[\\inAlt\\]\n C[/trap\\] --> D[\\trapAlt/]"),
+    );
+    expect(els.filter((e) => e.type === "parallelogram")).toHaveLength(2); // parallelogram + its alt
+    expect(els.filter((e) => e.type === "trapezoid")).toHaveLength(2); // trapezoid + its alt
+  });
+
   it("maps circle/hexagon shapes and invisible edges", () => {
     const els = flowchartToElements(parseFlowchart("flowchart TD\n A((c)) ~~~ B{{h}}"));
     expect(els.some((e) => e.type === "ellipse")).toBe(true); // circle

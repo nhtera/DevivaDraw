@@ -32,6 +32,8 @@ const FILLABLE_TYPES: ReadonlySet<string> = new Set([
   "triangle",
   "hexagon",
   "star",
+  "parallelogram",
+  "trapezoid",
   "block-arrow",
   "cloud",
   "heart",

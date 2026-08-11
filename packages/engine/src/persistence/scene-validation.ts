@@ -28,6 +28,7 @@ const FILL_STYLES = ["hachure", "cross-hatch", "solid", "zigzag"] as const;
 const STROKE_STYLES = ["solid", "dashed", "dotted"] as const;
 const ELEMENT_TYPES = [
   "generic", "rectangle", "ellipse", "diamond", "triangle", "hexagon", "star",
+  "parallelogram", "trapezoid",
   "block-arrow", "cloud", "heart", "x-box", "check-box",
   "line", "freedraw", "text", "arrow", "image", "frame", "note", "embed",
 ] as const;
@@ -80,6 +81,8 @@ function validateTypeSpecificFields(raw: Record<string, unknown>, index: number)
     case "triangle":
     case "hexagon":
     case "star":
+    case "parallelogram":
+    case "trapezoid":
     case "cloud":
     case "heart":
     case "x-box":

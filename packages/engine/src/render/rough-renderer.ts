@@ -98,6 +98,8 @@ export function buildElementDrawable(drawer: RoughShapeDrawer, element: AnyEleme
     case "triangle":
     case "hexagon":
     case "star":
+    case "parallelogram":
+    case "trapezoid":
       return drawer.polygon(polygonShapeVertices(rect, element.type), buildRoughOptions(element, strokeWidthPx));
     case "block-arrow":
       return drawer.polygon(blockArrowVertices(rect, element.direction), buildRoughOptions(element, strokeWidthPx));

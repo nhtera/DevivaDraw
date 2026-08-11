@@ -95,7 +95,7 @@ function anyOverlap(boxes: { x: number; y: number; width: number; height: number
   return false;
 }
 
-const SHAPE_TYPES = new Set(["rectangle", "ellipse", "diamond", "hexagon"]);
+const SHAPE_TYPES = new Set(["rectangle", "ellipse", "diamond", "hexagon", "parallelogram", "trapezoid"]);
 
 describe("mermaid corpus", () => {
   it.each(Object.entries(FIXTURES))("lays out %s without throwing, finite, no overlap", (_name, src) => {

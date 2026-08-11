@@ -9,11 +9,18 @@
 import type { BlockArrowDirection, RelativePoint } from "./shape-elements";
 
 /** Element `type` strings whose outline is a closed polygon computed from the bounding box alone. */
-export type PolygonShapeType = "diamond" | "triangle" | "hexagon" | "star";
+export type PolygonShapeType = "diamond" | "triangle" | "hexagon" | "star" | "parallelogram" | "trapezoid";
 
 /** True for the element types `polygonShapeUnitVertices` can outline — a narrowing guard for callers dispatching on `element.type`. */
 export function isPolygonShapeType(type: string): type is PolygonShapeType {
-  return type === "diamond" || type === "triangle" || type === "hexagon" || type === "star";
+  return (
+    type === "diamond" ||
+    type === "triangle" ||
+    type === "hexagon" ||
+    type === "star" ||
+    type === "parallelogram" ||
+    type === "trapezoid"
+  );
 }
 
 /** Points of a 5-pointed star as unit-box fractions: 10 alternating outer/inner vertices around the box center, first outer point at the top. */
@@ -89,5 +96,21 @@ export function polygonShapeUnitVertices(type: PolygonShapeType): RelativePoint[
       ];
     case "star":
       return starUnitVertices();
+    case "parallelogram":
+      // Leaning rectangle (flowchart input/output), slanted to the right.
+      return [
+        { x: 0.25, y: 0 },
+        { x: 1, y: 0 },
+        { x: 0.75, y: 1 },
+        { x: 0, y: 1 },
+      ];
+    case "trapezoid":
+      // Narrower top, wider base (flowchart manual-operation).
+      return [
+        { x: 0.25, y: 0 },
+        { x: 0.75, y: 0 },
+        { x: 1, y: 1 },
+        { x: 0, y: 1 },
+      ];
   }
 }

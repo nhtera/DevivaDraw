@@ -29,8 +29,10 @@ import type {
   HeartElement,
   HexagonElement,
   LineElement,
+  ParallelogramElement,
   RectangleElement,
   StarElement,
+  TrapezoidElement,
   TriangleElement,
   XBoxElement,
 } from "./shape-elements";
@@ -61,9 +63,11 @@ export type {
   HexagonElement,
   LineElement,
   LineElementCreationInput,
+  ParallelogramElement,
   RectangleElement,
   RelativePoint,
   StarElement,
+  TrapezoidElement,
   TriangleElement,
   XBoxElement,
 } from "./shape-elements";
@@ -76,8 +80,10 @@ export {
   createHeartElement,
   createHexagonElement,
   createLineElement,
+  createParallelogramElement,
   createRectangleElement,
   createStarElement,
+  createTrapezoidElement,
   createTriangleElement,
   createXBoxElement,
 } from "./shape-elements";
@@ -107,6 +113,8 @@ export type AnyElement =
   | TriangleElement
   | HexagonElement
   | StarElement
+  | ParallelogramElement
+  | TrapezoidElement
   | BlockArrowElement
   | CloudElement
   | HeartElement

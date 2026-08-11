@@ -36,6 +36,14 @@ export interface StarElement extends BaseElement {
   type: "star";
 }
 
+export interface ParallelogramElement extends BaseElement {
+  type: "parallelogram";
+}
+
+export interface TrapezoidElement extends BaseElement {
+  type: "trapezoid";
+}
+
 /** Cardinal direction a block (geo) arrow points. */
 export type BlockArrowDirection = "left" | "right" | "up" | "down";
 
@@ -102,6 +110,14 @@ export function createHexagonElement(input: ElementCreationInput): HexagonElemen
 
 export function createStarElement(input: ElementCreationInput): StarElement {
   return { ...createElementBase(input), type: "star" };
+}
+
+export function createParallelogramElement(input: ElementCreationInput): ParallelogramElement {
+  return { ...createElementBase(input), type: "parallelogram" };
+}
+
+export function createTrapezoidElement(input: ElementCreationInput): TrapezoidElement {
+  return { ...createElementBase(input), type: "trapezoid" };
 }
 
 export interface BlockArrowElementCreationInput extends ElementCreationInput {

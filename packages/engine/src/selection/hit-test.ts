@@ -128,6 +128,8 @@ export function hitTestElement(element: AnyElement, point: Point, tolerance: num
     case "triangle":
     case "hexagon":
     case "star":
+    case "parallelogram":
+    case "trapezoid":
       return hitPolygonShape(local, element.width, element.height, element.type, filled, tolerance);
     case "block-arrow":
       return hitBlockArrow(local, element.width, element.height, element.direction, filled, tolerance);
