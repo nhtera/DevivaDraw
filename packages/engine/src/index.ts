@@ -305,6 +305,7 @@ export type { DiagramType } from "./mermaid/parse/detect-diagram";
 export { detectDiagramType } from "./mermaid/parse/detect-diagram";
 export type { MermaidErrorCode, MermaidResult } from "./mermaid/try-mermaid-to-elements";
 export { tryMermaidToElements } from "./mermaid/try-mermaid-to-elements";
+export { stateToElements } from "./mermaid/state-to-elements";
 
 export type { LaserToolDeps, LaserTrailPoint } from "./tools/laser-tool";
 export { LaserTool, LASER_FADE_MS } from "./tools/laser-tool";

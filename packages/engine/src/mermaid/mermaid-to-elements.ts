@@ -12,6 +12,7 @@ import type { Arrowhead } from "../elements/arrow-element";
 import type { AnyElement } from "./../elements/element-types";
 import { classToElements } from "./class-to-elements";
 import { erToElements } from "./er-to-elements";
+import { stateToElements } from "./state-to-elements";
 import { layoutFlowchart } from "./layout/layout-flowchart";
 import type { LayoutInput } from "./layout/types";
 import { createEdgeElements } from "./map/edge-elements";
@@ -86,11 +87,12 @@ export function mermaidToElements(source: string): AnyElement[] {
       return classToElements(source);
     case "er":
       return erToElements(source);
-    // Sequence + state get native converters in later phases; until then they return no elements rather
-    // than being mis-parsed as a flowchart. "unsupported" types (pie/gantt/…) are earmarked to be
-    // rasterized to an image by the react layer in a later phase, so the engine emits nothing for them.
-    case "sequence":
     case "state":
+      return stateToElements(source);
+    // Sequence gets its native converter in a later phase; until then it returns no elements rather than
+    // being mis-parsed as a flowchart. "unsupported" types (pie/gantt/…) are earmarked to be rasterized
+    // to an image by the react layer in a later phase, so the engine emits nothing for them.
+    case "sequence":
     case "unsupported":
       return [];
     default:
