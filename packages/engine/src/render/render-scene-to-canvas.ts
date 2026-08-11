@@ -74,6 +74,21 @@ export interface RenderSceneOptions {
   pendingEraseIds?: ReadonlySet<string> | null;
   /** Solid fill painted immediately after `clearRect`, before the grid/elements — e.g. an export's opaque-background option. Omit for a transparent background (canvas default), the same as every live render. */
   background?: string;
+  /**
+   * Optional render-time color remap applied to each element's stroke/background before drawing —
+   * the theme layer supplies this to make default-palette colors legible against the current canvas
+   * (e.g. a near-black default stroke shows as light on a dark canvas) WITHOUT mutating stored data,
+   * so a scene renders correctly no matter which theme it was authored or loaded in. Custom colors and
+   * images pass through untouched (the remap only recognizes the engine's own default palette). Omit
+   * (export path) to draw the authored colors exactly.
+   */
+  adaptColors?: ElementColorAdapter;
+}
+
+/** Per-color remap functions supplied by the theme layer — see `RenderSceneOptions.adaptColors`. */
+export interface ElementColorAdapter {
+  stroke(color: string): string;
+  background(color: string): string;
 }
 
 /** Opacity multiplier applied to an element marked for erasing — dims it to a faint preview without hiding it. */
@@ -86,11 +101,15 @@ const ERASE_PREVIEW_OPACITY_FACTOR = 0.35;
  */
 export function renderSceneToCanvas(ctx: RenderSceneContext2D, scene: Scene, camera: Camera, viewportSize: ViewportSize, options: RenderSceneOptions): void {
   const { width, height } = viewportSize;
-  const { roughCanvas, textMeasurer, imageDecodeCache, drawableCache, arrowDrawableCache, freedrawOutlineCache, grid, background, textDraft, pendingEraseIds } = options;
+  const { roughCanvas, textMeasurer, imageDecodeCache, drawableCache, arrowDrawableCache, freedrawOutlineCache, grid, background, textDraft, pendingEraseIds, adaptColors } = options;
   const elements = options.elements ?? scene.getElements();
   /** Dims an element (via its own opacity) when the eraser is about to remove it — see `pendingEraseIds`. */
   const withErasePreview = <T extends AnyElement>(element: T): T =>
     pendingEraseIds?.has(element.id) ? { ...element, opacity: element.opacity * ERASE_PREVIEW_OPACITY_FACTOR } : element;
+  /** Remaps default-palette colors for the active theme (non-destructive — the stored element is untouched). */
+  const withTheme = <T extends AnyElement>(element: T): T =>
+    adaptColors ? { ...element, strokeColor: adaptColors.stroke(element.strokeColor), backgroundColor: adaptColors.background(element.backgroundColor) } : element;
+  const prepare = <T extends AnyElement>(element: T): T => withErasePreview(withTheme(element));
 
   ctx.clearRect(0, 0, width, height);
   if (background) {
@@ -102,22 +121,22 @@ export function renderSceneToCanvas(ctx: RenderSceneContext2D, scene: Scene, cam
   const visible = filterVisibleElements(elements, camera, { width, height });
   for (const element of visible) {
     if (element.type === "freedraw") {
-      drawElementFreedraw(ctx, withErasePreview(element), camera, freedrawOutlineCache);
+      drawElementFreedraw(ctx, prepare(element), camera, freedrawOutlineCache);
     } else if (element.type === "text") {
       // Paint the live draft for the element being edited (its committed `text` is stale mid-edit);
       // every other text element paints its own committed `text`. See `textDraft`'s doc.
       const overridden = textDraft && element.id === textDraft.elementId ? { ...element, text: textDraft.text } : element;
-      drawElementText(ctx, withErasePreview(overridden), camera, textMeasurer);
+      drawElementText(ctx, prepare(overridden), camera, textMeasurer);
     } else if (element.type === "arrow") {
-      drawElementArrow(ctx, roughCanvas, withErasePreview(element), camera, arrowDrawableCache);
+      drawElementArrow(ctx, roughCanvas, prepare(element), camera, arrowDrawableCache);
     } else if (element.type === "image") {
-      drawElementImage(ctx, withErasePreview(element), camera, scene, imageDecodeCache);
+      drawElementImage(ctx, prepare(element), camera, scene, imageDecodeCache);
     } else if (element.type === "embed") {
-      drawElementEmbed(ctx, withErasePreview(element), camera);
+      drawElementEmbed(ctx, prepare(element), camera);
     } else if (element.type === "frame") {
-      drawElementFrame(ctx, withErasePreview(element), camera);
+      drawElementFrame(ctx, prepare(element), camera);
     } else {
-      drawElementRough(ctx, roughCanvas, withErasePreview(element), camera, drawableCache);
+      drawElementRough(ctx, roughCanvas, prepare(element), camera, drawableCache);
     }
   }
 

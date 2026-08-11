@@ -5,7 +5,7 @@
  * tested, same DOM-only (`requestAnimationFrame`/`CanvasStage`) trade-off `canvas-stage.ts` itself
  * documents in `@deviva-draw/engine`.
  */
-import type { AnyElement, CanvasStage, LaserTrailPoint, Point, RemoteCursorOverlay, Scene, SelectionState } from "@deviva-draw/engine";
+import type { AnyElement, CanvasStage, ElementColorAdapter, LaserTrailPoint, Point, RemoteCursorOverlay, Scene, SelectionState } from "@deviva-draw/engine";
 import type { CameraStore } from "./camera-store";
 
 export interface RenderLoopDeps {
@@ -26,16 +26,18 @@ export interface RenderLoopDeps {
   getLaserTrail(): readonly LaserTrailPoint[];
   /** The lasso tool's in-progress free-form loop (scene space) — drawn on the interactive layer each frame; empty when idle. Same getter contract as the others. */
   getLassoPath(): readonly Point[];
+  /** The active theme's render-time color adapter (default-palette colors → legible-on-this-canvas), or `null` for authored colors. Same getter contract as the others, so a theme change is picked up without rebuilding the loop. */
+  getColorAdapter(): (ElementColorAdapter & { key: string }) | null;
 }
 
 /** Starts the loop; returns a stop function for the owning effect's cleanup. */
 export function startRenderLoop(deps: RenderLoopDeps): () => void {
-  const { stage, scene, cameraStore, selection, getMarqueeRect, getSnapGuides, grid, getRemoteCursors, getTextDraft, getPendingEraseIds, getLaserTrail, getLassoPath } = deps;
+  const { stage, scene, cameraStore, selection, getMarqueeRect, getSnapGuides, grid, getRemoteCursors, getTextDraft, getPendingEraseIds, getLaserTrail, getLassoPath, getColorAdapter } = deps;
   let frameHandle = requestAnimationFrame(function renderFrame() {
     const camera = cameraStore.getCamera();
     const textDraft = getTextDraft();
     const pendingEraseIds = getPendingEraseIds();
-    stage.staticLayer.render(scene, camera, grid, textDraft, pendingEraseIds);
+    stage.staticLayer.render(scene, camera, grid, textDraft, pendingEraseIds, getColorAdapter());
     // While a text-edit session is open, hide the selection frame/handles entirely — text editing is a
     // focused mode (just the glyphs + caret + the textarea's own selection highlight), the same clean
     // look Excalidraw/tldraw show; the bounding box + resize/rotate handles would otherwise sit on top

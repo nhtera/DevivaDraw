@@ -37,6 +37,7 @@ import type { RoughCanvasDrawer } from "./rough-renderer";
 import { RoughDrawableCache } from "./rough-drawable-cache";
 import type { GridRenderState } from "./render-scene-to-canvas";
 import { renderSceneToCanvas } from "./render-scene-to-canvas";
+import type { ElementColorAdapter } from "./render-scene-to-canvas";
 import type { Scene } from "../scene/scene";
 import type { TextDrawContext2D } from "./text-renderer";
 
@@ -94,6 +95,8 @@ interface RenderSnapshot {
   draftKey: string;
   /** Sorted ids the eraser is previewing-to-delete, flattened so growing/clearing that set (which never touches `Scene`) still forces the dim-preview redraw. `""` when the eraser isn't mid-swipe. */
   eraseKey: string;
+  /** The active theme's color-adapter key (e.g. `"light"`/`"dark"`) so switching themes — which remaps colors at render time without touching `Scene` — forces a redraw. `""` when no adapter is supplied. */
+  themeKey: string;
 }
 
 function sameSnapshot(a: RenderSnapshot, b: RenderSnapshot): boolean {
@@ -109,7 +112,8 @@ function sameSnapshot(a: RenderSnapshot, b: RenderSnapshot): boolean {
     a.gridEnabled === b.gridEnabled &&
     a.gridSize === b.gridSize &&
     a.draftKey === b.draftKey &&
-    a.eraseKey === b.eraseKey
+    a.eraseKey === b.eraseKey &&
+    a.themeKey === b.themeKey
   );
 }
 
@@ -147,7 +151,14 @@ export class StaticLayer {
    * element. The actual draw dispatch is `render-scene-to-canvas.ts`'s `renderSceneToCanvas` — shared
    * with PNG export, see that module's doc.
    */
-  render(scene: Scene, camera: Camera, grid: GridRenderState = GRID_DISABLED, textDraft: { elementId: string; text: string } | null = null, pendingEraseIds: ReadonlySet<string> | null = null): void {
+  render(
+    scene: Scene,
+    camera: Camera,
+    grid: GridRenderState = GRID_DISABLED,
+    textDraft: { elementId: string; text: string } | null = null,
+    pendingEraseIds: ReadonlySet<string> | null = null,
+    adaptColors: (ElementColorAdapter & { key: string }) | null = null,
+  ): void {
     const width = this.ctx.canvas.clientWidth;
     const height = this.ctx.canvas.clientHeight;
     const snapshot: RenderSnapshot = {
@@ -163,6 +174,7 @@ export class StaticLayer {
       gridSize: grid.size,
       draftKey: textDraft ? `${textDraft.elementId} ${textDraft.text}` : "",
       eraseKey: pendingEraseIds && pendingEraseIds.size > 0 ? [...pendingEraseIds].sort().join(" ") : "",
+      themeKey: adaptColors?.key ?? "",
     };
 
     if (this.lastSnapshot && sameSnapshot(this.lastSnapshot, snapshot)) return;
@@ -178,6 +190,7 @@ export class StaticLayer {
       grid,
       textDraft,
       pendingEraseIds,
+      adaptColors: adaptColors ?? undefined,
     });
   }
 

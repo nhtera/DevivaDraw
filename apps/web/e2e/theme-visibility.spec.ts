@@ -91,6 +91,25 @@ test("a line drawn in light mode renders as a visible (dark) stroke", async ({ p
   expect(opaque).toBeGreaterThan(0);
 });
 
+test("a scene authored in light and reloaded in dark renders legibly (render-time adaptation)", async ({ page }) => {
+  // Draw in light — the stroke is stored near-black.
+  await selectTheme(page, "light");
+  await drawLine(page);
+  // Switch to dark and let autosave persist. Crucially, the *stored* color stays near-black (the swap
+  // is no longer destructive), so this reproduces "a light-authored scene opened in dark mode".
+  await selectTheme(page, "dark");
+  await page.waitForTimeout(1300);
+  await page.reload();
+  await expect(page.getByTestId("deviva-draw-root")).toBeVisible();
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))));
+
+  // On load in dark mode there was no theme *toggle* to trigger the old swap — yet the near-black
+  // stroke must still render LIGHT (adapted at render time), i.e. visible. This is the bug fix.
+  const { opaque, brightestSum } = await scanStroke(page, LINE_REGION);
+  expect(opaque).toBeGreaterThan(0);
+  expect(brightestSum).toBeGreaterThan(400);
+});
+
 test("text typed in dark mode is legible (light text drawn on the dark canvas) and the box grows to fit", async ({ page }) => {
   await selectTheme(page, "dark");
   await page.getByTestId("toolbar-text-tool").click();

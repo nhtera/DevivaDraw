@@ -137,7 +137,7 @@ export { StaticLayer } from "./render/static-layer";
 
 export { createBrowserRoughCanvas, createRoughGenerator } from "./render/rough-factory";
 
-export type { RenderSceneContext2D, RenderSceneOptions } from "./render/render-scene-to-canvas";
+export type { ElementColorAdapter, RenderSceneContext2D, RenderSceneOptions } from "./render/render-scene-to-canvas";
 export { renderSceneToCanvas } from "./render/render-scene-to-canvas";
 
 export type { GridDrawContext2D } from "./render/grid-renderer";

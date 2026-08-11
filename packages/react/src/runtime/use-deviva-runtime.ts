@@ -39,6 +39,7 @@ import { startRenderLoop } from "./start-render-loop";
 import type { CameraStore } from "./camera-store";
 import { useStableCallback } from "./use-stable-ref";
 import type { UiToggleState } from "../actions/action-types";
+import { adaptBackgroundColorForTheme, adaptStrokeColorForTheme } from "../theme/canvas-color-inversion";
 import type { ThemeMode } from "../theme/theme-tokens";
 import type { DevivaRuntime } from "./runtime-types";
 
@@ -172,6 +173,13 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
       getPendingEraseIds: builtRuntime.getPendingEraseIds,
       getLaserTrail: builtRuntime.getLaserTrail,
       getLassoPath: builtRuntime.getLassoPath,
+      // Adapt default-palette colors to the live theme at render time (non-destructive) so a scene is
+      // legible whatever theme it was authored/loaded in — the fix for near-black strokes on a dark
+      // canvas that a load/collab/share can't otherwise resolve. Custom colors + images pass through.
+      getColorAdapter: () => {
+        const mode = getThemeMode();
+        return { key: mode, stroke: (color) => adaptStrokeColorForTheme(color, mode), background: (color) => adaptBackgroundColorForTheme(color, mode) };
+      },
     });
 
     // Always subscribed (not gated on whether `onChange` was passed at *mount* time) — `stableOnChange`

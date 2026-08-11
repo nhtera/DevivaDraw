@@ -40,6 +40,7 @@ import { EmbedDialog } from "./components/embed-dialog";
 import { EmbedOverlay } from "./components/embed-overlay";
 import { Minimap } from "./components/minimap";
 import { useCanvasBackground } from "./runtime/use-live-version";
+import { useAdaptNextShapeStyle } from "./runtime/use-adapt-next-shape-style";
 import { CommandPalette } from "./components/command-palette";
 import { BottomToolbar } from "./components/mobile/bottom-toolbar";
 import { useIsNarrowViewport } from "./components/responsive-layout";
@@ -47,7 +48,6 @@ import { useTranslation } from "./i18n/use-translation";
 import { useTheme } from "./theme/theme-provider";
 import { decodeNaturalSize } from "./browser/browser-image-decode";
 import { createCameraStore } from "./runtime/camera-store";
-import { useApplyThemeSwap } from "./runtime/use-apply-theme-swap";
 import { useContextMenuTriggers } from "./runtime/use-context-menu-triggers";
 import { useStableCallback, useStableGetter } from "./runtime/use-stable-ref";
 import { useDevivaRuntime } from "./runtime/use-deviva-runtime";
@@ -148,7 +148,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   });
 
   useImperativeHandle(ref, () => handle ?? NOOP_HANDLE, [handle]);
-  useApplyThemeSwap(runtime, mode);
+  useAdaptNextShapeStyle(runtime, mode);
 
   const getCamera = useCallback(() => cameraStore.getCamera(), [cameraStore]);
   const getViewportSize = useCallback(
