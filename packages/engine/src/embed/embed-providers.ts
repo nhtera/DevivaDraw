@@ -8,6 +8,13 @@
 export interface EmbedResolution {
   provider: string;
   embedUrl: string;
+  /**
+   * A static poster image for the content, when the provider exposes a stable thumbnail URL. The host
+   * app shows this by default and only mounts the live `<iframe>` when the user activates the embed —
+   * so a board with many embeds doesn't run many live iframes, and there's no cross-origin frame under
+   * the cursor to steal a drag/resize. Absent (e.g. Figma/CodeSandbox) → the canvas placeholder shows.
+   */
+  previewUrl?: string;
 }
 
 /** Parses `raw` into a URL only if it's http/https (a bare host is upgraded to https). */
@@ -36,7 +43,7 @@ export function resolveEmbed(raw: string): EmbedResolution | null {
   // YouTube — watch?v=ID, youtu.be/ID, or an /embed/ URL.
   if (hostMatches(host, "youtube.com") || host === "youtu.be") {
     const id = host === "youtu.be" ? url.pathname.slice(1) : url.pathname.startsWith("/embed/") ? url.pathname.split("/")[2] : url.searchParams.get("v");
-    return id ? { provider: "youtube", embedUrl: `https://www.youtube.com/embed/${id}` } : null;
+    return id ? { provider: "youtube", embedUrl: `https://www.youtube.com/embed/${id}`, previewUrl: `https://i.ytimg.com/vi/${id}/hqdefault.jpg` } : null;
   }
 
   // Vimeo — vimeo.com/ID.

@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 import { isEmbeddable, resolveEmbed } from "./embed-providers";
 
 describe("resolveEmbed", () => {
-  it("maps a YouTube watch URL to its embed URL", () => {
-    expect(resolveEmbed("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toEqual({ provider: "youtube", embedUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ" });
+  it("maps a YouTube watch URL to its embed URL plus a poster thumbnail", () => {
+    expect(resolveEmbed("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toEqual({
+      provider: "youtube",
+      embedUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      previewUrl: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+    });
   });
 
   it("maps a youtu.be short link", () => {

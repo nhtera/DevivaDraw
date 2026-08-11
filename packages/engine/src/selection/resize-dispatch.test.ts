@@ -129,9 +129,20 @@ describe("dispatchResize — image", () => {
 });
 
 describe("dispatchResize — embed", () => {
-  it("resizes an embed by clamping to the new bounds (regression: it returned null and couldn't be resized)", () => {
+  it("resizes an embed with its aspect ratio locked (matching tldraw — a 16:9 video can't be squashed)", () => {
     const embed = stored(createEmbedElement({ x: 0, y: 0, width: 460, height: 260, url: "https://youtube.com/watch?v=x" }));
+    const oldAspect = 460 / 260;
+    // Drag the height a bit more than the width: the height-driven axis wins and the width follows the ratio.
     const result = dispatchResize(embed, { x: 0, y: 0, width: 460, height: 260 }, { x: 10, y: 20, width: 600, height: 340 });
-    expect(result).toEqual({ x: 10, y: 20, width: 600, height: 340 });
+    expect(result?.width! / result?.height!).toBeCloseTo(oldAspect, 5); // proportions preserved, not the raw distorted bounds
+    expect(result?.height).toBe(340);
+    expect(result).toMatchObject({ x: 10, y: 20 });
+  });
+
+  it("returns a non-null update (regression: embed used to fall through to null and couldn't be resized at all)", () => {
+    const embed = stored(createEmbedElement({ x: 0, y: 0, width: 460, height: 260, url: "https://youtube.com/watch?v=x" }));
+    const result = dispatchResize(embed, { x: 0, y: 0, width: 460, height: 260 }, { x: 0, y: 0, width: 920, height: 520 });
+    expect(result).not.toBeNull();
+    expect(result?.width).toBeGreaterThan(460);
   });
 });
