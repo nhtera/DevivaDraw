@@ -1,10 +1,38 @@
 /**
  * Detects a Mermaid diagram's type from its first meaningful keyword so `mermaidToElements` can route
  * to the right pipeline. Skips a leading YAML front-matter block and `%%` comments/init directives.
- * Anything that isn't `classDiagram`/`erDiagram` falls back to flowchart (the default, most-common
- * paste), so unknown types still get a best-effort render rather than an error.
+ *
+ * Natively convertible types (→ editable shapes): flowchart, class, ER, sequence, state. A known set of
+ * types we don't natively convert (pie, gantt, gitGraph, …) resolves to `"unsupported"` so the caller
+ * can rasterize them via the lazy-loaded fallback instead of silently mangling them. Anything genuinely
+ * unrecognized still falls back to `flowchart` (the most-common paste) for a best-effort render.
  */
-export type DiagramType = "flowchart" | "class" | "er";
+export type DiagramType = "flowchart" | "class" | "er" | "sequence" | "state" | "unsupported";
+
+/** Types Mermaid supports that Deviva does not natively convert — rendered as an image by the caller. */
+const UNSUPPORTED = [
+  "pie",
+  "gantt",
+  "gitGraph",
+  "gitgraph",
+  "mindmap",
+  "journey",
+  "quadrantChart",
+  "timeline",
+  "sankey-beta",
+  "xychart-beta",
+  "requirementDiagram",
+  "block-beta",
+  "packet-beta",
+  "kanban",
+  "architecture-beta",
+  "zenuml",
+  "C4Context",
+  "C4Container",
+  "C4Component",
+  "C4Dynamic",
+  "C4Deployment",
+];
 
 export function detectDiagramType(source: string): DiagramType {
   const lines = source.split(/\r?\n/);
@@ -19,6 +47,10 @@ export function detectDiagramType(source: string): DiagramType {
     if (!line) continue;
     if (/^classDiagram\b/i.test(line)) return "class";
     if (/^erDiagram\b/i.test(line)) return "er";
+    if (/^sequenceDiagram\b/i.test(line)) return "sequence";
+    if (/^stateDiagram(-v2)?\b/i.test(line)) return "state";
+    const keyword = line.match(/^[A-Za-z0-9-]+/)?.[0] ?? "";
+    if (UNSUPPORTED.some((u) => u.toLowerCase() === keyword.toLowerCase())) return "unsupported";
     return "flowchart";
   }
   return "flowchart";

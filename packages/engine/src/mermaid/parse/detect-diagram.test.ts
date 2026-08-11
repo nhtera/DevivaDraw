@@ -14,6 +14,21 @@ describe("detectDiagramType", () => {
     expect(detectDiagramType("---\ntitle: X\n---\nerDiagram\n A ||--|| B : r")).toBe("er");
   });
 
+  it("detects sequence and state (incl. -v2)", () => {
+    expect(detectDiagramType("sequenceDiagram\n A->>B: hi")).toBe("sequence");
+    expect(detectDiagramType("stateDiagram\n [*] --> S")).toBe("state");
+    expect(detectDiagramType("stateDiagram-v2\n [*] --> S")).toBe("state");
+  });
+
+  it("flags known non-native types as unsupported (for image fallback)", () => {
+    expect(detectDiagramType("pie title Pets\n \"Dogs\": 3")).toBe("unsupported");
+    expect(detectDiagramType("gantt\n title A")).toBe("unsupported");
+    expect(detectDiagramType("gitGraph\n commit")).toBe("unsupported");
+    expect(detectDiagramType("mindmap\n root")).toBe("unsupported");
+    expect(detectDiagramType("sankey-beta\n A,B,1")).toBe("unsupported");
+    expect(detectDiagramType("---\ntitle: X\n---\njourney\n title day")).toBe("unsupported");
+  });
+
   it("falls back to flowchart for unknown/empty input", () => {
     expect(detectDiagramType("")).toBe("flowchart");
     expect(detectDiagramType("A --> B")).toBe("flowchart");

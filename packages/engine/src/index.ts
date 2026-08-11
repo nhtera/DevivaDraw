@@ -301,6 +301,10 @@ export { classifyStroke, recognizeFreedrawShape } from "./tools/shape-recognitio
 
 export type { FlowDirection, Flowchart } from "./mermaid/mermaid-to-elements";
 export { flowchartToElements, mermaidToElements, parseFlowchart } from "./mermaid/mermaid-to-elements";
+export type { DiagramType } from "./mermaid/parse/detect-diagram";
+export { detectDiagramType } from "./mermaid/parse/detect-diagram";
+export type { MermaidErrorCode, MermaidResult } from "./mermaid/try-mermaid-to-elements";
+export { tryMermaidToElements } from "./mermaid/try-mermaid-to-elements";
 
 export type { LaserToolDeps, LaserTrailPoint } from "./tools/laser-tool";
 export { LaserTool, LASER_FADE_MS } from "./tools/laser-tool";

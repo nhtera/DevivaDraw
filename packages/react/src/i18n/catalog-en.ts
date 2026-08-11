@@ -184,8 +184,11 @@ export const catalogEn = {
   "embed.done": "Done",
 
   "mermaid.title": "Mermaid to diagram",
-  "mermaid.description": "Paste a Mermaid flowchart — it becomes editable shapes.",
+  "mermaid.description": "Paste Mermaid — it becomes editable shapes.",
   "mermaid.insert": "Insert diagram",
+  "mermaid.error.unsupported": "This diagram type isn't supported yet. Try flowchart, class, or ER.",
+  "mermaid.error.invalid": "Couldn't read this Mermaid text — check the syntax.",
+  "mermaid.error.generic": "Something went wrong rendering this diagram.",
 
   "library.title": "Library",
   "library.addSelection": "Add selection to library",

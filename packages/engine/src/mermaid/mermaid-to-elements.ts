@@ -86,6 +86,13 @@ export function mermaidToElements(source: string): AnyElement[] {
       return classToElements(source);
     case "er":
       return erToElements(source);
+    // Sequence + state get native converters in later phases; until then they return no elements rather
+    // than being mis-parsed as a flowchart. "unsupported" types (pie/gantt/…) are earmarked to be
+    // rasterized to an image by the react layer in a later phase, so the engine emits nothing for them.
+    case "sequence":
+    case "state":
+    case "unsupported":
+      return [];
     default:
       return flowchartToElements(parseFlowchart(source));
   }

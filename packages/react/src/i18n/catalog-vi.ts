@@ -184,8 +184,11 @@ export const catalogVi: Record<TranslationKey, string> = {
   "embed.done": "Xong",
 
   "mermaid.title": "Mermaid thành sơ đồ",
-  "mermaid.description": "Dán mã Mermaid flowchart — nó sẽ thành các hình có thể chỉnh sửa.",
+  "mermaid.description": "Dán mã Mermaid — nó sẽ thành các hình có thể chỉnh sửa.",
   "mermaid.insert": "Chèn sơ đồ",
+  "mermaid.error.unsupported": "Loại sơ đồ này chưa được hỗ trợ. Hãy thử flowchart, class hoặc ER.",
+  "mermaid.error.invalid": "Không đọc được mã Mermaid — hãy kiểm tra cú pháp.",
+  "mermaid.error.generic": "Đã xảy ra lỗi khi vẽ sơ đồ này.",
 
   "library.title": "Thư viện",
   "library.addSelection": "Thêm lựa chọn vào thư viện",
