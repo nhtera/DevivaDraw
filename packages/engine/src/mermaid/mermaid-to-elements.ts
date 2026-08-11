@@ -84,18 +84,48 @@ export function parseFlowchart(source: string): ParsedFlowchart {
   return { direction, nodes: [...nodes.values()], edges };
 }
 
-/** Assigns each node a layer index = longest path from a root (a node with no incoming edge). */
+/**
+ * Indices of edges that close a cycle — a DFS edge pointing back to a node still on the recursion
+ * stack (including self-loops). Excluded from layer ranking so a cycle (`B --> D --> B`) can't push
+ * layers to infinity; the edges are still drawn (routed upward). This is dagre's cycle-removal step,
+ * done minimally.
+ */
+function findBackEdges(flow: ParsedFlowchart): Set<number> {
+  const adjacency = new Map<string, { to: string; index: number }[]>();
+  flow.edges.forEach((edge, index) => {
+    if (!adjacency.has(edge.from)) adjacency.set(edge.from, []);
+    adjacency.get(edge.from)!.push({ to: edge.to, index });
+  });
+  const state = new Map<string, 1 | 2>(); // 1 = on the current DFS stack, 2 = fully explored
+  const back = new Set<number>();
+  const visit = (id: string) => {
+    state.set(id, 1);
+    for (const { to, index } of adjacency.get(id) ?? []) {
+      const seen = state.get(to);
+      if (seen === 1) back.add(index); // points at an ancestor still on the stack → a cycle-closing edge
+      else if (seen === undefined) visit(to);
+    }
+    state.set(id, 2);
+  };
+  for (const node of flow.nodes) if (!state.has(node.id)) visit(node.id);
+  return back;
+}
+
+/** Assigns each node a layer index = longest path from a root, over the acyclic edges only. */
 function computeLayers(flow: ParsedFlowchart): Map<string, number> {
+  const back = findBackEdges(flow);
+  const forwardEdges = flow.edges.filter((_, index) => !back.has(index));
   const incoming = new Map<string, number>();
   for (const node of flow.nodes) incoming.set(node.id, 0);
-  for (const edge of flow.edges) incoming.set(edge.to, (incoming.get(edge.to) ?? 0) + 1);
+  for (const edge of forwardEdges) incoming.set(edge.to, (incoming.get(edge.to) ?? 0) + 1);
 
   const layer = new Map<string, number>();
   const queue = flow.nodes.filter((node) => (incoming.get(node.id) ?? 0) === 0).map((node) => node.id);
   for (const id of queue) layer.set(id, 0);
   // Relax edges repeatedly (bounded by node count) so every node lands past all its predecessors.
+  // Removing back edges above guarantees this converges instead of ratcheting layers down each pass.
   for (let pass = 0; pass < flow.nodes.length + 1; pass++) {
-    for (const edge of flow.edges) {
+    for (const edge of forwardEdges) {
       const fromLayer = layer.get(edge.from) ?? 0;
       if ((layer.get(edge.to) ?? 0) < fromLayer + 1) layer.set(edge.to, fromLayer + 1);
     }
@@ -151,8 +181,22 @@ export function flowchartToElements(flow: ParsedFlowchart): AnyElement[] {
     const from = pos.get(edge.from);
     const to = pos.get(edge.to);
     if (!from || !to) continue;
-    const start = { x: from.x + NODE_WIDTH / 2, y: from.y + NODE_HEIGHT };
-    const end = { x: to.x + NODE_WIDTH / 2, y: to.y };
+    // Anchor on the side of each box that faces the other node, so a back edge (target above/behind,
+    // e.g. `D --> B` in a loop) leaves the source's top and enters the target's bottom instead of
+    // routing down-then-all-the-way-up. Along-axis position tracks the two centers.
+    const fromCenter = { x: from.x + NODE_WIDTH / 2, y: from.y + NODE_HEIGHT / 2 };
+    const toCenter = { x: to.x + NODE_WIDTH / 2, y: to.y + NODE_HEIGHT / 2 };
+    let start: { x: number; y: number };
+    let end: { x: number; y: number };
+    if (horizontal) {
+      const rightward = toCenter.x >= fromCenter.x;
+      start = { x: rightward ? from.x + NODE_WIDTH : from.x, y: fromCenter.y };
+      end = { x: rightward ? to.x : to.x + NODE_WIDTH, y: toCenter.y };
+    } else {
+      const downward = toCenter.y >= fromCenter.y;
+      start = { x: fromCenter.x, y: downward ? from.y + NODE_HEIGHT : from.y };
+      end = { x: toCenter.x, y: downward ? to.y : to.y + NODE_HEIGHT };
+    }
     const groupIds = [`mermaid-edge-${edge.from}-${edge.to}`];
     elements.push(
       createArrowElement({

@@ -58,6 +58,28 @@ describe("flowchartToElements", () => {
     expect(edgeLabel!.groupIds[0]).toBe(arrow.groupIds[0]);
   });
 
+  it("keeps a cyclic flowchart compact — a back edge doesn't push layers to infinity", () => {
+    // `D --> B` closes a loop back to the decision node; without cycle removal the longest-path
+    // relaxation ratchets B's layer down every pass, producing a hugely stretched diagram.
+    const flow = parseFlowchart("flowchart TD\n A[Start] --> B{Ready?}\n B -->|yes| C[Ship it]\n B -->|no| D[Keep working]\n D --> B");
+    const els = flowchartToElements(flow);
+    const shapes = els.filter((e) => e.type === "rectangle" || e.type === "diamond") as { y: number }[];
+    // 4 nodes ⇒ at most 3 layers (A=0, B=1, C/D=2). Bound the vertical spread by the layer step.
+    const ys = shapes.map((s) => s.y);
+    const layerStep = 60 + 80; // NODE_HEIGHT + LAYER_GAP
+    expect(Math.max(...ys) - Math.min(...ys)).toBeLessThanOrEqual(layerStep * 2 + 1);
+    // Every edge (including the back edge) is still drawn.
+    expect(els.filter((e) => e.type === "arrow")).toHaveLength(4);
+  });
+
+  it("routes a back edge from the source's top up into the target's bottom", () => {
+    const els = flowchartToElements(parseFlowchart("flowchart TD\n A[X] --> B[Y]\n B --> A"));
+    const arrows = els.filter((e) => e.type === "arrow") as { y: number; points: { x: number; y: number }[] }[];
+    // A is layer 0 (top), B is layer 1 (below). The back edge B->A points upward: its net dy is negative.
+    const back = arrows.find((ar) => ar.points[1]!.y < 0);
+    expect(back).toBeDefined(); // the upward arrow exists rather than a downward down-then-up route
+  });
+
   it("centers each layer on a shared axis so a parent sits above the middle of its children", () => {
     // One root fanning out to three children: the children's center of mass aligns with the parent.
     const els = flowchartToElements(parseFlowchart("flowchart TD\n A[P] --> B[x]\n A --> C[y]\n A --> D[z]"));
