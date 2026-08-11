@@ -129,20 +129,10 @@ describe("dispatchResize — image", () => {
 });
 
 describe("dispatchResize — embed", () => {
-  it("resizes an embed with its aspect ratio locked (matching tldraw — a 16:9 video can't be squashed)", () => {
+  it("resizes an embed to the new bounds at any ratio (free resize, matching Excalidraw — not aspect-locked)", () => {
     const embed = stored(createEmbedElement({ x: 0, y: 0, width: 460, height: 260, url: "https://youtube.com/watch?v=x" }));
-    const oldAspect = 460 / 260;
-    // Drag the height a bit more than the width: the height-driven axis wins and the width follows the ratio.
-    const result = dispatchResize(embed, { x: 0, y: 0, width: 460, height: 260 }, { x: 10, y: 20, width: 600, height: 340 });
-    expect(result?.width! / result?.height!).toBeCloseTo(oldAspect, 5); // proportions preserved, not the raw distorted bounds
-    expect(result?.height).toBe(340);
-    expect(result).toMatchObject({ x: 10, y: 20 });
-  });
-
-  it("returns a non-null update (regression: embed used to fall through to null and couldn't be resized at all)", () => {
-    const embed = stored(createEmbedElement({ x: 0, y: 0, width: 460, height: 260, url: "https://youtube.com/watch?v=x" }));
-    const result = dispatchResize(embed, { x: 0, y: 0, width: 460, height: 260 }, { x: 0, y: 0, width: 920, height: 520 });
-    expect(result).not.toBeNull();
-    expect(result?.width).toBeGreaterThan(460);
+    // A width-only drag changes width without dragging height along — proves it isn't aspect-locked.
+    const result = dispatchResize(embed, { x: 0, y: 0, width: 460, height: 260 }, { x: 0, y: 0, width: 800, height: 260 });
+    expect(result).toEqual({ x: 0, y: 0, width: 800, height: 260 });
   });
 });

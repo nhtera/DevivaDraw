@@ -61,23 +61,6 @@ function resizeStandaloneText(element: TextElement, oldBounds: SceneRect, newBou
 function resizeImage(element: ImageElement, oldBounds: SceneRect, newBounds: SceneRect): ElementUpdate {
   const { scaleX, scaleY } = boundsScale(oldBounds, newBounds);
   const aspect = element.naturalWidth / Math.max(element.naturalHeight, MIN_ELEMENT_SIZE);
-  return resizePreservingAspect(oldBounds, newBounds, aspect, scaleX, scaleY);
-}
-
-/**
- * Aspect-locked resize (embeds — matching tldraw, which keeps an embed's proportions on resize so a
- * 16:9 video can't be squashed into a distorted rectangle). Locks to the element's *current* aspect
- * (from `oldBounds`), which starts at the provider's ratio on insert; the axis the handle moved more
- * drives the scale, the other follows. No per-provider ratio field needed.
- */
-function resizeEmbed(_element: AnyElement, oldBounds: SceneRect, newBounds: SceneRect): ElementUpdate {
-  const { scaleX, scaleY } = boundsScale(oldBounds, newBounds);
-  const aspect = oldBounds.width / Math.max(oldBounds.height, MIN_ELEMENT_SIZE);
-  return resizePreservingAspect(oldBounds, newBounds, aspect, scaleX, scaleY);
-}
-
-/** Shared aspect-preserving box math: the handle's dominant axis drives the size, the other axis follows the ratio. */
-function resizePreservingAspect(_oldBounds: SceneRect, newBounds: SceneRect, aspect: number, scaleX: number, scaleY: number): ElementUpdate {
   const widthDriven = Math.abs(scaleX - 1) >= Math.abs(scaleY - 1);
   const width = Math.max(MIN_ELEMENT_SIZE, widthDriven ? newBounds.width : newBounds.height * aspect);
   const height = Math.max(MIN_ELEMENT_SIZE, widthDriven ? width / aspect : newBounds.height);
@@ -100,8 +83,6 @@ export function dispatchResize(element: AnyElement, oldBounds: SceneRect, newBou
       return element.containerId !== null ? null : resizeStandaloneText(element, oldBounds, newBounds);
     case "image":
       return resizeImage(element, oldBounds, newBounds);
-    case "embed":
-      return resizeEmbed(element, oldBounds, newBounds);
     // Every bounding-box shape (its geometry is recomputed from x/y/width/height by its renderer/hit-test)
     // resizes by just clamping the new bounds — no per-type point math needed.
     case "rectangle":
@@ -116,6 +97,7 @@ export function dispatchResize(element: AnyElement, oldBounds: SceneRect, newBou
     case "x-box":
     case "check-box":
     case "note":
+    case "embed":
     case "frame":
     case "generic":
       return clampSize(newBounds);

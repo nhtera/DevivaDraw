@@ -180,7 +180,7 @@ export const catalogEn = {
   "embed.title": "Insert embed",
   "embed.description": "Paste a YouTube, Vimeo, Figma, or CodeSandbox URL.",
   "embed.insert": "Insert",
-  "embed.interact": "Interact ▶",
+  "embed.interact": "Click to interact",
   "embed.done": "Done",
 
   "mermaid.title": "Mermaid to diagram",

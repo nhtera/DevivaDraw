@@ -180,7 +180,7 @@ export const catalogVi: Record<TranslationKey, string> = {
   "embed.title": "Chèn nhúng",
   "embed.description": "Dán liên kết YouTube, Vimeo, Figma hoặc CodeSandbox.",
   "embed.insert": "Chèn",
-  "embed.interact": "Tương tác ▶",
+  "embed.interact": "Nhấn để tương tác",
   "embed.done": "Xong",
 
   "mermaid.title": "Mermaid thành sơ đồ",
