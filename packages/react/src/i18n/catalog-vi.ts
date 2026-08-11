@@ -160,6 +160,8 @@ export const catalogVi: Record<TranslationKey, string> = {
   "topbar.zoomPercentage": "{percent}%",
 
   "mobile.moreTools": "Thêm công cụ",
+  "mobile.styleOptions": "Tùy chọn kiểu",
+  "mobile.style": "Kiểu",
 
   "link.save": "Lưu",
   "link.open": "Mở liên kết",

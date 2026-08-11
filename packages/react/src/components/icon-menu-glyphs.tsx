@@ -77,6 +77,15 @@ export const MENU_GLYPHS: Record<string, ReactNode> = {
       <path d="M16 4 L9.5 10.5" />
     </>
   ),
+  // Two horizontal control rails with a knob on each — the universal "adjust properties" / sliders
+  // mark, used by the mobile properties bar's toggle for the full style sheet.
+  sliders: (
+    <>
+      <path d="M3.5 7 H16.5 M3.5 13 H16.5" strokeLinecap="round" />
+      <circle cx="8" cy="7" r="2" fill="var(--dd-chrome-background-elevated)" />
+      <circle cx="13" cy="13" r="2" fill="var(--dd-chrome-background-elevated)" />
+    </>
+  ),
   trash: (
     <>
       <path d="M4 6 H16" />

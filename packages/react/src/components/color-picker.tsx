@@ -4,7 +4,8 @@
  * lightness ramp ("shades") of the active color, a hex input, and — where the browser supports it — an
  * eyedropper. Palette/recent come from the engine's defaults + `ShapeStyleState.getRecentColors()`.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { RADIUS, inputStyle, labelStyle, panelStyle } from "./chrome-styles";
 import { generateShades, isValidHex, normalizeHex } from "./color-utils";
 
@@ -32,6 +33,7 @@ export interface ColorPickerProps {
 }
 
 const SWATCH_SIZE = 20;
+const POPOVER_WIDTH = 176;
 const TRANSPARENT_BG = "repeating-conic-gradient(#ccc 0% 25%, transparent 0% 50%) 50% / 8px 8px";
 
 function swatchBackground(color: string): string {
@@ -62,17 +64,54 @@ export function ColorPicker(props: ColorPickerProps) {
   const { label, value, palette, recentColors, onChange, customColorLabel, testId } = props;
   const [open, setOpen] = useState(false);
   const [hexDraft, setHexDraft] = useState(value);
+  // Popover position (viewport coords). The popover is portaled to <body> with `position: fixed` so it
+  // can never be clipped by an ancestor's `overflow` — notably the mobile properties sheet, which is a
+  // scroll container. `null` until measured, so the first paint stays hidden (see `visibility` below).
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const uniqueRecent = recentColors.filter((color) => !palette.includes(color)).slice(0, 8);
   const shades = generateShades(value);
   const eyedropperSupported = typeof window !== "undefined" && typeof window.EyeDropper === "function";
 
   useEffect(() => setHexDraft(value), [value]);
 
+  // Anchor the portaled popover just under the trigger (right-aligned to it, matching the old inline
+  // placement), clamped to the viewport; flips above the trigger when it wouldn't fit below. Re-runs on
+  // scroll/resize so the fixed popover tracks its trigger (e.g. while the mobile sheet scrolls).
+  useLayoutEffect(() => {
+    if (!open) {
+      setPopoverPos(null);
+      return;
+    }
+    const updatePosition = () => {
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      const left = Math.max(8, Math.min(rect.right - POPOVER_WIDTH, window.innerWidth - POPOVER_WIDTH - 8));
+      const popHeight = popoverRef.current?.offsetHeight ?? 0;
+      const below = rect.bottom + 6;
+      const top = popHeight > 0 && below + popHeight > window.innerHeight - 8 ? Math.max(8, rect.top - 6 - popHeight) : below;
+      setPopoverPos({ top, left });
+    };
+    updatePosition();
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [open, shades.length, eyedropperSupported]);
+
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: PointerEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      // The popover lives in a portal outside `containerRef`, so check it explicitly — otherwise a click
+      // inside the popover would read as "outside" and dismiss it instantly.
+      if (containerRef.current?.contains(target) || popoverRef.current?.contains(target)) return;
+      setOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
@@ -112,6 +151,7 @@ export function ColorPicker(props: ColorPickerProps) {
           <Swatch key={color} color={color} selected={value === color} onClick={() => onChange(color)} />
         ))}
         <button
+          ref={triggerRef}
           type="button"
           data-testid={testId ? `${testId}-more` : undefined}
           aria-label={customColorLabel}
@@ -120,11 +160,12 @@ export function ColorPicker(props: ColorPickerProps) {
           style={{ width: SWATCH_SIZE, height: SWATCH_SIZE, borderRadius: 5, border: "1px solid var(--dd-chrome-border)", background: swatchBackground(value), cursor: "pointer", padding: 0, boxShadow: "inset 0 0 0 2px var(--dd-chrome-background-elevated)" }}
         />
       </div>
-      {open && (
+      {open && createPortal(
         <div
+          ref={popoverRef}
           className="dd-animate-in"
           data-testid={testId ? `${testId}-popover` : undefined}
-          style={{ ...panelStyle, position: "absolute", right: 0, top: "100%", marginTop: 6, zIndex: 20, padding: 10, width: 176, display: "flex", flexDirection: "column", gap: 8 }}
+          style={{ ...panelStyle, position: "fixed", top: popoverPos?.top ?? 0, left: popoverPos?.left ?? 0, visibility: popoverPos ? "visible" : "hidden", zIndex: 60, padding: 10, width: POPOVER_WIDTH, display: "flex", flexDirection: "column", gap: 8 }}
         >
           <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
             {palette.map((color) => (
@@ -162,7 +203,8 @@ export function ColorPicker(props: ColorPickerProps) {
               </button>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

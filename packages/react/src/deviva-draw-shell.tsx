@@ -43,6 +43,7 @@ import { useCanvasBackground } from "./runtime/use-live-version";
 import { useAdaptNextShapeStyle } from "./runtime/use-adapt-next-shape-style";
 import { CommandPalette } from "./components/command-palette";
 import { BottomToolbar } from "./components/mobile/bottom-toolbar";
+import { MobilePropertiesBar } from "./components/mobile/mobile-properties-bar";
 import { useIsNarrowViewport } from "./components/responsive-layout";
 import { useTranslation } from "./i18n/use-translation";
 import { useTheme } from "./theme/theme-provider";
@@ -240,7 +241,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {runtime && !zenMode.value && (isNarrow ? <BottomToolbar runtime={runtime} onInsertImage={openImagePicker} /> : <Toolbar runtime={runtime} toolLocked={toolLock.value} onToggleLock={() => toolLock.set(!toolLock.value)} onInsertImage={openImagePicker} />)}
       {runtime && !zenMode.value && !isNarrow && <CanvasHint runtime={runtime} />}
       {runtime && !zenMode.value && <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} />}
-      {runtime && !zenMode.value && !viewOnly.value && <PropertiesPanel runtime={runtime} />}
+      {runtime && !zenMode.value && !viewOnly.value && (isNarrow ? <MobilePropertiesBar runtime={runtime} /> : <PropertiesPanel runtime={runtime} />)}
       {runtime && !zenMode.value && !isNarrow && (
         <Minimap runtime={runtime} cameraStore={cameraStore} getViewportSize={() => ({ width: canvasHostRef.current?.clientWidth ?? 0, height: canvasHostRef.current?.clientHeight ?? 0 })} />
       )}

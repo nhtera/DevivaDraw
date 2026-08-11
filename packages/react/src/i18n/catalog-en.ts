@@ -160,6 +160,8 @@ export const catalogEn = {
   "topbar.zoomPercentage": "{percent}%",
 
   "mobile.moreTools": "More tools",
+  "mobile.styleOptions": "Style options",
+  "mobile.style": "Style",
 
   "link.save": "Save",
   "link.open": "Open link",
