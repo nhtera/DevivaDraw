@@ -31,10 +31,9 @@ export function tryMermaidToElements(source: string): MermaidResult {
   try {
     const elements = mermaidToElements(source);
     if (elements.length === 0) {
-      // sequence parses fine but has no converter yet — that's "not supported here yet", not a syntax
-      // error. Only a natively-supported type yielding nothing is genuinely "invalid".
-      const notNativeYet = type === "unsupported" || type === "sequence";
-      return { type, elements, error: notNativeYet ? "unsupported" : "invalid" };
+      // A known non-native type (pie/gantt/…) is "not supported here yet" (rasterized later), whereas a
+      // natively-supported type yielding nothing is a genuine syntax problem.
+      return { type, elements, error: type === "unsupported" ? "unsupported" : "invalid" };
     }
     return { type, elements };
   } catch {

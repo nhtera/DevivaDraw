@@ -47,6 +47,20 @@ test("a state diagram previews and inserts as editable elements", async ({ page 
   await expect(page.locator('[data-testid^="layer-action-"]').first()).toBeVisible();
 });
 
+test("a sequence diagram previews and inserts as editable elements", async ({ page }) => {
+  await page.getByTestId("top-bar-menu").click();
+  await page.getByTestId("main-menu-mermaid").click();
+  await expect(page.getByTestId("mermaid-dialog")).toBeVisible();
+
+  await page.getByTestId("mermaid-input").fill("sequenceDiagram\n participant A as Alice\n participant B as Bob\n A->>+B: request\n B-->>-A: response\n loop retry\n A->>B: ping\n end");
+  await expect(page.getByTestId("mermaid-preview")).toBeVisible();
+  await expect(page.getByTestId("mermaid-insert")).toBeEnabled();
+  await page.getByTestId("mermaid-insert").click();
+
+  await expect(page.getByTestId("mermaid-dialog")).toHaveCount(0);
+  await expect(page.locator('[data-testid^="layer-action-"]').first()).toBeVisible();
+});
+
 test("an unsupported diagram type shows an inline error and disables Insert", async ({ page }) => {
   await page.getByTestId("top-bar-menu").click();
   await page.getByTestId("main-menu-mermaid").click();

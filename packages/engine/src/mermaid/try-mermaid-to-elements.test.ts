@@ -20,13 +20,11 @@ describe("tryMermaidToElements", () => {
     expect(r.elements).toEqual([]);
   });
 
-  it("flags a not-yet-implemented native type (sequence/state) as unsupported, not a syntax error", () => {
-    // sequence/state parse fine but have no converter until their phases land — they must yield nothing
-    // (not a mis-parsed flowchart) and read as "not supported yet", not "invalid syntax".
+  it("converts a natively-supported sequence diagram (no error)", () => {
     const r = tryMermaidToElements("sequenceDiagram\n A->>B: hi");
     expect(r.type).toBe("sequence");
-    expect(r.elements).toEqual([]);
-    expect(r.error).toBe("unsupported");
+    expect(r.error).toBeUndefined();
+    expect(r.elements.length).toBeGreaterThan(0);
   });
 
   it("never throws on malformed input", () => {
