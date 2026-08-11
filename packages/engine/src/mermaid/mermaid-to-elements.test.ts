@@ -9,19 +9,19 @@ describe("parseFlowchart", () => {
       B --- D[Other]`);
 
     expect(flow.direction).toBe("LR");
-    expect(flow.nodes.find((n) => n.id === "A")).toMatchObject({ label: "Start", shape: "rect" });
+    expect(flow.nodes.find((n) => n.id === "A")).toMatchObject({ label: "Start", shape: "rectangle" });
     expect(flow.nodes.find((n) => n.id === "B")).toMatchObject({ label: "Decision", shape: "diamond" });
     expect(flow.nodes.find((n) => n.id === "C")).toMatchObject({ label: "Done", shape: "rounded" });
     expect(flow.edges).toHaveLength(3);
-    expect(flow.edges.find((e) => e.to === "C")).toMatchObject({ from: "B", label: "yes", arrow: true });
-    expect(flow.edges.find((e) => e.to === "D")).toMatchObject({ arrow: false }); // `---` has no arrowhead
+    expect(flow.edges.find((e) => e.to === "C")).toMatchObject({ from: "B", label: "yes", endHead: "arrow" });
+    expect(flow.edges.find((e) => e.to === "D")).toMatchObject({ endHead: "none", kind: "open" }); // `---`
   });
 
   it("defaults to TD and treats an unknown line's node ids as rectangles", () => {
     const flow = parseFlowchart("A --> B");
     expect(flow.direction).toBe("TD");
     expect(flow.nodes.map((n) => n.id).sort()).toEqual(["A", "B"]);
-    expect(flow.nodes[0]!.shape).toBe("rect");
+    expect(flow.nodes[0]!.shape).toBe("rectangle");
   });
 });
 
@@ -89,5 +89,13 @@ describe("flowchartToElements", () => {
     const childrenMidX = (children[0]!.x + children[2]!.x) / 2;
     expect(childrenMidX).toBeCloseTo(parent.x, 5); // middle child column lines up under the parent
     expect(children[1]!.y).toBeGreaterThan(parent.y); // and children sit in the next layer down
+  });
+
+  it("maps circle/hexagon shapes and invisible edges", () => {
+    const els = flowchartToElements(parseFlowchart("flowchart TD\n A((c)) ~~~ B{{h}}"));
+    expect(els.some((e) => e.type === "ellipse")).toBe(true); // circle
+    expect(els.some((e) => e.type === "hexagon")).toBe(true); // hexagon
+    const arrow = els.find((e) => e.type === "arrow") as { opacity: number };
+    expect(arrow.opacity).toBe(0); // invisible link
   });
 });

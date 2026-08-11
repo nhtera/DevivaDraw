@@ -1,37 +1,28 @@
 /**
- * Minimal Mermaid-flowchart → Deviva elements converter (Excalidraw's "Mermaid to Excalidraw", the
- * no-LLM one). Parses a useful subset — `graph`/`flowchart` with a direction, node shapes
- * (`id[rect]`, `id(rounded)`, `id{diamond}`), and edges (`A --> B`, `A -->|label| B`, `A --- B`) —
- * lays the nodes out in dependency layers, and emits rectangles/diamonds with centered labels plus
- * connecting arrows. Deliberately small and dependency-free: full Mermaid is huge, but flowcharts
- * cover the overwhelming majority of "paste a diagram" use. Unrecognized lines are skipped.
+ * Mermaid-flowchart → Deviva elements converter (the no-LLM path, like Excalidraw's "Mermaid to
+ * Excalidraw"). This file is the thin orchestrator: it parses source into the typed IR
+ * (`parse/parse-flowchart.ts`), assigns nodes to dependency layers (cycle-aware), and emits shapes +
+ * labels + arrows anchored at (0,0). Full grammar lives in `parse/`; a from-scratch dagre layout and
+ * the remaining node shapes/styles arrive in later phases. Unrecognized input degrades gracefully.
  *
  * The returned elements are positioned from (0,0); the caller offsets them to the viewport and adds
  * them to the scene. Each node's shape + label share a `groupId` so they move together.
  */
 import { createArrowElement } from "../elements/arrow-element";
+import type { Arrowhead } from "../elements/arrow-element";
 import type { AnyElement } from "./../elements/element-types";
-import { createRectangleElement, createDiamondElement } from "../elements/shape-elements";
+import {
+  createDiamondElement,
+  createEllipseElement,
+  createHexagonElement,
+  createRectangleElement,
+} from "../elements/shape-elements";
 import { createTextElement } from "../elements/text-element";
+import type { Flowchart, FlowNode, Head, NodeShape } from "./parse/flowchart-ir";
+import { parseFlowchart } from "./parse/parse-flowchart";
 
-export type FlowDirection = "TD" | "TB" | "LR" | "RL" | "BT";
-
-interface ParsedNode {
-  id: string;
-  label: string;
-  shape: "rect" | "rounded" | "diamond";
-}
-interface ParsedEdge {
-  from: string;
-  to: string;
-  label?: string;
-  arrow: boolean;
-}
-export interface ParsedFlowchart {
-  direction: FlowDirection;
-  nodes: ParsedNode[];
-  edges: ParsedEdge[];
-}
+export type { FlowDirection, Flowchart } from "./parse/flowchart-ir";
+export { parseFlowchart } from "./parse/parse-flowchart";
 
 const NODE_WIDTH = 160;
 const NODE_HEIGHT = 60;
@@ -41,56 +32,27 @@ const SIBLING_GAP = 40;
 const EDGE_LABEL_FONT_SIZE = 16;
 const EDGE_LABEL_CHAR_WIDTH = 9;
 
-/** Parses one `id[label]` / `id(label)` / `id{label}` / bare-`id` token into a node descriptor. */
-function parseNodeToken(raw: string, nodes: Map<string, ParsedNode>): string | null {
-  const token = raw.trim();
-  const match = token.match(/^([A-Za-z0-9_]+)\s*(?:\[(.+)\]|\((.+)\)|\{(.+)\})?$/);
-  if (!match) return null;
-  const [, id, rect, rounded, diamond] = match;
-  if (!id) return null;
-  const existing = nodes.get(id);
-  const label = rect ?? rounded ?? diamond;
-  const shape = diamond !== undefined ? "diamond" : rounded !== undefined ? "rounded" : "rect";
-  if (label !== undefined || !existing) {
-    nodes.set(id, { id, label: label ?? existing?.label ?? id, shape: label !== undefined ? shape : existing?.shape ?? "rect" });
-  }
-  return id;
+/** Maps an edge head to the engine's arrowhead style (Phase 05 refines circle/cross rendering). */
+function arrowhead(head: Head): Arrowhead {
+  return head === "arrow" ? "arrow" : head === "circle" ? "dot" : head === "cross" ? "bar" : "none";
 }
 
-export function parseFlowchart(source: string): ParsedFlowchart {
-  const lines = source.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  let direction: FlowDirection = "TD";
-  const nodes = new Map<string, ParsedNode>();
-  const edges: ParsedEdge[] = [];
-
-  for (const line of lines) {
-    const header = line.match(/^(?:graph|flowchart)\s+(TD|TB|LR|RL|BT)/i);
-    if (header) {
-      direction = header[1]!.toUpperCase() as FlowDirection;
-      continue;
-    }
-    if (/^(?:graph|flowchart)\b/i.test(line)) continue;
-
-    const edge = line.match(/^(.+?)\s*(-->|---)\s*(?:\|(.+?)\|\s*)?(.+)$/);
-    if (edge) {
-      const from = parseNodeToken(edge[1]!, nodes);
-      const to = parseNodeToken(edge[4]!, nodes);
-      if (from && to) edges.push({ from, to, label: edge[3]?.trim(), arrow: edge[2] === "-->" });
-      continue;
-    }
-    parseNodeToken(line, nodes); // a standalone node declaration
-  }
-
-  return { direction, nodes: [...nodes.values()], edges };
+/** Interim shape mapping — the four missing shapes approximate until Phase 02 adds them for real. */
+function createShapeElement(shape: NodeShape, input: Parameters<typeof createRectangleElement>[0]): AnyElement {
+  if (shape === "diamond") return createDiamondElement(input);
+  if (shape === "hexagon") return createHexagonElement(input);
+  if (shape === "circle" || shape === "double-circle") return createEllipseElement(input);
+  const rounded = shape === "rounded" || shape === "stadium";
+  return createRectangleElement({ ...input, roundness: rounded ? { type: 1 } : null });
 }
 
 /**
  * Indices of edges that close a cycle — a DFS edge pointing back to a node still on the recursion
  * stack (including self-loops). Excluded from layer ranking so a cycle (`B --> D --> B`) can't push
- * layers to infinity; the edges are still drawn (routed upward). This is dagre's cycle-removal step,
- * done minimally.
+ * layers to infinity; the edges are still drawn (routed toward the target). Dagre's cycle-removal
+ * step, done minimally.
  */
-function findBackEdges(flow: ParsedFlowchart): Set<number> {
+function findBackEdges(flow: Flowchart): Set<number> {
   const adjacency = new Map<string, { to: string; index: number }[]>();
   flow.edges.forEach((edge, index) => {
     if (!adjacency.has(edge.from)) adjacency.set(edge.from, []);
@@ -112,7 +74,7 @@ function findBackEdges(flow: ParsedFlowchart): Set<number> {
 }
 
 /** Assigns each node a layer index = longest path from a root, over the acyclic edges only. */
-function computeLayers(flow: ParsedFlowchart): Map<string, number> {
+function computeLayers(flow: Flowchart): Map<string, number> {
   const back = findBackEdges(flow);
   const forwardEdges = flow.edges.filter((_, index) => !back.has(index));
   const incoming = new Map<string, number>();
@@ -134,17 +96,15 @@ function computeLayers(flow: ParsedFlowchart): Map<string, number> {
   return layer;
 }
 
-/** Converts parsed Mermaid into positioned elements (shapes + labels + arrows), anchored at (0,0). */
-export function flowchartToElements(flow: ParsedFlowchart): AnyElement[] {
+/** Positions nodes into centered rows/columns per layer, anchored so parents sit above their children. */
+function positionNodes(flow: Flowchart, horizontal: boolean): Map<string, { x: number; y: number }> {
   const layers = computeLayers(flow);
-  const byLayer = new Map<number, ParsedNode[]>();
+  const byLayer = new Map<number, FlowNode[]>();
   for (const node of flow.nodes) {
     const l = layers.get(node.id) ?? 0;
     if (!byLayer.has(l)) byLayer.set(l, []);
     byLayer.get(l)!.push(node);
   }
-
-  const horizontal = flow.direction === "LR" || flow.direction === "RL";
   const pos = new Map<string, { x: number; y: number }>();
   for (const [layerIndex, layerNodes] of byLayer) {
     const step = horizontal ? NODE_HEIGHT + SIBLING_GAP : NODE_WIDTH + SIBLING_GAP;
@@ -157,13 +117,21 @@ export function flowchartToElements(flow: ParsedFlowchart): AnyElement[] {
       pos.set(node.id, horizontal ? { x: across, y: along } : { x: along, y: across });
     });
   }
+  return pos;
+}
+
+/** Converts parsed Mermaid into positioned elements (shapes + labels + arrows), anchored at (0,0). */
+export function flowchartToElements(flow: Flowchart): AnyElement[] {
+  const horizontal = flow.direction === "LR" || flow.direction === "RL";
+  const pos = positionNodes(flow, horizontal);
 
   const elements: AnyElement[] = [];
   for (const node of flow.nodes) {
     const p = pos.get(node.id)!;
     const groupIds = [`mermaid-${node.id}`];
-    const shapeInput = { x: p.x, y: p.y, width: NODE_WIDTH, height: NODE_HEIGHT, groupIds, roundness: node.shape === "rounded" ? { type: 1 } : null };
-    elements.push(node.shape === "diamond" ? createDiamondElement(shapeInput) : createRectangleElement(shapeInput));
+    elements.push(
+      createShapeElement(node.shape, { x: p.x, y: p.y, width: NODE_WIDTH, height: NODE_HEIGHT, groupIds, roundness: null }),
+    );
     elements.push(
       createTextElement({
         x: p.x + 10,
@@ -208,7 +176,9 @@ export function flowchartToElements(flow: ParsedFlowchart): AnyElement[] {
           { x: 0, y: 0 },
           { x: end.x - start.x, y: end.y - start.y },
         ],
-        endArrowhead: edge.arrow ? "arrow" : "none",
+        startArrowhead: arrowhead(edge.startHead),
+        endArrowhead: arrowhead(edge.endHead),
+        opacity: edge.kind === "invisible" ? 0 : undefined,
         groupIds,
       }),
     );
