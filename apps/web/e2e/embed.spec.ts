@@ -42,3 +42,39 @@ test("inserting an embed adds a selected element and a sandboxed iframe with the
   await expect(page.getByTestId("deviva-draw-root")).toBeVisible();
   await expect(page.getByTestId("embed-iframe")).toHaveAttribute("src", "https://www.youtube.com/embed/dQw4w9WgXcQ");
 });
+
+test("a selected embed is movable by dragging its body (the iframe doesn't steal the drag)", async ({ page }) => {
+  await page.getByTestId("embed-input").fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+  await page.getByTestId("embed-insert").click();
+
+  // Selected → click-through by default (movable) with an Interact toggle offered.
+  await expect(page.getByTestId("embed-interact-toggle")).toBeVisible();
+  await expect(page.getByTestId("embed-iframe")).toHaveCSS("pointer-events", "none");
+
+  const iframe = page.getByTestId("embed-iframe");
+  const before = (await iframe.boundingBox())!;
+  const cx = before.x + before.width / 2;
+  const cy = before.y + before.height / 2;
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  await page.mouse.move(cx + 140, cy + 90);
+  await page.mouse.up();
+
+  const after = (await iframe.boundingBox())!;
+  expect(after.x - before.x).toBeGreaterThan(80); // it actually moved with the drag
+});
+
+test("the Interact toggle switches the embed into live (pointer-capturing) mode and back", async ({ page }) => {
+  await page.getByTestId("embed-input").fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+  await page.getByTestId("embed-insert").click();
+
+  const toggle = page.getByTestId("embed-interact-toggle");
+  await expect(page.getByTestId("embed-iframe")).toHaveCSS("pointer-events", "none");
+
+  await toggle.click(); // enter interact mode → iframe takes pointer events
+  await expect(toggle).toHaveText("Done");
+  await expect(page.getByTestId("embed-iframe")).toHaveCSS("pointer-events", "auto");
+
+  await toggle.click(); // back to movable
+  await expect(page.getByTestId("embed-iframe")).toHaveCSS("pointer-events", "none");
+});

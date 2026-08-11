@@ -180,6 +180,8 @@ export const catalogVi: Record<TranslationKey, string> = {
   "embed.title": "Chèn nhúng",
   "embed.description": "Dán liên kết YouTube, Vimeo, Figma hoặc CodeSandbox.",
   "embed.insert": "Chèn",
+  "embed.interact": "Tương tác ▶",
+  "embed.done": "Xong",
 
   "mermaid.title": "Mermaid thành sơ đồ",
   "mermaid.description": "Dán mã Mermaid flowchart — nó sẽ thành các hình có thể chỉnh sửa.",
