@@ -56,10 +56,12 @@ test("clicking the selected embed activates it; Escape deactivates", async ({ pa
 
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); // tap the already-selected embed
   await expect(iframe).toHaveCSS("pointer-events", "auto");
+  await expect(iframe).toHaveAttribute("src", "https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1"); // plays on this one click
   await expect(page.getByTestId("embed-interact-overlay")).toHaveCount(0);
 
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("embed-iframe")).toHaveCSS("pointer-events", "none");
+  await expect(page.getByTestId("embed-iframe")).toHaveAttribute("src", "https://www.youtube.com/embed/dQw4w9WgXcQ"); // back to the plain poster
 });
 
 test("a selected embed is movable by dragging (the iframe is click-through, so the drag reaches the canvas)", async ({ page }) => {

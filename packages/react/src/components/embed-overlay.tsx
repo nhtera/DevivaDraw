@@ -121,6 +121,12 @@ export function EmbedOverlay(props: { runtime: DevivaRuntime; cameraStore: Camer
         const topLeft = sceneToScreen({ x: embed.x, y: embed.y }, camera);
         const interactive = activeId === embed.id;
         const isSole = soleSelected === embed.id;
+        // When you click "Click to interact" the video should just play — not require a second click on
+        // YouTube's own play button. Activating swaps the frame's src to an autoplay URL; the activating
+        // click is a user gesture and `allow="autoplay"` delegates the permission into the frame, so a
+        // video provider starts playing on that single click. Idle (non-active) shows the plain poster.
+        const isVideo = resolved.provider === "youtube" || resolved.provider === "vimeo";
+        const src = interactive && isVideo ? `${resolved.embedUrl}?autoplay=1` : resolved.embedUrl;
         // Element is rotated around its center, exactly like the canvas placeholder.
         const boxStyle = {
           position: "absolute" as const,
@@ -139,7 +145,7 @@ export function EmbedOverlay(props: { runtime: DevivaRuntime; cameraStore: Camer
             <iframe
               data-testid="embed-iframe"
               title={embed.url}
-              src={resolved.embedUrl}
+              src={src}
               sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
               allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
               allowFullScreen
