@@ -64,10 +64,10 @@ describe("flowchartToElements", () => {
     const flow = parseFlowchart("flowchart TD\n A[Start] --> B{Ready?}\n B -->|yes| C[Ship it]\n B -->|no| D[Keep working]\n D --> B");
     const els = flowchartToElements(flow);
     const shapes = els.filter((e) => e.type === "rectangle" || e.type === "diamond") as { y: number }[];
-    // 4 nodes ⇒ at most 3 layers (A=0, B=1, C/D=2). Bound the vertical spread by the layer step.
-    const ys = shapes.map((s) => s.y);
-    const layerStep = 60 + 80; // NODE_HEIGHT + LAYER_GAP
-    expect(Math.max(...ys) - Math.min(...ys)).toBeLessThanOrEqual(layerStep * 2 + 1);
+    // 4 nodes ⇒ exactly 3 layer bands (A=0, B=1, C/D=2). A cycle blowup would produce far more. Count
+    // distinct rows rather than a pixel bound so auto-sized nodes don't make this brittle.
+    const bands = new Set(shapes.map((s) => Math.round(s.y / 10))).size;
+    expect(bands).toBeLessThanOrEqual(3);
     // Every edge (including the back edge) is still drawn.
     expect(els.filter((e) => e.type === "arrow")).toHaveLength(4);
   });
@@ -97,5 +97,27 @@ describe("flowchartToElements", () => {
     expect(els.some((e) => e.type === "hexagon")).toBe(true); // hexagon
     const arrow = els.find((e) => e.type === "arrow") as { opacity: number };
     expect(arrow.opacity).toBe(0); // invisible link
+  });
+
+  it("auto-sizes a node's box to its label", () => {
+    const short = flowchartToElements(parseFlowchart("flowchart TD\n A[Hi]"))[0] as { width: number };
+    const long = flowchartToElements(parseFlowchart("flowchart TD\n A[A much longer label here]"))[0] as { width: number };
+    expect(long.width).toBeGreaterThan(short.width);
+  });
+
+  it("applies classDef fill and inline style to node elements", () => {
+    const els = flowchartToElements(
+      parseFlowchart("flowchart TD\n A[X]:::hot --> B[Y]\n classDef hot fill:#fdd,stroke:#f00"),
+    );
+    const a = els.find((e) => e.type === "rectangle") as { backgroundColor: string; strokeColor: string };
+    expect(a.backgroundColor).toBe("#fdd");
+    expect(a.strokeColor).toBe("#f00");
+  });
+
+  it("reflects edge kind on the arrow's stroke style", () => {
+    const dotted = flowchartToElements(parseFlowchart("flowchart TD\n A[X] -.-> B[Y]")).find(
+      (e) => e.type === "arrow",
+    ) as { strokeStyle: string };
+    expect(dotted.strokeStyle).toBe("dotted");
   });
 });

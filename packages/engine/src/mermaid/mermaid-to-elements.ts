@@ -1,9 +1,10 @@
 /**
  * Mermaid-flowchart → Deviva elements converter (the no-LLM path, like Excalidraw's "Mermaid to
  * Excalidraw"). This file is the thin orchestrator: it parses source into the typed IR
- * (`parse/parse-flowchart.ts`), assigns nodes to dependency layers (cycle-aware), and emits shapes +
- * labels + arrows anchored at (0,0). Full grammar lives in `parse/`; a from-scratch dagre layout and
- * the remaining node shapes/styles arrive in later phases. Unrecognized input degrades gracefully.
+ * (`parse/parse-flowchart.ts`), sizes each node to its label (`map/measure-node-size.ts`), assigns
+ * nodes to dependency layers (cycle-aware), maps shapes + styles (`map/`), and emits shapes + labels
+ * + arrows anchored at (0,0). A from-scratch dagre layout replaces the simple layered pass in a later
+ * phase; the four not-yet-native shapes still approximate. Unrecognized input degrades gracefully.
  *
  * The returned elements are positioned from (0,0); the caller offsets them to the viewport and adds
  * them to the scene. Each node's shape + label share a `groupId` so they move together.
@@ -11,23 +12,19 @@
 import { createArrowElement } from "../elements/arrow-element";
 import type { Arrowhead } from "../elements/arrow-element";
 import type { AnyElement } from "./../elements/element-types";
-import {
-  createDiamondElement,
-  createEllipseElement,
-  createHexagonElement,
-  createRectangleElement,
-} from "../elements/shape-elements";
 import { createTextElement } from "../elements/text-element";
-import type { Flowchart, FlowNode, Head, NodeShape } from "./parse/flowchart-ir";
+import { measureNodeSize, type NodeSize } from "./map/measure-node-size";
+import { shapeToElement } from "./map/shape-map";
+import { resolveEdgeStyle, resolveNodeStyle } from "./map/style-map";
+import type { Flowchart, FlowNode, Head } from "./parse/flowchart-ir";
 import { parseFlowchart } from "./parse/parse-flowchart";
 
 export type { FlowDirection, Flowchart } from "./parse/flowchart-ir";
 export { parseFlowchart } from "./parse/parse-flowchart";
 
-const NODE_WIDTH = 160;
-const NODE_HEIGHT = 60;
 const LAYER_GAP = 80;
 const SIBLING_GAP = 40;
+const LABEL_LINE_HEIGHT = 24;
 /** Edge labels render a touch smaller than node labels, matching Excalidraw. */
 const EDGE_LABEL_FONT_SIZE = 16;
 const EDGE_LABEL_CHAR_WIDTH = 9;
@@ -35,15 +32,6 @@ const EDGE_LABEL_CHAR_WIDTH = 9;
 /** Maps an edge head to the engine's arrowhead style (Phase 05 refines circle/cross rendering). */
 function arrowhead(head: Head): Arrowhead {
   return head === "arrow" ? "arrow" : head === "circle" ? "dot" : head === "cross" ? "bar" : "none";
-}
-
-/** Interim shape mapping — the four missing shapes approximate until Phase 02 adds them for real. */
-function createShapeElement(shape: NodeShape, input: Parameters<typeof createRectangleElement>[0]): AnyElement {
-  if (shape === "diamond") return createDiamondElement(input);
-  if (shape === "hexagon") return createHexagonElement(input);
-  if (shape === "circle" || shape === "double-circle") return createEllipseElement(input);
-  const rounded = shape === "rounded" || shape === "stadium";
-  return createRectangleElement({ ...input, roundness: rounded ? { type: 1 } : null });
 }
 
 /**
@@ -96,8 +84,18 @@ function computeLayers(flow: Flowchart): Map<string, number> {
   return layer;
 }
 
-/** Positions nodes into centered rows/columns per layer, anchored so parents sit above their children. */
-function positionNodes(flow: Flowchart, horizontal: boolean): Map<string, { x: number; y: number }> {
+interface Placed {
+  x: number;
+  y: number;
+  size: NodeSize;
+}
+
+/**
+ * Size-aware layered placement: each layer is a row (TD/TB/BT) or column (LR/RL) whose cross-extent is
+ * its tallest/widest node; siblings pack along the layer with `SIBLING_GAP` and are centered on a shared
+ * axis so parents sit above the middle of their children. Full crossing-minimization is Phase 03.
+ */
+function positionNodes(flow: Flowchart, horizontal: boolean, sizes: Map<string, NodeSize>): Map<string, Placed> {
   const layers = computeLayers(flow);
   const byLayer = new Map<number, FlowNode[]>();
   for (const node of flow.nodes) {
@@ -105,39 +103,52 @@ function positionNodes(flow: Flowchart, horizontal: boolean): Map<string, { x: n
     if (!byLayer.has(l)) byLayer.set(l, []);
     byLayer.get(l)!.push(node);
   }
-  const pos = new Map<string, { x: number; y: number }>();
-  for (const [layerIndex, layerNodes] of byLayer) {
-    const step = horizontal ? NODE_HEIGHT + SIBLING_GAP : NODE_WIDTH + SIBLING_GAP;
-    // Center each layer on a shared axis (0) so a parent sits above the middle of its children and the
-    // arrows fan out symmetrically — Excalidraw's layered look — instead of every layer packing left.
-    const alongOffset = ((layerNodes.length - 1) * step) / 2;
-    layerNodes.forEach((node, indexInLayer) => {
-      const along = indexInLayer * step - alongOffset;
-      const across = layerIndex * ((horizontal ? NODE_WIDTH : NODE_HEIGHT) + LAYER_GAP);
-      pos.set(node.id, horizontal ? { x: across, y: along } : { x: along, y: across });
-    });
+
+  const placed = new Map<string, Placed>();
+  let crossCursor = 0; // accumulates down/right across layers
+  for (const layerIndex of [...byLayer.keys()].sort((a, b) => a - b)) {
+    const layerNodes = byLayer.get(layerIndex)!;
+    const cross = (s: NodeSize) => (horizontal ? s.width : s.height);
+    const along = (s: NodeSize) => (horizontal ? s.height : s.width);
+    const rowExtent = Math.max(...layerNodes.map((n) => cross(sizes.get(n.id)!)));
+    const totalAlong =
+      layerNodes.reduce((sum, n) => sum + along(sizes.get(n.id)!), 0) + SIBLING_GAP * (layerNodes.length - 1);
+    let alongCursor = -totalAlong / 2; // center the layer on axis 0
+    for (const node of layerNodes) {
+      const size = sizes.get(node.id)!;
+      const alongPos = alongCursor + along(size) / 2; // center of this node along the layer
+      const crossPos = crossCursor + rowExtent / 2; // center within the row's cross-extent
+      const center = horizontal ? { x: crossPos, y: alongPos } : { x: alongPos, y: crossPos };
+      placed.set(node.id, { x: center.x - size.width / 2, y: center.y - size.height / 2, size });
+      alongCursor += along(size) + SIBLING_GAP;
+    }
+    crossCursor += rowExtent + LAYER_GAP;
   }
-  return pos;
+  return placed;
 }
 
 /** Converts parsed Mermaid into positioned elements (shapes + labels + arrows), anchored at (0,0). */
 export function flowchartToElements(flow: Flowchart): AnyElement[] {
   const horizontal = flow.direction === "LR" || flow.direction === "RL";
-  const pos = positionNodes(flow, horizontal);
+  const sizes = new Map<string, NodeSize>();
+  for (const node of flow.nodes) sizes.set(node.id, measureNodeSize(node.label, node.shape));
+  const placed = positionNodes(flow, horizontal, sizes);
 
   const elements: AnyElement[] = [];
   for (const node of flow.nodes) {
-    const p = pos.get(node.id)!;
+    const p = placed.get(node.id)!;
     const groupIds = [`mermaid-${node.id}`];
     elements.push(
-      createShapeElement(node.shape, { x: p.x, y: p.y, width: NODE_WIDTH, height: NODE_HEIGHT, groupIds, roundness: null }),
+      shapeToElement(node.shape, { x: p.x, y: p.y, width: p.size.width, height: p.size.height, groupIds }, resolveNodeStyle(node, flow)),
     );
+    const lines = Math.max(1, node.label.split("\n").length);
+    const textHeight = lines * LABEL_LINE_HEIGHT;
     elements.push(
       createTextElement({
-        x: p.x + 10,
-        y: p.y + NODE_HEIGHT / 2 - 10,
-        width: NODE_WIDTH - 20,
-        height: 20,
+        x: p.x + 8,
+        y: p.y + (p.size.height - textHeight) / 2,
+        width: p.size.width - 16,
+        height: textHeight,
         text: node.label,
         textAlign: "center",
         groupIds,
@@ -146,25 +157,26 @@ export function flowchartToElements(flow: Flowchart): AnyElement[] {
   }
 
   for (const edge of flow.edges) {
-    const from = pos.get(edge.from);
-    const to = pos.get(edge.to);
+    const from = placed.get(edge.from);
+    const to = placed.get(edge.to);
     if (!from || !to) continue;
     // Anchor on the side of each box that faces the other node, so a back edge (target above/behind,
     // e.g. `D --> B` in a loop) leaves the source's top and enters the target's bottom instead of
     // routing down-then-all-the-way-up. Along-axis position tracks the two centers.
-    const fromCenter = { x: from.x + NODE_WIDTH / 2, y: from.y + NODE_HEIGHT / 2 };
-    const toCenter = { x: to.x + NODE_WIDTH / 2, y: to.y + NODE_HEIGHT / 2 };
+    const fromCenter = { x: from.x + from.size.width / 2, y: from.y + from.size.height / 2 };
+    const toCenter = { x: to.x + to.size.width / 2, y: to.y + to.size.height / 2 };
     let start: { x: number; y: number };
     let end: { x: number; y: number };
     if (horizontal) {
       const rightward = toCenter.x >= fromCenter.x;
-      start = { x: rightward ? from.x + NODE_WIDTH : from.x, y: fromCenter.y };
-      end = { x: rightward ? to.x : to.x + NODE_WIDTH, y: toCenter.y };
+      start = { x: rightward ? from.x + from.size.width : from.x, y: fromCenter.y };
+      end = { x: rightward ? to.x : to.x + to.size.width, y: toCenter.y };
     } else {
       const downward = toCenter.y >= fromCenter.y;
-      start = { x: fromCenter.x, y: downward ? from.y + NODE_HEIGHT : from.y };
-      end = { x: toCenter.x, y: downward ? to.y : to.y + NODE_HEIGHT };
+      start = { x: fromCenter.x, y: downward ? from.y + from.size.height : from.y };
+      end = { x: toCenter.x, y: downward ? to.y : to.y + to.size.height };
     }
+    const edgeStyle = resolveEdgeStyle(edge, flow);
     const groupIds = [`mermaid-edge-${edge.from}-${edge.to}`];
     elements.push(
       createArrowElement({
@@ -178,7 +190,10 @@ export function flowchartToElements(flow: Flowchart): AnyElement[] {
         ],
         startArrowhead: arrowhead(edge.startHead),
         endArrowhead: arrowhead(edge.endHead),
-        opacity: edge.kind === "invisible" ? 0 : undefined,
+        strokeColor: edgeStyle.strokeColor,
+        strokeWidth: edgeStyle.strokeWidth,
+        strokeStyle: edgeStyle.strokeStyle,
+        opacity: edgeStyle.opacity,
         groupIds,
       }),
     );
