@@ -157,25 +157,34 @@ describe("ConnectionManager", () => {
   });
 
   it("grows the reconnect delay across repeated failures instead of retrying at a fixed interval", () => {
+    // Jitter pinned to its maximum, so the two delays are exactly 100ms and 200ms and the assertions
+    // below sit in the middle of each window rather than on its edge. Left to real randomness this
+    // flaked: the first delay lands in [50ms, 100ms], the timer implementation truncates a fractional
+    // delay to whole milliseconds, and any draw in [50, 51) therefore fired at exactly the 50ms mark
+    // this test advanced to.
+    const random = vi.spyOn(Math, "random").mockReturnValue(1);
+
     createManager();
     manager.connect();
     sockets[0]!.open();
     sockets[0]!.simulateServerClose();
 
-    vi.advanceTimersByTime(50); // less than the first backoff window (100-200ms) — must not have reconnected yet
+    vi.advanceTimersByTime(50); // half of the first delay (attempt 0: 100 * 2^0)
     expect(sockets).toHaveLength(1);
 
-    vi.advanceTimersByTime(200);
+    vi.advanceTimersByTime(50);
     expect(sockets).toHaveLength(2);
     sockets[1]!.simulateServerClose();
 
-    // Second backoff window is [100ms, 200ms] (attempt 1: 100 * 2^1 = 200, jittered to 50%-100%) —
-    // below its floor is still guaranteed not to have reconnected yet.
-    vi.advanceTimersByTime(90);
+    // The second delay is 200ms (attempt 1: 100 * 2^1) — twice the first, which is the growth this
+    // test exists to catch. Halfway through it, still nothing.
+    vi.advanceTimersByTime(100);
     expect(sockets).toHaveLength(2);
 
-    vi.advanceTimersByTime(500);
+    vi.advanceTimersByTime(100);
     expect(sockets).toHaveLength(3);
+
+    random.mockRestore();
   });
 
   it("does not reconnect after an explicit disconnect()", () => {
