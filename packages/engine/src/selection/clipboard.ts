@@ -11,7 +11,10 @@
  * duplicated in the same batch (both remapped to their new ids) — a binding to a shape that stayed
  * behind is dropped rather than kept dangling, since keeping it would leave the new arrow claiming a
  * binding the original shape's own `boundElements` never reciprocates (violating the "no dangling
- * refs, ever" invariant `bindings/binding-model.ts`'s module doc protects).
+ * refs, ever" invariant `bindings/binding-model.ts`'s module doc protects). Group membership is
+ * likewise re-minted rather than copied: `group-ungroup.ts`'s `expandToGroupMembers` resolves a group
+ * by scanning the *whole scene* for a shared outermost `groupIds[0]`, so carrying the source's group
+ * ids over would silently fuse a copy into its original — clicking either one would then select both.
  * OS clipboard (`navigator.clipboard`) integration is a host/DOM concern (like the system-image paste
  * flow) layered on top of this in-memory store, not implemented here.
  */
@@ -59,12 +62,29 @@ function remapBinding(binding: ArrowBinding | null, idMap: ReadonlyMap<string, s
   return { ...binding, elementId: idMap.get(binding.elementId)! };
 }
 
-function instantiateCopy(original: AnyElement, newId: string, idMap: ReadonlyMap<string, string>, offset: DuplicateOffset): AnyElement {
+/**
+ * Fresh group ids for the copies, keeping nesting intact: every occurrence of one source group id
+ * maps to the same new id, so a nested group stays nested and members stay together — they just no
+ * longer share an identity with the originals. Group ids not present in the batch never appear here,
+ * so a partially-copied group detaches from its source rather than half-joining it.
+ */
+function remapGroupIds(groupIds: readonly string[], groupIdMap: ReadonlyMap<string, string>): string[] {
+  return groupIds.map((groupId) => groupIdMap.get(groupId) ?? groupId);
+}
+
+function instantiateCopy(
+  original: AnyElement,
+  newId: string,
+  idMap: ReadonlyMap<string, string>,
+  groupIdMap: ReadonlyMap<string, string>,
+  offset: DuplicateOffset,
+): AnyElement {
   const base = {
     ...original,
     id: newId,
     x: original.x + offset.dx,
     y: original.y + offset.dy,
+    groupIds: remapGroupIds(original.groupIds, groupIdMap),
     boundElements: remapBoundElements(original.boundElements, idMap),
     version: 0,
     versionNonce: 0,
@@ -83,11 +103,17 @@ function instantiateCopy(original: AnyElement, newId: string, idMap: ReadonlyMap
   return base as AnyElement;
 }
 
-/** Builds fresh, ready-to-insert copies of `originals`, remapping their mutual references (bound text, arrow bindings) — shared by `duplicateElements` and `InternalClipboard.paste`. */
+/** Builds fresh, ready-to-insert copies of `originals`, remapping their mutual references (bound text, arrow bindings, group membership) — shared by `duplicateElements` and `InternalClipboard.paste`. */
 function instantiateCopies(originals: readonly AnyElement[], offset: DuplicateOffset): AnyElement[] {
   const idMap = new Map<string, string>();
-  for (const original of originals) idMap.set(original.id, generateCopyId());
-  return originals.map((original) => instantiateCopy(original, idMap.get(original.id)!, idMap, offset));
+  const groupIdMap = new Map<string, string>();
+  for (const original of originals) {
+    idMap.set(original.id, generateCopyId());
+    for (const groupId of original.groupIds) {
+      if (!groupIdMap.has(groupId)) groupIdMap.set(groupId, generateCopyId());
+    }
+  }
+  return originals.map((original) => instantiateCopy(original, idMap.get(original.id)!, idMap, groupIdMap, offset));
 }
 
 /** Duplicates `ids` (expanded for container/bound-text coherence) in place, offset by `offset`. Returns the new elements' ids. */

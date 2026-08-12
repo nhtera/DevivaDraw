@@ -7,6 +7,7 @@ import { bindTextToContainer, getOrCreateBoundText } from "../text/bound-text";
 import { bindArrowEndpoint } from "../bindings/binding-model";
 import { DEFAULT_BINDING_GAP } from "../bindings/binding-model";
 import { duplicateElements, insertElements, InternalClipboard } from "./clipboard";
+import { expandToGroupMembers, groupSelection } from "./group-ungroup";
 
 describe("duplicateElements", () => {
   it("creates new elements with new ids, offset from the originals, keeping the same seed", () => {
@@ -62,6 +63,39 @@ describe("duplicateElements", () => {
     const newArrowId = newIds.find((id) => scene.getElement(id)?.type === "arrow")!;
     const newArrow = scene.getElement(newArrowId) as ReturnType<typeof createArrowElement>;
     expect(newArrow.startBinding?.elementId).toBe(newShapeId);
+  });
+
+  it("gives the copy its own group ids, so clicking it does not also select the original", () => {
+    const scene = new Scene();
+    const a = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 10, height: 10 }));
+    const b = scene.addElement(createRectangleElement({ x: 20, y: 0, width: 10, height: 10 }));
+    const groupId = groupSelection(scene, [a.id, b.id])!;
+
+    const newIds = duplicateElements(scene, [a.id, b.id]);
+    const copyGroupId = scene.getElement(newIds[0]!)!.groupIds[0]!;
+
+    expect(copyGroupId).not.toBe(groupId);
+    // `expandToGroupMembers` resolves a group by scanning the whole scene for a shared outermost
+    // group id, so a shared id would make one click select all four elements.
+    expect(expandToGroupMembers(scene, [newIds[0]!])).toHaveLength(2);
+    expect(expandToGroupMembers(scene, [a.id])).toEqual(expect.arrayContaining([a.id, b.id]));
+  });
+
+  it("keeps group nesting intact while re-minting each level", () => {
+    const scene = new Scene();
+    const a = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 10, height: 10 }));
+    const b = scene.addElement(createRectangleElement({ x: 20, y: 0, width: 10, height: 10 }));
+    groupSelection(scene, [a.id, b.id]);
+    groupSelection(scene, [a.id, b.id]); // nest it one level deeper
+    const sourceGroups = scene.getElement(a.id)!.groupIds;
+
+    const newIds = duplicateElements(scene, [a.id, b.id]);
+    const [firstGroups, secondGroups] = newIds.map((id) => scene.getElement(id)!.groupIds);
+
+    expect(firstGroups).toHaveLength(2);
+    expect(firstGroups).not.toEqual(sourceGroups); // every level re-minted, not just the outermost
+    expect(firstGroups).toEqual(secondGroups); // both members still share both levels
+    expect(new Set(firstGroups).size).toBe(2); // ...and the two levels stayed distinct
   });
 });
 
@@ -127,5 +161,20 @@ describe("insertElements", () => {
     // The bound-text ref was remapped to the newly-inserted text, not the original id.
     const boundRef = container.boundElements?.find((r) => r.type === "text");
     expect(newIds).toContain(boundRef!.id);
+  });
+
+  it("dropping the same grouped library item twice produces two independent groups", () => {
+    // The library hands the *same* stored elements to every insert, so without a group-id re-mint
+    // the second drop would join the first one's group and the two copies could never be moved apart.
+    const item = [
+      createRectangleElement({ x: 0, y: 0, width: 10, height: 10, groupIds: ["saved-group"] }),
+      createRectangleElement({ x: 20, y: 0, width: 10, height: 10, groupIds: ["saved-group"] }),
+    ];
+    const scene = new Scene();
+    const first = insertElements(scene, item);
+    const second = insertElements(scene, item, { dx: 200, dy: 200 });
+
+    expect(expandToGroupMembers(scene, [first[0]!]).sort()).toEqual([...first].sort());
+    expect(expandToGroupMembers(scene, [second[0]!]).sort()).toEqual([...second].sort());
   });
 });
