@@ -125,7 +125,10 @@ jobs:
 
       # Backend first: the web app talks to this origin, so on a release that changes both,
       # the API should be live before the new frontend starts calling it.
-      - run: pnpm --filter @deviva-draw/collab-server deploy
+      #
+      # `run` is required, not stylistic: `pnpm deploy` is a built-in pnpm command that copies a
+      # workspace package into a directory, and it shadows the package's own deploy script.
+      - run: pnpm --filter @deviva-draw/collab-server run deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -150,9 +153,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # `deploy` here is `vite build && wrangler deploy`. The build reads apps/web/.env.production
-      # for VITE_SHARE_API_BASE_URL, which is committed — no secret needed for it.
-      - run: pnpm --filter @deviva-draw/web deploy
+      # `run deploy` here is `vite build && wrangler deploy` — see the note on the collab job for why
+      # the `run` matters. The build reads apps/web/.env.production for VITE_SHARE_API_BASE_URL,
+      # which is committed, so no secret is needed for it.
+      - run: pnpm --filter @deviva-draw/web run deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

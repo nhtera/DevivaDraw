@@ -84,8 +84,10 @@ links and collaboration.
 1. Create the buckets once:
    `wrangler r2 bucket create deviva-draw-share-blobs` and
    `wrangler r2 bucket create deviva-draw-rooms`.
-2. `pnpm --filter @deviva-draw/collab-server deploy` (the Durable Object
-   migration is declared in `wrangler.jsonc`).
+2. `pnpm --filter @deviva-draw/collab-server run deploy` (the Durable Object
+   migration is declared in `wrangler.jsonc`). The `run` is required, not
+   stylistic: `pnpm deploy` is a built-in pnpm command that copies a workspace
+   package into a directory, and it shadows the package's own deploy script.
 3. Add your web app's production origin to `ALLOWED_ORIGINS` in
    `apps/collab-server/src/index.ts` if it differs from the default.
 
