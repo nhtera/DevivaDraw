@@ -4,6 +4,23 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.4] — 2026-08-13
+
+Publishes all three packages: `@deviva-draw/engine` (0.3.2),
+`@deviva-draw/collab-client` (0.2.1), and `@deviva-draw/react` (0.3.4).
+
+### Fixed
+- **`@deviva-draw/react` 0.3.2 and 0.3.3 could not be built by a consumer.** Both
+  releases shipped a flip action that imports `computeFlipChanges` from the engine, but
+  the engine's own version was never raised past 0.3.1 — the version published before
+  flip existed. Every consumer install therefore resolved an engine without that export,
+  and any bundler that resolves imports statically failed the build outright. The engine
+  is republished at 0.3.2 carrying the flip code the react package has been calling all
+  along. `collab-client` is republished at 0.2.1 for the same reason on a smaller scale:
+  it still pinned engine 0.3.0, so an app could end up with two copies of the engine
+  side by side. Releases that change a package now have to raise the version of every
+  workspace package whose published build is behind the code being shipped.
+
 ## [0.3.3] — 2026-08-13
 
 Publishes `@deviva-draw/react` only; `@deviva-draw/engine` (0.3.1) and
