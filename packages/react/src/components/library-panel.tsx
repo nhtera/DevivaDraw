@@ -4,11 +4,10 @@
  * actions pinned to the bottom. The old form — a small floating box with a button above a two-column
  * list — did not survive contact with real libraries, which run to dozens of items.
  *
- * Sits on the *right* edge like Excalidraw's, which means it would land on top of the properties
- * panel and minimap (both right-anchored here, where Excalidraw's equivalents are on the left). While
- * it is open it publishes its width as `--dd-library-sidebar-width` on the app root and those two
- * shift left by it, the same reserve-space technique the minimap already uses to keep the properties
- * panel off itself.
+ * Sits on the *right* edge like Excalidraw's, so it owns that edge outright — but it is full-height,
+ * and the minimap and its own toggle button are anchored there too. While it is open it publishes its
+ * width as `--dd-library-sidebar-width` on the app root and both of those shift left by it, rather
+ * than being covered.
  *
  * Items are placed by clicking a tile (viewport centre) or by dragging one onto the canvas (at the
  * cursor) — see `hooks/use-library-drop.ts`.
@@ -46,7 +45,7 @@ const BORDER_WIDTH = 1;
  */
 const SIDEBAR_WIDTH = GRID_COLUMNS * TILE_SIZE + (GRID_COLUMNS - 1) * GRID_GAP + PADDING_X * 2 + BORDER_WIDTH;
 
-/** Where the right-anchored chrome (properties panel, minimap) reads its inset from — see the module doc. */
+/** Where the right-anchored chrome (the minimap, this panel's own toggle) reads its inset from — see the module doc. */
 const SIDEBAR_WIDTH_PROPERTY = "--dd-library-sidebar-width";
 
 function newId(): string {
@@ -151,7 +150,7 @@ export function LibraryPanel(props: LibraryPanelProps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  // Reserve the sidebar's width for the right-anchored chrome (properties panel, minimap) while it is
+  // Reserve the sidebar's width for the right-anchored chrome (the minimap, the toggle) while it is
   // open — see the module doc. Cleared on unmount so closing the panel hands the space straight back.
   // The nominal width is right even when the panel is capped narrower on a phone: both consumers of
   // this variable are desktop-only, and neither renders at the widths where the cap bites.

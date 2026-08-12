@@ -50,9 +50,9 @@ test("clicking a library item inserts a fresh copy onto the canvas", async ({ pa
   await expect(page.getByTestId("library-item")).toHaveCount(1);
 
   // Deselect by clicking empty canvas so the layer actions disappear; inserting from the library must
-  // bring them back with the freshly-inserted copy. The clear space is on the *left*: the library
-  // sidebar holds the right edge and pushes the properties panel inward while it is open.
-  await page.mouse.click(200, 200);
+  // bring them back with the freshly-inserted copy. The clear space is the lower middle — the
+  // properties panel holds the left edge, the library sidebar the right, and the rectangle sits above.
+  await page.mouse.click(300, 560);
   await expect(page.locator('[data-testid^="layer-action-"]')).toHaveCount(0);
 
   await page.getByTestId("library-item").click();
@@ -111,9 +111,30 @@ test("search filters the library by item name", async ({ page }) => {
   await expect(page.getByTestId("library-item")).toHaveCount(1);
 });
 
-test("the library has a permanent toolbar button, not only a menu entry", async ({ page }) => {
-  await page.getByTestId("top-bar-library").click();
+test("the library has a permanent button of its own, which both opens and closes it", async ({ page }) => {
+  const toggle = page.getByTestId("library-toggle");
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+
+  await toggle.click();
   await expect(page.getByTestId("library-panel")).toBeVisible();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+
+  // The same button closes it: the sidebar covers the right edge, so the toggle has to step aside far
+  // enough to stay clickable rather than being buried under what it opened.
+  await toggle.click();
+  await expect(page.getByTestId("library-panel")).toHaveCount(0);
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+});
+
+test("the library button stays clear of the sidebar it opens", async ({ page }) => {
+  const toggle = page.getByTestId("library-toggle");
+  await toggle.click();
+  const sidebar = page.getByTestId("library-panel");
+  await expect(sidebar).toBeVisible();
+
+  const toggleBox = (await toggle.boundingBox())!;
+  const sidebarBox = (await sidebar.boundingBox())!;
+  expect(toggleBox.x + toggleBox.width).toBeLessThanOrEqual(sidebarBox.x);
 });
 
 test("dragging a tile onto the canvas drops it at the cursor, not at the viewport centre", async ({ page }) => {

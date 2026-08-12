@@ -25,14 +25,6 @@ const MAP_HEIGHT = 130;
 const MAP_PADDING = 10;
 /** Gap between the minimap and the viewport edges. */
 const MAP_INSET = 8;
-/**
- * Custom property the minimap publishes on the app root while mounted, holding the vertical space it
- * occupies in the bottom-right corner. The top-right properties panel subtracts it from its own height
- * cap so the two never overlap — see `properties-panel.tsx`. Published from here (rather than hard-coded
- * there) so the minimap's dimensions stay owned by this file.
- */
-const RESERVED_SPACE_PROPERTY = "--dd-minimap-reserved";
-
 interface MinimapProps {
   runtime: DevivaRuntime;
   cameraStore: CameraStore;
@@ -82,20 +74,6 @@ export function Minimap(props: MinimapProps) {
     const live = runtime.scene.getElements().filter((element) => !element.isDeleted);
     return { elements: live, bounds: computeElementsBounds(live) };
   }, [runtime.scene, sceneVersion]);
-  const isVisible = bounds !== null;
-
-  // Publish/retract the bottom-right space this map occupies, so the properties panel can cap its own
-  // height against it. Keyed on `isVisible` because the map auto-hides on an empty scene, and the panel
-  // must reclaim the space the moment it does.
-  useEffect(() => {
-    const root = canvasRef.current?.closest<HTMLElement>('[data-testid="deviva-draw-root"]');
-    if (!root) return;
-    root.style.setProperty(RESERVED_SPACE_PROPERTY, `${MAP_HEIGHT + MAP_INSET * 2}px`);
-    return () => {
-      root.style.removeProperty(RESERVED_SPACE_PROPERTY);
-    };
-  }, [isVisible]);
-
   // Redraw whenever scene/camera/bg/size change. Camera changes come via the subscription below.
   useEffect(() => {
     const canvas = canvasRef.current;

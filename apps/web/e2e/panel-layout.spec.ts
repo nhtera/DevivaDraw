@@ -5,11 +5,11 @@ import type { Page } from "@playwright/test";
  * Layout contracts for the desktop chrome, asserted against real browser layout (the react package's
  * unit tests run in a `node` environment and cannot compute any of this).
  *
- * The defects these cover: the top-right properties panel is anchored to the top and grows with the
- * selection, so on a short-but-not-mobile viewport (the mobile chrome only takes over below 500px tall)
- * it ran off the bottom of the screen with its lower controls unreachable, and it painted over the
- * bottom-right minimap. Separately, a canvas-wide select-all dragged the browser's own text selection
- * across every chrome label.
+ * The defects these cover: the properties panel is anchored to the top and grows with the selection,
+ * so on a short-but-not-mobile viewport (the mobile chrome only takes over below 500px tall) it ran
+ * off the bottom of the screen with its lower controls unreachable, and it painted over neighbouring
+ * chrome. Separately, a canvas-wide select-all dragged the browser's own text selection across every
+ * chrome label.
  */
 
 /** Short enough to overflow a tall panel, tall enough to stay on the desktop chrome (mobile is < 500px). */
@@ -54,6 +54,20 @@ test("the properties panel stays inside the viewport and scrolls instead of clip
   }
 });
 
+test("the properties panel is docked under the top bar on the left edge, clear of both", async ({ page }) => {
+  await page.setViewportSize(SHORT_DESKTOP);
+  await drawArrow(page);
+
+  const panelBox = (await page.getByTestId("properties-panel").boundingBox())!;
+  const topBarBox = (await page.getByTestId("top-bar").boundingBox())!;
+
+  // Same edge, stacked — so the panel's own inset is measured against the bar's real rendered height
+  // rather than a constant that can drift away from it.
+  expect(panelBox.x).toBe(topBarBox.x);
+  expect(panelBox.y).toBeGreaterThanOrEqual(topBarBox.y + topBarBox.height);
+  expect(panelBox.x).toBeLessThan(SHORT_DESKTOP.width / 2);
+});
+
 test("the properties panel never overlaps the minimap", async ({ page }) => {
   await page.setViewportSize(SHORT_DESKTOP);
   await drawArrow(page);
@@ -61,31 +75,26 @@ test("the properties panel never overlaps the minimap", async ({ page }) => {
   const panelBox = (await page.getByTestId("properties-panel").boundingBox())!;
   const minimapBox = (await page.getByTestId("minimap").boundingBox())!;
 
-  // Both are right-anchored, so they can only be separated vertically.
-  expect(panelBox.y + panelBox.height).toBeLessThanOrEqual(minimapBox.y);
+  // Opposite corners now (panel top-left, minimap bottom-right), so separation on *either* axis is
+  // enough — which is why the panel no longer has to cap its height against the minimap's.
+  const overlaps =
+    panelBox.x < minimapBox.x + minimapBox.width &&
+    minimapBox.x < panelBox.x + panelBox.width &&
+    panelBox.y < minimapBox.y + minimapBox.height &&
+    minimapBox.y < panelBox.y + panelBox.height;
+  expect(overlaps).toBe(false);
 });
 
-test("the panel reclaims the minimap's space once the scene is empty and the minimap hides", async ({ page }) => {
+test("the properties panel keeps its distance from the library sidebar, which owns the other edge", async ({ page }) => {
   await page.setViewportSize(SHORT_DESKTOP);
   await drawArrow(page);
+  await page.getByTestId("library-toggle").click();
+  await expect(page.getByTestId("library-panel")).toBeVisible();
 
-  // Compare the *cap*, not the rendered height: the panel's content changes with the selection, so a
-  // rendered-height comparison would measure the row count rather than the space it is allowed.
-  const capPx = async () => page.getByTestId("properties-panel").evaluate((node) => parseFloat(getComputedStyle(node).maxHeight));
-  const withMinimap = await capPx();
-
-  await page.keyboard.press("Escape");
-  await page.keyboard.press("Meta+a");
-  await page.keyboard.press("Delete");
-  await expect(page.getByTestId("minimap")).toHaveCount(0);
-  await page.getByTestId("toolbar-arrow-tool").click();
-
-  const withoutMinimap = await capPx();
-  expect(withoutMinimap).toBeGreaterThan(withMinimap);
-  expect(withoutMinimap).toBeLessThanOrEqual(SHORT_DESKTOP.height);
-
-  const box = (await page.getByTestId("properties-panel").boundingBox())!;
-  expect(box.y + box.height).toBeLessThanOrEqual(SHORT_DESKTOP.height);
+  // The whole point of moving the panel off the right edge: opening the sidebar no longer displaces it.
+  const panelBox = (await page.getByTestId("properties-panel").boundingBox())!;
+  const sidebarBox = (await page.getByTestId("library-panel").boundingBox())!;
+  expect(panelBox.x + panelBox.width).toBeLessThanOrEqual(sidebarBox.x);
 });
 
 test("select-all selects canvas elements without dragging a text selection across the chrome", async ({ page }) => {

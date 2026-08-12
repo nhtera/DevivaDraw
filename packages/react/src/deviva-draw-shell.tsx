@@ -36,6 +36,7 @@ import { ShortcutsDialog } from "./components/shortcuts-dialog";
 import { FindPanel } from "./components/find-panel";
 import { ExportDialog } from "./components/export-dialog";
 import { LibraryPanel } from "./components/library-panel";
+import { LibraryToggle } from "./components/library-toggle";
 import { MermaidDialog } from "./components/mermaid-dialog";
 import { EmbedDialog } from "./components/embed-dialog";
 import { EmbedOverlay } from "./components/embed-overlay";
@@ -250,8 +251,9 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {runtime && !zenMode.value && (isNarrow ? <BottomToolbar runtime={runtime} onInsertImage={openImagePicker} /> : <Toolbar runtime={runtime} toolLocked={toolLock.value} onToggleLock={() => toolLock.set(!toolLock.value)} onInsertImage={openImagePicker} />)}
       {runtime && !zenMode.value && !isNarrow && <CanvasHint runtime={runtime} />}
       {runtime && !zenMode.value && (
-        <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} onOpenLibrary={() => libraryOpen.set(true)} />
+        <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} />
       )}
+      {runtime && !zenMode.value && <LibraryToggle open={libraryOpen.value} onToggle={() => libraryOpen.set(!libraryOpen.value)} />}
       {runtime && !zenMode.value && !viewOnly.value && (isNarrow ? <MobilePropertiesBar runtime={runtime} /> : <PropertiesPanel runtime={runtime} />)}
       {runtime && !zenMode.value && (
         <BackToContentPill runtime={runtime} cameraStore={cameraStore} getViewportSize={() => ({ width: canvasHostRef.current?.clientWidth ?? 0, height: canvasHostRef.current?.clientHeight ?? 0 })} />
