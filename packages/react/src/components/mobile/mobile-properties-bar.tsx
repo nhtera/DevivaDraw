@@ -65,7 +65,7 @@ export function MobilePropertiesBar(props: MobilePropertiesBarProps) {
       if (event.key !== "Escape") return;
       // Defer to an open color-picker popover: its own Escape handler closes it first, so one press
       // shouldn't also collapse the whole sheet.
-      if (document.querySelector('[data-testid$="color-popover"]')) return;
+      if (document.querySelector("[data-dd-popover]")) return;
       setSheetOpen(false);
     };
     document.addEventListener("keydown", onKeyDown);

@@ -18,3 +18,19 @@
 export function popoverPortalHost(node: Element | null | undefined): HTMLElement {
   return node?.closest<HTMLElement>('[data-testid="deviva-draw-root"]') ?? document.body;
 }
+
+/**
+ * Marks a portalled popover, so a container that dismisses itself on an outside pointerdown can tell
+ * "the user clicked away" from "the user clicked the popover I opened". Portalling moves the popover
+ * out of the opener's subtree, so a `contains()` check reads its own popover as outside: the main menu
+ * closed the instant a swatch in its canvas-background picker was pressed, unmounting the picker before
+ * the click could land, and the color was never applied.
+ *
+ * Spread onto every portalled popover's root element; test with `isInsidePopover`.
+ */
+export const popoverMarkerProps = { "data-dd-popover": "" } as const;
+
+/** Whether `target` sits inside any portalled popover (see `popoverMarkerProps`). */
+export function isInsidePopover(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest("[data-dd-popover]") !== null;
+}

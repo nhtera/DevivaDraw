@@ -6,9 +6,9 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { RADIUS, inputStyle, labelStyle, panelStyle } from "./chrome-styles";
+import { RADIUS, Z_LAYER, inputStyle, labelStyle, panelStyle } from "./chrome-styles";
 import { generateShades, isValidHex, normalizeHex } from "./color-utils";
-import { popoverPortalHost } from "./popover-portal-host";
+import { popoverMarkerProps, popoverPortalHost } from "./popover-portal-host";
 
 interface EyeDropperResult {
   sRGBHex: string;
@@ -164,9 +164,10 @@ export function ColorPicker(props: ColorPickerProps) {
       {open && createPortal(
         <div
           ref={popoverRef}
+          {...popoverMarkerProps}
           className="dd-animate-in"
           data-testid={testId ? `${testId}-popover` : undefined}
-          style={{ ...panelStyle, position: "fixed", top: popoverPos?.top ?? 0, left: popoverPos?.left ?? 0, visibility: popoverPos ? "visible" : "hidden", zIndex: 60, padding: 10, width: POPOVER_WIDTH, display: "flex", flexDirection: "column", gap: 8 }}
+          style={{ ...panelStyle, position: "fixed", top: popoverPos?.top ?? 0, left: popoverPos?.left ?? 0, visibility: popoverPos ? "visible" : "hidden", zIndex: Z_LAYER.popover, padding: 10, width: POPOVER_WIDTH, display: "flex", flexDirection: "column", gap: 8 }}
         >
           <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
             {palette.map((color) => (

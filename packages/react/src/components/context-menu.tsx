@@ -5,7 +5,7 @@
  * renders this only while open, closing it on Escape, an outside click, or after any action runs.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { panelStyle, buttonStyle, disabledButtonStyle } from "./chrome-styles";
+import { Z_LAYER, panelStyle, buttonStyle, disabledButtonStyle } from "./chrome-styles";
 import { Icon } from "./icon";
 import { detectIsMac, formatShortcut } from "../actions/format-shortcut";
 import { useTranslation } from "../i18n/use-translation";
@@ -102,7 +102,7 @@ export function ContextMenu(props: ContextMenuProps) {
         boxSizing: "border-box",
         maxHeight: `calc(100dvh - ${EDGE_MARGIN * 2}px)`,
         overflowY: "auto",
-        zIndex: 90,
+        zIndex: Z_LAYER.menu,
       }}
     >
       {MENU_ACTION_GROUPS.map((group, groupIndex) => (

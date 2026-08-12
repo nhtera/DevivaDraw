@@ -18,6 +18,27 @@ export const RADIUS = { control: 8, panel: 12 } as const;
  */
 export const PANEL_SHADOW = "0 6px 24px rgba(15, 16, 20, 0.14), 0 1px 3px rgba(15, 16, 20, 0.10)";
 
+/**
+ * Stacking order for the floating chrome that can overlap. Only the tiers that actually cover each
+ * other are named — the docked chrome (toolbar, panels, minimap, sidebar) keeps its own low values,
+ * since it never overlaps these.
+ *
+ * `popover` above `menu` is the point of the ladder: a popover is opened *from* a menu or a panel, so
+ * it has to clear whatever opened it. As a bare number chosen next to its own component it did not,
+ * and the canvas-background swatches opened a color popover that the main menu then painted straight
+ * over. Anything portalled to the app root belongs to one of these tiers.
+ */
+export const Z_LAYER = {
+  /** Menus anchored to the chrome: the main menu, the canvas context menu. */
+  menu: 90,
+  /** The find bar, which overlays the toolbar. */
+  findPanel: 95,
+  /** Popovers opened from a menu, panel, or sidebar — above every one of them. */
+  popover: 96,
+  /** Modal dialogs and their scrim, above everything else. */
+  dialog: 100,
+} as const;
+
 /** One font stack for all chrome text, so panels/buttons/hints stay visually consistent. */
 export const chromeFontFamily = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 
@@ -69,7 +90,7 @@ export const dialogOverlayStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  zIndex: 100,
+  zIndex: Z_LAYER.dialog,
 };
 
 export const dialogStyle: CSSProperties = {

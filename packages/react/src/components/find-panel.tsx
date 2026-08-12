@@ -6,7 +6,7 @@
  */
 import { computeElementsBounds, findTextMatches } from "@deviva-draw/engine";
 import { useEffect, useMemo, useState } from "react";
-import { buttonStyle, inputStyle, panelStyle } from "./chrome-styles";
+import { Z_LAYER, buttonStyle, inputStyle, panelStyle } from "./chrome-styles";
 import { Icon } from "./icon";
 import { useTranslation } from "../i18n/use-translation";
 import { useSceneVersion } from "../runtime/use-live-version";
@@ -52,7 +52,7 @@ export function FindPanel(props: { runtime: DevivaRuntime; onClose(): void }) {
       className="dd-animate-in"
       data-testid="find-panel"
       role="search"
-      style={{ ...panelStyle, position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: 95, padding: 6, display: "flex", alignItems: "center", gap: 6 }}
+      style={{ ...panelStyle, position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: Z_LAYER.findPanel, padding: 6, display: "flex", alignItems: "center", gap: 6 }}
     >
       <input
         data-testid="find-input"

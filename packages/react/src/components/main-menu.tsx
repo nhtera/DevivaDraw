@@ -7,8 +7,9 @@
  * design; only this explicit, easy-to-mis-click menu item guards itself).
  */
 import { useEffect, useRef } from "react";
-import { buttonStyle, inputStyle, panelStyle } from "./chrome-styles";
+import { Z_LAYER, buttonStyle, inputStyle, panelStyle } from "./chrome-styles";
 import { CanvasBackgroundRow } from "./canvas-background-row";
+import { isInsidePopover } from "./popover-portal-host";
 import { Icon } from "./icon";
 import type { Locale } from "../i18n/locale-storage";
 import { useTranslation } from "../i18n/use-translation";
@@ -76,6 +77,9 @@ export function MainMenu(props: MainMenuProps) {
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
+      // A popover this menu opened (the canvas-background color picker) is portalled out of the menu,
+      // so it reads as "outside" by containment alone — see `isInsidePopover`.
+      if (isInsidePopover(event.target)) return;
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) onClose();
     };
     window.addEventListener("pointerdown", handlePointerDown);
@@ -88,7 +92,7 @@ export function MainMenu(props: MainMenuProps) {
   };
 
   return (
-    <div ref={menuRef} role="menu" data-testid="main-menu" className="dd-animate-in" style={{ ...panelStyle, position: "absolute", top: 56, left: 12, padding: 4, width: 220, zIndex: 90, maxHeight: "calc(100vh - 72px)", overflowY: "auto" }}>
+    <div ref={menuRef} role="menu" data-testid="main-menu" className="dd-animate-in" style={{ ...panelStyle, position: "absolute", top: 56, left: 12, padding: 4, width: 220, zIndex: Z_LAYER.menu, maxHeight: "calc(100vh - 72px)", overflowY: "auto" }}>
       <MenuButton testId="main-menu-open" icon="folder-open" onClick={() => run("open-scene")}>
         {t("action.openScene")}
       </MenuButton>

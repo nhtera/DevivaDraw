@@ -14,10 +14,10 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { buttonStyle, inputStyle, panelStyle } from "./chrome-styles";
+import { Z_LAYER, buttonStyle, inputStyle, panelStyle } from "./chrome-styles";
 import { Icon } from "./icon";
 import { normalizeLinkUrl } from "./link-url";
-import { popoverPortalHost } from "./popover-portal-host";
+import { popoverMarkerProps, popoverPortalHost } from "./popover-portal-host";
 import { useTranslation } from "../i18n/use-translation";
 import type { DevivaRuntime } from "../runtime/runtime-types";
 
@@ -111,6 +111,7 @@ export function LinkSection(props: { runtime: DevivaRuntime }) {
       {open && createPortal(
         <div
           ref={popoverRef}
+          {...popoverMarkerProps}
           className="dd-animate-in"
           data-testid="link-popover"
           style={{
@@ -119,7 +120,7 @@ export function LinkSection(props: { runtime: DevivaRuntime }) {
             top: popoverPos?.top ?? 0,
             left: popoverPos?.left ?? 0,
             visibility: popoverPos ? "visible" : "hidden",
-            zIndex: 60,
+            zIndex: Z_LAYER.popover,
             padding: 10,
             width: POPOVER_WIDTH,
             display: "flex",
