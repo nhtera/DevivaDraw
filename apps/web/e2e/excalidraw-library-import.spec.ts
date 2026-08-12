@@ -123,6 +123,38 @@ test("dropping the same grouped item twice creates two independent groups", asyn
   expect(await liveElementCount(page)).toBe(3);
 });
 
+test("a nested imported shape moves as one piece, not as the sub-group under the cursor", async ({ page }) => {
+  // Published library shapes nest: an outer group holds the whole icon, inner groups hold clusters of
+  // strokes inside it. Excalidraw writes `groupIds` innermost-first and this app reads it
+  // outermost-first, so without the flip at import a click would resolve to the cluster it landed on
+  // and drag that fragment out of the shape.
+  const shape = (id: string, x: number, y: number, width: number, height: number, groupIds: string[]) =>
+    ({ type: "rectangle", id, x, y, width, height, strokeColor: "#000000", backgroundColor: "#eeeeee", fillStyle: "solid", strokeWidth: 1, strokeStyle: "solid", roughness: 1, opacity: 100, angle: 0, seed: 1, groupIds, strokeSharpness: "sharp", boundElementIds: [] });
+  const nested = [
+    shape("body", 0, 0, 120, 120, ["shape"]),
+    shape("blade-a", 40, 40, 40, 10, ["blades", "shape"]),
+    shape("blade-b", 40, 70, 40, 10, ["blades", "shape"]),
+    { ...shape("label", 0, 130, 120, 20, ["shape"]), type: "text", text: "Cold Storage", fontSize: 16, fontFamily: 1, textAlign: "center", verticalAlign: "top" },
+  ];
+
+  await openLibrary(page);
+  await importFixture(page, { ...LIBRARY_FILE, library: [nested] });
+  await page.getByTestId("library-item").first().click();
+  expect(await liveElementCount(page)).toBe(4);
+
+  await page.keyboard.press("Escape"); // closes the library panel
+  await expect(page.getByTestId("library-panel")).toHaveCount(0);
+  await page.mouse.click(300, 600); // clears the selection the drop left behind
+
+  // The item is centered on the viewport, so its own (60, 45) — the middle of the upper blade, which
+  // belongs to the *inner* group — sits 30px above the viewport center.
+  await page.mouse.click(640, 330);
+  await page.keyboard.press("Delete");
+
+  // The whole shape goes, including the label, which shares only the outer group with the blade.
+  expect(await liveElementCount(page)).toBe(0);
+});
+
 test("imported items are searchable by their labels, which is the only name a v1 library gives them", async ({ page }) => {
   // The v1 envelope has no field for an item name at all, so every item would otherwise be a
   // positional "Item 1"/"Item 2" and the search box could never match a word anyone would type.

@@ -60,6 +60,20 @@ function stringArray(value: unknown): string[] {
 }
 
 /**
+ * Group nesting, flipped into this document's order. The two formats agree on what `groupIds` means
+ * but not on which end is which: Excalidraw appends each new group, so its array runs
+ * innermost-to-outermost, while `BaseElement.groupIds` runs outermost-first — `groupSelection`
+ * prepends, and `expandToGroupMembers` reads index 0 as the group a click expands to.
+ *
+ * Copied through verbatim, an imported shape would therefore expand to its *innermost* subgroup:
+ * clicking a published icon grabs one cluster of strokes inside it instead of the whole shape, and
+ * dragging pulls that cluster out of the drawing it belongs to.
+ */
+function groupIdsOf(raw: RawExcalidrawElement): string[] {
+  return stringArray(raw.groupIds).reverse();
+}
+
+/**
  * Store-owned bookkeeping is left at the same pre-insert sentinels `createElementBase` uses, not at
  * the source file's values: an imported element is a brand-new element as far as this document's
  * history and collab merge are concerned, and carrying a foreign document's `version`/`versionNonce`
@@ -83,7 +97,7 @@ function baseOf(raw: RawExcalidrawElement, fallbackId: string): Omit<BaseElement
     opacity: num(raw.opacity, 100),
     roundness: roundnessOf(raw),
     seed: num(raw.seed, 0),
-    groupIds: stringArray(raw.groupIds),
+    groupIds: groupIdsOf(raw),
     frameId: typeof raw.frameId === "string" ? raw.frameId : null,
     boundElements: boundElementsOf(raw),
     link: typeof raw.link === "string" ? raw.link : null,

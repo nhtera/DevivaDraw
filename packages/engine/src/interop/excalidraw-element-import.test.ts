@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { importExcalidrawElements } from "./excalidraw-element-import";
+import { expandToGroupMembers } from "../selection/group-ungroup";
+import { insertElements } from "../selection/clipboard";
+import { Scene } from "../scene/scene";
 import { ROUND_CORNER_ROUNDNESS_TYPE } from "../render/rough-renderer";
 import type { ArrowElement, LineElement, TextElement } from "../elements/element-types";
 
@@ -59,6 +62,14 @@ describe("importExcalidrawElements", () => {
     // freshly imported element the first time this scene merges with a peer.
     const [element] = importExcalidrawElements([v2Rectangle()]).elements;
     expect(element).toMatchObject({ version: 0, versionNonce: 0, updated: 0, index: "" });
+  });
+
+  it("flips group nesting, which the two formats order from opposite ends", () => {
+    // Excalidraw appends each new group, so its array reads innermost-first; `BaseElement.groupIds`
+    // reads outermost-first. Kept as-is, `groupIds[0]` would name the deepest subgroup — the one a
+    // click expands to here — and selecting an imported shape would grab a fragment of it.
+    const nested = v2Rectangle({ groupIds: ["blade", "snowflake", "cold-storage"] });
+    expect(importExcalidrawElements([nested]).elements[0]!.groupIds).toEqual(["cold-storage", "snowflake", "blade"]);
   });
 
   it("collapses every Excalidraw rounding algorithm onto the one this renderer implements", () => {
@@ -201,5 +212,23 @@ describe("importExcalidrawElements", () => {
     expect(importExcalidrawElements(null)).toEqual({ elements: [], skipped: {} });
     expect(importExcalidrawElements("nope")).toEqual({ elements: [], skipped: {} });
     expect(importExcalidrawElements([42, null, "x"])).toEqual({ elements: [], skipped: {} });
+  });
+
+  it("keeps a nested imported shape selectable as one thing once it is in the scene", () => {
+    // What the group-order flip is actually for, end to end: the layout of a real published icon,
+    // where an outer group holds the whole shape and inner groups hold clusters of strokes inside it.
+    // Clicking any stroke has to take the whole shape, not the cluster it sits in.
+    const item = [
+      { type: "rectangle", id: "body", x: 0, y: 0, width: 60, height: 80, groupIds: ["shape"] },
+      { type: "line", id: "blade-a", x: 20, y: 30, points: [[0, 0], [10, 0]], groupIds: ["blades", "shape"] },
+      { type: "line", id: "blade-b", x: 20, y: 40, points: [[0, 0], [10, 0]], groupIds: ["blades", "shape"] },
+      { type: "text", id: "label", x: 0, y: 90, text: "Cold Storage", groupIds: ["shape"] },
+    ];
+    const scene = new Scene();
+    const insertedIds = insertElements(scene, importExcalidrawElements(item).elements);
+
+    // Starting from one blade — a member of the *inner* group, which is what the old ordering picked.
+    const blade = scene.getElements().find((element) => element.type === "line")!;
+    expect(expandToGroupMembers(scene, [blade.id]).sort()).toEqual([...insertedIds].sort());
   });
 });
