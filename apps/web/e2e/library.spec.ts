@@ -206,6 +206,29 @@ test("a right-click near the bottom edge keeps the whole menu on screen", async 
   expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
 });
 
+// The clamp can only choose where to put the menu; it cannot make an over-tall one fit. On a viewport
+// shorter than the full action list it has no valid position to pick, so the menu needs its own height
+// cap. The default 1280x720 desktop viewport sits right at that threshold — which side of it depends on
+// platform font metrics — so the case is pinned explicitly here rather than left to chance.
+test.describe("on a viewport shorter than the context menu", () => {
+  test.use({ viewport: { width: 1280, height: 400 } });
+
+  test("the context menu is capped to the viewport and scrolls rather than overflowing", async ({ page }) => {
+    const viewport = page.viewportSize()!;
+    await page.mouse.click(viewport.width - 40, viewport.height - 30, { button: "right" });
+    const menu = page.getByTestId("context-menu");
+    await expect(menu).toBeVisible();
+    // The pop-in opens from scale(0.97); measuring through it reports a box smaller than the menu settles at.
+    await menu.evaluate((node) => Promise.all(node.getAnimations().map((animation) => animation.finished)));
+
+    const box = (await menu.boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+    // Capping the height only helps if the entries it pushed out of view stay reachable.
+    expect(await menu.evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true);
+  });
+});
+
 test("the tile grid keeps its four columns and never scrolls sideways", async ({ page }) => {
   // The sidebar is sized to fit exactly four tiles. That sum has to include its own 1px border — the
   // panel is `border-box`, so omitting it silently costs the grid a whole column.

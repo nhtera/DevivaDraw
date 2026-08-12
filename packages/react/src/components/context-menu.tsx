@@ -47,7 +47,12 @@ export function ContextMenu(props: ContextMenuProps) {
   useLayoutEffect(() => {
     const node = menuRef.current;
     if (!node) return;
-    const { width, height } = node.getBoundingClientRect();
+    // offsetWidth/offsetHeight, not getBoundingClientRect: the .dd-animate-in pop-in opens from
+    // `scale(0.97)`, and this runs while that keyframe is on its first frame. A rect is the *painted*
+    // box, so it reports the menu 3% smaller than it lands, and the clamp then seats it ~3% of its
+    // height too low — enough to hang the last entry off the bottom edge. The offset* pair reports the
+    // untransformed layout box, which is the size the menu will actually occupy once settled.
+    const { offsetWidth: width, offsetHeight: height } = node;
     setPosition({
       x: Math.max(EDGE_MARGIN, Math.min(screenPoint.x, window.innerWidth - width - EDGE_MARGIN)),
       y: Math.max(EDGE_MARGIN, Math.min(screenPoint.y, window.innerHeight - height - EDGE_MARGIN)),
@@ -75,7 +80,30 @@ export function ContextMenu(props: ContextMenuProps) {
       role="menu"
       data-testid="context-menu"
       className="dd-animate-in"
-      style={{ ...panelStyle, position: "fixed", left: position.x, top: position.y, padding: 4, display: "flex", flexDirection: "column", minWidth: 160, zIndex: 90 }}
+      style={{
+        ...panelStyle,
+        position: "fixed",
+        left: position.x,
+        top: position.y,
+        padding: 4,
+        display: "flex",
+        flexDirection: "column",
+        minWidth: 160,
+        // Bounding the height is what makes the clamp above reliable: on a viewport shorter than the
+        // full action list, an unbounded menu exceeds `innerHeight - 2 * EDGE_MARGIN`, the clamp's
+        // upper bound goes negative, and the EDGE_MARGIN floor wins — pinning the top on screen while
+        // the tail runs off the bottom. Capping it here means the menu always fits, and the overflow
+        // becomes a scroll instead of unreachable entries. Font metrics vary by platform, so the exact
+        // viewport where this bites does too.
+        //
+        // `border-box` is load-bearing, not tidiness: panelStyle contributes a 1px border and this
+        // adds 4px of padding, so under the default content-box the cap would still overflow by those
+        // 10px. Scoped here rather than on the shared panelStyle, which other chrome sizes against.
+        boxSizing: "border-box",
+        maxHeight: `calc(100dvh - ${EDGE_MARGIN * 2}px)`,
+        overflowY: "auto",
+        zIndex: 90,
+      }}
     >
       {MENU_ACTION_GROUPS.map((group, groupIndex) => (
         <div key={groupIndex} style={{ display: "contents" }}>
