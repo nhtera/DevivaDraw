@@ -11,7 +11,8 @@ import { drawElementRough } from "./rough-renderer";
 const DUMMY_DRAWABLE = { shape: "rectangle", options: {}, sets: [] } as unknown as Drawable;
 
 function fakeCtx(): RoughDrawContext2D {
-  return { save: vi.fn(), restore: vi.fn(), translate: vi.fn(), rotate: vi.fn(), globalAlpha: 1 };
+  return { save: vi.fn(), restore: vi.fn(), translate: vi.fn(), rotate: vi.fn(),
+    scale: vi.fn(), globalAlpha: 1 };
 }
 
 function fakeRoughCanvas(): RoughCanvasDrawer {

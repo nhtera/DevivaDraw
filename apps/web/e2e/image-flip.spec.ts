@@ -60,7 +60,7 @@ async function patchColor(page: Page, x: number, y: number): Promise<{ r: number
 test("Shift+H mirrors an image on the canvas, and flipping again restores it", async ({ page }) => {
   await insertImage(page);
   const placed = (await imageElement(page))!;
-  expect(placed.scale).toEqual([1, 1]);
+  expect(placed.scale).toBeUndefined(); // never flipped, so the field is simply absent
 
   // Sample well inside each half of the placed image.
   const leftPatch = { x: placed.x + placed.width * 0.2, y: placed.y + placed.height * 0.5 };

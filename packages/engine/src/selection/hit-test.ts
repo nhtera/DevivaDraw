@@ -13,6 +13,7 @@
  * label, matching how the container is what owns the click in every whiteboard app of this genre.
  */
 import type { AnyElement } from "../elements/element-types";
+import { mirrorScaleOf } from "../elements/element-mirror";
 import type { PolygonShapeType } from "../elements/polygon-shape-geometry";
 import { blockArrowUnitVertices, polygonShapeUnitVertices } from "../elements/polygon-shape-geometry";
 import type { BlockArrowDirection } from "../elements/shape-elements";
@@ -38,10 +39,17 @@ function hasLabel(element: AnyElement): boolean {
   return findBoundTextRef(element) !== null;
 }
 
-/** Local-space point relative to `element`'s own `(x, y)` origin, after undoing its rotation. */
-function toLocalRelativePoint(element: Pick<AnyElement, "x" | "y" | "width" | "height" | "angle">, point: Point): Point {
+/**
+ * Local-space point relative to `element`'s own `(x, y)` origin, after undoing its rotation *and* its
+ * mirroring. Undoing the mirror here is what keeps an asymmetric flipped outline (a parallelogram's
+ * lean, a check-box's tick) clickable where it is actually drawn — every per-type test below works
+ * from the unmirrored geometry, so reflecting the point is equivalent to reflecting the shape.
+ */
+function toLocalRelativePoint(element: Pick<AnyElement, "x" | "y" | "width" | "height" | "angle" | "scale">, point: Point): Point {
   const unrotated = rotatePointAroundCenter(point, elementCenter(element), -element.angle);
-  return { x: unrotated.x - element.x, y: unrotated.y - element.y };
+  const local = { x: unrotated.x - element.x, y: unrotated.y - element.y };
+  const [scaleX, scaleY] = mirrorScaleOf(element);
+  return { x: scaleX < 0 ? element.width - local.x : local.x, y: scaleY < 0 ? element.height - local.y : local.y };
 }
 
 /** The outline of polygon shape `type` in a `width x height` box's local frame, from the shared unit vertices (`elements/polygon-shape-geometry.ts`). */

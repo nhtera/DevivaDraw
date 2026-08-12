@@ -3,7 +3,15 @@ import { createArrowElement } from "../elements/arrow-element";
 import { createFreedrawElement } from "../elements/freedraw-element";
 import { createImageElement } from "../elements/image-element";
 import { createTextElement } from "../elements/text-element";
-import { createBlockArrowElement, createLineElement, createRectangleElement, createTriangleElement } from "../elements/shape-elements";
+import {
+  createBlockArrowElement,
+  createCheckBoxElement,
+  createCloudElement,
+  createLineElement,
+  createParallelogramElement,
+  createRectangleElement,
+  createTriangleElement,
+} from "../elements/shape-elements";
 import type { AnyElement } from "../elements/element-types";
 import { computeFlipChanges } from "./flip-selection";
 
@@ -39,9 +47,9 @@ describe("computeFlipChanges — positions", () => {
     expect(changesFor(elements, "horizontal", right.id).x).toBe(0);
   });
 
-  it("leaves a lone symmetric shape exactly where it was — its box is the selection's", () => {
+  it("leaves a lone shape exactly where it was — its box is the selection's, so only its own mirror changes", () => {
     const rect = stored(createRectangleElement({ x: 40, y: 10, width: 20, height: 10 }));
-    expect(changesFor([rect], "horizontal", rect.id)).toEqual({ x: 40 });
+    expect(changesFor([rect], "horizontal", rect.id)).toEqual({ x: 40, scale: [-1, 1] });
   });
 
   it("mirrors along one axis only — a horizontal flip never moves anything vertically", () => {
@@ -61,7 +69,7 @@ describe("computeFlipChanges — positions", () => {
     const deleted = { ...stored(createRectangleElement({ x: 400, y: 0, width: 20, height: 10 })), isDeleted: true };
     const changes = computeFlipChanges([live, deleted], "horizontal");
     expect(changes).toHaveLength(1);
-    expect(changes[0]!.changes).toEqual({ x: 0 });
+    expect(changes[0]!.changes).toEqual({ x: 0, scale: [-1, 1] });
   });
 });
 
@@ -134,31 +142,37 @@ describe("computeFlipChanges — geometry", () => {
 });
 
 describe("computeFlipChanges — outlines that carry no mirrored variant", () => {
-  it("turns a triangle upside down on a vertical flip, since that mirror is a half turn for it", () => {
-    const triangle = stored(createTriangleElement({ x: 0, y: 0, width: 40, height: 40 }));
-    expect(changesFor([triangle], "vertical", triangle.id).angle!).toBeCloseTo(Math.PI, 6);
+  const box = { x: 0, y: 0, width: 40, height: 40 };
+
+  it("records the mirror on the element rather than faking it with a half turn", () => {
+    const triangle = stored(createTriangleElement(box));
+    expect(changesFor([triangle], "vertical", triangle.id).scale).toEqual([1, -1]);
+    expect(changesFor([triangle], "vertical", triangle.id).angle).toBeUndefined();
+    expect(changesFor([triangle], "horizontal", triangle.id).scale).toEqual([-1, 1]);
   });
 
-  it("leaves a triangle upright on a horizontal flip — its outline already answers to that mirror", () => {
-    const triangle = stored(createTriangleElement({ x: 0, y: 0, width: 40, height: 40 }));
-    expect(changesFor([triangle], "horizontal", triangle.id).angle).toBeUndefined();
+  it("covers the shapes symmetric about neither axis, which no rotation could ever flip", () => {
+    for (const create of [createParallelogramElement, createCloudElement, createCheckBoxElement]) {
+      const shape = stored(create(box));
+      expect(changesFor([shape], "horizontal", shape.id).scale).toEqual([-1, 1]);
+      expect(changesFor([shape], "vertical", shape.id).scale).toEqual([1, -1]);
+    }
   });
 
-  it("mirrors an image by recording the flip on the element, since a photo has no mirrored variant", () => {
-    const image = stored(createImageElement({ x: 0, y: 0, width: 80, height: 60, fileId: "f1", naturalWidth: 160, naturalHeight: 120 }));
+  it("mirrors an image the same way — a photo has no mirrored variant either", () => {
+    const image = stored(createImageElement({ ...box, fileId: "f1", naturalWidth: 160, naturalHeight: 120 }));
     expect(changesFor([image], "horizontal", image.id).scale).toEqual([-1, 1]);
-    expect(changesFor([image], "vertical", image.id).scale).toEqual([1, -1]);
-    // ...and never by turning it upside down, which is not a mirror.
     expect(changesFor([image], "horizontal", image.id).angle).toBeUndefined();
   });
 
-  it("flipping an already-mirrored image puts it back", () => {
-    const flipped = stored(createImageElement({ x: 0, y: 0, width: 80, height: 60, fileId: "f1", naturalWidth: 160, naturalHeight: 120, scale: [-1, 1] }));
+  it("flipping the same way twice puts an element back", () => {
+    const flipped = stored(createImageElement({ ...box, fileId: "f1", naturalWidth: 160, naturalHeight: 120, scale: [-1, 1] }));
     expect(changesFor([flipped], "horizontal", flipped.id).scale).toEqual([1, 1]);
   });
 
-  it("never rotates text, which would render the label as mirror writing", () => {
-    const text = stored(createTextElement({ x: 0, y: 0, text: "Label", fontSize: 20, fontFamily: "normal", width: 50, height: 20 }));
+  it("never mirrors text, which would render the label as mirror writing", () => {
+    const text = stored(createTextElement({ ...box, text: "Label", fontSize: 20, fontFamily: "normal" }));
+    expect(changesFor([text], "vertical", text.id).scale).toBeUndefined();
     expect(changesFor([text], "vertical", text.id).angle).toBeUndefined();
   });
 });

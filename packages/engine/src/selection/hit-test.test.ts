@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createArrowElement } from "../elements/arrow-element";
 import { createFreedrawElement } from "../elements/freedraw-element";
 import { createImageElement } from "../elements/image-element";
-import { createDiamondElement, createEllipseElement, createLineElement, createRectangleElement } from "../elements/shape-elements";
+import { createDiamondElement, createEllipseElement, createLineElement, createParallelogramElement, createRectangleElement } from "../elements/shape-elements";
 import { createTextElement } from "../elements/text-element";
 import { Scene } from "../scene/scene";
 import { hitTestElement, topmostElementAt } from "./hit-test";
@@ -173,6 +173,39 @@ describe("hitTestElement — labelled containers", () => {
       index: "a",
     };
     expect(hitTestElement(ellipse, { x: 50, y: 30 }, 2)).toBe(true);
+  });
+});
+
+describe("hitTestElement — mirrored elements", () => {
+  /**
+   * A parallelogram leaning right: its top edge runs from x=25 to x=100, its bottom from x=0 to x=75.
+   * So a point just inside the top-left corner is *outside* the shape, and its mirror image is inside —
+   * which makes it a precise probe for whether a flipped outline is grabbed where it is drawn.
+   */
+  const leaning = (scale?: readonly [number, number]) => ({
+    ...createParallelogramElement({ x: 0, y: 0, width: 100, height: 100 }),
+    backgroundColor: "#fff", // filled, so the interior is the hit target
+    ...(scale ? { scale } : {}),
+    version: 1,
+    versionNonce: 1,
+    updated: 1,
+    index: "a",
+  });
+
+  it("unmirrored: the shape leans away from the top-left corner", () => {
+    expect(hitTestElement(leaning(), { x: 10, y: 10 }, 1)).toBe(false);
+    expect(hitTestElement(leaning(), { x: 90, y: 10 }, 1)).toBe(true);
+  });
+
+  it("mirrored: the lean reverses, and so does which corner is inside it", () => {
+    expect(hitTestElement(leaning([-1, 1]), { x: 10, y: 10 }, 1)).toBe(true);
+    expect(hitTestElement(leaning([-1, 1]), { x: 90, y: 10 }, 1)).toBe(false);
+  });
+
+  it("leaves a symmetric outline unchanged, mirrored or not", () => {
+    const circle = { ...createEllipseElement({ x: 0, y: 0, width: 100, height: 100, backgroundColor: "#fff" }), scale: [-1, 1] as const, version: 1, versionNonce: 1, updated: 1, index: "a" };
+    expect(hitTestElement(circle, { x: 50, y: 50 }, 1)).toBe(true);
+    expect(hitTestElement(circle, { x: 2, y: 2 }, 1)).toBe(false); // bbox corner, outside the circle
   });
 });
 

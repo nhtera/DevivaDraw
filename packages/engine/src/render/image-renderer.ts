@@ -6,7 +6,7 @@
  * matters) and falls back to a placeholder rect while a decode is still in flight or failed, so a
  * freshly-pasted image never draws nothing at all for the one or two frames its decode takes.
  */
-import { imageScaleOf } from "../elements/image-element";
+import { mirrorScaleOf } from "../elements/element-mirror";
 import type { ImageElement } from "../elements/image-element";
 import type { ImageDecodeCache } from "../images/image-decode-cache";
 import type { StoredFile } from "../images/files-map";
@@ -71,7 +71,7 @@ export function drawElementImage(
   ctx.save();
   ctx.globalAlpha = Math.min(1, Math.max(0, element.opacity / 100));
 
-  const [scaleX, scaleY] = imageScaleOf(element);
+  const [scaleX, scaleY] = mirrorScaleOf(element);
   const mirrored = scaleX < 0 || scaleY < 0;
   if (element.angle !== 0 || mirrored) {
     const centerX = rect.x + rect.width / 2;

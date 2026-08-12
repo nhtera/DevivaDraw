@@ -12,6 +12,7 @@ function fakeContext(): FreedrawDrawContext2D & { globalCompositeOperation: stri
     restore: vi.fn(),
     translate: vi.fn(),
     rotate: vi.fn(),
+    scale: vi.fn(),
     globalAlpha: 1,
     globalCompositeOperation: "source-over",
     fillStyle: "#000",

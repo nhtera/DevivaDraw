@@ -45,6 +45,13 @@ export interface BaseElement {
   /** 0-100. */
   opacity: number;
   roundness: RoundnessValue | null;
+  /**
+   * Mirroring as `[x, y]` multipliers of ±1, absent when the element has never been flipped — see
+   * `element-mirror.ts`, and read it through that module's `mirrorScaleOf` rather than directly.
+   * Honoured by everything drawn from its bounding box; point geometry (line/arrow/freedraw) mirrors
+   * its own points instead, and text is never mirrored.
+   */
+  scale?: readonly [x: number, y: number];
   /** Deterministic seed for the sketchy renderer, so re-renders of an unchanged element look identical. */
   seed: number;
   /** Outermost-to-innermost group ids this element belongs to; empty when ungrouped. */

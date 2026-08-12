@@ -22,8 +22,7 @@
  * anyone means by the word.
  */
 import type { AnyElement } from "../elements/element-types";
-import { imageScaleOf } from "../elements/image-element";
-import { shapeOutlineSymmetry } from "../elements/shape-outline-symmetry";
+import { mirrorScaleOf, toggleMirror } from "../elements/element-mirror";
 import type { BlockArrowDirection } from "../elements/shape-elements";
 import type { ElementUpdate } from "../scene/scene";
 import type { ElementTransformResult } from "./group-transform";
@@ -38,8 +37,8 @@ function normalizeAngle(angle: number): number {
   return wrapped < 0 ? wrapped + TWO_PI : wrapped;
 }
 
-/** Element types whose appearance is their content, not an outline — never rotated to imitate a mirror. */
-const CONTENT_TYPES: ReadonlySet<string> = new Set(["text", "image", "embed"]);
+/** Types with nothing to mirror: glyphs would become mirror writing, an embed is a live iframe. */
+const NEVER_MIRRORED: ReadonlySet<string> = new Set(["text", "embed"]);
 
 const FLIPPED_DIRECTION: Readonly<Record<BlockArrowDirection, { horizontal: BlockArrowDirection; vertical: BlockArrowDirection }>> = {
   right: { horizontal: "left", vertical: "right" },
@@ -83,22 +82,11 @@ function typeSpecificChanges(element: AnyElement, axis: FlipAxis): ElementUpdate
   if (element.type === "block-arrow") {
     return { direction: FLIPPED_DIRECTION[element.direction][axis] } as ElementUpdate;
   }
-  if (element.type === "image") {
-    // A photo has no mirrored variant to switch to and cannot be faked with a rotation, so the flip is
-    // recorded on the element and applied when it is drawn (see `ImageElement.scale`).
-    const [scaleX, scaleY] = imageScaleOf(element);
-    return { scale: axis === "horizontal" ? [-scaleX, scaleY] : [scaleX, -scaleY] } as ElementUpdate;
-  }
-  if (CONTENT_TYPES.has(element.type)) return {};
+  if (NEVER_MIRRORED.has(element.type)) return {};
 
-  // A bounding-box shape: already symmetric about the flip axis ⇒ nothing to do; symmetric about the
-  // other one ⇒ this mirror is a half turn, which `angle` can express; symmetric about neither ⇒ no
-  // rotation reproduces the mirror, so the outline is left as it is and only its position moves.
-  const symmetry = shapeOutlineSymmetry(element.type);
-  const alongFlipAxis = axis === "horizontal" ? symmetry.vertical : symmetry.horizontal;
-  const acrossFlipAxis = axis === "horizontal" ? symmetry.horizontal : symmetry.vertical;
-  if (alongFlipAxis || !acrossFlipAxis) return {};
-  return { angle: normalizeAngle(-element.angle + Math.PI) };
+  // Everything else is drawn from its bounding box: record the mirror and let the renderer and the hit
+  // test apply it. Toggling means flipping the same way twice returns the element to where it started.
+  return { scale: toggleMirror(mirrorScaleOf(element), axis) } as ElementUpdate;
 }
 
 /**

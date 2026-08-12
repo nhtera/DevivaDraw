@@ -8,6 +8,7 @@
  * embedding, so a previously-exported SVG can later be re-opened as an editable scene.
  */
 import type { AnyElement } from "../elements/element-types";
+import { isMirrored, mirrorScaleOf } from "../elements/element-mirror";
 import { serializeScene } from "../persistence/serialize-scene";
 import type { Camera } from "../render/camera";
 import { screenRectOf } from "../render/rough-shape-geometry";
@@ -33,14 +34,24 @@ export interface ExportToSvgOptions {
   embedSceneData?: boolean;
 }
 
-/** Rotation (around the element's screen-space bbox center) + opacity wrap — the SVG equivalent of every canvas renderer's `save/translate/rotate/globalAlpha/restore` block. */
+/** Rotation and mirroring (both around the element's screen-space bbox center) + opacity wrap — the SVG equivalent of every canvas renderer's `save/translate/rotate/scale/globalAlpha/restore` block. */
 function wrapElementFragment(inner: string, element: AnyElement, camera: Camera): string {
   if (!inner) return "";
   const opacity = Math.min(1, Math.max(0, element.opacity / 100));
   const rect = screenRectOf(element, camera);
   const centerX = rect.x + rect.width / 2;
   const centerY = rect.y + rect.height / 2;
-  const transform = element.angle !== 0 ? ` transform="rotate(${(element.angle * 180) / Math.PI} ${centerX} ${centerY})"` : "";
+
+  const parts: string[] = [];
+  if (element.angle !== 0) parts.push(`rotate(${(element.angle * 180) / Math.PI} ${centerX} ${centerY})`);
+  // Mirroring is applied after (i.e. inside) the rotation, matching the canvas renderers, so a
+  // rotated-then-flipped element exports exactly as it appears on screen.
+  if (isMirrored(element)) {
+    const [scaleX, scaleY] = mirrorScaleOf(element);
+    parts.push(`translate(${centerX} ${centerY}) scale(${scaleX < 0 ? -1 : 1} ${scaleY < 0 ? -1 : 1}) translate(${-centerX} ${-centerY})`);
+  }
+
+  const transform = parts.length > 0 ? ` transform="${parts.join(" ")}"` : "";
   return `<g opacity="${opacity}"${transform}>${inner}</g>`;
 }
 

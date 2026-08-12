@@ -8,7 +8,6 @@
  */
 import type { EmbedElement } from "../elements/embed-element";
 import type { FreedrawElement } from "../elements/freedraw-element";
-import { imageScaleOf } from "../elements/image-element";
 import type { ImageElement } from "../elements/image-element";
 import type { TextAlign, TextElement } from "../elements/text-element";
 import { computeFreedrawOutline } from "../render/freedraw-renderer";
@@ -83,16 +82,9 @@ export function buildImageSvgFragment(element: ImageElement, camera: Camera, fil
   if (!file) {
     return `<rect x="${rect.x}" y="${rect.y}" width="${rect.width}" height="${rect.height}" fill="#ffe3e3" stroke="#e03131" stroke-width="2" />`;
   }
-  // Mirrored images carry their flip on the element (see `ImageElement.scale`); reproduce it here as
-  // a transform about the image's own centre, or an exported flip would silently come back unflipped.
-  const [scaleX, scaleY] = imageScaleOf(element);
-  const transform =
-    scaleX < 0 || scaleY < 0
-      ? ` transform="translate(${rect.x + rect.width / 2} ${rect.y + rect.height / 2}) scale(${scaleX < 0 ? -1 : 1} ${scaleY < 0 ? -1 : 1}) translate(${-(rect.x + rect.width / 2)} ${-(rect.y + rect.height / 2)})"`
-      : "";
   return (
     `<image x="${rect.x}" y="${rect.y}" width="${rect.width}" height="${rect.height}" ` +
-    `href="${escapeXmlAttribute(file.dataURL)}" preserveAspectRatio="none"${transform} />`
+    `href="${escapeXmlAttribute(file.dataURL)}" preserveAspectRatio="none" />`
   );
 }
 

@@ -8,7 +8,8 @@ import type { RoughDrawContext2D } from "./rough-renderer";
 const generator = rough.generator();
 
 function fakeCtx(): RoughDrawContext2D {
-  return { save: vi.fn(), restore: vi.fn(), translate: vi.fn(), rotate: vi.fn(), globalAlpha: 1 };
+  return { save: vi.fn(), restore: vi.fn(), translate: vi.fn(), rotate: vi.fn(),
+    scale: vi.fn(), globalAlpha: 1 };
 }
 
 describe("buildArrowDrawables", () => {

@@ -14,6 +14,7 @@
  */
 import type { Drawable, Options as RoughOptions } from "roughjs/bin/core.js";
 import type { AnyElement } from "../elements/element-types";
+import { isMirrored, mirrorScaleOf } from "../elements/element-mirror";
 import type { LineElement } from "../elements/shape-elements";
 import type { Camera } from "./camera";
 import type { RoughDrawableCache } from "./rough-drawable-cache";
@@ -58,6 +59,8 @@ export interface RoughDrawContext2D {
   restore(): void;
   translate(x: number, y: number): void;
   rotate(radians: number): void;
+  /** Used to mirror a flipped element about its own centre — see `elements/element-mirror.ts`. */
+  scale(x: number, y: number): void;
   globalAlpha: number;
 }
 
@@ -159,12 +162,19 @@ export function drawElementRough(
   ctx.save();
   ctx.globalAlpha = Math.min(1, Math.max(0, element.opacity / 100));
 
-  if (element.angle !== 0) {
+  const mirrored = isMirrored(element);
+  if (element.angle !== 0 || mirrored) {
     const rect = screenRectOf(element, camera);
     const centerX = rect.x + rect.width / 2;
     const centerY = rect.y + rect.height / 2;
     ctx.translate(centerX, centerY);
-    ctx.rotate(element.angle);
+    if (element.angle !== 0) ctx.rotate(element.angle);
+    // Mirroring sits inside the rotation, so a rotated-then-flipped shape mirrors across its own axes
+    // rather than the screen's — and it is a draw-time transform, so cached drawables stay valid.
+    if (mirrored) {
+      const [scaleX, scaleY] = mirrorScaleOf(element);
+      ctx.scale(scaleX < 0 ? -1 : 1, scaleY < 0 ? -1 : 1);
+    }
     ctx.translate(-centerX, -centerY);
   }
 

@@ -67,6 +67,7 @@ export function createElementBase(input: ElementCreationInput): Omit<BaseElement
     groupIds: input.groupIds ?? [],
     frameId: input.frameId ?? null,
     boundElements: input.boundElements ?? null,
+    ...(input.scale ? { scale: input.scale } : {}),
     link: input.link ?? null,
     locked: input.locked ?? false,
     index: "",

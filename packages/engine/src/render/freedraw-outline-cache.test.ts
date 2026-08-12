@@ -11,6 +11,7 @@ function fakeCtx(): FreedrawDrawContext2D {
     restore: vi.fn(),
     translate: vi.fn(),
     rotate: vi.fn(),
+    scale: vi.fn(),
     globalAlpha: 1,
     fillStyle: "",
     beginPath: vi.fn(),

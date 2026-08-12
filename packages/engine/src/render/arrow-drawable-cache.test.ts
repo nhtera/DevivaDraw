@@ -10,7 +10,8 @@ const DUMMY_DRAWABLE = { shape: "linearPath", options: {}, sets: [] } as unknown
 const ARROW_POINTS = [{ x: 0, y: 0 }, { x: 40, y: 0 }] as const;
 
 function fakeCtx(): RoughDrawContext2D {
-  return { save: vi.fn(), restore: vi.fn(), translate: vi.fn(), rotate: vi.fn(), globalAlpha: 1 };
+  return { save: vi.fn(), restore: vi.fn(), translate: vi.fn(), rotate: vi.fn(),
+    scale: vi.fn(), globalAlpha: 1 };
 }
 
 function fakeRoughCanvas(): RoughCanvasDrawer {
