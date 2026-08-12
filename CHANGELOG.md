@@ -4,6 +4,21 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.2] — 2026-08-13
+
+Publishes `@deviva-draw/react` only; `@deviva-draw/engine` (0.3.1) and
+`@deviva-draw/collab-client` (0.2.0) are unchanged.
+
+### Fixed
+- **The right-click menu no longer runs off the bottom of the screen.** Two faults
+  compounded. The menu was measured while its open animation was still on the first
+  frame — that keyframe starts scaled down, so it measured smaller than it settles at
+  and got seated slightly too low. And on a viewport shorter than the full action list
+  there is no position that fits at all, so the menu was pinned to the top edge with
+  its last entries hanging off the bottom, unreachable. The menu is now measured at its
+  true size and capped to the viewport, scrolling when the list is longer than the
+  screen. Which platforms saw this depended on font metrics.
+
 ## [0.3.1] — 2026-08-12
 
 ### Fixed
@@ -45,5 +60,6 @@ All notable changes to Deviva Draw are documented here. The format follows
 - Mobile style sheet centers via auto margins, so its entrance animation no longer shifts it.
 - Hamburger menu renders as a centered SVG glyph instead of the off-center Unicode `☰`.
 
+[0.3.2]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.2
 [0.3.1]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.1
 [0.3.0]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.0
