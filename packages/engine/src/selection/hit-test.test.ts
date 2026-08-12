@@ -83,6 +83,29 @@ describe("hitTestElement — line, arrow, freedraw", () => {
     expect(hitTestElement(stored, { x: 5, y: 5 }, 3)).toBe(true);
     expect(hitTestElement(stored, { x: 500, y: 500 }, 3)).toBe(false);
   });
+
+  it("freedraw: a closed loop stays ink-only — a background color it can never render must not open up its interior", () => {
+    // A rough square traced back to its start. Excalidraw would count the inside of this once the
+    // stroke had a fill; here that fill is unrenderable, so an interior hit would have nothing on
+    // screen to justify it. See the freedraw branch in `hit-test.ts`.
+    const loop = createFreedrawElement({
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      points: [
+        [0, 0, 0.5],
+        [100, 0, 0.5],
+        [100, 100, 0.5],
+        [0, 100, 0.5],
+        [0, 0, 0.5],
+      ],
+      backgroundColor: "#ff0000",
+    });
+    const stored = { ...loop, version: 1, versionNonce: 1, updated: 1, index: "a" };
+    expect(hitTestElement(stored, { x: 50, y: 50 }, 3)).toBe(false); // dead centre, well inside the loop
+    expect(hitTestElement(stored, { x: 50, y: 0 }, 3)).toBe(true); // on the traced edge
+  });
 });
 
 describe("hitTestElement — text, image, and bound text exclusion", () => {

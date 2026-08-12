@@ -164,6 +164,12 @@ export function hitTestElement(element: AnyElement, point: Point, tolerance: num
       // endpoints — otherwise the arrow would be grabbable along a line it is not drawn on.
       return distanceToPolyline(local, arrowPathPoints(element), false) <= tolerance;
     case "freedraw": {
+      // Ink only, never the enclosed area — deliberately unlike Excalidraw, which counts the inside of
+      // a closed freehand loop when the stroke has a fill. Nothing here can produce that fill: the
+      // freedraw renderer paints the ink outline from `strokeColor` and never reads `backgroundColor`,
+      // and the bucket-fill tool lists freedraw as non-fillable. Adopting the rule would therefore add
+      // a hit region with nothing visible behind it — a click on blank space inside a doodled circle
+      // grabbing the doodle, for no reason the user can see.
       // Cheap bbox reject first (freedraw has no fill/border distinction — ink is ink).
       if (!hitRectangleLike(local, element.width, element.height, true, tolerance)) return false;
       return distanceToPolyline(local, relativePoints(element.points), false) <= tolerance;
