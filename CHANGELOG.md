@@ -18,6 +18,12 @@ Publishes `@deviva-draw/react` only; `@deviva-draw/engine` (0.3.1) and
   its last entries hanging off the bottom, unreachable. The menu is now measured at its
   true size and capped to the viewport, scrolling when the list is longer than the
   screen. Which platforms saw this depended on font metrics.
+- **The properties panel no longer scrolls sideways.** The row of align buttons was a
+  few pixels wider than the panel's content box, and the opacity slider added a UA
+  margin on top of its `width: 100%` — and a scroll container computes `overflow-x`
+  alongside its `overflow-y`, so either one alone put a horizontal scrollbar under the
+  whole panel. The layer-action rows now share one column grid that shrinks to fit a
+  narrow container, and the shape and text panels share a single opacity row.
 
 ## [0.3.1] — 2026-08-12
 
