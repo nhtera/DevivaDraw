@@ -259,7 +259,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
         )}
       </div>
       {runtime && !zenMode.value && (isNarrow ? <BottomToolbar runtime={runtime} onInsertImage={openImagePicker} /> : <Toolbar runtime={runtime} toolLocked={toolLock.value} onToggleLock={() => toolLock.set(!toolLock.value)} onInsertImage={openImagePicker} />)}
-      {runtime && !zenMode.value && !isNarrow && <CanvasHint runtime={runtime} />}
+      {runtime && !zenMode.value && !isNarrow && <CanvasHint runtime={runtime} editSession={editSession} />}
       {runtime && !zenMode.value && <EmptyStateOverlay runtime={runtime} editSession={editSession} />}
       {runtime && !zenMode.value && (
         <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} />

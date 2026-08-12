@@ -272,5 +272,7 @@ export const catalogVi: Record<TranslationKey, string> = {
   "hint.line": "Kéo để vẽ đường thẳng, hoặc nhấp để thêm điểm. Enter hoặc nhấp đúp để hoàn tất.",
   "hint.arrow": "Kéo để vẽ mũi tên, hoặc nhấp để thêm điểm. Enter để hoàn tất.",
   "hint.freedraw": "Kéo để vẽ tự do.",
-  "hint.text": "Nhấp để đặt văn bản, rồi gõ. Enter để hoàn tất, Shift+Enter để xuống dòng.",
+  "hint.text": "Nhấp để đặt văn bản rồi nhập. Escape để kết thúc, Enter để xuống dòng.",
+  "hint.selection": "Kéo để di chuyển, hoặc dùng các điểm neo để đổi kích thước. Shift+H hoặc Shift+V để lật.",
+  "hint.editingText": "Escape để kết thúc. Enter để xuống dòng.",
 };

@@ -1,24 +1,38 @@
 /**
- * A small contextual hint under the toolbar that reflects the active tool ("Drag to draw a
- * rectangle.", "Drag for a straight line, or click to add points.", …) — the same affordance
- * discoverability Excalidraw's top hint gives, driven off `ToolStateMachine` (reactive, not polled).
+ * A small contextual hint under the toolbar reflecting what you can do *right now* — the active tool
+ * ("Drag to draw a rectangle."), what to do with a selection once you have one, and how to finish a
+ * text you are typing. The same affordance discoverability Excalidraw's top hint gives, driven off
+ * `ToolStateMachine`/`SelectionState`/`TextEditSession` (reactive, not polled); which of the three
+ * wins is decided by `canvas-hint-key.ts`.
+ *
  * Purely informational: `pointer-events: none` so it never intercepts a canvas gesture.
  */
 import { chromeFontFamily } from "./chrome-styles";
+import { canvasHintKey } from "./canvas-hint-key";
 import { useTranslation } from "../i18n/use-translation";
-import { useToolVersion } from "../runtime/use-live-version";
-import type { TranslationKey } from "../i18n/catalog-en";
+import { useSelectionVersion, useToolVersion } from "../runtime/use-live-version";
+import { useEditSessionStatus } from "../runtime/use-edit-session-status";
+import type { TextEditSession } from "@deviva-draw/engine";
 import type { DevivaRuntime } from "../runtime/runtime-types";
 
 export interface CanvasHintProps {
   runtime: DevivaRuntime;
+  editSession: TextEditSession | null;
 }
 
 export function CanvasHint(props: CanvasHintProps) {
-  const { runtime } = props;
+  const { runtime, editSession } = props;
   const { t } = useTranslation();
   useToolVersion(runtime.toolStateMachine);
-  const tool = runtime.toolStateMachine.getActiveToolName();
+  useSelectionVersion(runtime.selection);
+  const isEditingText = useEditSessionStatus(editSession) === "editing";
+
+  const key = canvasHintKey({
+    tool: runtime.toolStateMachine.getActiveToolName(),
+    hasSelection: runtime.selection.size > 0,
+    isEditingText,
+  });
+  if (!key) return null;
 
   return (
     <div
@@ -37,7 +51,7 @@ export function CanvasHint(props: CanvasHintProps) {
         userSelect: "none",
       }}
     >
-      {t(`hint.${tool}` as TranslationKey)}
+      {t(key)}
     </div>
   );
 }

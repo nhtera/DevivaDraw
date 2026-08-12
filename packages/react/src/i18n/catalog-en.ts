@@ -272,7 +272,9 @@ export const catalogEn = {
   "hint.line": "Drag for a straight line, or click to add points. Enter or double-click to finish.",
   "hint.arrow": "Drag to draw an arrow, or click to add points. Enter to finish.",
   "hint.freedraw": "Drag to draw freehand.",
-  "hint.text": "Click to place text, then type. Enter to finish, Shift+Enter for a new line.",
+  "hint.text": "Click to place text, then type. Escape to finish, Enter for a new line.",
+  "hint.selection": "Drag to move, or use the handles to resize. Shift+H or Shift+V to flip.",
+  "hint.editingText": "Escape to finish. Enter starts a new line.",
 } as const;
 
 /** Every valid message key — `catalog-vi.ts` (and any future locale) is typed against this so a missing/extra key is a compile error. */
