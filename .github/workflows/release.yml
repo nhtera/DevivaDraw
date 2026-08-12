@@ -1,0 +1,73 @@
+name: Release
+
+# Publishes the three @deviva-draw packages to npm when a v* tag is pushed.
+#
+# Authentication is npm trusted publishing (OIDC) — there is deliberately no NPM_TOKEN.
+# npm is retiring 2FA-bypass granular access tokens: they lose account-management powers
+# from August 2026 and lose direct publish entirely around January 2027, so a long-lived
+# publish token would be a dead end. OIDC also makes npm attach a provenance attestation
+# automatically, linking each tarball to this workflow and commit.
+#
+# Each package is versioned independently. pnpm skips any package whose version is already
+# on the registry, so a tag only publishes what actually changed — bump the package.json
+# versions you want released, tag, push.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  # Required for npm trusted publishing: lets the job mint the OIDC token npm exchanges
+  # for a short-lived, workflow-scoped publish credential.
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          # Pins the registry pnpm authenticates against for the OIDC exchange.
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      # A tag can be pushed from anywhere, including a commit CI never saw green.
+      # Re-run the gates here so a broken build can't become an immutable npm version.
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test:unit
+
+      # Build in dependency order so react/collab-client typecheck against engine's emitted
+      # .d.ts rather than its source. Each package's prepublishOnly would rebuild it anyway,
+      # but doing it up front surfaces a build failure before anything is published.
+      - run: pnpm run build:packages
+
+      # -r walks the workspace in topological order and skips private packages, so the two
+      # apps are excluded and engine publishes before the packages that depend on it.
+      # --no-git-checks: tag builds are a detached HEAD, which the default branch check rejects.
+      - run: pnpm publish -r --access public --provenance --no-git-checks --report-summary
+
+      - name: Summarize published packages
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -f pnpm-publish-summary.json ]; then
+            echo '### Published' >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat pnpm-publish-summary.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'No packages published — every version in this tag is already on the registry.' >> "$GITHUB_STEP_SUMMARY"
+          fi
