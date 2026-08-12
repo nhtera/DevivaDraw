@@ -117,6 +117,12 @@ export const MENU_GLYPHS: Record<string, ReactNode> = {
       <rect x="13.6" y="11.5" width="2.4" height="2.5" fill="currentColor" stroke="none" />
     </>
   ),
+  minimap: (
+    <>
+      <rect x="3" y="5" width="14" height="10" rx="1.5" />
+      <rect x="5.5" y="7" width="6" height="5" rx="0.8" />
+    </>
+  ),
   file: (
     <>
       <path d="M6 3 H12 L15 6 V17 H6 Z" />

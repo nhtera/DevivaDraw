@@ -62,6 +62,42 @@ describe("RoughDrawableCache — get/set", () => {
     expect(cache.get(element, createCamera({ scrollY: 1 }))).toBeUndefined();
     expect(cache.get(element, createCamera({ zoom: 2 }))).toBeUndefined();
   });
+
+  // A render-time theme remap swaps the colors WITHOUT bumping `version` (it never mutates stored
+  // data), and those colors are baked into the generated Drawable — so colors must be part of the key
+  // or a theme toggle repaints every cached shape in the previous theme's colors.
+  it("is a miss when only the stroke color changed, with version and camera identical", () => {
+    const cache = new RoughDrawableCache();
+    const element = createRectangleElement({ x: 0, y: 0, width: 10, height: 10, strokeColor: "#1e1e1e" });
+    const camera = createCamera();
+    cache.set(element, camera, DUMMY_DRAWABLE);
+
+    const darkAdapted = { ...element, strokeColor: "#e9ecef" };
+
+    expect(darkAdapted.version).toBe(element.version);
+    expect(cache.get(darkAdapted, camera)).toBeUndefined();
+  });
+
+  it("is a miss when only the background color changed, with version and camera identical", () => {
+    const cache = new RoughDrawableCache();
+    const element = createRectangleElement({ x: 0, y: 0, width: 10, height: 10, backgroundColor: "#ffec99" });
+    const camera = createCamera();
+    cache.set(element, camera, DUMMY_DRAWABLE);
+
+    const darkAdapted = { ...element, backgroundColor: "#4a3c12" };
+
+    expect(darkAdapted.version).toBe(element.version);
+    expect(cache.get(darkAdapted, camera)).toBeUndefined();
+  });
+
+  it("is still a hit when the colors are unchanged — adding colors to the key must not cause false misses", () => {
+    const cache = new RoughDrawableCache();
+    const element = createRectangleElement({ x: 0, y: 0, width: 10, height: 10, strokeColor: "#1e1e1e", backgroundColor: "transparent" });
+    const camera = createCamera();
+    cache.set(element, camera, DUMMY_DRAWABLE);
+
+    expect(cache.get({ ...element }, camera)).toBe(DUMMY_DRAWABLE);
+  });
 });
 
 describe("RoughDrawableCache — prune", () => {
@@ -131,6 +167,27 @@ describe("drawElementRough + RoughDrawableCache integration", () => {
 
     expect(roughCanvas.rectangle).toHaveBeenCalledTimes(2);
     expect(roughCanvas.draw).not.toHaveBeenCalled();
+  });
+
+  it("regenerates after a theme remap swaps the element's colors, with no version or camera change", () => {
+    const cache = new RoughDrawableCache();
+    const roughCanvas = fakeRoughCanvas();
+    const ctx = fakeCtx();
+    const element = createRectangleElement({ x: 0, y: 0, width: 40, height: 20, strokeColor: "#1e1e1e" });
+    const camera = createCamera();
+
+    drawElementRough(ctx, roughCanvas, element, camera, cache);
+    drawElementRough(ctx, roughCanvas, { ...element, strokeColor: "#e9ecef" }, camera, cache);
+
+    expect(roughCanvas.rectangle).toHaveBeenCalledTimes(2);
+    expect(roughCanvas.draw).not.toHaveBeenCalled();
+    expect(roughCanvas.rectangle).toHaveBeenLastCalledWith(
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+      expect.objectContaining({ stroke: "#e9ecef" }),
+    );
   });
 
   it("works uncached (no cache argument) exactly as before — always regenerates", () => {

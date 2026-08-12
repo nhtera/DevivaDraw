@@ -16,6 +16,7 @@ import type { AnyElement } from "../elements/element-types";
 import type { PolygonShapeType } from "../elements/polygon-shape-geometry";
 import { blockArrowUnitVertices, polygonShapeUnitVertices } from "../elements/polygon-shape-geometry";
 import type { BlockArrowDirection } from "../elements/shape-elements";
+import { arrowPathPoints } from "../render/arrow-path";
 import type { Point } from "../render/camera";
 import type { Scene } from "../scene/scene";
 import { elementCenter, rotatePointAroundCenter } from "./selection-geometry";
@@ -147,7 +148,9 @@ export function hitTestElement(element: AnyElement, point: Point, tolerance: num
       return distanceToPolyline(local, points, false) <= tolerance;
     }
     case "arrow":
-      return distanceToPolyline(local, relativePoints(element.points), false) <= tolerance;
+      // The *drawn* path, which for an elbow arrow is the routed dogleg rather than its two stored
+      // endpoints — otherwise the arrow would be grabbable along a line it is not drawn on.
+      return distanceToPolyline(local, arrowPathPoints(element), false) <= tolerance;
     case "freedraw": {
       // Cheap bbox reject first (freedraw has no fill/border distinction — ink is ink).
       if (!hitRectangleLike(local, element.width, element.height, true, tolerance)) return false;

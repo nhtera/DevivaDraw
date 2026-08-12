@@ -14,6 +14,12 @@ const STYLE_ELEMENT_ID = "deviva-draw-chrome-stylesheet";
 const ROOT = '[data-testid="deviva-draw-root"]';
 
 const CHROME_CSS = `
+/* Chrome labels are UI, not content: without this a canvas-wide select-all (Cmd+A, which selects every
+   *element*) also drags the browser's own text selection across every panel label and menu item, leaving
+   the whole UI highlighted blue until the next click. Inputs opt back in below — they are the only places
+   in the chrome where selecting, and copying, real text is the point. */
+${ROOT} { user-select: none; -webkit-user-select: none; }
+${ROOT} input, ${ROOT} textarea, ${ROOT} [contenteditable="true"] { user-select: text; -webkit-user-select: text; }
 ${ROOT} button { background: transparent; }
 ${ROOT} button:hover:not(:disabled) { background: rgba(127, 127, 127, 0.14); }
 /* External-link menu items are real <a> elements (middle-click, copy-link) but share the button hover. */
@@ -29,11 +35,26 @@ ${ROOT} [data-testid="text-editor-overlay-textarea"] { outline: none; }
    (they read through it) and hugs exactly the selected characters, so it's a normal text highlight,
    not the opaque background box the old always-on backing used to draw. */
 ${ROOT} [data-testid="text-editor-overlay-textarea"]::selection { background: rgba(51, 103, 214, 0.30); }
+/* Library tiles: the preview reads only when the grid isn't a field of × buttons, so the remove control
+   is revealed on hover — and on keyboard focus, so it stays reachable without a pointer. Gated on
+   "hover: hover": a touch device has no hover state, so hiding it there would make removal impossible,
+   and those devices keep the control permanently visible instead. */
+@media (hover: hover) {
+  ${ROOT} .dd-library-tile__remove { opacity: 0; pointer-events: none; }
+  ${ROOT} .dd-library-tile:hover .dd-library-tile__remove,
+  ${ROOT} .dd-library-tile:focus-within .dd-library-tile__remove { opacity: 1; pointer-events: auto; }
+  ${ROOT} .dd-library-tile:hover button[data-testid="library-item"] { border-color: var(--dd-chrome-border); background: rgba(127, 127, 127, 0.10); }
+}
+/* An edge-anchored sidebar slides in from its own edge. The shared .dd-animate-in pop-in scales the
+   whole element, which on a full-height panel reads as the entire sidebar shrinking away from the
+   screen edges rather than arriving. */
+@keyframes dd-slide-in-right { from { transform: translateX(100%); } to { transform: none; } }
 @keyframes dd-pop-in { from { opacity: 0; transform: scale(0.97) translateY(-3px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: no-preference) {
   ${ROOT} button, ${ROOT} a.dd-menu-link { transition: background 120ms ease, color 120ms ease, transform 90ms ease; }
   ${ROOT} button:active:not(:disabled) { transform: scale(0.95); }
   ${ROOT} .dd-animate-in { animation: dd-pop-in 140ms cubic-bezier(0.16, 1, 0.3, 1); }
+  ${ROOT} .dd-slide-in-right { animation: dd-slide-in-right 160ms cubic-bezier(0.16, 1, 0.3, 1); }
 }
 `;
 

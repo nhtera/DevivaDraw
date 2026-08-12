@@ -220,6 +220,9 @@ export function MainMenu(props: MainMenuProps) {
       <MenuButton testId="main-menu-toggle-view-only" icon="view-only" onClick={() => run("toggle-view-only")}>
         {t("action.toggleViewOnly")}
       </MenuButton>
+      <MenuButton testId="main-menu-toggle-minimap" icon="minimap" onClick={() => run("toggle-minimap")}>
+        {t("action.toggleMinimap")}
+      </MenuButton>
       <MenuButton testId="main-menu-toggle-stats" icon="stats" onClick={() => run("toggle-stats")}>
         {t("action.toggleStats")}
       </MenuButton>

@@ -35,6 +35,8 @@ export interface UiToggleState {
   setViewOnly(value: boolean): void;
   getStatsPanelVisible(): boolean;
   setStatsPanelVisible(value: boolean): void;
+  getMinimapVisible(): boolean;
+  setMinimapVisible(value: boolean): void;
   getCommandPaletteOpen(): boolean;
   setCommandPaletteOpen(value: boolean): void;
   getShortcutsDialogOpen(): boolean;

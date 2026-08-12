@@ -1,26 +1,74 @@
 /**
- * Personal element library panel (Excalidraw parity): save the current selection as a reusable item,
- * then click an item to drop a fresh copy at the viewport center. Items persist in localStorage
- * (`browser/library-storage.ts`) and can be exported/imported as a `.devivalib` JSON file. Re-inserting
- * goes through the engine's `insertElements` so every drop gets brand-new ids (no id collisions).
+ * Personal element library, laid out as a full-height edge sidebar following Excalidraw's library
+ * pattern: search at the top, a titled section over a dense four-column tile grid, and the file
+ * actions pinned to the bottom. The old form — a small floating box with a button above a two-column
+ * list — did not survive contact with real libraries, which run to dozens of items.
+ *
+ * Sits on the *right* edge like Excalidraw's, which means it would land on top of the properties
+ * panel and minimap (both right-anchored here, where Excalidraw's equivalents are on the left). While
+ * it is open it publishes its width as `--dd-library-sidebar-width` on the app root and those two
+ * shift left by it, the same reserve-space technique the minimap already uses to keep the properties
+ * panel off itself.
+ *
+ * Items are placed by clicking a tile (viewport centre) or by dragging one onto the canvas (at the
+ * cursor) — see `hooks/use-library-drop.ts`.
+ *
+ * Items persist in localStorage (`browser/library-storage.ts`); import reads this app's `.devivalib`
+ * and Excalidraw's `.excalidrawlib` (`browser/library-import.ts`). Re-inserting goes through the
+ * engine's `insertElements`, so every drop gets brand-new ids and brand-new group ids.
  */
-import { computeElementsBounds, expandForDuplication, insertElements, screenToScene } from "@deviva-draw/engine";
+import { expandForDuplication, screenToScene } from "@deviva-draw/engine";
 import type { AnyElement } from "@deviva-draw/engine";
-import { useEffect, useState } from "react";
-import { buttonStyle, labelStyle, panelStyle } from "./chrome-styles";
+import { useEffect, useMemo, useState } from "react";
+import { buttonStyle, chromeFontFamily, PANEL_SHADOW } from "./chrome-styles";
 import { Icon } from "./icon";
+import { GRID_COLUMNS, GRID_GAP, LibraryGrid, TILE_SIZE } from "./library-grid";
 import { renderElementsToThumbnail } from "../browser/scene-file-operations";
 import { pickAndReadFile, saveFile } from "../browser/persistence-adapters";
-import { addLibraryItem, loadLibrary, mergeImportedLibrary, removeLibraryItem } from "../browser/library-storage";
+import { deriveLibraryItemName, libraryItemMatches } from "../browser/library-item-name";
+import { addLibraryItem, librarySourceOf, loadLibrary, mergeImportedLibrary, removeLibraryItem } from "../browser/library-storage";
 import type { LibraryItem } from "../browser/library-storage";
+import { parseLibraryFile } from "../browser/library-import";
+import { insertLibraryElementsAt } from "../browser/insert-library-item";
+import type { Translator } from "../i18n/translate";
 import { useSelectionVersion } from "../runtime/use-live-version";
 import { useTranslation } from "../i18n/use-translation";
 import type { CameraStore } from "../runtime/camera-store";
 import type { DevivaRuntime } from "../runtime/runtime-types";
 
+const PADDING_X = 12;
+const BORDER_WIDTH = 1;
+
+/**
+ * The tile grid plus its gutters, padding *and* left border — which lands within a pixel of
+ * excalidraw.com's own 294px sidebar. The border has to be in the sum: the panel is `border-box`, so
+ * leaving it out shrinks the content box by exactly the pixel that costs the grid its fourth column.
+ */
+const SIDEBAR_WIDTH = GRID_COLUMNS * TILE_SIZE + (GRID_COLUMNS - 1) * GRID_GAP + PADDING_X * 2 + BORDER_WIDTH;
+
+/** Where the right-anchored chrome (properties panel, minimap) reads its inset from — see the module doc. */
+const SIDEBAR_WIDTH_PROPERTY = "--dd-library-sidebar-width";
+
 function newId(): string {
   return typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `lib-${Date.now().toString(36)}`;
 }
+
+/** This app's own format plus Excalidraw's — the picker offers both, and the parser detects which by content. */
+const IMPORTABLE_LIBRARY_EXTENSIONS = ".devivalib,.excalidrawlib";
+
+/**
+ * The trailing " N unsupported (image) skipped." clause, or `""` when nothing was dropped. Naming the
+ * types matters more than the count: it tells the user which parts of the Excalidraw library they are
+ * missing, rather than leaving them to spot the gap on the canvas.
+ */
+function skippedSuffix(skipped: Record<string, number>, t: Translator): string {
+  const types = Object.keys(skipped);
+  if (types.length === 0) return "";
+  const count = types.reduce((total, type) => total + skipped[type]!, 0);
+  return ` ${t("library.importSkipped", { count, types: types.join(", ") })}`;
+}
+
+const sectionHeadingStyle = { margin: "0 0 12px", fontSize: 16, fontWeight: 700, color: "var(--dd-accent)" } as const;
 
 interface LibraryPanelProps {
   runtime: DevivaRuntime;
@@ -33,10 +81,25 @@ export function LibraryPanel(props: LibraryPanelProps) {
   const { runtime, cameraStore, getViewportSize, onClose } = props;
   const { t } = useTranslation();
   const [items, setItems] = useState<LibraryItem[]>(() => loadLibrary());
-  useSelectionVersion(runtime.selection); // re-render so the "add" button enables/disables with the selection
+  const [status, setStatus] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  useSelectionVersion(runtime.selection); // re-render so the add tile enables/disables with the selection
 
   const selectionIds = [...runtime.selection.getSelectedIds()];
   const canAdd = selectionIds.length > 0;
+
+  const personalItems = useMemo(() => items.filter((item) => librarySourceOf(item) === "personal"), [items]);
+
+  // Search filters *within* the shelves rather than collapsing them, so a hit keeps the context of
+  // where it came from — the point of the split is knowing which collection a shape belongs to.
+  // Matching covers the labels inside an item, not just its name: an imported set often supplies no
+  // names at all, and a name-only search would find nothing in it (see `library-item-name.ts`).
+  const [visiblePersonal, visibleImported] = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    const matches = needle === "" ? items : items.filter((item) => libraryItemMatches(item, needle));
+    return [matches.filter((item) => librarySourceOf(item) === "personal"), matches.filter((item) => librarySourceOf(item) === "imported")];
+  }, [items, query]);
+  const visibleCount = visiblePersonal.length + visibleImported.length;
 
   const addSelection = async () => {
     const ids = expandForDuplication(runtime.scene, selectionIds);
@@ -46,33 +109,38 @@ export function LibraryPanel(props: LibraryPanelProps) {
       .map((element) => structuredClone(element));
     if (elements.length === 0) return;
     const preview = await renderElementsToThumbnail(elements);
-    setItems(addLibraryItem({ id: newId(), name: `Item ${items.length + 1}`, elements, preview, created: 0 }));
+    // Named after its own label where it has one, so a saved shape is findable by what it says rather
+    // than by the position it happened to be saved in.
+    const name = deriveLibraryItemName(elements, `Item ${personalItems.length + 1}`);
+    setItems(addLibraryItem({ id: newId(), name, elements, preview, created: 0, source: "personal" }));
   };
 
+  // Clicking places at the viewport centre; dragging the same tile onto the canvas places at the
+  // cursor instead (`hooks/use-library-drop.ts`). Both go through one insert helper.
   const insertItem = (item: LibraryItem) => {
-    const bounds = computeElementsBounds(item.elements);
-    if (!bounds) return;
     const { width, height } = getViewportSize();
-    const center = screenToScene({ x: width / 2, y: height / 2 }, cameraStore.getCamera());
-    const offset = { dx: center.x - (bounds.x + bounds.width / 2), dy: center.y - (bounds.y + bounds.height / 2) };
-    runtime.history.beginBatch();
-    const newIds = insertElements(runtime.scene, item.elements, offset);
-    runtime.history.endBatch(runtime.scene.getElements());
-    if (newIds.length > 0) runtime.selection.selectOnly(newIds);
+    insertLibraryElementsAt(runtime, item.elements, screenToScene({ x: width / 2, y: height / 2 }, cameraStore.getCamera()));
   };
+
+  const removeItem = (id: string) => setItems(removeLibraryItem(id));
 
   const exportLibrary = () => {
     void saveFile("library.devivalib", JSON.stringify(items, null, 2), "application/json");
   };
 
   const importLibrary = async () => {
-    const text = await pickAndReadFile(".devivalib");
+    const text = await pickAndReadFile(IMPORTABLE_LIBRARY_EXTENSIONS);
     if (text === null) return;
-    try {
-      setItems(mergeImportedLibrary(JSON.parse(text)));
-    } catch (error) {
-      console.warn("deviva-draw: library import failed — not valid JSON", error);
+
+    setStatus(null);
+    const result = await parseLibraryFile(text, renderElementsToThumbnail);
+    if ("error" in result) {
+      setStatus(t(result.error === "invalid-json" ? "library.importNotJson" : "library.importUnrecognized"));
+      return;
     }
+
+    setItems(mergeImportedLibrary(result.items));
+    setStatus(t("library.imported", { count: result.items.length }) + skippedSuffix(result.skipped, t));
   };
 
   useEffect(() => {
@@ -83,61 +151,103 @@ export function LibraryPanel(props: LibraryPanelProps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
+  // Reserve the sidebar's width for the right-anchored chrome (properties panel, minimap) while it is
+  // open — see the module doc. Cleared on unmount so closing the panel hands the space straight back.
+  // The nominal width is right even when the panel is capped narrower on a phone: both consumers of
+  // this variable are desktop-only, and neither renders at the widths where the cap bites.
+  useEffect(() => {
+    const root = document.querySelector<HTMLElement>('[data-testid="deviva-draw-root"]');
+    if (!root) return;
+    root.style.setProperty(SIDEBAR_WIDTH_PROPERTY, `${SIDEBAR_WIDTH}px`);
+    return () => {
+      root.style.removeProperty(SIDEBAR_WIDTH_PROPERTY);
+    };
+  }, []);
+
   return (
-    <div
+    <aside
       data-testid="library-panel"
-      className="dd-animate-in"
-      style={{ ...panelStyle, position: "absolute", top: 60, left: 12, width: 232, maxHeight: "calc(100% - 80px)", display: "flex", flexDirection: "column", padding: 10, zIndex: 40 }}
+      aria-label={t("library.title")}
+      className="dd-slide-in-right"
+      style={{
+        position: "absolute",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        // Capped by the viewport so a phone gets a full-width sheet rather than a sidebar hanging off
+        // the edge; the grid drops a column to match (see `library-grid.tsx`).
+        width: `min(${SIDEBAR_WIDTH}px, 100%)`,
+        boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
+        background: "var(--dd-chrome-background-elevated)",
+        color: "var(--dd-text-primary)",
+        borderLeft: `${BORDER_WIDTH}px solid var(--dd-chrome-border)`,
+        boxShadow: PANEL_SHADOW,
+        fontFamily: chromeFontFamily,
+        fontSize: 13,
+        zIndex: 40,
+      }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <strong style={{ fontSize: 13 }}>{t("library.title")}</strong>
-        <button type="button" aria-label={t("shortcuts.close")} onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer" }}>
+      <header style={{ display: "flex", alignItems: "center", gap: 8, padding: `10px ${PADDING_X}px`, borderBottom: "1px solid var(--dd-chrome-border)" }}>
+        <input
+          data-testid="library-search"
+          type="text"
+          value={query}
+          placeholder={t("library.search")}
+          aria-label={t("library.search")}
+          onChange={(event) => setQuery(event.target.value)}
+          style={{ flex: 1, minWidth: 0, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--dd-chrome-border)", background: "var(--dd-chrome-background)", color: "var(--dd-text-primary)", fontSize: 14, fontFamily: "inherit" }}
+        />
+        <button type="button" data-testid="library-close" aria-label={t("shortcuts.close")} title={t("shortcuts.close")} onClick={onClose} style={{ ...buttonStyle(false), padding: 6 }}>
           <Icon name="close" />
         </button>
+      </header>
+
+      <div style={{ flex: 1, overflowY: "auto", overscrollBehavior: "contain", padding: `16px ${PADDING_X}px` }}>
+        <h2 style={sectionHeadingStyle}>{t("library.personal")}</h2>
+        <LibraryGrid items={visiblePersonal} showAddTile canAdd={canAdd} onAdd={() => void addSelection()} onInsert={insertItem} onRemove={removeItem} />
+
+        {/* Hidden until something has actually been imported, so a fresh library is one shelf, not an
+            empty heading. */}
+        {visibleImported.length > 0 && (
+          <>
+            <h2 data-testid="library-imported-heading" style={{ ...sectionHeadingStyle, marginTop: 20 }}>
+              {t("library.importedLibrary")}
+            </h2>
+            <LibraryGrid items={visibleImported} showAddTile={false} canAdd={false} onAdd={() => undefined} onInsert={insertItem} onRemove={removeItem} />
+          </>
+        )}
+
+        {items.length > 0 && visibleCount === 0 && (
+          <p data-testid="library-no-results" style={{ margin: "12px 0 0", fontSize: 12, color: "var(--dd-text-secondary)" }}>
+            {t("library.noResults")}
+          </p>
+        )}
+        {items.length === 0 && <p style={{ margin: "12px 0 0", fontSize: 12, color: "var(--dd-text-secondary)", lineHeight: 1.5 }}>{t("library.empty")}</p>}
       </div>
 
-      <button type="button" data-testid="library-add" disabled={!canAdd} style={{ ...buttonStyle(false), justifyContent: "center", width: "100%", opacity: canAdd ? 1 : 0.5 }} onClick={() => void addSelection()}>
-        {t("library.addSelection")}
-      </button>
-
-      {items.length === 0 ? (
-        <p style={{ ...labelStyle, textAlign: "center", padding: "16px 4px" }}>{t("library.empty")}</p>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, overflowY: "auto", marginTop: 8, paddingRight: 2 }}>
-          {items.map((item) => (
-            <div key={item.id} style={{ position: "relative" }}>
-              <button
-                type="button"
-                data-testid="library-item"
-                title={item.name}
-                onClick={() => insertItem(item)}
-                style={{ width: "100%", aspectRatio: "1", border: "1px solid var(--dd-chrome-border)", borderRadius: 6, background: "#fff", cursor: "pointer", padding: 4, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}
-              >
-                <img src={item.preview} alt={item.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
-              </button>
-              <button
-                type="button"
-                data-testid="library-item-remove"
-                aria-label={t("library.remove")}
-                title={t("library.remove")}
-                onClick={() => setItems(removeLibraryItem(item.id))}
-                style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", border: "1px solid var(--dd-chrome-border)", background: "var(--dd-chrome-background-elevated)", cursor: "pointer", fontSize: 11, lineHeight: "16px", padding: 0 }}
-              >
-                ×
-              </button>
-            </div>
-          ))}
+      <footer style={{ padding: `10px ${PADDING_X}px`, borderTop: "1px solid var(--dd-chrome-border)", display: "flex", flexDirection: "column", gap: 8 }}>
+        {status !== null && (
+          <p data-testid="library-status" role="status" style={{ margin: 0, fontSize: 11, color: "var(--dd-text-secondary)", lineHeight: 1.4 }}>
+            {status}
+          </p>
+        )}
+        <div style={{ display: "flex", gap: 6 }}>
+          <button type="button" data-testid="library-import" style={{ ...buttonStyle(false), flex: 1, border: "1px solid var(--dd-chrome-border)", fontSize: 12 }} onClick={() => void importLibrary()}>
+            {t("library.import")}
+          </button>
+          <button
+            type="button"
+            data-testid="library-export"
+            disabled={items.length === 0}
+            style={{ ...buttonStyle(false), flex: 1, border: "1px solid var(--dd-chrome-border)", fontSize: 12, opacity: items.length === 0 ? 0.5 : 1 }}
+            onClick={exportLibrary}
+          >
+            {t("library.export")}
+          </button>
         </div>
-      )}
-
-      <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-        <button type="button" data-testid="library-import" style={{ ...buttonStyle(false), flex: 1, justifyContent: "center", fontSize: 12 }} onClick={() => void importLibrary()}>
-          {t("library.import")}
-        </button>
-        <button type="button" data-testid="library-export" disabled={items.length === 0} style={{ ...buttonStyle(false), flex: 1, justifyContent: "center", fontSize: 12, opacity: items.length === 0 ? 0.5 : 1 }} onClick={exportLibrary}>
-          {t("library.export")}
-        </button>
-      </div>
-    </div>
+      </footer>
+    </aside>
   );
 }

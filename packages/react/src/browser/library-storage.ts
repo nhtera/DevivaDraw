@@ -9,6 +9,12 @@ import type { AnyElement } from "@deviva-draw/engine";
 
 export const LIBRARY_STORAGE_KEY = "devivadraw:library:v1";
 
+/**
+ * Which shelf an item sits on in the panel. Optional so items saved before the split still load —
+ * they were all hand-saved, which is exactly what `"personal"` means, so absent reads as personal.
+ */
+export type LibrarySource = "personal" | "imported";
+
 export interface LibraryItem {
   id: string;
   name: string;
@@ -16,6 +22,13 @@ export interface LibraryItem {
   /** PNG data URL preview. */
   preview: string;
   created: number;
+  /** Absent ⇒ `"personal"` — see `LibrarySource`. */
+  source?: LibrarySource;
+}
+
+/** An item's shelf, defaulting older stored items to the personal one. */
+export function librarySourceOf(item: LibraryItem): LibrarySource {
+  return item.source ?? "personal";
 }
 
 function safeParse(raw: string | null): LibraryItem[] {

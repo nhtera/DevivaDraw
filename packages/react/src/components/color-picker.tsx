@@ -8,6 +8,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { RADIUS, inputStyle, labelStyle, panelStyle } from "./chrome-styles";
 import { generateShades, isValidHex, normalizeHex } from "./color-utils";
+import { popoverPortalHost } from "./popover-portal-host";
 
 interface EyeDropperResult {
   sRGBHex: string;
@@ -204,7 +205,7 @@ export function ColorPicker(props: ColorPickerProps) {
             )}
           </div>
         </div>,
-        document.body,
+        popoverPortalHost(triggerRef.current),
       )}
     </div>
   );

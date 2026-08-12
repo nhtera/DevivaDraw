@@ -11,6 +11,9 @@ import { PropertiesPanelBody, isPropertiesPanelHidden, isTextOnlyPanel } from ".
 import { useSceneVersion, useSelectionVersion, useToolVersion } from "../runtime/use-live-version";
 import type { DevivaRuntime } from "../runtime/runtime-types";
 
+/** Gap between the panel and the viewport edges, on all sides — also the basis for its height cap. */
+const PANEL_INSET = 12;
+
 export interface PropertiesPanelProps {
   runtime: DevivaRuntime;
 }
@@ -29,7 +32,34 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
 
   const testId = isTextOnlyPanel(runtime) ? "properties-panel-text" : "properties-panel";
   return (
-    <div style={{ ...panelStyle, position: "absolute", top: 12, right: 12, width: 220, padding: 12, display: "flex", flexDirection: "column", gap: 10 }} data-testid={testId}>
+    <div
+      style={{
+        ...panelStyle,
+        position: "absolute",
+        top: PANEL_INSET,
+        // `--dd-library-sidebar-width` is published by the library sidebar while it is open (it is a
+        // full-height right-edge panel and would otherwise sit on top of this one); absent ⇒ 0px.
+        right: `calc(${PANEL_INSET}px + var(--dd-library-sidebar-width, 0px))`,
+        width: 220,
+        padding: 12,
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        // The panel grows with the selection (an arrow adds arrowhead rows, a mixed selection adds text
+        // rows on top of shape rows) and is anchored to the top, so on a short-but-not-mobile viewport it
+        // used to run off the bottom of the screen with its lower controls — align, distribute, lock —
+        // unreachable. Cap it and scroll instead. `--dd-minimap-reserved` is published by the minimap while
+        // it is mounted (see `minimap.tsx`), keeping the panel clear of the bottom-right corner it occupies
+        // rather than hard-coding the minimap's size in a second file.
+        maxHeight: `calc(100vh - ${PANEL_INSET * 2}px - var(--dd-minimap-reserved, 0px))`,
+        // Without this the cap applies to the *content* box, so the panel still renders `padding * 2 +
+        // border` taller than its own max-height and overflows the space reserved above.
+        boxSizing: "border-box",
+        overflowY: "auto",
+        overscrollBehavior: "contain",
+      }}
+      data-testid={testId}
+    >
       <PropertiesPanelBody runtime={runtime} />
     </div>
   );

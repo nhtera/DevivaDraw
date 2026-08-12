@@ -1,6 +1,6 @@
 /**
  * Wires `@deviva-draw/engine`'s persistence/export functions to the browser (localStorage autosave,
- * save/open `.devivadraw` files, PNG/SVG export downloads, copy-as-image) — the concrete
+ * save/open `.devivadraw` *and* Excalidraw `.excalidraw` files, PNG/SVG export downloads, copy-as-image) — the concrete
  * `PersistenceOperations` implementation `runtime/build-runtime.ts` hands to every file/export
  * `Action`. Kept as plain functions over an explicit `scene`/`getScene` parameter (not a class) so
  * `deviva-draw-app.tsx` can swap the live `Scene` instance out from under it (the "Open" flow) without
@@ -14,14 +14,17 @@ import {
   exportToPng,
   exportToSvg,
   ImageDecodeCache,
+  importExcalidrawScene,
   restoreAutosave,
   Scene,
   startAutosave,
 } from "@deviva-draw/engine";
-import type { AnyElement, AutosaveController, ExportScale } from "@deviva-draw/engine";
+import type { AnyElement, AutosaveController, ExcalidrawSceneImport, ExportScale } from "@deviva-draw/engine";
 import { createBrowserExportRenderTarget, createRoughSvgGenerator, pickAndReadFile, saveFile, triggerDownload } from "./persistence-adapters";
 
 const SCENE_FILE_EXTENSION = ".devivadraw";
+/** Excalidraw's scene format, readable by "Open" alongside this app's own — see `openSceneFromFile`. */
+const EXCALIDRAW_SCENE_FILE_EXTENSION = ".excalidraw";
 
 /** Starts localStorage autosave for `scene` — call once per mounted `Scene` instance; `dispose()` on unmount/scene-swap. `storageKey` scopes the save slot (e.g. one per embedded instance); omit to use the package-wide default. */
 export function startBrowserAutosave(scene: Scene, storageKey?: string): AutosaveController {
@@ -45,9 +48,30 @@ export async function saveSceneToFile(scene: Scene): Promise<void> {
   await saveFile(`scene${SCENE_FILE_EXTENSION}`, json, "application/json");
 }
 
-/** Opens a `.devivadraw` file, parses/validates it, and returns the loaded `Scene` — or `null` if the user canceled or the file failed to load. Never throws. */
+/**
+ * Builds a `Scene` from an imported Excalidraw document. Elements go through `addElement`, not
+ * `restoreElement`: they arrive with an empty z-order `index` and pre-insert version sentinels, and
+ * `addElement` is what assigns a real fractional index (appending in source order, so the file's own
+ * z-order is preserved) and stamps them as this document's own first-version elements.
+ */
+function sceneFromExcalidraw(imported: ExcalidrawSceneImport): Scene {
+  const scene = new Scene();
+  for (const [fileId, file] of imported.files) scene.restoreFile(fileId, file);
+  for (const element of imported.elements) scene.addElement(element);
+  if (imported.background !== null) scene.setBackground(imported.background);
+  return scene;
+}
+
+/**
+ * Opens a `.devivadraw` or Excalidraw `.excalidraw` file and returns the loaded `Scene` — or `null` if
+ * the user canceled or the file failed to load. Never throws.
+ *
+ * Which format it is is decided by *content*, not extension, so a renamed file still opens. The
+ * Excalidraw branch is tried first because its envelope is an unambiguous `type` tag, where
+ * `Scene.fromJSON` has to validate a whole document to reach the same conclusion.
+ */
 export async function openSceneFromFile(): Promise<Scene | null> {
-  const text = await pickAndReadFile(SCENE_FILE_EXTENSION);
+  const text = await pickAndReadFile(`${SCENE_FILE_EXTENSION},${EXCALIDRAW_SCENE_FILE_EXTENSION}`);
   if (text === null) return null;
 
   let parsed: unknown;
@@ -56,6 +80,13 @@ export async function openSceneFromFile(): Promise<Scene | null> {
   } catch (error) {
     console.warn("deviva-draw: open failed — file is not valid JSON", error);
     return null;
+  }
+
+  const excalidraw = importExcalidrawScene(parsed);
+  if (excalidraw) {
+    const dropped = Object.entries(excalidraw.skipped);
+    if (dropped.length > 0) console.warn("deviva-draw: some Excalidraw elements have no equivalent and were skipped", excalidraw.skipped);
+    return sceneFromExcalidraw(excalidraw);
   }
 
   const result = Scene.fromJSON(parsed);

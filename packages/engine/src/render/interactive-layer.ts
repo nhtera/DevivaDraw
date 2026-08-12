@@ -8,7 +8,7 @@
  * in via `OverlayState` each frame.
  */
 import type { AnyElement } from "../elements/element-types";
-import { handlePositions, rotateHandlePosition, RESIZE_HANDLE_IDS } from "../selection/resize-handles";
+import { handlePositions, inflateSelectionBounds, rotateHandlePosition, RESIZE_HANDLE_IDS } from "../selection/resize-handles";
 import { rotatePointAroundCenter } from "../selection/selection-geometry";
 import { buildSelectionFrame } from "../selection/selection-tool-frame";
 import type { SelectionFrame } from "../selection/selection-tool-frame";
@@ -77,9 +77,9 @@ const REMOTE_CURSOR_SIZE_PX = 12;
 const LASER_COLOR_RGB = "255, 45, 45";
 const LASER_WIDTH_PX = 4;
 
-/** Local-space rect corners rotated by `frame.angle` around `frame.pivot`, in scene space. */
-function frameOutlineScene(frame: SelectionFrame): Point[] {
-  const { x, y, width, height } = frame.bounds;
+/** `bounds`' corners rotated by `frame.angle` around `frame.pivot`, in scene space. Takes `bounds` separately from `frame` so the caller can pass the padded rect it paints. */
+function frameOutlineScene(frame: SelectionFrame, bounds: SceneRect): Point[] {
+  const { x, y, width, height } = bounds;
   const corners: Point[] = [
     { x, y },
     { x: x + width, y },
@@ -217,7 +217,11 @@ export class InteractiveLayer {
   }
 
   private drawSelectionFrame(frame: SelectionFrame, camera: Camera): void {
-    const outline = frameOutlineScene(frame).map((point) => sceneToScreen(point, camera));
+    // Everything below is drawn around the padded rect, not the element's own bounds, so the outline
+    // never sits on top of the element's stroke and hides it — see `inflateSelectionBounds`. The select
+    // tool hit-tests handles against this same padded rect.
+    const padded = inflateSelectionBounds(frame.bounds, camera.zoom);
+    const outline = frameOutlineScene(frame, padded).map((point) => sceneToScreen(point, camera));
     this.ctx.save();
     this.ctx.strokeStyle = SELECTION_COLOR;
     this.ctx.lineWidth = 1.5;
@@ -229,13 +233,14 @@ export class InteractiveLayer {
     this.ctx.stroke();
     this.ctx.restore();
 
-    this.drawHandles(frame, camera);
+    this.drawHandles(frame, padded, camera);
   }
 
-  private drawHandles(frame: SelectionFrame, camera: Camera): void {
+  /** `bounds` is the padded rect from `drawSelectionFrame` — handles ride the outline the user sees. */
+  private drawHandles(frame: SelectionFrame, bounds: SceneRect, camera: Camera): void {
     const toScreen = (local: Point) => sceneToScreen(rotatePointAroundCenter(local, frame.pivot, frame.angle), camera);
-    const topCenterScreen = toScreen({ x: frame.bounds.x + frame.bounds.width / 2, y: frame.bounds.y });
-    const rotateScreen = toScreen(rotateHandlePosition(frame.bounds, ROTATE_HANDLE_OFFSET_PX));
+    const topCenterScreen = toScreen({ x: bounds.x + bounds.width / 2, y: bounds.y });
+    const rotateScreen = toScreen(rotateHandlePosition(bounds, ROTATE_HANDLE_OFFSET_PX / camera.zoom));
 
     this.ctx.save();
     this.ctx.strokeStyle = SELECTION_COLOR;
@@ -249,7 +254,7 @@ export class InteractiveLayer {
     this.ctx.stroke();
     this.drawHandleSquare(rotateScreen);
 
-    const handles = handlePositions(frame.bounds);
+    const handles = handlePositions(bounds);
     for (const id of RESIZE_HANDLE_IDS) this.drawHandleSquare(toScreen(handles[id]));
     this.ctx.restore();
   }

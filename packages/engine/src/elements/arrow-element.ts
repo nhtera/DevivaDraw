@@ -28,10 +28,10 @@ export type Arrowhead = "none" | "arrow" | "bar" | "dot" | "triangle";
 /**
  * `"straight"`/`"curved"` both render through the same rough.js sketchy-path dispatch
  * (`render/arrow-renderer.ts`), differing only in whether the shaft is a straight segment chain or a
- * smoothed curve through the same points. `"elbow"` (orthogonal routing) is a distinct routing
- * algorithm that's explicitly deferred — see that file's module doc — but the type already accepts
- * it so a document created once elbow routing lands never needs a data migration; until then it falls
- * back to straight-line rendering rather than being rejected.
+ * smoothed curve through the same points. `"elbow"` is a distinct routing algorithm
+ * (`render/arrow-elbow-route.ts`): the shaft is *derived* from the first and last point as an
+ * axis-aligned dogleg, so `points` keeps whatever the user drew and switching back to
+ * straight/curved restores that path exactly.
  */
 export type ArrowType = "straight" | "curved" | "elbow";
 

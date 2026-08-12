@@ -54,6 +54,7 @@ const GLYPHS: Record<string, string> = {
   zen: "◎",
   "view-only": "👁",
   stats: "📊",
+  minimap: "🗺",
   file: "📄",
   "folder-open": "📂",
   save: "💾",

@@ -5,7 +5,7 @@
  * instead of a filled bbox (an arrow has no interior to hit).
  */
 import type { ArrowElement, Point, Scene } from "@deviva-draw/engine";
-import { absolutePoints } from "@deviva-draw/engine";
+import { absolutePoints, arrowPathPoints } from "@deviva-draw/engine";
 
 /** Scene-unit distance from any segment of the path within which a click counts as "on the arrow". */
 const HIT_DISTANCE_SCENE_UNITS = 8;
@@ -26,7 +26,8 @@ export function findArrowAt(scene: Scene, point: Point): ArrowElement | null {
   for (let i = elements.length - 1; i >= 0; i -= 1) {
     const element = elements[i];
     if (!element || element.isDeleted || element.type !== "arrow") continue;
-    const points = absolutePoints({ x: element.x, y: element.y }, element.points);
+    // The drawn path (routed for elbow arrows), so the label hit test matches what is on screen.
+    const points = absolutePoints({ x: element.x, y: element.y }, arrowPathPoints(element));
     for (let j = 0; j < points.length - 1; j += 1) {
       if (distanceToSegment(point, points[j]!, points[j + 1]!) <= HIT_DISTANCE_SCENE_UNITS) return element;
     }

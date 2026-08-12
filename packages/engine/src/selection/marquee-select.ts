@@ -49,6 +49,13 @@ function rotatedBboxOf(element: AnyElement): SceneRect {
  * the same "locked ignores pointer selection" rule applied there to click selection.
  */
 export function elementsInMarquee(elements: readonly AnyElement[], marquee: SceneRect, mode: MarqueeMode): AnyElement[] {
+  // A point-sized marquee is a plain click on empty canvas, not a drag, and must select nothing.
+  // Without this, `rectsIntersect` reports a hit for every element whose *bounding box* merely contains
+  // the point — so clicking blank space anywhere inside a large diagonal arrow's or line's box selected
+  // it, nowhere near its ink, instead of clearing the selection. A drag along a single axis (zero height
+  // or zero width, but real length) is still a legitimate marquee and is deliberately not caught here.
+  if (marquee.width === 0 && marquee.height === 0) return [];
+
   return elements.filter((element) => {
     if (element.isDeleted || element.locked) return false;
     if (element.type === "text" && element.containerId !== null) return false;

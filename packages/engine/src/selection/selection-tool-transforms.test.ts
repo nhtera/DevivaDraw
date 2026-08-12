@@ -6,6 +6,7 @@ import type { AnyElement } from "../elements/element-types";
 import { Scene } from "../scene/scene";
 import { InternalClipboard } from "./clipboard";
 import { SelectionState } from "./selection-state";
+import { SELECTION_PADDING_PX } from "./resize-handles";
 import { SelectionTool } from "./selection-tool";
 
 /**
@@ -14,6 +15,17 @@ import { SelectionTool } from "./selection-tool";
  * the identical `setup()` fixture.
  */
 const NO_MODIFIERS = { shift: false, alt: false, ctrl: false, meta: false };
+
+/**
+ * Handles ride the *padded* selection frame, not the element's own bounds (see
+ * `resize-handles.ts`'s `inflateSelectionBounds`), so a gesture aiming at one has to aim where it is
+ * actually drawn. Derived from the exported constant rather than hard-coded, so these tests follow the
+ * padding if it is ever retuned instead of silently falling back to hitting "inside the selection",
+ * which reads as a move gesture and would quietly stop testing resize at all.
+ */
+function seHandleOf(bounds: { x: number; y: number; width: number; height: number }, zoom = 1) {
+  return { x: bounds.x + bounds.width + SELECTION_PADDING_PX / zoom, y: bounds.y + bounds.height + SELECTION_PADDING_PX / zoom };
+}
 
 function setup(zoom = 1) {
   const scene = new Scene();
@@ -30,9 +42,10 @@ describe("SelectionTool — resize", () => {
     const rect = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 100, height: 50, backgroundColor: "#fff" }));
     selection.selectOnly([rect.id]);
 
-    tool.onGestureStart({ x: 100, y: 50 }, NO_MODIFIERS); // se handle
-    tool.onGestureMove({ x: 150, y: 80 }, NO_MODIFIERS);
-    tool.onGestureEnd({ x: 150, y: 80 }, NO_MODIFIERS);
+    const grab = seHandleOf({ x: 0, y: 0, width: 100, height: 50 });
+    tool.onGestureStart(grab, NO_MODIFIERS); // se handle
+    tool.onGestureMove({ x: grab.x + 50, y: grab.y + 30 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: grab.x + 50, y: grab.y + 30 }, NO_MODIFIERS);
 
     expect(scene.getElement(rect.id)).toMatchObject({ x: 0, y: 0, width: 150, height: 80 });
     expect(history.canUndo()).toBe(true);
@@ -45,9 +58,10 @@ describe("SelectionTool — resize", () => {
     );
     selection.selectOnly([stroke.id]);
 
-    tool.onGestureStart({ x: 10, y: 10 }, NO_MODIFIERS); // se handle
-    tool.onGestureMove({ x: 20, y: 20 }, NO_MODIFIERS);
-    tool.onGestureEnd({ x: 20, y: 20 }, NO_MODIFIERS);
+    const grab = seHandleOf({ x: 0, y: 0, width: 10, height: 10 });
+    tool.onGestureStart(grab, NO_MODIFIERS); // se handle
+    tool.onGestureMove({ x: grab.x + 10, y: grab.y + 10 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: grab.x + 10, y: grab.y + 10 }, NO_MODIFIERS);
 
     const resized = scene.getElement(stroke.id) as ReturnType<typeof createFreedrawElement>;
     expect(resized.points).toEqual([[0, 0, 0.5], [20, 20, 0.5]]);

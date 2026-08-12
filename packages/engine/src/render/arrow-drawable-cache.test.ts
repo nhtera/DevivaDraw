@@ -59,6 +59,29 @@ describe("ArrowDrawableCache — get/set", () => {
     expect(cache.get(element, createCamera({ scrollX: 1 }))).toBeUndefined();
     expect(cache.get(element, createCamera({ zoom: 2 }))).toBeUndefined();
   });
+
+  // See `RoughDrawableCache`'s equivalent test: a theme remap changes the rendered colors without
+  // bumping `version`, and those colors are baked into the generated drawables.
+  it("is a miss when only the stroke color changed, with version and camera identical", () => {
+    const cache = new ArrowDrawableCache();
+    const element = createArrowElement({ x: 0, y: 0, points: ARROW_POINTS, strokeColor: "#1e1e1e" });
+    const camera = createCamera();
+    cache.set(element, camera, [DUMMY_DRAWABLE]);
+
+    const darkAdapted = { ...element, strokeColor: "#e9ecef" };
+
+    expect(darkAdapted.version).toBe(element.version);
+    expect(cache.get(darkAdapted, camera)).toBeUndefined();
+  });
+
+  it("is still a hit when the colors are unchanged — adding colors to the key must not cause false misses", () => {
+    const cache = new ArrowDrawableCache();
+    const element = createArrowElement({ x: 0, y: 0, points: ARROW_POINTS, strokeColor: "#1e1e1e" });
+    const camera = createCamera();
+    cache.set(element, camera, [DUMMY_DRAWABLE]);
+
+    expect(cache.get({ ...element }, camera)).toEqual([DUMMY_DRAWABLE]);
+  });
 });
 
 describe("ArrowDrawableCache — prune", () => {
@@ -115,6 +138,21 @@ describe("drawElementArrow + ArrowDrawableCache integration", () => {
 
     expect(roughCanvas.linearPath).toHaveBeenCalledTimes(2);
     expect(roughCanvas.draw).not.toHaveBeenCalled();
+  });
+
+  it("regenerates after a theme remap swaps the arrow's stroke color, with no version or camera change", () => {
+    const cache = new ArrowDrawableCache();
+    const roughCanvas = fakeRoughCanvas();
+    const ctx = fakeCtx();
+    const element = createArrowElement({ x: 0, y: 0, width: 40, height: 0, points: ARROW_POINTS, endArrowhead: "none", strokeColor: "#1e1e1e" });
+    const camera = createCamera();
+
+    drawElementArrow(ctx, roughCanvas, element, camera, cache);
+    drawElementArrow(ctx, roughCanvas, { ...element, strokeColor: "#e9ecef" }, camera, cache);
+
+    expect(roughCanvas.linearPath).toHaveBeenCalledTimes(2);
+    expect(roughCanvas.draw).not.toHaveBeenCalled();
+    expect(roughCanvas.linearPath).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ stroke: "#e9ecef" }));
   });
 
   it("prune() drops a deleted arrow's cache entry, forcing regeneration if it's ever queried again by a plain-object stand-in with the same id", () => {

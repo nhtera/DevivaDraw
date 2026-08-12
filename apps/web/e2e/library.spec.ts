@@ -16,6 +16,9 @@ async function openLibrary(page: import("@playwright/test").Page) {
   await page.getByTestId("top-bar-menu").click();
   await page.getByTestId("main-menu-library").click();
   await expect(page.getByTestId("library-panel")).toBeVisible();
+  // The sidebar slides in from the right edge, and `boundingBox()` does not wait for that: measuring
+  // straight away reports the panel still translated a full width off-screen.
+  await page.getByTestId("library-panel").evaluate((node) => Promise.all(node.getAnimations().map((animation) => animation.finished)));
 }
 
 async function drawRect(page: import("@playwright/test").Page) {
@@ -46,9 +49,10 @@ test("clicking a library item inserts a fresh copy onto the canvas", async ({ pa
   await page.getByTestId("library-add").click();
   await expect(page.getByTestId("library-item")).toHaveCount(1);
 
-  // Deselect by clicking empty canvas (away from the left-side library panel) so the layer actions
-  // disappear; inserting from the library must bring them back with the freshly-inserted copy.
-  await page.mouse.click(760, 200);
+  // Deselect by clicking empty canvas so the layer actions disappear; inserting from the library must
+  // bring them back with the freshly-inserted copy. The clear space is on the *left*: the library
+  // sidebar holds the right edge and pushes the properties panel inward while it is open.
+  await page.mouse.click(200, 200);
   await expect(page.locator('[data-testid^="layer-action-"]')).toHaveCount(0);
 
   await page.getByTestId("library-item").click();
@@ -62,6 +66,95 @@ test("removing a library item empties the library", async ({ page }) => {
   await page.getByTestId("library-add").click();
   await expect(page.getByTestId("library-item")).toHaveCount(1);
 
+  // The remove control is revealed on tile hover, so the previews stay readable at four columns.
+  await page.getByTestId("library-item").hover();
   await page.getByTestId("library-item-remove").click();
   await expect(page.getByTestId("library-item")).toHaveCount(0);
+});
+
+test("the sidebar holds the right edge and pushes the properties panel and minimap clear of itself", async ({ page }) => {
+  await drawRect(page); // gives the properties panel and minimap something to show
+  const propertiesRight = async () => (await page.getByTestId("properties-panel").boundingBox())!.x + (await page.getByTestId("properties-panel").boundingBox())!.width;
+  const before = await propertiesRight();
+
+  await openLibrary(page);
+  const sidebar = (await page.getByTestId("library-panel").boundingBox())!;
+  const viewport = page.viewportSize()!;
+
+  // Full height, flush to the right edge.
+  expect(sidebar.y).toBeLessThanOrEqual(1);
+  expect(Math.round(sidebar.height)).toBe(viewport.height);
+  expect(Math.round(sidebar.x + sidebar.width)).toBe(viewport.width);
+
+  // ...and the right-anchored chrome moved out from under it instead of being covered.
+  expect(await propertiesRight()).toBeLessThanOrEqual(sidebar.x);
+  const minimap = (await page.getByTestId("minimap").boundingBox())!;
+  expect(minimap.x + minimap.width).toBeLessThanOrEqual(sidebar.x);
+
+  // Closing hands the space straight back.
+  await page.getByTestId("library-close").click();
+  await expect(page.getByTestId("library-panel")).toHaveCount(0);
+  expect(await propertiesRight()).toBeCloseTo(before, 0);
+});
+
+test("search filters the library by item name", async ({ page }) => {
+  await drawRect(page);
+  await openLibrary(page);
+  await page.getByTestId("library-add").click();
+  await expect(page.getByTestId("library-item")).toHaveCount(1);
+
+  await page.getByTestId("library-search").fill("nothing matches this");
+  await expect(page.getByTestId("library-item")).toHaveCount(0);
+  await expect(page.getByTestId("library-no-results")).toBeVisible();
+
+  await page.getByTestId("library-search").fill("Item");
+  await expect(page.getByTestId("library-item")).toHaveCount(1);
+});
+
+test("the library has a permanent toolbar button, not only a menu entry", async ({ page }) => {
+  await page.getByTestId("top-bar-library").click();
+  await expect(page.getByTestId("library-panel")).toBeVisible();
+});
+
+test("dragging a tile onto the canvas drops it at the cursor, not at the viewport centre", async ({ page }) => {
+  await drawRect(page);
+  await openLibrary(page);
+  await page.getByTestId("library-add").click();
+  await expect(page.getByTestId("library-item")).toHaveCount(1);
+
+  // Drop far from the centre, and far from the source rectangle, so "landed at the cursor" and
+  // "landed in the middle" cannot be confused for one another.
+  const target = { x: 260, y: 560 };
+  await page.getByTestId("library-item").dragTo(page.getByTestId("deviva-draw-canvas-host"), { targetPosition: target });
+
+  const dropped = await page.evaluate(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 1300)); // autosave debounce
+    const scene = JSON.parse(localStorage.getItem("devivadraw:autosave:v1")!) as {
+      elements: Array<{ x: number; y: number; width: number; height: number; isDeleted?: boolean }>;
+    };
+    const live = scene.elements.filter((element) => !element.isDeleted);
+    const newest = live[live.length - 1]!;
+    return { count: live.length, centerX: newest.x + newest.width / 2, centerY: newest.y + newest.height / 2 };
+  });
+
+  expect(dropped.count).toBe(2); // the original plus the dropped copy
+  // Camera is at the origin and unzoomed, so scene coordinates are screen coordinates here.
+  expect(dropped.centerX).toBeCloseTo(target.x, -1);
+  expect(dropped.centerY).toBeCloseTo(target.y, -1);
+});
+
+test("the tile grid keeps its four columns and never scrolls sideways", async ({ page }) => {
+  // The sidebar is sized to fit exactly four tiles. That sum has to include its own 1px border — the
+  // panel is `border-box`, so omitting it silently costs the grid a whole column.
+  await openLibrary(page);
+
+  const grid = await page.getByTestId("library-add").evaluate((node) => {
+    const container = node.parentElement!;
+    return {
+      columns: getComputedStyle(container).gridTemplateColumns.split(" ").length,
+      overflowsX: container.scrollWidth > container.clientWidth + 1,
+    };
+  });
+  expect(grid.columns).toBe(4);
+  expect(grid.overflowsX).toBe(false);
 });

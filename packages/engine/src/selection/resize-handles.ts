@@ -20,6 +20,27 @@ import type { SceneRect } from "../render/viewport-culling";
 export type ResizeHandleId = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 export const RESIZE_HANDLE_IDS: readonly ResizeHandleId[] = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
 
+/**
+ * Screen-space gap held between a selected element and its selection outline. Without it the outline
+ * lands exactly on the element's own stroke and hides it, so you cannot see the color or width you just
+ * picked while the element is still selected — both Excalidraw and tldraw inset by roughly this much.
+ */
+export const SELECTION_PADDING_PX = 6;
+
+/**
+ * Grows `bounds` by `SELECTION_PADDING_PX` of *screen* space on every side (hence the `zoom` divisor —
+ * the gap must look identical at every magnification, not scale with the drawing).
+ *
+ * Both the outline/handle *drawing* and the handle *hit-testing* must call this, or the handles are
+ * painted a padding-width away from where they can actually be grabbed. Deliberately NOT applied to the
+ * resize/rotate math itself: those operate on the element's true bounds, so dragging a handle resizes
+ * the element rather than the padded frame around it.
+ */
+export function inflateSelectionBounds(bounds: SceneRect, zoom: number): SceneRect {
+  const padding = SELECTION_PADDING_PX / zoom;
+  return { x: bounds.x - padding, y: bounds.y - padding, width: bounds.width + padding * 2, height: bounds.height + padding * 2 };
+}
+
 const CORNER_HANDLES: ReadonlySet<ResizeHandleId> = new Set(["ne", "nw", "se", "sw"]);
 
 function affectsX(handle: ResizeHandleId): boolean {

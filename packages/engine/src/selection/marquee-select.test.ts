@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createArrowElement } from "../elements/arrow-element";
 import { createRectangleElement } from "../elements/shape-elements";
 import { createTextElement } from "../elements/text-element";
 import { elementsInMarquee, normalizeMarqueeRect } from "./marquee-select";
@@ -6,6 +7,42 @@ import { elementsInMarquee, normalizeMarqueeRect } from "./marquee-select";
 function stored<T extends object>(element: T) {
   return { ...element, version: 1, versionNonce: 1, updated: 1, index: "a" };
 }
+
+describe("elementsInMarquee — degenerate (click) marquee", () => {
+  it("selects nothing for a point-sized marquee, even when the point is inside an element's bbox", () => {
+    // A large diagonal arrow: the click lands well inside its bounding box but nowhere near its ink.
+    const arrow = createArrowElement({
+      x: 300,
+      y: 250,
+      width: 300,
+      height: 150,
+      points: [
+        { x: 0, y: 0 },
+        { x: 300, y: 150 },
+      ],
+    });
+    const clickRect = normalizeMarqueeRect({ x: 375, y: 287 }, { x: 375, y: 287 });
+
+    expect(elementsInMarquee([arrow], clickRect, "intersect")).toEqual([]);
+    expect(elementsInMarquee([arrow], clickRect, "contain")).toEqual([]);
+  });
+
+  it("still selects for a real drag along a single axis (zero height, non-zero width)", () => {
+    const arrow = createArrowElement({
+      x: 300,
+      y: 250,
+      width: 300,
+      height: 150,
+      points: [
+        { x: 0, y: 0 },
+        { x: 300, y: 150 },
+      ],
+    });
+    const lineDrag = normalizeMarqueeRect({ x: 200, y: 300 }, { x: 700, y: 300 });
+
+    expect(elementsInMarquee([arrow], lineDrag, "intersect")).toHaveLength(1);
+  });
+});
 
 describe("normalizeMarqueeRect", () => {
   it("normalizes a rect dragged in any direction to non-negative width/height", () => {

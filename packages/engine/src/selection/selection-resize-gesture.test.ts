@@ -7,6 +7,7 @@ import { InternalClipboard } from "./clipboard";
 import { ResizeGesture } from "./selection-resize-gesture";
 import { rotatePointAroundCenter } from "./selection-geometry";
 import { SelectionState } from "./selection-state";
+import { handlePositions } from "./resize-handles";
 import { buildSelectionFrame } from "./selection-tool-frame";
 
 const NO_MODIFIERS = { shift: false, alt: false, ctrl: false, meta: false };
@@ -25,6 +26,16 @@ function worldPositionOf(point: { x: number; y: number }, bounds: { x: number; y
   return rotatePointAroundCenter(point, { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }, angle);
 }
 
+/**
+ * World point of `handle`'s exact position on `frame` — the grab point for a pointer-down that lands
+ * dead-centre on the handle, so `begin` records a zero grab offset and the pointer maps straight onto
+ * the geometry (what every assertion in this file is written against). A real click lands a few px off
+ * and the gesture holds that offset; that behavior is covered in `selection-tool-transforms.test.ts`.
+ */
+function grabPointFor(frame: ReturnType<typeof buildSelectionFrame>, handle: "se" | "nw") {
+  return rotatePointAroundCenter(handlePositions(frame!.bounds)[handle], frame!.pivot, frame!.angle);
+}
+
 describe("ResizeGesture — rotated single-element anchor invariance", () => {
   it.each([Math.PI / 2, Math.PI / 4, (3 * Math.PI) / 4, -Math.PI / 3])(
     "keeps the se handle's opposite (nw) corner world-fixed when resizing at angle %f",
@@ -34,7 +45,7 @@ describe("ResizeGesture — rotated single-element anchor invariance", () => {
       const frame = buildSelectionFrame([rect])!;
       const worldAnchorBefore = worldPositionOf({ x: 0, y: 0 }, frame.bounds, angle);
 
-      gesture.begin(frame, "se");
+      gesture.begin(frame, "se", grabPointFor(frame, "se"));
       // A pointer drag to local (150, 80) is expressed as a *world* point (the gesture rotates it
       // back into local space itself) by rotating the intended local target the same way the element
       // is rotated — this reproduces exactly what a real rotated on-screen drag looks like.
@@ -58,7 +69,7 @@ describe("ResizeGesture — rotated single-element anchor invariance", () => {
     const frame = buildSelectionFrame([rect])!;
     const worldAnchorBefore = worldPositionOf({ x: 100, y: 50 }, frame.bounds, angle); // se corner
 
-    gesture.begin(frame, "nw");
+    gesture.begin(frame, "nw", grabPointFor(frame, "nw"));
     const worldTarget = rotatePointAroundCenter({ x: -20, y: -10 }, frame.pivot, angle);
     gesture.apply(worldTarget, NO_MODIFIERS);
 
@@ -73,7 +84,7 @@ describe("ResizeGesture — rotated single-element anchor invariance", () => {
     const { scene, gesture } = setup();
     const rect = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 100, height: 50 }));
     const frame = buildSelectionFrame([rect])!;
-    gesture.begin(frame, "se");
+    gesture.begin(frame, "se", grabPointFor(frame, "se"));
     gesture.apply({ x: 150, y: 80 }, NO_MODIFIERS);
     expect(scene.getElement(rect.id)).toMatchObject({ x: 0, y: 0, width: 150, height: 80 });
   });
@@ -85,7 +96,7 @@ describe("ResizeGesture — rotated single-element anchor invariance", () => {
     const frame = buildSelectionFrame([rect])!;
     const centerBefore = frame.pivot;
 
-    gesture.begin(frame, "se");
+    gesture.begin(frame, "se", grabPointFor(frame, "se"));
     const worldTarget = rotatePointAroundCenter({ x: 150, y: 80 }, frame.pivot, angle);
     gesture.apply(worldTarget, { ...NO_MODIFIERS, alt: true });
 
@@ -104,7 +115,7 @@ describe("ResizeGesture — multi-element selection with a rotated member", () =
     const frame = buildSelectionFrame([rotatedMember, plainMember])!;
     expect(frame.angle).toBe(0); // a multi-select frame is always axis-aligned, regardless of member rotation
 
-    gesture.begin(frame, "se");
+    gesture.begin(frame, "se", grabPointFor(frame, "se"));
     gesture.apply({ x: frame.bounds.x + frame.bounds.width * 2, y: frame.bounds.y + frame.bounds.height * 2 }, NO_MODIFIERS);
 
     const resized = scene.getElement(rotatedMember.id)!;

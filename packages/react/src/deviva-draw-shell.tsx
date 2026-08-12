@@ -16,6 +16,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from "react";
 import { createCamera } from "@deviva-draw/engine";
 import type { RemoteCursorOverlay } from "@deviva-draw/engine";
+import { useLibraryDrop } from "./hooks/use-library-drop";
 import { usePasteAndDrop } from "./hooks/use-paste-and-drop";
 import { useImageFilePicker } from "./hooks/use-image-file-picker";
 import { shouldSuppressGlobalShortcuts } from "./runtime/should-suppress-global-shortcuts";
@@ -39,6 +40,7 @@ import { MermaidDialog } from "./components/mermaid-dialog";
 import { EmbedDialog } from "./components/embed-dialog";
 import { EmbedOverlay } from "./components/embed-overlay";
 import { Minimap } from "./components/minimap";
+import { BackToContentPill } from "./components/back-to-content-pill";
 import { useCanvasBackground } from "./runtime/use-live-version";
 import { useAdaptNextShapeStyle } from "./runtime/use-adapt-next-shape-style";
 import { CommandPalette } from "./components/command-palette";
@@ -81,6 +83,8 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const toolLock = useToggleState(false);
   const viewOnly = useToggleState(initialViewOnly ?? false);
   const statsPanel = useToggleState(false);
+  // Defaults on, preserving the minimap's previous always-visible behavior; the toggle only adds a way out.
+  const minimapVisible = useToggleState(true);
   const commandPaletteOpen = useToggleState(false);
   const shortcutsDialogOpen = useToggleState(false);
   const findOpen = useToggleState(false);
@@ -133,6 +137,8 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       setViewOnly: viewOnly.set,
       getStatsPanelVisible: statsPanel.get,
       setStatsPanelVisible: statsPanel.set,
+      getMinimapVisible: minimapVisible.get,
+      setMinimapVisible: minimapVisible.set,
       getCommandPaletteOpen: commandPaletteOpen.get,
       setCommandPaletteOpen: commandPaletteOpen.set,
       getShortcutsDialogOpen: shortcutsDialogOpen.get,
@@ -164,6 +170,9 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     decodeNaturalSize,
     onInsertError: (error) => console.warn("deviva-draw: image insert rejected", error),
   });
+  // Shares the canvas host's drop target with `usePasteAndDrop` above — that one handles files dragged
+  // in from outside, this one an in-document drag from the library sidebar. Each ignores the other's.
+  useLibraryDrop({ containerRef: canvasHostRef, runtime, getCamera });
   const { openImagePicker } = useImageFilePicker({
     scene: runtime?.scene ?? null,
     history: runtime?.history ?? null,
@@ -240,9 +249,14 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       </div>
       {runtime && !zenMode.value && (isNarrow ? <BottomToolbar runtime={runtime} onInsertImage={openImagePicker} /> : <Toolbar runtime={runtime} toolLocked={toolLock.value} onToggleLock={() => toolLock.set(!toolLock.value)} onInsertImage={openImagePicker} />)}
       {runtime && !zenMode.value && !isNarrow && <CanvasHint runtime={runtime} />}
-      {runtime && !zenMode.value && <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} />}
+      {runtime && !zenMode.value && (
+        <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} onOpenLibrary={() => libraryOpen.set(true)} />
+      )}
       {runtime && !zenMode.value && !viewOnly.value && (isNarrow ? <MobilePropertiesBar runtime={runtime} /> : <PropertiesPanel runtime={runtime} />)}
-      {runtime && !zenMode.value && !isNarrow && (
+      {runtime && !zenMode.value && (
+        <BackToContentPill runtime={runtime} cameraStore={cameraStore} getViewportSize={() => ({ width: canvasHostRef.current?.clientWidth ?? 0, height: canvasHostRef.current?.clientHeight ?? 0 })} />
+      )}
+      {runtime && !zenMode.value && !isNarrow && minimapVisible.value && (
         <Minimap runtime={runtime} cameraStore={cameraStore} getViewportSize={() => ({ width: canvasHostRef.current?.clientWidth ?? 0, height: canvasHostRef.current?.clientHeight ?? 0 })} />
       )}
       {runtime && mainMenuOpen.value && (

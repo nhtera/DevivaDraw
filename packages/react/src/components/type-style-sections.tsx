@@ -5,7 +5,7 @@
  * one batched history step instead of through `styleState.applyToSelection`.
  */
 import { DEFAULT_STROKE_COLOR_PALETTE, FONT_SIZE_LEVELS } from "@deviva-draw/engine";
-import type { AnyElement, ArrowElement, Arrowhead, TextAlign, TextElement, TextFontFamily } from "@deviva-draw/engine";
+import type { AnyElement, ArrowElement, Arrowhead, ArrowType, TextAlign, TextElement, TextFontFamily } from "@deviva-draw/engine";
 import { ColorPicker } from "./color-picker";
 import { buttonStyle, labelStyle } from "./chrome-styles";
 import { StyleSection } from "./style-section";
@@ -28,6 +28,7 @@ function updateBatched(runtime: DevivaRuntime, elements: AnyElement[], changes: 
 const FONT_FAMILY_OPTIONS: TextFontFamily[] = ["normal", "code", "hand-drawn-slot"];
 const TEXT_ALIGN_OPTIONS: TextAlign[] = ["left", "center", "right"];
 const ARROWHEAD_OPTIONS: Arrowhead[] = ["none", "arrow", "triangle", "bar", "dot"];
+const ARROW_TYPE_OPTIONS: ArrowType[] = ["straight", "curved", "elbow"];
 /** Text-align values reuse the existing chrome align glyphs; arrowheads use the self-authored SVG set (`icon-style-glyphs.tsx`). */
 const TEXT_ALIGN_ICONS: Record<TextAlign, string> = { left: "align-left", center: "align-center-h", right: "align-right" };
 
@@ -152,6 +153,13 @@ export function ArrowStyleSection(props: { runtime: DevivaRuntime }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <StyleSection
+        label={t("panel.arrowType")}
+        testIdPrefix="style-arrowType"
+        value={first.arrowType}
+        options={ARROW_TYPE_OPTIONS.map((value) => ({ value, label: t(`arrowType.${value}`), icon: `arrow-type-${value}` }))}
+        onChange={(value) => updateBatched(runtime, arrows, { arrowType: value })}
+      />
       <StyleSection
         label={t("panel.arrowheadStart")}
         value={first.startArrowhead}

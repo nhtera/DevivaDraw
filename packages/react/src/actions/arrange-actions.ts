@@ -73,7 +73,14 @@ export function buildArrangeActions(): Action[] {
       labelKey: "action.ungroup",
       icon: "ungroup",
       shortcut: "meta+shift+g",
-      isEnabled: (runtime) => runtime.selection.size > 0,
+      // Enabled only when something in the selection actually belongs to a group. Gating on "anything
+      // is selected" left Ungroup offered (and a no-op) on a single ungrouped element, right next to a
+      // correctly-disabled Group — which reads as the menu being broken.
+      isEnabled: (runtime) =>
+        [...runtime.selection.getSelectedIds()].some((id) => {
+          const element = runtime.scene.getElement(id);
+          return Boolean(element && !element.isDeleted && element.groupIds.length > 0);
+        }),
       run: (runtime) => {
         const ids = [...runtime.selection.getSelectedIds()];
         runtime.history.beginBatch();

@@ -44,6 +44,9 @@ export const STYLE_GLYPHS: Record<string, ReactNode> = {
   "edge-sharp": <path d="M5 15 L5 6 L15 6" strokeWidth="2" strokeLinejoin="miter" />,
   "edge-round": <path d="M5 15 L5 10 Q5 6 9 6 L15 6" strokeWidth="2" />,
   // Arrowheads
+  "arrow-type-straight": <path d="M3 16 L17 4" />,
+  "arrow-type-curved": <path d="M3 16 Q 10 4 17 4" />,
+  "arrow-type-elbow": <path d="M3 16 H10 V4 H17" />,
   "arrowhead-none": <line x1="3" y1="10" x2="17" y2="10" strokeWidth="1.6" />,
   "arrowhead-arrow": (
     <>

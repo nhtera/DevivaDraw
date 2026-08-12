@@ -18,6 +18,18 @@ async function selectTheme(page: Page, mode: "light" | "dark"): Promise<void> {
   await page.getByTestId(`main-menu-theme-${mode}`).click();
 }
 
+/**
+ * Clears the selection and settles the repaint. Deselecting is mandatory before any `scanStroke`
+ * brightness assertion: a freshly-drawn element stays selected, and the interactive layer paints its
+ * resize handles as pure-white squares — which `scanStroke` (brightest pixel across *all* layers)
+ * would report as ~765, making a "the stroke is light" assertion pass no matter what color the stroke
+ * actually is.
+ */
+async function deselectAndSettle(page: Page): Promise<void> {
+  await page.keyboard.press("Escape");
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))));
+}
+
 async function drawLine(page: Page): Promise<void> {
   await page.getByTestId("toolbar-line-tool").click();
   await page.mouse.move(400, 450);
@@ -28,7 +40,7 @@ async function drawLine(page: Page): Promise<void> {
   await page.mouse.up();
   // The static layer repaints on the next animation frame after the scene mutation — wait for a couple
   // of frames so a pixel scan reads the committed stroke, not the frame before it rendered.
-  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))));
+  await deselectAndSettle(page);
 }
 
 /** Reads the canvas-host element's *painted* background (must be an opaque themed color, never transparent). */
@@ -63,6 +75,21 @@ function scanStroke(page: Page, box: { x: number; y: number; w: number; h: numbe
     }
     return { opaque, brightestSum };
   }, box);
+}
+
+async function drawArrow(page: Page): Promise<void> {
+  await page.getByTestId("toolbar-arrow-tool").click();
+  await page.mouse.move(400, 450);
+  await page.mouse.down();
+  await page.mouse.move(550, 475);
+  await page.mouse.move(700, 500);
+  await page.mouse.up();
+  await deselectAndSettle(page);
+}
+
+/** Waits out the theme repaint without touching the camera — a pan/zoom would mask the defect under test. */
+async function settleRepaint(page: Page): Promise<void> {
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))));
 }
 
 const LINE_REGION = { x: 380, y: 435, w: 340, h: 85 };
@@ -108,6 +135,54 @@ test("a scene authored in light and reloaded in dark renders legibly (render-tim
   const { opaque, brightestSum } = await scanStroke(page, LINE_REGION);
   expect(opaque).toBeGreaterThan(0);
   expect(brightestSum).toBeGreaterThan(400);
+});
+
+/**
+ * The toggle-in-place case, which the reload test above cannot catch: a reload rebuilds every
+ * per-element drawable cache from scratch, so it renders correctly even when the caches are keyed
+ * wrongly. Toggling live keeps the cached rough.js `Drawable`s — which have the *previous* theme's
+ * colors baked into their options — so a cache keyed only on version+camera repaints the old colors
+ * and the whole drawing disappears against the new canvas. Neither test may pan or zoom: any camera
+ * change invalidates those caches and hides the defect.
+ */
+test("a shape drawn in light mode turns light the moment the theme flips to dark, with no camera change", async ({ page }) => {
+  await selectTheme(page, "light");
+  await drawLine(page);
+  expect((await scanStroke(page, LINE_REGION)).opaque).toBeGreaterThan(0);
+
+  await selectTheme(page, "dark");
+  await settleRepaint(page);
+
+  const { opaque, brightestSum } = await scanStroke(page, LINE_REGION);
+  expect(opaque).toBeGreaterThan(0);
+  expect(brightestSum).toBeGreaterThan(400); // repainted light, not still near-black from the light-mode cache
+});
+
+test("an arrow drawn in light mode turns light the moment the theme flips to dark, with no camera change", async ({ page }) => {
+  await selectTheme(page, "light");
+  await drawArrow(page);
+  expect((await scanStroke(page, LINE_REGION)).opaque).toBeGreaterThan(0);
+
+  await selectTheme(page, "dark");
+  await settleRepaint(page);
+
+  const { opaque, brightestSum } = await scanStroke(page, LINE_REGION);
+  expect(opaque).toBeGreaterThan(0);
+  expect(brightestSum).toBeGreaterThan(400);
+});
+
+test("a shape drawn in dark mode turns dark again the moment the theme flips back to light", async ({ page }) => {
+  await selectTheme(page, "dark");
+  await drawLine(page);
+  expect((await scanStroke(page, LINE_REGION)).brightestSum).toBeGreaterThan(400);
+
+  await selectTheme(page, "light");
+  await settleRepaint(page);
+
+  // The reverse direction: a light stroke left over from dark mode would be near-invisible on white.
+  const { opaque, brightestSum } = await scanStroke(page, LINE_REGION);
+  expect(opaque).toBeGreaterThan(0);
+  expect(brightestSum).toBeLessThan(300);
 });
 
 test("text typed in dark mode is legible (light text drawn on the dark canvas) and the box grows to fit", async ({ page }) => {

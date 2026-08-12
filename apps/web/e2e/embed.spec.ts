@@ -86,8 +86,12 @@ test("a selected embed resizes at any ratio (free — not aspect-locked)", async
   const iframe = page.getByTestId("embed-iframe");
   const before = (await iframe.boundingBox())!;
   // Drag the bottom-right handle horizontally only: width grows, height stays — proves free resize.
-  const hx = before.x + before.width;
-  const hy = before.y + before.height;
+  // Handles ride the padded selection frame, not the element's own corner (engine
+  // `selection/resize-handles.ts`, `SELECTION_PADDING_PX`), so aim where the handle is actually drawn —
+  // the raw corner now reads as "inside the selection" and starts a move instead.
+  const SELECTION_PADDING_PX = 6;
+  const hx = before.x + before.width + SELECTION_PADDING_PX;
+  const hy = before.y + before.height + SELECTION_PADDING_PX;
   await page.mouse.move(hx, hy);
   await page.mouse.down();
   await page.mouse.move(hx + 200, hy);

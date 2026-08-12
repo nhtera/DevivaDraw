@@ -103,6 +103,26 @@ export class PanZoomTool extends NoOpToolHandler {
   }
 
   /**
+   * Fits an arbitrary scene-space box — the zoom-to-selection counterpart of `zoomToFit`, which the
+   * caller supplies with the selection's bounds (this class deliberately knows nothing about
+   * selection). No-ops on a `null`/zero-area box, i.e. an empty selection.
+   */
+  zoomToBounds(bounds: SceneRect | null): void {
+    const camera = this.deps.getCamera();
+    this.deps.setCamera(computeZoomToFitCamera(camera, bounds, this.deps.getViewportSize()));
+  }
+
+  /**
+   * Returns to 1:1 magnification about the viewport center, leaving the centered scene point fixed —
+   * the conventional "reset zoom" every canvas app binds to its zoom readout. Pans nothing on its own.
+   */
+  resetZoom(): void {
+    const camera = this.deps.getCamera();
+    const { width, height } = this.deps.getViewportSize();
+    this.deps.setCamera(zoomCameraAtScreenPoint(camera, { x: width / 2, y: height / 2 }, 1));
+  }
+
+  /**
    * Centers `rect` in the viewport — used by "find on canvas" to bring a match into view. Keeps the
    * current zoom unless the rect wouldn't fit within 80% of the viewport at that zoom, in which case
    * it zooms out just enough to fit (never zooms *in*, so stepping between matches doesn't lurch the

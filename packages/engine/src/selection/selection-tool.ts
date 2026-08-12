@@ -17,7 +17,7 @@ import type { ModifierKeys } from "../input/tool-handler";
 import type { Point } from "../render/camera";
 import type { SceneRect } from "../render/viewport-culling";
 import { topmostElementAt } from "./hit-test";
-import { hitTestHandles } from "./resize-handles";
+import { hitTestHandles, inflateSelectionBounds } from "./resize-handles";
 import { rotatePointAroundCenter } from "./selection-geometry";
 import { MarqueeGesture } from "./selection-marquee-gesture";
 import { MoveGesture } from "./selection-move-gesture";
@@ -88,7 +88,9 @@ export class SelectionTool extends NoOpToolHandler {
     let insideSelectionBounds = false;
     if (frame) {
       const localPoint = rotatePointAroundCenter(point, frame.pivot, -frame.angle);
-      const handle = hitTestHandles(frame.bounds, localPoint, HANDLE_HIT_PX / zoom, ROTATE_HANDLE_OFFSET_PX / zoom);
+      // Hit-test against the *padded* frame the interactive layer actually paints (see
+      // `inflateSelectionBounds`); the resize/rotate gestures below still begin from the true `frame`.
+      const handle = hitTestHandles(inflateSelectionBounds(frame.bounds, zoom), localPoint, HANDLE_HIT_PX / zoom, ROTATE_HANDLE_OFFSET_PX / zoom);
       if (handle === "rotate") {
         this.mode = "rotate";
         this.rotate.begin(point, frame);
@@ -96,7 +98,7 @@ export class SelectionTool extends NoOpToolHandler {
       }
       if (handle) {
         this.mode = "resize";
-        this.resize.begin(frame, handle);
+        this.resize.begin(frame, handle, point);
         return;
       }
       const b = frame.bounds;

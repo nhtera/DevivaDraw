@@ -25,7 +25,7 @@ import type { Point } from "../render/camera";
 import type { SceneRect } from "../render/viewport-culling";
 import { mapBoundsToGroup } from "./group-transform";
 import { dispatchResize } from "./resize-dispatch";
-import { computeResizedBounds, resizeAnchorPoint } from "./resize-handles";
+import { computeResizedBounds, handlePositions, resizeAnchorPoint } from "./resize-handles";
 import type { ResizeHandleId } from "./resize-handles";
 import { rotatePointAroundCenter } from "./selection-geometry";
 import type { SelectionToolDeps } from "./selection-tool-deps";
@@ -64,22 +64,36 @@ export class ResizeGesture {
   private handle: ResizeHandleId | null = null;
   private originalElements: Map<string, AnyElement> | null = null;
   private lastAppliedBounds: SceneRect | null = null;
+  /** Local-space vector from the grabbed handle to where the pointer actually went down — see `begin`. */
+  private grabOffset: Point = { x: 0, y: 0 };
 
   constructor(deps: SelectionToolDeps) {
     this.deps = deps;
   }
 
-  begin(frame: SelectionFrame, handle: ResizeHandleId): void {
+  /**
+   * `grabPoint` is where the pointer actually went down (scene space). The resize math maps the pointer
+   * *directly* onto the new corner/edge, so without recording how far the grab landed from the handle's
+   * true position, the geometry snaps by that difference the instant the drag starts. That gap is now
+   * always non-zero: handles are drawn on the padded selection frame (`inflateSelectionBounds`), a
+   * `SELECTION_PADDING_PX` offset outward from the bounds this gesture resizes. Holding the offset also
+   * removes the smaller, pre-existing jump from grabbing a handle a few px off its center.
+   */
+  begin(frame: SelectionFrame, handle: ResizeHandleId, grabPoint: Point): void {
     this.frame = frame;
     this.handle = handle;
     this.lastAppliedBounds = frame.bounds;
+    const localGrab = rotatePointAroundCenter(grabPoint, frame.pivot, -frame.angle);
+    const handleLocal = handlePositions(frame.bounds)[handle];
+    this.grabOffset = { x: localGrab.x - handleLocal.x, y: localGrab.y - handleLocal.y };
     this.deps.history.beginBatch();
     this.originalElements = new Map(frame.members.map((member) => [member.id, this.deps.scene.getElement(member.id)!]));
   }
 
   apply(point: Point, modifiers: ModifierKeys): void {
     if (!this.frame || !this.handle || !this.originalElements) return;
-    const localPoint = rotatePointAroundCenter(point, this.frame.pivot, -this.frame.angle);
+    const rotated = rotatePointAroundCenter(point, this.frame.pivot, -this.frame.angle);
+    const localPoint = { x: rotated.x - this.grabOffset.x, y: rotated.y - this.grabOffset.y };
     const rawNewBounds = computeResizedBounds(this.handle, this.frame.bounds, localPoint, modifiers);
     const newBounds = compensateForRotatedAnchor(this.handle, this.frame.bounds, rawNewBounds, this.frame.angle, modifiers.alt);
     this.lastAppliedBounds = newBounds;
@@ -120,5 +134,6 @@ export class ResizeGesture {
     this.handle = null;
     this.originalElements = null;
     this.lastAppliedBounds = null;
+    this.grabOffset = { x: 0, y: 0 };
   }
 }

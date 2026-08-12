@@ -8,6 +8,7 @@
 import { buttonStyle, disabledButtonStyle, panelStyle } from "./chrome-styles";
 import { Icon } from "./icon";
 import { useTranslation } from "../i18n/use-translation";
+import { ZoomMenu } from "./zoom-menu";
 import { useCameraVersion, useSceneVersion } from "../runtime/use-live-version";
 import type { CameraStore } from "../runtime/camera-store";
 import type { DevivaRuntime } from "../runtime/runtime-types";
@@ -16,6 +17,7 @@ export interface TopBarProps {
   runtime: DevivaRuntime;
   cameraStore: CameraStore;
   onOpenMainMenu(): void;
+  onOpenLibrary(): void;
 }
 
 function ActionIconButton(props: { runtime: DevivaRuntime; actionId: string; label: string }) {
@@ -25,6 +27,10 @@ function ActionIconButton(props: { runtime: DevivaRuntime; actionId: string; lab
     <button
       type="button"
       data-testid={`top-bar-${actionId}`}
+      // Both attributes, always: `aria-label` names the icon-only button for assistive tech, `title`
+      // is what actually produces the hover tooltip. Carrying only one (as these buttons used to)
+      // leaves the control either silent to a screen reader or silent on hover.
+      title={label}
       aria-label={label}
       disabled={!enabled}
       style={{ ...buttonStyle(false), ...(enabled ? {} : disabledButtonStyle) }}
@@ -36,15 +42,14 @@ function ActionIconButton(props: { runtime: DevivaRuntime; actionId: string; lab
 }
 
 export function TopBar(props: TopBarProps) {
-  const { runtime, cameraStore, onOpenMainMenu } = props;
+  const { runtime, cameraStore, onOpenMainMenu, onOpenLibrary } = props;
   const { t } = useTranslation();
   useSceneVersion(runtime.scene);
   useCameraVersion(cameraStore);
-  const zoomPercent = Math.round(cameraStore.getCamera().zoom * 100);
 
   return (
     <div style={{ ...panelStyle, display: "flex", alignItems: "center", gap: 2, padding: 4, position: "absolute", top: 12, left: 12 }}>
-      <button type="button" data-testid="top-bar-menu" aria-label={t("menu.title")} style={buttonStyle(false)} onClick={onOpenMainMenu}>
+      <button type="button" data-testid="top-bar-menu" title={t("menu.title")} aria-label={t("menu.title")} style={buttonStyle(false)} onClick={onOpenMainMenu}>
         <Icon name="menu" />
       </button>
       <div style={{ width: 1, height: 20, background: "var(--dd-chrome-border)", margin: "0 4px" }} />
@@ -52,16 +57,14 @@ export function TopBar(props: TopBarProps) {
       <ActionIconButton runtime={runtime} actionId="redo" label={t("action.redo")} />
       <div style={{ width: 1, height: 20, background: "var(--dd-chrome-border)", margin: "0 4px" }} />
       <ActionIconButton runtime={runtime} actionId="zoom-out" label={t("action.zoomOut")} />
-      <button
-        type="button"
-        data-testid="top-bar-zoom-percentage"
-        style={{ ...buttonStyle(false), minWidth: 44 }}
-        title={t("action.zoomToFit")}
-        onClick={() => runtime.actionRegistry.run("zoom-to-fit", runtime)}
-      >
-        {t("topbar.zoomPercentage", { percent: zoomPercent })}
-      </button>
+      <ZoomMenu runtime={runtime} cameraStore={cameraStore} />
       <ActionIconButton runtime={runtime} actionId="zoom-in" label={t("action.zoomIn")} />
+      <div style={{ width: 1, height: 20, background: "var(--dd-chrome-border)", margin: "0 4px" }} />
+      {/* Also in the main menu, but a library is a thing you reach for constantly once you have one —
+          Excalidraw gives it a permanent toolbar button for the same reason. */}
+      <button type="button" data-testid="top-bar-library" title={t("library.title")} aria-label={t("library.title")} style={buttonStyle(false)} onClick={onOpenLibrary}>
+        <Icon name="library" />
+      </button>
     </div>
   );
 }

@@ -41,16 +41,19 @@ export async function saveFile(suggestedName: string, content: string, mimeType:
 }
 
 /**
- * Opens a file picker restricted to `accept` (e.g. `".devivadraw,application/json"`) and resolves the
- * chosen file's text content, or `null` if the user canceled. Uses the File System Access API's native
- * open dialog when available, falling back to a hidden `<input type="file">` element otherwise — same
- * feature-detection branch as `saveFile`.
+ * Opens a file picker restricted to `accept` — a comma-separated extension list, `<input accept>`
+ * syntax (e.g. `".devivalib,.excalidrawlib"`) — and resolves the chosen file's text content, or `null`
+ * if the user canceled. Uses the File System Access API's native open dialog when available, falling
+ * back to a hidden `<input type="file">` element otherwise — same feature-detection branch as
+ * `saveFile`. The native dialog wants the extensions as an array rather than one joined string, so the
+ * list is split for it; passing the raw string through makes it reject every file.
  */
 export async function pickAndReadFile(accept: string): Promise<string | null> {
   const picker = (window as Window & { showOpenFilePicker?: (options: unknown) => Promise<Array<{ getFile(): Promise<File> }>> }).showOpenFilePicker;
   if (picker) {
+    const extensions = accept.split(",").map((entry) => entry.trim()).filter(Boolean);
     try {
-      const [handle] = await picker({ types: [{ description: "Deviva Draw scene", accept: { "application/json": [accept] } }] });
+      const [handle] = await picker({ types: [{ description: "Deviva Draw scene", accept: { "application/json": extensions } }] });
       if (!handle) return null;
       return await (await handle.getFile()).text();
     } catch {

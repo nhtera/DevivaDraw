@@ -129,6 +129,8 @@ export {
   rotateVector,
   smoothedPathFromPoints,
 } from "./render/arrow-geometry";
+export { arrowPathPoints } from "./render/arrow-path";
+export { elbowRoute } from "./render/arrow-elbow-route";
 export { buildArrowDrawables, drawElementArrow } from "./render/arrow-renderer";
 export { ArrowDrawableCache } from "./render/arrow-drawable-cache";
 
@@ -431,3 +433,14 @@ export { parseShareUrl } from "./share-link/parse-share-url";
 // which is hardwired to mint a brand-new key on every call).
 export { bytesToBase64Url, base64UrlToBytes } from "./share-link/base64url-bytes";
 export { gzipCompress, gzipDecompress } from "./share-link/gzip-codec";
+
+// --- Excalidraw interop (import) ---
+
+export type { ExcalidrawElementsImport, ImportExcalidrawElementsOptions } from "./interop/excalidraw-element-import";
+export { importExcalidrawElements } from "./interop/excalidraw-element-import";
+
+export type { ExcalidrawSceneImport } from "./interop/excalidraw-scene-import";
+export { EXCALIDRAW_SCENE_FILE_TYPE, importExcalidrawScene } from "./interop/excalidraw-scene-import";
+
+export type { ExcalidrawLibraryImport, ImportedLibraryItem } from "./interop/excalidraw-library-import";
+export { EXCALIDRAW_LIBRARY_FILE_TYPE, importExcalidrawLibrary } from "./interop/excalidraw-library-import";

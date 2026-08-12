@@ -1,13 +1,13 @@
 /**
- * rough.js dispatch for arrows: the shaft (straight polyline, smoothed curve, or — until elbow
- * routing lands, see below — a straight fallback) plus up to two independently-styled arrowhead caps.
+ * rough.js dispatch for arrows: the shaft (straight polyline, smoothed curve, or orthogonal elbow
+ * route) plus up to two independently-styled arrowhead caps.
  * Mirrors `rough-renderer.ts`'s split (pure geometry in `arrow-geometry.ts`, rough.js calls here) and
  * its `RoughShapeDrawer` double-duty (a headless `RoughGenerator` for tests, a canvas-bound
  * `RoughCanvas` at runtime).
  *
- * `arrowType: "elbow"` (orthogonal routing) is an explicitly deferred stretch item and renders via
- * the same straight-line path `"straight"` uses rather than being rejected, so a document created
- * with it never looks broken, just simpler than intended until elbow routing ships as a fast-follow.
+ * `arrowType: "elbow"` routes orthogonally through `arrow-elbow-route.ts`. The routed path comes from
+ * `arrow-path.ts`'s `arrowPathPoints`, shared with both hit tests, so an elbow arrow is clickable
+ * exactly where it is drawn.
  *
  * Unlike `rough-drawable-cache.ts`'s one-`Drawable`-per-element cache, an arrow always produces 1-3
  * `Drawable`s (shaft + up to 2 arrowheads) — `ArrowDrawableCache` (`arrow-drawable-cache.ts`) stores
@@ -17,6 +17,7 @@
 import type { Drawable, Options as RoughOptions } from "roughjs/bin/core.js";
 import type { ArrowElement, Arrowhead } from "../elements/arrow-element";
 import { absolutePoints, arrowheadBarEnds, arrowheadDotCenter, arrowheadWings, outwardDirectionAt, smoothedPathFromPoints } from "./arrow-geometry";
+import { arrowPathPoints } from "./arrow-path";
 import type { ArrowDrawableCache } from "./arrow-drawable-cache";
 import type { Camera, Point } from "./camera";
 import { sceneToScreen } from "./camera";
@@ -41,7 +42,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function screenPointsOf(element: ArrowElement, camera: Camera): Point[] {
-  return absolutePoints({ x: element.x, y: element.y }, element.points).map((point) => sceneToScreen(point, camera));
+  return absolutePoints({ x: element.x, y: element.y }, arrowPathPoints(element)).map((point) => sceneToScreen(point, camera));
 }
 
 function toTuples(points: readonly Point[]): Array<[number, number]> {
