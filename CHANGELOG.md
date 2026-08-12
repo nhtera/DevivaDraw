@@ -98,6 +98,7 @@ Publishes `@deviva-draw/react` only; `@deviva-draw/engine` (0.3.1) and
 - Mobile style sheet centers via auto margins, so its entrance animation no longer shifts it.
 - Hamburger menu renders as a centered SVG glyph instead of the off-center Unicode `☰`.
 
+[0.3.4]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.4
 [0.3.3]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.3
 [0.3.2]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.2
 [0.3.1]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.1
