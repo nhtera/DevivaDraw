@@ -113,6 +113,12 @@ export function registerStyleClipboardShortcuts(registry: ShortcutRegistry): voi
   registry.register("shift+x", "draw-to-shape");
 }
 
+/** Mirroring the selection — `Shift+H` / `Shift+V`, matching Excalidraw. */
+export function registerFlipShortcuts(registry: ShortcutRegistry): void {
+  registry.register("shift+h", "flip-horizontal");
+  registry.register("shift+v", "flip-vertical");
+}
+
 /** Undo/redo — `Ctrl/Cmd+Z` and `Ctrl/Cmd+Shift+Z`, the one shortcut pair no tool's own `onKeyDown` owns (undo/redo is global chrome, not a tool concern). */
 export function registerHistoryShortcuts(registry: ShortcutRegistry): void {
   for (const modifier of ["ctrl", "meta"]) {
@@ -134,4 +140,5 @@ export function registerFullShortcutMap(registry: ShortcutRegistry): void {
   registerHistoryShortcuts(registry);
   registerCommandPaletteShortcut(registry);
   registerStyleClipboardShortcuts(registry);
+  registerFlipShortcuts(registry);
 }

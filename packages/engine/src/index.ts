@@ -353,6 +353,8 @@ export { bringForward, bringToFront, sendBackward, sendToBack } from "./selectio
 
 export type { AlignableElement, AlignEdge, DistributeAxis } from "./selection/align-distribute";
 export { computeAlignChanges, computeDistributeChanges } from "./selection/align-distribute";
+export type { FlipAxis } from "./selection/flip-selection";
+export { computeFlipChanges } from "./selection/flip-selection";
 
 export { expandToGroupMembers, groupSelection, ungroupSelection } from "./selection/group-ungroup";
 

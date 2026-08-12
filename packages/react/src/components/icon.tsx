@@ -42,6 +42,8 @@ const GLYPHS: Record<string, string> = {
   "align-bottom": "⊥",
   "distribute-h": "⇔",
   "distribute-v": "⇕",
+  "flip-h": "⇄",
+  "flip-v": "⇅",
   group: "⧈",
   ungroup: "⧇",
   lock: "🔒",

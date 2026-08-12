@@ -19,6 +19,7 @@ const MENU_ACTION_GROUPS: readonly (readonly string[])[] = [
   ["copy", "paste", "copy-styles", "paste-styles"],
   ["duplicate", "delete"],
   ["bring-to-front", "bring-forward", "send-backward", "send-to-back"],
+  ["flip-horizontal", "flip-vertical"],
   ["group", "ungroup", "toggle-lock"],
 ];
 
