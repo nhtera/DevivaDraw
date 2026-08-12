@@ -8,9 +8,9 @@
  * Fill-awareness: a shape with `backgroundColor !== "transparent"` counts its whole interior as a hit
  * target (whatever `fillStyle` pattern — hachure's gaps don't punch holes in the clickable area, same
  * simplification Excalidraw itself makes); an unfilled shape only hits within `tolerance` of its
- * outline. Bound text (`containerId !== null`) is deliberately never hit directly — clicking where a
- * label sits should select its container, not the label, matching how the container is what owns the
- * click in every whiteboard app of this genre.
+ * outline, *unless* it carries a label (see `hasLabel`). Bound text (`containerId !== null`) is
+ * deliberately never hit directly — clicking where a label sits should select its container, not the
+ * label, matching how the container is what owns the click in every whiteboard app of this genre.
  */
 import type { AnyElement } from "../elements/element-types";
 import type { PolygonShapeType } from "../elements/polygon-shape-geometry";
@@ -19,11 +19,23 @@ import type { BlockArrowDirection } from "../elements/shape-elements";
 import { arrowPathPoints } from "../render/arrow-path";
 import type { Point } from "../render/camera";
 import type { Scene } from "../scene/scene";
+import { findBoundTextRef } from "../text/bound-text";
 import { elementCenter, rotatePointAroundCenter } from "./selection-geometry";
 import { distanceToPolyline, distanceToRectBorder, pointInPolygon } from "./polygon-hit-math";
 
 function isFilled(element: Pick<AnyElement, "backgroundColor">): boolean {
   return element.backgroundColor !== "transparent";
+}
+
+/**
+ * A labelled shape is grabbable from inside even with no fill. The label sits in the middle of the
+ * shape, so the space around it reads as *part of* the shape rather than as bare canvas — and with
+ * only the outline clickable, every click aimed at the interior misses the hairline stroke and starts
+ * a marquee instead of selecting the thing the user was pointing at. Excalidraw's hit test carves out
+ * the same exception (interior counts when the element is filled *or* has bound text).
+ */
+function hasLabel(element: AnyElement): boolean {
+  return findBoundTextRef(element) !== null;
 }
 
 /** Local-space point relative to `element`'s own `(x, y)` origin, after undoing its rotation. */
@@ -96,8 +108,8 @@ export interface HitTestOptions {
   /**
    * Treat every closed shape as filled, so a click anywhere in its interior counts as a hit even when
    * its background is transparent. The bucket-fill tool needs this (you fill an unfilled shape by
-   * clicking inside it); plain selection deliberately does NOT (an unfilled shape is grabbed by its
-   * stroke, matching Excalidraw/tldraw — see `selection-tool.ts`).
+   * clicking inside it); plain selection deliberately does NOT (an unlabelled unfilled shape is
+   * grabbed by its stroke, matching Excalidraw/tldraw — see `selection-tool.ts` and `hasLabel`).
    */
   interiorForClosedShapes?: boolean;
 }
@@ -107,7 +119,7 @@ export function hitTestElement(element: AnyElement, point: Point, tolerance: num
   if (element.type === "text" && element.containerId !== null) return false; // bound text: see module doc
 
   const local = toLocalRelativePoint(element, point);
-  const filled = isFilled(element) || (options?.interiorForClosedShapes ?? false);
+  const filled = isFilled(element) || hasLabel(element) || (options?.interiorForClosedShapes ?? false);
 
   switch (element.type) {
     case "rectangle":

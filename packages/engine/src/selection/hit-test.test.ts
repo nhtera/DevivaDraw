@@ -106,6 +106,53 @@ describe("hitTestElement — text, image, and bound text exclusion", () => {
   });
 });
 
+describe("hitTestElement — labelled containers", () => {
+  /** An unfilled container carrying a bound-text ref, as `bindTextToContainer` leaves it. */
+  const labelled = (overrides: Parameters<typeof createRectangleElement>[0] = {}) => ({
+    ...createRectangleElement({ x: 0, y: 0, width: 100, height: 50, ...overrides }),
+    boundElements: [{ id: "label-1", type: "text" }],
+    version: 1,
+    versionNonce: 1,
+    updated: 1,
+    index: "a",
+  });
+
+  it("hits the empty space around the label, which an unlabelled unfilled shape would not", () => {
+    // Off-center, so it is nowhere near the text itself — this is the gap the user actually clicks in.
+    expect(hitTestElement(labelled(), { x: 80, y: 12 }, 2)).toBe(true);
+    const bare = { ...createRectangleElement({ x: 0, y: 0, width: 100, height: 50 }), version: 1, versionNonce: 1, updated: 1, index: "a" };
+    expect(hitTestElement(bare, { x: 80, y: 12 }, 2)).toBe(false);
+  });
+
+  it("still stops at the shape's own outline", () => {
+    expect(hitTestElement(labelled(), { x: 140, y: 25 }, 2)).toBe(false);
+  });
+
+  it("ignores non-text bindings — a shape with only bound arrows stays stroke-only", () => {
+    const withArrow = {
+      ...createRectangleElement({ x: 0, y: 0, width: 100, height: 50 }),
+      boundElements: [{ id: "arrow-1", type: "arrow" }],
+      version: 1,
+      versionNonce: 1,
+      updated: 1,
+      index: "a",
+    };
+    expect(hitTestElement(withArrow, { x: 50, y: 25 }, 2)).toBe(false);
+  });
+
+  it("applies to every closed shape a label can bind to, not just rectangles", () => {
+    const ellipse = {
+      ...createEllipseElement({ x: 0, y: 0, width: 100, height: 60 }),
+      boundElements: [{ id: "label-1", type: "text" }],
+      version: 1,
+      versionNonce: 1,
+      updated: 1,
+      index: "a",
+    };
+    expect(hitTestElement(ellipse, { x: 50, y: 30 }, 2)).toBe(true);
+  });
+});
+
 describe("topmostElementAt", () => {
   it("returns the highest z-order element among overlapping candidates", () => {
     const scene = new Scene();
