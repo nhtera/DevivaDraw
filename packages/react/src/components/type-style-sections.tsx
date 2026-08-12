@@ -8,7 +8,7 @@ import { DEFAULT_STROKE_COLOR_PALETTE, FONT_SIZE_LEVELS } from "@deviva-draw/eng
 import type { AnyElement, ArrowElement, Arrowhead, ArrowType, TextAlign, TextElement, TextFontFamily } from "@deviva-draw/engine";
 import { ColorPicker } from "./color-picker";
 import { buttonStyle, labelStyle } from "./chrome-styles";
-import { StyleSection } from "./style-section";
+import { OpacityRow, StyleSection } from "./style-section";
 import { useTranslation } from "../i18n/use-translation";
 import type { DevivaRuntime } from "../runtime/runtime-types";
 
@@ -134,12 +134,7 @@ export function TextPropertiesPanel(props: { runtime: DevivaRuntime; targets: Te
           </button>
         </div>
       </div>
-      <div>
-        <span style={labelStyle}>
-          {t("panel.opacity")}: {first.opacity}
-        </span>
-        <input type="range" min={0} max={100} value={first.opacity} onChange={(event) => set({ opacity: Number(event.target.value) })} style={{ width: "100%" }} />
-      </div>
+      <OpacityRow label={t("panel.opacity")} value={first.opacity} onChange={(opacity) => set({ opacity })} />
     </>
   );
 }

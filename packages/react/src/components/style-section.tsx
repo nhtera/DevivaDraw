@@ -22,6 +22,34 @@ export interface StyleSectionProps<T extends string> {
   testIdPrefix?: string;
 }
 
+export interface OpacityRowProps {
+  /** Already-translated field name; the current value is appended to it. */
+  label: string;
+  value: number;
+  onChange(value: number): void;
+}
+
+/**
+ * The 0-100 opacity slider, shared by the shape panel and the text panel — one copy so the two cannot
+ * drift apart.
+ *
+ * `display`/`margin`/`box-sizing` are load-bearing, not cosmetic: a range input carries a UA margin on
+ * each side, so a bare `width: 100%` renders it wider than its container. In a 220px panel that is
+ * enough to overflow, and since a scroll container computes `overflow-x` alongside its `overflow-y`,
+ * the overflow surfaces as a horizontal scrollbar under the whole panel.
+ */
+export function OpacityRow(props: OpacityRowProps) {
+  const { label, value, onChange } = props;
+  return (
+    <div>
+      <span style={labelStyle}>
+        {label}: {value}
+      </span>
+      <input type="range" min={0} max={100} value={value} onChange={(event) => onChange(Number(event.target.value))} style={{ display: "block", width: "100%", boxSizing: "border-box", margin: 0 }} />
+    </div>
+  );
+}
+
 export function StyleSection<T extends string>(props: StyleSectionProps<T>) {
   const { label, options, value, onChange, testIdPrefix } = props;
   return (

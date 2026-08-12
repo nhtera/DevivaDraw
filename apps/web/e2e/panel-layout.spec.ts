@@ -54,6 +54,52 @@ test("the properties panel stays inside the viewport and scrolls instead of clip
   }
 });
 
+/** Every descendant of `testId` whose box sticks out past its content box, as `tag[testid]` labels. */
+async function overflowingChildren(page: Page, testId: string): Promise<string[]> {
+  return page.evaluate((id) => {
+    const container = document.querySelector(`[data-testid="${id}"]`) as HTMLElement;
+    const style = getComputedStyle(container);
+    const right = container.getBoundingClientRect().right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight);
+    const left = container.getBoundingClientRect().left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft);
+    const out: string[] = [];
+    for (const node of container.querySelectorAll("*")) {
+      const element = node as HTMLElement;
+      if (getComputedStyle(element).position === "fixed") continue; // portalled popovers are positioned in the viewport
+      const box = element.getBoundingClientRect();
+      if (box.width === 0) continue;
+      if (box.right > right + 0.5 || box.left < left - 0.5) out.push(`${element.tagName}[${element.dataset.testid ?? ""}] ${Math.round(box.left)}..${Math.round(box.right)} vs ${Math.round(left)}..${Math.round(right)}`);
+    }
+    return out;
+  }, testId);
+}
+
+test("the properties panel never scrolls sideways, whatever is selected", async ({ page }) => {
+  await page.setViewportSize(SHORT_DESKTOP);
+  // An arrow is the widest panel as well as the tallest: the shape rows, both arrowhead rows, and the
+  // full layer grid (z-order, align, distribute, group) all render at once.
+  await drawArrow(page);
+  const panel = page.getByTestId("properties-panel");
+  await expect(panel).toBeVisible();
+
+  // The six align buttons used to be a fixed-width row a few pixels wider than the panel's content
+  // box, and the opacity slider added a UA margin on top of its `width: 100%`. Either one alone was
+  // enough for a horizontal scrollbar, because a scroll container computes `overflow-x` next to its
+  // `overflow-y` — so the panel offered a sideways scroll with nothing meaningful to reveal.
+  expect(await overflowingChildren(page, "properties-panel")).toEqual([]);
+  expect(await panel.evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(0);
+
+  // ...and it must not merely be clipping the overflow away, which would hide the controls instead.
+  expect(await panel.evaluate((node) => getComputedStyle(node).overflowX)).not.toBe("hidden");
+
+  // The text panel is a different set of rows (font family, size, align) over the same layer grid.
+  await page.keyboard.press("Escape");
+  await page.getByTestId("toolbar-text-tool").click();
+  await page.mouse.click(800, 250);
+  await page.keyboard.type("hello");
+  await expect(page.getByTestId("properties-panel-text")).toBeVisible();
+  expect(await overflowingChildren(page, "properties-panel-text")).toEqual([]);
+});
+
 test("the properties panel is docked under the top bar on the left edge, clear of both", async ({ page }) => {
   await page.setViewportSize(SHORT_DESKTOP);
   await drawArrow(page);

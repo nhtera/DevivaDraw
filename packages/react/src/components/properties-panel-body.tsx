@@ -18,7 +18,7 @@ import { Icon } from "./icon";
 import { LayerActionsSection } from "./layer-actions-section";
 import { LinkSection } from "./link-section";
 import { buttonStyle, labelStyle } from "./chrome-styles";
-import { StyleSection } from "./style-section";
+import { OpacityRow, StyleSection } from "./style-section";
 import { ArrowStyleSection, TextPropertiesPanel, TextStyleSection } from "./type-style-sections";
 import { useTranslation } from "../i18n/use-translation";
 import { ERASER_TOOL_NAME, FRAME_TOOL_NAME, LASER_TOOL_NAME, LASSO_TOOL_NAME, PAN_TOOL_NAME, SELECT_TOOL_NAME } from "../runtime/tool-names";
@@ -194,12 +194,7 @@ export function PropertiesPanelBody(props: PropertiesPanelBodyProps) {
         options={["sharp", "round"].map((key) => ({ value: key, label: t(`styleValue.${key as "sharp" | "round"}`), icon: `edge-${key}` }))}
         onChange={(key) => apply({ roundness: ROUNDNESS_LEVELS[key as "sharp" | "round"] })}
       />
-      <div>
-        <span style={labelStyle}>
-          {t("panel.opacity")}: {style.opacity}
-        </span>
-        <input type="range" min={0} max={100} value={style.opacity} onChange={(event) => apply({ opacity: Number(event.target.value) })} style={{ width: "100%" }} />
-      </div>
+      <OpacityRow label={t("panel.opacity")} value={style.opacity} onChange={(opacity) => apply({ opacity })} />
       <TextStyleSection runtime={runtime} />
       <ArrowStyleSection runtime={runtime} />
       {runtime.selection.size > 0 && (
