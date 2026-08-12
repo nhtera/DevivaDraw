@@ -4,6 +4,28 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.1] — 2026-08-12
+
+### Fixed
+- **Labelled shapes are grabbable from the inside.** An unfilled shape only hit-tested
+  within a few pixels of its outline, so clicking inside a rectangle carrying a text
+  label missed it and started a marquee instead of selecting it. A bound label now makes
+  the whole interior a hit target, matching Excalidraw. Shapes wired up with bound
+  arrows (but no label) stay stroke-only.
+- **Imported Excalidraw group nesting.** The two formats order `groupIds` from opposite
+  ends, so an imported library shape expanded to its innermost subgroup: clicking a
+  published icon grabbed one cluster of strokes and dragged it out of the shape it
+  belonged to.
+- **Duplicated groups no longer share ids with the original**, so moving a copy stopped
+  dragging the elements it was copied from.
+- **Autosave is flushed after opening a file**, so a reload straight after an import no
+  longer restores the previous scene.
+
+### Changed
+- The properties panel is docked under the top bar on the **left** edge, and the library
+  has a **permanent toggle button** of its own at the top right — both matching Excalidraw's
+  placement. Opening the library no longer displaces the properties panel.
+
 ## [0.3.0] — 2026-08-12
 
 ### Added
@@ -23,4 +45,5 @@ All notable changes to Deviva Draw are documented here. The format follows
 - Mobile style sheet centers via auto margins, so its entrance animation no longer shifts it.
 - Hamburger menu renders as a centered SVG glyph instead of the off-center Unicode `☰`.
 
+[0.3.1]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.1
 [0.3.0]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.0
