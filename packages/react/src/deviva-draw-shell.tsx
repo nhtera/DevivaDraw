@@ -16,6 +16,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from "react";
 import { createCamera } from "@deviva-draw/engine";
 import type { RemoteCursorOverlay } from "@deviva-draw/engine";
+import { useDocumentFileDrop } from "./hooks/use-document-file-drop";
 import { useLibraryDrop } from "./hooks/use-library-drop";
 import { usePasteAndDrop } from "./hooks/use-paste-and-drop";
 import { useImageFilePicker } from "./hooks/use-image-file-picker";
@@ -174,6 +175,14 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   // Shares the canvas host's drop target with `usePasteAndDrop` above — that one handles files dragged
   // in from outside, this one an in-document drag from the library sidebar. Each ignores the other's.
   useLibraryDrop({ containerRef: canvasHostRef, runtime, getCamera });
+  // The third drop listener on that target: scene/library *documents* dragged in from the desktop.
+  // A dropped library opens the sidebar, so its items are somewhere the user can see rather than
+  // silently added to a shelf that is currently closed.
+  useDocumentFileDrop({
+    containerRef: canvasHostRef,
+    runtime,
+    onLibraryImported: useCallback(() => libraryOpen.set(true), [libraryOpen]),
+  });
   const { openImagePicker } = useImageFilePicker({
     scene: runtime?.scene ?? null,
     history: runtime?.history ?? null,

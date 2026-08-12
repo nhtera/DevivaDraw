@@ -38,6 +38,7 @@ export function buildPersistenceOperations(deps: BuildPersistenceOperationsDeps)
         reportError(error);
       }
     },
+    loadScene: (scene) => onSceneReplaced(scene),
     saveScene: () => saveSceneToFile(getScene()).catch(reportError),
     exportPng: () => exportSceneToPngFile(getScene(), EXPORT_PNG_DEFAULT_SCALE).catch(reportError),
     exportSvg: () => exportSceneToSvgFile(getScene()).catch(reportError),

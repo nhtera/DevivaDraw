@@ -25,6 +25,7 @@ import { GRID_COLUMNS, GRID_GAP, LibraryGrid, TILE_SIZE } from "./library-grid";
 import { renderElementsToThumbnail } from "../browser/scene-file-operations";
 import { pickAndReadFile, saveFile } from "../browser/persistence-adapters";
 import { deriveLibraryItemName, libraryItemMatches } from "../browser/library-item-name";
+import { onLibraryChanged } from "../browser/library-change-event";
 import { addLibraryItem, librarySourceOf, loadLibrary, mergeImportedLibrary, removeLibraryItem } from "../browser/library-storage";
 import type { LibraryItem } from "../browser/library-storage";
 import { parseLibraryFile } from "../browser/library-import";
@@ -141,6 +142,11 @@ export function LibraryPanel(props: LibraryPanelProps) {
     setItems(mergeImportedLibrary(result.items));
     setStatus(t("library.imported", { count: result.items.length }) + skippedSuffix(result.skipped, t));
   };
+
+  // The shelf is read into state once, on mount, so a write from outside this panel — a library file
+  // dropped on the canvas, "Add to library" from the context menu — would otherwise not show up until
+  // it was closed and reopened.
+  useEffect(() => onLibraryChanged(() => setItems(loadLibrary())), []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

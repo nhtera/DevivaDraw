@@ -49,6 +49,12 @@ export interface UiToggleState {
 export interface PersistenceOperations {
   newScene(): void;
   openScene(): Promise<void>;
+  /**
+   * Swaps the live document for an already-parsed `Scene` — the same replacement "Open" performs once
+   * its picker has resolved, exposed on its own for callers that were handed the file directly (a
+   * document dropped on the canvas, see `hooks/use-document-file-drop.ts`).
+   */
+  loadScene(scene: Scene): void;
   saveScene(): Promise<void>;
   exportPng(): Promise<void>;
   exportSvg(): Promise<void>;

@@ -63,17 +63,18 @@ function sceneFromExcalidraw(imported: ExcalidrawSceneImport): Scene {
 }
 
 /**
- * Opens a `.devivadraw` or Excalidraw `.excalidraw` file and returns the loaded `Scene` — or `null` if
- * the user canceled or the file failed to load. Never throws.
+ * Loads already-read file text as a `Scene` — this app's `.devivadraw` or Excalidraw's `.excalidraw` —
+ * or `null` when it is neither. Never throws.
  *
  * Which format it is is decided by *content*, not extension, so a renamed file still opens. The
  * Excalidraw branch is tried first because its envelope is an unambiguous `type` tag, where
  * `Scene.fromJSON` has to validate a whole document to reach the same conclusion.
+ *
+ * Split out from `openSceneFromFile` so the canvas file-drop path (`hooks/use-document-file-drop.ts`),
+ * which the browser hands the text directly, reads a dropped document through exactly the same parser
+ * as the picker-based "Open" — one place decides what this app can load.
  */
-export async function openSceneFromFile(): Promise<Scene | null> {
-  const text = await pickAndReadFile(`${SCENE_FILE_EXTENSION},${EXCALIDRAW_SCENE_FILE_EXTENSION}`);
-  if (text === null) return null;
-
+export function sceneFromFileText(text: string): Scene | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -95,6 +96,16 @@ export async function openSceneFromFile(): Promise<Scene | null> {
     return null;
   }
   return result.scene;
+}
+
+/**
+ * Opens a `.devivadraw` or Excalidraw `.excalidraw` file through the system picker and returns the
+ * loaded `Scene` — or `null` if the user canceled or the file failed to load. Never throws.
+ */
+export async function openSceneFromFile(): Promise<Scene | null> {
+  const text = await pickAndReadFile(`${SCENE_FILE_EXTENSION},${EXCALIDRAW_SCENE_FILE_EXTENSION}`);
+  if (text === null) return null;
+  return sceneFromFileText(text);
 }
 
 /** Shared decode caches for a one-shot export render — fresh per export call, mirroring `createBrowserExportRenderTarget`'s "never reuse across calls" contract. */

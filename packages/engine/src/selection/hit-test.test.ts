@@ -108,7 +108,7 @@ describe("hitTestElement — text, image, and bound text exclusion", () => {
 
 describe("hitTestElement — labelled containers", () => {
   /** An unfilled container carrying a bound-text ref, as `bindTextToContainer` leaves it. */
-  const labelled = (overrides: Parameters<typeof createRectangleElement>[0] = {}) => ({
+  const labelled = (overrides: Partial<Parameters<typeof createRectangleElement>[0]> = {}) => ({
     ...createRectangleElement({ x: 0, y: 0, width: 100, height: 50, ...overrides }),
     boundElements: [{ id: "label-1", type: "text" }],
     version: 1,

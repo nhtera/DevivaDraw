@@ -130,6 +130,7 @@ function buildTestRuntime(scene: Scene): ActionRuntime {
     persistence: {
       newScene: vi.fn(),
       openScene: vi.fn(),
+      loadScene: vi.fn(),
       saveScene: vi.fn(),
       exportPng: vi.fn(),
       exportSvg: vi.fn(),
