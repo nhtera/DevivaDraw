@@ -16,17 +16,17 @@
  * and Excalidraw's `.excalidrawlib` (`browser/library-import.ts`). Re-inserting goes through the
  * engine's `insertElements`, so every drop gets brand-new ids and brand-new group ids.
  */
-import { expandForDuplication, screenToScene } from "@deviva-draw/engine";
-import type { AnyElement } from "@deviva-draw/engine";
+import { screenToScene } from "@deviva-draw/engine";
 import { useEffect, useMemo, useState } from "react";
 import { buttonStyle, chromeFontFamily, PANEL_SHADOW } from "./chrome-styles";
 import { Icon } from "./icon";
 import { GRID_COLUMNS, GRID_GAP, LibraryGrid, TILE_SIZE } from "./library-grid";
 import { renderElementsToThumbnail } from "../browser/scene-file-operations";
 import { pickAndReadFile, saveFile } from "../browser/persistence-adapters";
-import { deriveLibraryItemName, libraryItemMatches } from "../browser/library-item-name";
+import { libraryItemMatches } from "../browser/library-item-name";
 import { onLibraryChanged } from "../browser/library-change-event";
-import { addLibraryItem, librarySourceOf, loadLibrary, mergeImportedLibrary, removeLibraryItem } from "../browser/library-storage";
+import { librarySourceOf, loadLibrary, mergeImportedLibrary, removeLibraryItem } from "../browser/library-storage";
+import { saveSelectionToLibrary } from "../browser/save-selection-to-library";
 import type { LibraryItem } from "../browser/library-storage";
 import { parseLibraryFile } from "../browser/library-import";
 import { insertLibraryElementsAt } from "../browser/insert-library-item";
@@ -48,10 +48,6 @@ const SIDEBAR_WIDTH = GRID_COLUMNS * TILE_SIZE + (GRID_COLUMNS - 1) * GRID_GAP +
 
 /** Where the right-anchored chrome (the minimap, this panel's own toggle) reads its inset from — see the module doc. */
 const SIDEBAR_WIDTH_PROPERTY = "--dd-library-sidebar-width";
-
-function newId(): string {
-  return typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `lib-${Date.now().toString(36)}`;
-}
 
 /** This app's own format plus Excalidraw's — the picker offers both, and the parser detects which by content. */
 const IMPORTABLE_LIBRARY_EXTENSIONS = ".devivalib,.excalidrawlib";
@@ -88,8 +84,6 @@ export function LibraryPanel(props: LibraryPanelProps) {
   const selectionIds = [...runtime.selection.getSelectedIds()];
   const canAdd = selectionIds.length > 0;
 
-  const personalItems = useMemo(() => items.filter((item) => librarySourceOf(item) === "personal"), [items]);
-
   // Search filters *within* the shelves rather than collapsing them, so a hit keeps the context of
   // where it came from — the point of the split is knowing which collection a shape belongs to.
   // Matching covers the labels inside an item, not just its name: an imported set often supplies no
@@ -101,18 +95,11 @@ export function LibraryPanel(props: LibraryPanelProps) {
   }, [items, query]);
   const visibleCount = visiblePersonal.length + visibleImported.length;
 
+  // Shared with the context menu's "Add to library" (`browser/save-selection-to-library.ts`), which is
+  // why the result is applied here rather than composed inline: one save path, two entry points.
   const addSelection = async () => {
-    const ids = expandForDuplication(runtime.scene, selectionIds);
-    const elements = ids
-      .map((id) => runtime.scene.getElement(id))
-      .filter((element): element is AnyElement => !!element && !element.isDeleted)
-      .map((element) => structuredClone(element));
-    if (elements.length === 0) return;
-    const preview = await renderElementsToThumbnail(elements);
-    // Named after its own label where it has one, so a saved shape is findable by what it says rather
-    // than by the position it happened to be saved in.
-    const name = deriveLibraryItemName(elements, `Item ${personalItems.length + 1}`);
-    setItems(addLibraryItem({ id: newId(), name, elements, preview, created: 0, source: "personal" }));
+    const saved = await saveSelectionToLibrary(runtime.scene, selectionIds);
+    if (saved) setItems(saved);
   };
 
   // Clicking places at the viewport centre; dragging the same tile onto the canvas places at the

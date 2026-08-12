@@ -66,6 +66,7 @@ export const catalogVi: Record<TranslationKey, string> = {
   "action.distributeVertical": "Dàn đều theo chiều dọc",
   "action.flipHorizontal": "Lật ngang",
   "action.flipVertical": "Lật dọc",
+  "action.addToLibrary": "Thêm vào thư viện",
   "action.zoomIn": "Phóng to",
   "action.zoomOut": "Thu nhỏ",
   "action.zoomToFit": "Vừa khung hình",

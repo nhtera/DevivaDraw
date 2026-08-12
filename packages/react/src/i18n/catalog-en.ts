@@ -66,6 +66,7 @@ export const catalogEn = {
   "action.distributeVertical": "Distribute vertically",
   "action.flipHorizontal": "Flip horizontal",
   "action.flipVertical": "Flip vertical",
+  "action.addToLibrary": "Add to library",
   "action.zoomIn": "Zoom in",
   "action.zoomOut": "Zoom out",
   "action.zoomToFit": "Zoom to fit",

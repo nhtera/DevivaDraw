@@ -164,6 +164,48 @@ test("dragging a tile onto the canvas drops it at the cursor, not at the viewpor
   expect(dropped.centerY).toBeCloseTo(target.y, -1);
 });
 
+test("the context menu saves a selection to the library without opening the sidebar first", async ({ page }) => {
+  await drawRect(page); // auto-selected
+
+  await page.mouse.click(420, 350, { button: "right" });
+  await page.getByTestId("context-menu-add-to-library").click();
+  await expect(page.getByTestId("context-menu")).toHaveCount(0);
+
+  // The shelf now holds it, and opening the panel afterwards shows it — the save did not depend on the
+  // panel being mounted.
+  await openLibrary(page);
+  await expect(page.getByTestId("library-item")).toHaveCount(1);
+});
+
+test("a save from the context menu reaches an already-open sidebar", async ({ page }) => {
+  await drawRect(page);
+  await openLibrary(page);
+  await expect(page.getByTestId("library-item")).toHaveCount(0);
+
+  // The rectangle is still selected; right-click on it, since the sidebar took the right edge.
+  await page.mouse.click(420, 350, { button: "right" });
+  await page.getByTestId("context-menu-add-to-library").click();
+  await expect(page.getByTestId("library-item")).toHaveCount(1);
+});
+
+test("add-to-library is offered but disabled with nothing selected", async ({ page }) => {
+  await page.mouse.click(300, 560, { button: "right" });
+  await expect(page.getByTestId("context-menu-add-to-library")).toBeDisabled();
+});
+
+test("a right-click near the bottom edge keeps the whole menu on screen", async ({ page }) => {
+  const viewport = page.viewportSize()!;
+  await page.mouse.click(viewport.width - 40, viewport.height - 30, { button: "right" });
+
+  // The menu is tall enough that opening it at the cursor would run off both edges, leaving its lower
+  // entries unclickable.
+  const box = (await page.getByTestId("context-menu").boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+});
+
 test("the tile grid keeps its four columns and never scrolls sideways", async ({ page }) => {
   // The sidebar is sized to fit exactly four tiles. That sum has to include its own 1px border — the
   // panel is `border-box`, so omitting it silently costs the grid a whole column.

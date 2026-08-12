@@ -2,6 +2,7 @@
 import { ActionRegistry } from "./action-registry";
 import { buildArrangeActions } from "./arrange-actions";
 import { buildEditActions } from "./edit-actions";
+import { buildLibraryActions } from "./library-actions";
 import { buildFileActions } from "./file-actions";
 import { buildDrawToShapeActions } from "./draw-to-shape-action";
 import { buildShareActions } from "./share-actions";
@@ -32,6 +33,7 @@ export function buildActionRegistry(options: BuildActionRegistryOptions = {}): A
     ...buildDrawToShapeActions(),
     ...buildZOrderActions(),
     ...buildArrangeActions(),
+    ...buildLibraryActions(),
     ...buildViewActions(),
     ...buildFileActions(),
     ...(shareEnabled ? buildShareActions() : []),

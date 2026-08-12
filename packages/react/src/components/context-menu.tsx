@@ -4,7 +4,7 @@
  * A controlled component: `deviva-draw-app.tsx` owns the open/closed + screen-position state and
  * renders this only while open, closing it on Escape, an outside click, or after any action runs.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { panelStyle, buttonStyle, disabledButtonStyle } from "./chrome-styles";
 import { Icon } from "./icon";
 import { detectIsMac, formatShortcut } from "../actions/format-shortcut";
@@ -21,7 +21,11 @@ const MENU_ACTION_GROUPS: readonly (readonly string[])[] = [
   ["bring-to-front", "bring-forward", "send-backward", "send-to-back"],
   ["flip-horizontal", "flip-vertical"],
   ["group", "ungroup", "toggle-lock"],
+  ["add-to-library"],
 ];
+
+/** Keeps the menu clear of the viewport edges when a right-click lands close to one. */
+const EDGE_MARGIN = 8;
 
 export interface ContextMenuProps {
   runtime: DevivaRuntime;
@@ -34,6 +38,21 @@ export function ContextMenu(props: ContextMenuProps) {
   const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement | null>(null);
   const isMac = detectIsMac(typeof navigator !== "undefined" ? navigator.platform : undefined);
+
+  // Right-clicking near an edge would otherwise open the menu partly off-screen, with its lower entries
+  // unreachable — the taller the menu grows, the more of the canvas that covers. Measured after mount
+  // (the height depends on how many actions rendered) and before paint, so the menu never appears in
+  // the overflowing position first.
+  const [position, setPosition] = useState(screenPoint);
+  useLayoutEffect(() => {
+    const node = menuRef.current;
+    if (!node) return;
+    const { width, height } = node.getBoundingClientRect();
+    setPosition({
+      x: Math.max(EDGE_MARGIN, Math.min(screenPoint.x, window.innerWidth - width - EDGE_MARGIN)),
+      y: Math.max(EDGE_MARGIN, Math.min(screenPoint.y, window.innerHeight - height - EDGE_MARGIN)),
+    });
+  }, [screenPoint]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -56,7 +75,7 @@ export function ContextMenu(props: ContextMenuProps) {
       role="menu"
       data-testid="context-menu"
       className="dd-animate-in"
-      style={{ ...panelStyle, position: "fixed", left: screenPoint.x, top: screenPoint.y, padding: 4, display: "flex", flexDirection: "column", minWidth: 160, zIndex: 90 }}
+      style={{ ...panelStyle, position: "fixed", left: position.x, top: position.y, padding: 4, display: "flex", flexDirection: "column", minWidth: 160, zIndex: 90 }}
     >
       {MENU_ACTION_GROUPS.map((group, groupIndex) => (
         <div key={groupIndex} style={{ display: "contents" }}>
