@@ -205,6 +205,10 @@ export const catalogVi: Record<TranslationKey, string> = {
   "mermaid.error.generic": "Đã xảy ra lỗi khi vẽ sơ đồ này.",
   "mermaid.rendering": "Đang kết xuất…",
 
+  "onboarding.title": "Chọn một công cụ và bắt đầu vẽ",
+  "onboarding.text": "Nhấp đúp vào bất kỳ đâu để thêm văn bản.",
+  "onboarding.drop": "Kéo thả tệp bản vẽ hoặc thư viện vào đây để mở.",
+
   "library.title": "Thư viện",
   "library.personal": "Thư viện cá nhân",
   "library.importedLibrary": "Thư viện đã nhập",

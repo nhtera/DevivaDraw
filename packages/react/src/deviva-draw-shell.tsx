@@ -25,6 +25,7 @@ import { useCollabCursorTracking } from "./hooks/use-collab-cursor-tracking";
 import { useCollabSession } from "./hooks/use-collab-session";
 import { TextEditorOverlay } from "./components/text-editor-overlay";
 import { CanvasHint } from "./components/canvas-hint";
+import { EmptyStateOverlay } from "./components/empty-state-overlay";
 import { ensureChromeStylesheet } from "./components/chrome-stylesheet";
 import { Toolbar } from "./components/toolbar";
 import { TopBar } from "./components/top-bar";
@@ -259,6 +260,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       </div>
       {runtime && !zenMode.value && (isNarrow ? <BottomToolbar runtime={runtime} onInsertImage={openImagePicker} /> : <Toolbar runtime={runtime} toolLocked={toolLock.value} onToggleLock={() => toolLock.set(!toolLock.value)} onInsertImage={openImagePicker} />)}
       {runtime && !zenMode.value && !isNarrow && <CanvasHint runtime={runtime} />}
+      {runtime && !zenMode.value && <EmptyStateOverlay runtime={runtime} editSession={editSession} />}
       {runtime && !zenMode.value && (
         <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} />
       )}

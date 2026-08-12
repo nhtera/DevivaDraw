@@ -205,6 +205,10 @@ export const catalogEn = {
   "mermaid.error.generic": "Something went wrong rendering this diagram.",
   "mermaid.rendering": "Rendering…",
 
+  "onboarding.title": "Pick a tool and start drawing",
+  "onboarding.text": "Double-click anywhere to add text.",
+  "onboarding.drop": "Drop a scene or library file here to open it.",
+
   "library.title": "Library",
   "library.personal": "Personal Library",
   "library.importedLibrary": "Imported Library",
