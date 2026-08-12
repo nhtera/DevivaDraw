@@ -122,6 +122,13 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
     const usingHostManagedData = Boolean(initialData);
     const autosave = usingHostManagedData ? null : startBrowserAutosave(scene, persistenceKey);
 
+    // Autosave only writes in response to a scene *change*, and a scene that was just opened from a
+    // file has none — so without this, opening a document and reloading restored the document from
+    // *before* the open. Only on a swap (`sceneVersion > 0`); on first mount the scene either came
+    // from this very storage slot or is empty, and writing an empty document over nothing would
+    // create a save where the user has none.
+    if (sceneVersion > 0) autosave?.flush();
+
     const onSceneReplaced = (opened: Scene) => {
       sceneRef.current = opened;
       cameraStore.setCamera(createCamera());
