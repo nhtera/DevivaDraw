@@ -14,8 +14,8 @@ describe("LaserTool", () => {
     const clock = fakeClock();
     const tool = new LaserTool({ now: clock.now });
 
-    tool.onGestureStart({ x: 0, y: 0 }, NO_MODIFIERS);
-    tool.onGestureMove({ x: 10, y: 10 }, NO_MODIFIERS);
+    tool.onGestureStart({ x: 0, y: 0 });
+    tool.onGestureMove({ x: 10, y: 10 });
 
     const trail = tool.getTrail();
     expect(trail).toHaveLength(2);
@@ -26,7 +26,7 @@ describe("LaserTool", () => {
   it("fades a point's opacity toward zero as it ages", () => {
     const clock = fakeClock();
     const tool = new LaserTool({ now: clock.now });
-    tool.onGestureStart({ x: 0, y: 0 }, NO_MODIFIERS);
+    tool.onGestureStart({ x: 0, y: 0 });
 
     clock.advance(LASER_FADE_MS / 2);
     expect(tool.getTrail()[0]!.opacity).toBeCloseTo(0.5, 5);
@@ -35,8 +35,8 @@ describe("LaserTool", () => {
   it("prunes points once they fully fade, so the trail dissolves after release", () => {
     const clock = fakeClock();
     const tool = new LaserTool({ now: clock.now });
-    tool.onGestureStart({ x: 0, y: 0 }, NO_MODIFIERS);
-    tool.onGestureMove({ x: 5, y: 5 }, NO_MODIFIERS);
+    tool.onGestureStart({ x: 0, y: 0 });
+    tool.onGestureMove({ x: 5, y: 5 });
     tool.onGestureEnd({ x: 5, y: 5 }, NO_MODIFIERS); // released, but points remain and age out
 
     expect(tool.getTrail().length).toBeGreaterThan(0);

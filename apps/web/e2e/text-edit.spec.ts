@@ -159,8 +159,8 @@ test("committed text lands where it was typed (no vertical jump between the edit
       for (let y = 140; y < 600; y += 1) {
         for (let x = 300; x < 900; x += 1) {
           const i = (y * cv.width + x) * 4;
-          const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-          if (d[i + 3] > 60 && lum < 110) return y;
+          const lum = d[i]! * 0.299 + d[i + 1]! * 0.587 + d[i + 2]! * 0.114;
+          if (d[i + 3]! > 60 && lum < 110) return y;
         }
       }
       return -1;

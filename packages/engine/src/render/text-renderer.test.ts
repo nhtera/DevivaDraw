@@ -18,7 +18,7 @@ function fakeCtx(): TextDrawContext2D {
     textBaseline: "alphabetic",
     fillText: vi.fn(),
     // Font-level vertical metrics the renderer reads to reproduce the textarea's CSS line box.
-    measureText: () => ({ fontBoundingBoxAscent: 16, fontBoundingBoxDescent: 4 }),
+    measureText: () => ({ width: 0, fontBoundingBoxAscent: 16, fontBoundingBoxDescent: 4 }),
   };
 }
 

@@ -76,7 +76,7 @@ describe("flowchartToElements", () => {
 
   it("routes a back edge from the source's top up into the target's bottom", () => {
     const els = flowchartToElements(parseFlowchart("flowchart TD\n A[X] --> B[Y]\n B --> A"));
-    const arrows = els.filter((e) => e.type === "arrow") as { y: number; points: { x: number; y: number }[] }[];
+    const arrows = els.filter((e) => e.type === "arrow") as unknown as { y: number; points: { x: number; y: number }[] }[];
     // A is layer 0 (top), B is layer 1 (below). The back edge B->A points upward: its net dy is negative.
     const back = arrows.find((ar) => ar.points[1]!.y < 0);
     expect(back).toBeDefined(); // the upward arrow exists rather than a downward down-then-up route

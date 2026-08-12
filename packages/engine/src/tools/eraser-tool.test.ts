@@ -5,7 +5,6 @@ import { getOrCreateBoundText } from "../text/bound-text";
 import { EraserTool } from "./eraser-tool";
 import type { ShapeToolHistory } from "./drag-shape-tool-base";
 
-const NO_MODIFIERS = { shift: false, alt: false, ctrl: false, meta: false };
 
 function fakeHistory(): ShapeToolHistory {
   return { beginBatch: vi.fn(), endBatch: vi.fn(), cancelBatch: vi.fn() };
@@ -22,8 +21,8 @@ describe("EraserTool", () => {
     const history = fakeHistory();
     const tool = new EraserTool({ scene, history, getZoom: () => 1 });
 
-    tool.onGestureStart({ x: 20, y: 20 }, NO_MODIFIERS);
-    tool.onGestureEnd({ x: 20, y: 20 }, NO_MODIFIERS);
+    tool.onGestureStart({ x: 20, y: 20 });
+    tool.onGestureEnd();
 
     expect(liveCount(scene)).toBe(0);
     expect(history.beginBatch).toHaveBeenCalledTimes(1);
@@ -35,8 +34,8 @@ describe("EraserTool", () => {
     const rect = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 40, height: 40, backgroundColor: "#ff0000" }));
     const tool = new EraserTool({ scene, history: fakeHistory(), getZoom: () => 1 });
 
-    tool.onGestureStart({ x: 20, y: 20 }, NO_MODIFIERS);
-    tool.onGestureMove({ x: 21, y: 21 }, NO_MODIFIERS);
+    tool.onGestureStart({ x: 20, y: 20 });
+    tool.onGestureMove({ x: 21, y: 21 });
 
     // Marked for the dimmed preview, but still present on the canvas until the pointer is released.
     expect([...tool.getPendingEraseIds()]).toEqual([rect.id]);
@@ -50,9 +49,9 @@ describe("EraserTool", () => {
     const history = fakeHistory();
     const tool = new EraserTool({ scene, history, getZoom: () => 1 });
 
-    tool.onGestureStart({ x: 10, y: 10 }, NO_MODIFIERS);
-    tool.onGestureMove({ x: 110, y: 10 }, NO_MODIFIERS);
-    tool.onGestureEnd({ x: 110, y: 10 }, NO_MODIFIERS);
+    tool.onGestureStart({ x: 10, y: 10 });
+    tool.onGestureMove({ x: 110, y: 10 });
+    tool.onGestureEnd();
 
     expect(liveCount(scene)).toBe(0);
     expect(history.endBatch).toHaveBeenCalledTimes(1);
@@ -64,8 +63,8 @@ describe("EraserTool", () => {
     const history = fakeHistory();
     const tool = new EraserTool({ scene, history, getZoom: () => 1 });
 
-    tool.onGestureStart({ x: 500, y: 500 }, NO_MODIFIERS);
-    tool.onGestureEnd({ x: 500, y: 500 }, NO_MODIFIERS);
+    tool.onGestureStart({ x: 500, y: 500 });
+    tool.onGestureEnd();
 
     expect(liveCount(scene)).toBe(1);
     expect(history.beginBatch).not.toHaveBeenCalled();
@@ -80,8 +79,8 @@ describe("EraserTool", () => {
 
     // Erase over the container's center — bound text is never hit directly, so this targets the diamond,
     // and its label must go with it.
-    tool.onGestureStart({ x: 50, y: 50 }, NO_MODIFIERS);
-    tool.onGestureEnd({ x: 50, y: 50 }, NO_MODIFIERS);
+    tool.onGestureStart({ x: 50, y: 50 });
+    tool.onGestureEnd();
 
     expect(scene.getElement(diamond.id)!.isDeleted).toBe(true);
     expect(scene.getElement(textElementId)!.isDeleted).toBe(true); // the previously-orphaned label
@@ -93,7 +92,7 @@ describe("EraserTool", () => {
     const { textElementId } = getOrCreateBoundText(scene, diamond.id);
     const tool = new EraserTool({ scene, history: fakeHistory(), getZoom: () => 1 });
 
-    tool.onGestureStart({ x: 50, y: 50 }, NO_MODIFIERS); // no release → preview state
+    tool.onGestureStart({ x: 50, y: 50 }); // no release → preview state
     expect(tool.getPendingEraseIds().has(diamond.id)).toBe(true);
     expect(tool.getPendingEraseIds().has(textElementId)).toBe(true);
   });
@@ -104,8 +103,8 @@ describe("EraserTool", () => {
     const history = fakeHistory();
     const tool = new EraserTool({ scene, history, getZoom: () => 1 });
 
-    tool.onGestureStart({ x: 20, y: 20 }, NO_MODIFIERS);
-    tool.onGestureCancel(NO_MODIFIERS);
+    tool.onGestureStart({ x: 20, y: 20 });
+    tool.onGestureCancel();
 
     expect(liveCount(scene)).toBe(1); // marks cleared, element restored to normal
     expect([...tool.getPendingEraseIds()]).toEqual([]);

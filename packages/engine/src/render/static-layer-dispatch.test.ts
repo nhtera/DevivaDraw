@@ -40,6 +40,8 @@ function fakeContext(width = 800, height = 600): StaticLayerContext {
     fillRect: vi.fn(),
     strokeRect: vi.fn(),
     drawImage: vi.fn(),
+    roundRect: vi.fn(),
+    stroke: vi.fn(),
   };
 }
 

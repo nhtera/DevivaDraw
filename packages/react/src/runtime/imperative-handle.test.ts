@@ -53,6 +53,8 @@ function fakeRenderSceneContext(): RenderSceneContext2D {
     fillRect: vi.fn(),
     strokeRect: vi.fn(),
     drawImage: vi.fn(),
+    roundRect: vi.fn(),
+    stroke: vi.fn(),
   };
 }
 

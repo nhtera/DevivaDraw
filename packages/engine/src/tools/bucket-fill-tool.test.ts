@@ -5,7 +5,6 @@ import { BucketFillTool } from "./bucket-fill-tool";
 import { ShapeStyleState } from "./shape-style-state";
 import type { ShapeToolHistory } from "./drag-shape-tool-base";
 
-const NO_MODIFIERS = { shift: false, alt: false, ctrl: false, meta: false };
 
 function fakeHistory(): ShapeToolHistory {
   return { beginBatch: vi.fn(), endBatch: vi.fn(), cancelBatch: vi.fn() };
@@ -19,7 +18,7 @@ describe("BucketFillTool", () => {
     const history = fakeHistory();
     const tool = new BucketFillTool({ scene, styleState, history, getZoom: () => 1 });
 
-    tool.onGestureStart({ x: 20, y: 20 }, NO_MODIFIERS);
+    tool.onGestureStart({ x: 20, y: 20 });
 
     expect(scene.getElement(rect.id)!.backgroundColor).toBe("#a5d8ff");
     expect(history.beginBatch).toHaveBeenCalledTimes(1);
@@ -33,7 +32,7 @@ describe("BucketFillTool", () => {
     const history = fakeHistory();
     const tool = new BucketFillTool({ scene, styleState, history, getZoom: () => 1 });
 
-    tool.onGestureStart({ x: 20, y: 20 }, NO_MODIFIERS);
+    tool.onGestureStart({ x: 20, y: 20 });
 
     expect(history.beginBatch).not.toHaveBeenCalled();
   });
@@ -47,7 +46,7 @@ describe("BucketFillTool", () => {
     const history = fakeHistory();
     const tool = new BucketFillTool({ scene, styleState, history, getZoom: () => 1 });
 
-    tool.onGestureStart({ x: 50, y: 0 }, NO_MODIFIERS);
+    tool.onGestureStart({ x: 50, y: 0 });
 
     expect(scene.getElement(line.id)!.backgroundColor).toBe("transparent");
     expect(history.beginBatch).not.toHaveBeenCalled();
@@ -60,7 +59,7 @@ describe("BucketFillTool", () => {
     const history = fakeHistory();
     const tool = new BucketFillTool({ scene, styleState, history, getZoom: () => 1 });
 
-    tool.onGestureStart({ x: 500, y: 500 }, NO_MODIFIERS);
+    tool.onGestureStart({ x: 500, y: 500 });
 
     expect(history.beginBatch).not.toHaveBeenCalled();
   });

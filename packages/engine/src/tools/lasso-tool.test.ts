@@ -17,8 +17,8 @@ describe("LassoTool", () => {
 
     // Trace a loop around the first rect only.
     tool.onGestureStart({ x: 0, y: 0 }, NO_MODIFIERS);
-    tool.onGestureMove({ x: 60, y: 0 }, NO_MODIFIERS);
-    tool.onGestureMove({ x: 60, y: 60 }, NO_MODIFIERS);
+    tool.onGestureMove({ x: 60, y: 0 });
+    tool.onGestureMove({ x: 60, y: 60 });
     tool.onGestureEnd({ x: 0, y: 60 }, NO_MODIFIERS);
 
     expect([...selection.getSelectedIds()]).toEqual([a.id]);
@@ -34,8 +34,8 @@ describe("LassoTool", () => {
     const tool = new LassoTool({ scene, selection });
 
     tool.onGestureStart({ x: 90, y: 0 }, SHIFT);
-    tool.onGestureMove({ x: 140, y: 0 }, SHIFT);
-    tool.onGestureMove({ x: 140, y: 60 }, SHIFT);
+    tool.onGestureMove({ x: 140, y: 0 });
+    tool.onGestureMove({ x: 140, y: 60 });
     tool.onGestureEnd({ x: 90, y: 60 }, SHIFT);
 
     expect(selection.getSelectedIds()).toEqual(new Set([a.id, b.id]));
@@ -49,7 +49,7 @@ describe("LassoTool", () => {
     const tool = new LassoTool({ scene, selection });
 
     tool.onGestureStart({ x: 0, y: 0 }, SHIFT); // shift so it doesn't clear on start
-    tool.onGestureMove({ x: 60, y: 60 }, SHIFT);
+    tool.onGestureMove({ x: 60, y: 60 });
     tool.onGestureCancel(SHIFT);
 
     expect(selection.getSelectedIds()).toEqual(new Set([a.id]));

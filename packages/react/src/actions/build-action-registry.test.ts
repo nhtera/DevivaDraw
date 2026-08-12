@@ -117,6 +117,8 @@ function buildTestRuntime(scene: Scene): ActionRuntime {
       setZenMode: vi.fn(),
       getViewOnly: () => false,
       setViewOnly: vi.fn(),
+      getMinimapVisible: () => true,
+      setMinimapVisible: vi.fn(),
       getStatsPanelVisible: () => false,
       setStatsPanelVisible: vi.fn(),
       getCommandPaletteOpen: () => false,

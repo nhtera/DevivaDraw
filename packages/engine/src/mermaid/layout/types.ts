@@ -6,6 +6,9 @@
  */
 import type { FlowDirection } from "../parse/flowchart-ir";
 
+/** Re-exported so a consumer of `LayoutInput` can name the type of its `direction` field without reaching past this module. */
+export type { FlowDirection };
+
 export interface LayoutInput {
   nodes: { id: string; width: number; height: number }[];
   edges: { from: string; to: string; index: number; minlen: number }[];
