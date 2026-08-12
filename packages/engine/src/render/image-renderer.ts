@@ -6,6 +6,7 @@
  * matters) and falls back to a placeholder rect while a decode is still in flight or failed, so a
  * freshly-pasted image never draws nothing at all for the one or two frames its decode takes.
  */
+import { imageScaleOf } from "../elements/image-element";
 import type { ImageElement } from "../elements/image-element";
 import type { ImageDecodeCache } from "../images/image-decode-cache";
 import type { StoredFile } from "../images/files-map";
@@ -31,6 +32,8 @@ export interface ImageDrawContext2D extends RoughDrawContext2D {
   fillRect(x: number, y: number, width: number, height: number): void;
   strokeRect(x: number, y: number, width: number, height: number): void;
   drawImage(image: HTMLImageElement, dx: number, dy: number, dWidth: number, dHeight: number): void;
+  /** Used to mirror a flipped image about its own centre — see `ImageElement.scale`. */
+  scale(x: number, y: number): void;
 }
 
 const LOADING_FILL = "#e9ecef";
@@ -68,11 +71,16 @@ export function drawElementImage(
   ctx.save();
   ctx.globalAlpha = Math.min(1, Math.max(0, element.opacity / 100));
 
-  if (element.angle !== 0) {
+  const [scaleX, scaleY] = imageScaleOf(element);
+  const mirrored = scaleX < 0 || scaleY < 0;
+  if (element.angle !== 0 || mirrored) {
     const centerX = rect.x + rect.width / 2;
     const centerY = rect.y + rect.height / 2;
     ctx.translate(centerX, centerY);
-    ctx.rotate(element.angle);
+    if (element.angle !== 0) ctx.rotate(element.angle);
+    // Mirroring is applied inside the rotation, so a rotated-then-flipped image mirrors across its
+    // own axes rather than the screen's.
+    if (mirrored) ctx.scale(scaleX < 0 ? -1 : 1, scaleY < 0 ? -1 : 1);
     ctx.translate(-centerX, -centerY);
   }
 

@@ -225,7 +225,10 @@ function importElement(raw: RawExcalidrawElement, fallbackId: string, availableF
       // would drag a DOM dependency into the engine. The on-canvas box is the honest stand-in: it is
       // what the user last saw, so aspect-ratio-locked resizing preserves the shape they had rather
       // than snapping to some original ratio they may have deliberately changed.
-      return { ...base, type: "image", fileId, naturalWidth: base.width, naturalHeight: base.height };
+      // Excalidraw stores mirroring in the same field under the same encoding, so a flipped image
+      // imports still flipped rather than silently reverting to its original orientation.
+      const scale = Array.isArray(raw.scale) && raw.scale.length === 2 ? ([raw.scale[0] === -1 ? -1 : 1, raw.scale[1] === -1 ? -1 : 1] as const) : ([1, 1] as const);
+      return { ...base, type: "image", fileId, naturalWidth: base.width, naturalHeight: base.height, scale };
     }
     default:
       return null;

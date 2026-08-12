@@ -24,6 +24,7 @@ function fakeCtx(): ImageDrawContext2D {
     fillRect: vi.fn(),
     strokeRect: vi.fn(),
     drawImage: vi.fn(),
+    scale: vi.fn(),
   };
 }
 
@@ -166,5 +167,45 @@ describe("drawElementImage — shared file across elements", () => {
     expect(decode).toHaveBeenCalledTimes(1);
     expect(ctxA.drawImage).toHaveBeenCalledWith(FAKE_IMAGE, 0, 0, 10, 10);
     expect(ctxB.drawImage).toHaveBeenCalledWith(FAKE_IMAGE, 50, 50, 10, 10);
+  });
+});
+
+describe("drawElementImage — mirroring", () => {
+  const element = (scale?: readonly [number, number]) =>
+    ({
+      ...createImageElement({ x: 0, y: 0, width: 100, height: 50, fileId: "f1", naturalWidth: 200, naturalHeight: 100, scale }),
+      version: 1,
+      versionNonce: 1,
+      updated: 1,
+      index: "a",
+    });
+
+  it("does not touch the transform for an unmirrored image", async () => {
+    const ctx = fakeCtx();
+    const cache = alreadyLoadedCache();
+    await Promise.resolve();
+    drawElementImage(ctx, element(), createCamera(), fileLookup(), cache);
+    expect(ctx.scale).not.toHaveBeenCalled();
+    expect(ctx.translate).not.toHaveBeenCalled();
+  });
+
+  it("mirrors about the image's own centre when scale is negative", async () => {
+    const ctx = fakeCtx();
+    const cache = alreadyLoadedCache();
+    await Promise.resolve();
+    drawElementImage(ctx, element([-1, 1]), createCamera(), fileLookup(), cache);
+
+    expect(ctx.scale).toHaveBeenCalledWith(-1, 1);
+    // Centred, so the image stays exactly where it was rather than mirroring across the canvas origin.
+    expect(ctx.translate).toHaveBeenNthCalledWith(1, 50, 25);
+    expect(ctx.translate).toHaveBeenNthCalledWith(2, -50, -25);
+  });
+
+  it("mirrors vertically on the other axis", async () => {
+    const ctx = fakeCtx();
+    const cache = alreadyLoadedCache();
+    await Promise.resolve();
+    drawElementImage(ctx, element([1, -1]), createCamera(), fileLookup(), cache);
+    expect(ctx.scale).toHaveBeenCalledWith(1, -1);
   });
 });

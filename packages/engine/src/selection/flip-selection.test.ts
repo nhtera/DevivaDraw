@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createArrowElement } from "../elements/arrow-element";
 import { createFreedrawElement } from "../elements/freedraw-element";
+import { createImageElement } from "../elements/image-element";
 import { createTextElement } from "../elements/text-element";
 import { createBlockArrowElement, createLineElement, createRectangleElement, createTriangleElement } from "../elements/shape-elements";
 import type { AnyElement } from "../elements/element-types";
@@ -21,6 +22,7 @@ interface FlipChanges {
   angle?: number;
   points?: unknown;
   direction?: unknown;
+  scale?: unknown;
 }
 
 const changesFor = (elements: AnyElement[], axis: "horizontal" | "vertical", id: string): FlipChanges =>
@@ -140,6 +142,19 @@ describe("computeFlipChanges — outlines that carry no mirrored variant", () =>
   it("leaves a triangle upright on a horizontal flip — its outline already answers to that mirror", () => {
     const triangle = stored(createTriangleElement({ x: 0, y: 0, width: 40, height: 40 }));
     expect(changesFor([triangle], "horizontal", triangle.id).angle).toBeUndefined();
+  });
+
+  it("mirrors an image by recording the flip on the element, since a photo has no mirrored variant", () => {
+    const image = stored(createImageElement({ x: 0, y: 0, width: 80, height: 60, fileId: "f1", naturalWidth: 160, naturalHeight: 120 }));
+    expect(changesFor([image], "horizontal", image.id).scale).toEqual([-1, 1]);
+    expect(changesFor([image], "vertical", image.id).scale).toEqual([1, -1]);
+    // ...and never by turning it upside down, which is not a mirror.
+    expect(changesFor([image], "horizontal", image.id).angle).toBeUndefined();
+  });
+
+  it("flipping an already-mirrored image puts it back", () => {
+    const flipped = stored(createImageElement({ x: 0, y: 0, width: 80, height: 60, fileId: "f1", naturalWidth: 160, naturalHeight: 120, scale: [-1, 1] }));
+    expect(changesFor([flipped], "horizontal", flipped.id).scale).toEqual([1, 1]);
   });
 
   it("never rotates text, which would render the label as mirror writing", () => {

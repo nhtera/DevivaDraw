@@ -22,6 +22,9 @@ const isFiniteNumber = (value: unknown): value is number => typeof value === "nu
 /** Stricter than `isFiniteNumber` for fields where a negative value is nonsensical (a box/image can't have negative width/height) — a hand-edited `width: -50` would otherwise pass structural validation and silently corrupt downstream bounds math (e.g. `computeExportBounds`'s union bbox, or the culling/rendering AABB tests) with a degenerate or excluded footprint instead of being rejected up front. */
 const isNonNegativeFiniteNumber = (value: unknown): value is number => isFiniteNumber(value) && value >= 0;
 const isBoolean = (value: unknown): value is boolean => typeof value === "boolean";
+/** An `ImageElement.scale` pair: exactly two entries, each +1 or -1 (see that field's doc — it records mirroring, not resizing). */
+const isMirrorScale = (value: unknown): boolean => Array.isArray(value) && value.length === 2 && value.every((entry) => entry === 1 || entry === -1);
+
 const isOneOf = <T extends string>(value: unknown, options: readonly T[]): value is T => typeof value === "string" && (options as readonly string[]).includes(value);
 
 const FILL_STYLES = ["hachure", "cross-hatch", "solid", "zigzag"] as const;
@@ -135,6 +138,8 @@ function validateTypeSpecificFields(raw: Record<string, unknown>, index: number)
       if (!isString(raw.fileId)) return `${label}.fileId must be a string`;
       if (!isNonNegativeFiniteNumber(raw.naturalWidth)) return `${label}.naturalWidth must be a non-negative finite number`;
       if (!isNonNegativeFiniteNumber(raw.naturalHeight)) return `${label}.naturalHeight must be a non-negative finite number`;
+      // Absent in scenes saved before mirroring existed, which must still load — see `imageScaleOf`.
+      if (raw.scale !== undefined && !isMirrorScale(raw.scale)) return `${label}.scale must be a [±1, ±1] pair when present`;
       return null;
     }
     case "embed": {

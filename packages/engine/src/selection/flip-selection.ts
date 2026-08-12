@@ -14,11 +14,15 @@
  *    down). `elements/shape-outline-symmetry.ts` records which shapes those are, and which are
  *    symmetric about neither axis and can therefore only move.
  *
+ *  - **Images** record the flip on the element itself (`ImageElement.scale`) and are mirrored when
+ *    drawn — a photo has no mirrored variant to switch to, and half a turn is not a mirror.
+ *
  * Every element's own `angle` is negated regardless: mirroring a rotated element mirrors its rotation.
- * Text and images keep their content upright — a flip that rendered a label as mirror writing is not
- * what anyone means by the word, and this app's image element carries no mirror flag of its own.
+ * Text is the one thing left upright: a flip that rendered a label as mirror writing is not what
+ * anyone means by the word.
  */
 import type { AnyElement } from "../elements/element-types";
+import { imageScaleOf } from "../elements/image-element";
 import { shapeOutlineSymmetry } from "../elements/shape-outline-symmetry";
 import type { BlockArrowDirection } from "../elements/shape-elements";
 import type { ElementUpdate } from "../scene/scene";
@@ -78,6 +82,12 @@ function typeSpecificChanges(element: AnyElement, axis: FlipAxis): ElementUpdate
   }
   if (element.type === "block-arrow") {
     return { direction: FLIPPED_DIRECTION[element.direction][axis] } as ElementUpdate;
+  }
+  if (element.type === "image") {
+    // A photo has no mirrored variant to switch to and cannot be faked with a rotation, so the flip is
+    // recorded on the element and applied when it is drawn (see `ImageElement.scale`).
+    const [scaleX, scaleY] = imageScaleOf(element);
+    return { scale: axis === "horizontal" ? [-scaleX, scaleY] : [scaleX, -scaleY] } as ElementUpdate;
   }
   if (CONTENT_TYPES.has(element.type)) return {};
 
