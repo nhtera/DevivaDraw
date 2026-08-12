@@ -4,6 +4,21 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.3] — 2026-08-13
+
+Publishes `@deviva-draw/react` only; `@deviva-draw/engine` (0.3.1) and
+`@deviva-draw/collab-client` (0.2.0) are unchanged.
+
+### Fixed
+- **The canvas-background colour picker opens above the menu, and stays open.** Two
+  faults in one control. The popover carried a lower stacking order than the main menu,
+  so it opened *behind* it and the menu's own rows showed through where the swatches
+  should have been. And because the popover is portalled out of the menu, the menu's
+  dismiss-on-outside-click read a click on a swatch as a click away — closing the menu
+  and unmounting the picker before the colour could be applied. The overlapping tiers
+  are now named in one place rather than as per-component numbers, and portalled
+  popovers are marked so a dismiss handler can recognise one it opened itself.
+
 ## [0.3.2] — 2026-08-13
 
 Publishes `@deviva-draw/react` only; `@deviva-draw/engine` (0.3.1) and
@@ -66,6 +81,7 @@ Publishes `@deviva-draw/react` only; `@deviva-draw/engine` (0.3.1) and
 - Mobile style sheet centers via auto margins, so its entrance animation no longer shifts it.
 - Hamburger menu renders as a centered SVG glyph instead of the off-center Unicode `☰`.
 
+[0.3.3]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.3
 [0.3.2]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.2
 [0.3.1]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.1
 [0.3.0]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.0
