@@ -132,7 +132,17 @@ export class PointerEventPipeline {
     // live camera on every move would feed the pan tool's own mutation back into the next point.
     this.gestureCamera = this.options.getCamera();
     this.activePointerId = event.pointerId;
-    this.options.element.setPointerCapture?.(event.pointerId);
+    // Capture is best-effort: `setPointerCapture` throws `NotFoundError` for a pointer that is no
+    // longer active (pen lifted between queued events, or a dispatched/synthetic pointer). Letting
+    // that throw escape here would leave `activePointerId` set with no gesture and no pointerup to
+    // clear it — every later pointerdown hits the "gesture already active" guard and the whole
+    // canvas permanently ignores input until reload. A gesture without capture merely loses the
+    // outside-the-element move/up tracking, so proceed.
+    try {
+      this.options.element.setPointerCapture?.(event.pointerId);
+    } catch {
+      // see above — an inactive pointer cannot be captured; the gesture still runs
+    }
     const point = this.toScenePoint(event.clientX, event.clientY, this.gestureCamera);
     const { pressure, pointerType } = extractPointerSample(event);
     machine.dispatchGestureStart(point, extractModifiers(event), pressure, pointerType);
@@ -157,7 +167,13 @@ export class PointerEventPipeline {
     const point = this.toScenePoint(event.clientX, event.clientY, this.gestureCamera);
     const { pressure, pointerType } = extractPointerSample(event);
     this.options.toolStateMachine.dispatchGestureEnd(point, extractModifiers(event), pressure, pointerType);
-    this.options.element.releasePointerCapture?.(event.pointerId);
+    // Best-effort for the same reason as the capture in `handlePointerDown`: a throw here (pointer
+    // never captured) must not skip `endGesture()`, or the pipeline wedges with a stale pointer id.
+    try {
+      this.options.element.releasePointerCapture?.(event.pointerId);
+    } catch {
+      // nothing to release — the capture call itself may have failed
+    }
     this.endGesture();
   };
 
@@ -177,7 +193,12 @@ export class PointerEventPipeline {
     const machine = this.options.toolStateMachine;
     if (machine.isGestureInProgress()) machine.dispatchGestureCancel(modifiers);
     if (this.options.historyStack?.isBatchOpen()) this.options.historyStack.cancelBatch();
-    if (this.activePointerId !== null) this.options.element.releasePointerCapture?.(this.activePointerId);
+    // Best-effort — see `handlePointerUp`: an abort must always reach `endGesture()`.
+    try {
+      if (this.activePointerId !== null) this.options.element.releasePointerCapture?.(this.activePointerId);
+    } catch {
+      // nothing to release
+    }
     this.endGesture();
   }
 
