@@ -139,3 +139,61 @@ describe("the preference is read per move, not captured", () => {
     expect(getObjectSnapEnabled.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 });
+
+/**
+ * Snapping only aligns to what is on screen. An alignment to an element scrolled out of view has no
+ * visible cause — the shape lurches onto a column belonging to nothing the user can see, and the
+ * guide drawn for it runs off the canvas edge. Excalidraw filters the same way.
+ */
+describe("only on-screen elements are snap candidates", () => {
+  /** A neighbour at x=600 and a mover below it, with the viewport covering only `visible`. */
+  function setupWithViewport(visible: { x: number; y: number; width: number; height: number } | null) {
+    const scene = new Scene();
+    scene.addElement(createRectangleElement({ x: 600, y: 5000, width: 120, height: 80 })); // far below the viewport
+    const moving = scene.addElement(createRectangleElement({ x: 585, y: 400, width: 120, height: 80 }));
+    const selection = new SelectionState();
+    selection.selectOnly([moving.id]);
+    const tool = new SelectionTool({
+      scene,
+      selection,
+      history: new HistoryStack<AnyElement[]>(scene.getElements()),
+      clipboard: new InternalClipboard(),
+      getZoom: () => 1,
+      getObjectSnapEnabled: () => true,
+      ...(visible === null ? {} : { getVisibleSceneRect: () => visible }),
+    });
+    return { scene, tool, movingId: moving.id };
+  }
+
+  /** Drags the mover 17 units right — onto the off-screen neighbour's left-edge column, if it counts. */
+  function dragRight(tool: SelectionTool): void {
+    tool.onGestureStart({ x: 600, y: 440 }, NO_MODIFIERS);
+    tool.onGestureMove({ x: 617, y: 440 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: 617, y: 440 }, NO_MODIFIERS);
+  }
+
+  it("ignores an element scrolled off screen", () => {
+    const { scene, tool, movingId } = setupWithViewport({ x: 0, y: 0, width: 1400, height: 900 });
+    dragRight(tool);
+    expect(scene.getElement(movingId)!.x).toBe(602); // exactly where it was dragged
+  });
+
+  it("draws no guide for one either", () => {
+    const { tool } = setupWithViewport({ x: 0, y: 0, width: 1400, height: 900 });
+    tool.onGestureStart({ x: 600, y: 440 }, NO_MODIFIERS);
+    tool.onGestureMove({ x: 617, y: 440 }, NO_MODIFIERS);
+    expect(tool.getSnapGuides()).toEqual([]);
+  });
+
+  it("snaps to the same element once the viewport includes it", () => {
+    const { scene, tool, movingId } = setupWithViewport({ x: 0, y: 0, width: 1400, height: 6000 });
+    dragRight(tool);
+    expect(scene.getElement(movingId)!.x).toBe(600); // pulled onto its column
+  });
+
+  it("falls back to the whole scene for a host that never says where the viewport is", () => {
+    const { scene, tool, movingId } = setupWithViewport(null);
+    dragRight(tool);
+    expect(scene.getElement(movingId)!.x).toBe(600);
+  });
+});

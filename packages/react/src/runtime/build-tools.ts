@@ -4,6 +4,7 @@
  * effect needs. Split out purely to keep `build-runtime.ts` under the house line-count limit.
  */
 import {
+  getVisibleSceneRect,
   ArrowTool,
   BlockArrowTool,
   BucketFillTool,
@@ -192,6 +193,9 @@ export function buildTools(
     getZoom: () => getCamera().zoom,
     getGrid: () => grid,
     getObjectSnapEnabled: () => objectSnap.enabled,
+    // Snap only to what the user can actually see — an alignment to something off screen has no
+    // visible cause. Read live rather than captured: the camera moves mid-drag (scroll, zoom).
+    getVisibleSceneRect: () => getVisibleSceneRect(getCamera(), { width: container.clientWidth, height: container.clientHeight }),
   });
   // The lasso is a free-form selection gesture; it feeds the same selection state as the select tool.
   const lassoTool = new LassoTool({ scene, selection: selectionState });

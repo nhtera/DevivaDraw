@@ -12,6 +12,8 @@ import { duplicateElements } from "./clipboard";
 import { expandMovingIdsWithFrameChildren } from "./frame-membership";
 import { expandToGroupMembers } from "./group-ungroup";
 import { selectionBoundsOf } from "./group-transform";
+import { elementIntersectsRect } from "../render/viewport-culling";
+import type { SceneRect } from "../render/viewport-culling";
 import { elementBounds } from "./selection-geometry";
 import type { SelectionToolDeps } from "./selection-tool-deps";
 import { computeGridSnap, computeObjectSnap } from "./snapping";
@@ -100,9 +102,7 @@ export class MoveGesture {
         dx += correction.dx;
         dy += correction.dy;
       } else if (this.deps.getObjectSnapEnabled?.()) {
-        const movingIds = new Set(this.originalElements.keys());
-        const candidates = this.deps.scene.getElements().filter((element) => !element.isDeleted && !movingIds.has(element.id)).map(elementBounds);
-        const snap = computeObjectSnap(movingBounds, candidates, SNAP_THRESHOLD_PX / this.deps.getZoom());
+        const snap = computeObjectSnap(movingBounds, this.snapCandidates(), SNAP_THRESHOLD_PX / this.deps.getZoom());
         dx += snap.dx;
         dy += snap.dy;
         this.snapGuides = snap.guides;
@@ -110,6 +110,29 @@ export class MoveGesture {
     }
 
     for (const [id, original] of this.originalElements) this.deps.scene.updateElement(id, { x: original.x + dx, y: original.y + dy });
+  }
+
+  /**
+   * The elements this drag may align to: everything not being dragged, and — when the host tells us
+   * where the viewport is — nothing scrolled off screen.
+   *
+   * The viewport filter is what the snap *means*, not an optimisation. An alignment the user cannot
+   * see has no explanation: the shape lurches onto a column belonging to something outside the
+   * window, and the guide drawn for it runs off the edge of the canvas. On a drawing any larger than
+   * one screen that happens constantly, and reads as the drag blinking and jumping at random.
+   * Excalidraw filters the same way — verified by scrolling a reference element out of view and
+   * watching its snap stop applying.
+   */
+  private snapCandidates(): SceneRect[] {
+    const movingIds = new Set(this.originalElements?.keys() ?? []);
+    const visible = this.deps.getVisibleSceneRect?.() ?? null;
+    const candidates: SceneRect[] = [];
+    for (const element of this.deps.scene.getElements()) {
+      if (element.isDeleted || movingIds.has(element.id)) continue;
+      if (visible && !elementIntersectsRect(element, visible)) continue;
+      candidates.push(elementBounds(element));
+    }
+    return candidates;
   }
 
   finish(): void {

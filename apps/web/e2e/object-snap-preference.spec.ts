@@ -84,3 +84,27 @@ test("Alt+S toggles it too, and the choice survives a reload", async ({ page }) 
   await dragRight(page, 17);
   expect(await moverX(page)).toBeCloseTo(NEIGHBOUR.left, 0);
 });
+
+test("with snapping on, a drag ignores elements that are scrolled off screen", async ({ page }) => {
+  // An alignment to something outside the window has no visible cause: the shape lurches onto a
+  // column belonging to nothing on screen, and its guide runs off the canvas edge. On any drawing
+  // larger than one screen that happens constantly and reads as the drag jumping at random.
+  //
+  // The would-be reference is drawn first and far below, so the mover stays the last rectangle in
+  // the scene — which is the one `moverX` reads.
+  await page.mouse.move(900, 400);
+  await page.mouse.wheel(0, 1400);
+  await drawBox(page, { left: NEIGHBOUR.left, top: 400, right: NEIGHBOUR.right, bottom: 480 });
+  await page.keyboard.press("Escape");
+  await page.mouse.wheel(0, -1400);
+
+  await drawBox(page, MOVER);
+  await page.keyboard.press("Escape");
+  await page.getByTestId("top-bar-menu").click();
+  await page.getByTestId("main-menu-toggle-object-snap").click();
+  await page.keyboard.press("Escape");
+
+  const before = await moverX(page);
+  await dragRight(page, 17); // would be pulled onto the off-screen box's column if it counted
+  expect(await moverX(page)).toBeCloseTo(before + 17, 0);
+});

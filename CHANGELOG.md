@@ -77,6 +77,13 @@ All notable changes to Deviva Draw are documented here. The format follows
   jumping rather than as alignment. It is now switched on from the main menu or with `Alt+S`, and
   remembered across reloads — the same default and the same shortcut Excalidraw uses. Grid snapping
   is unaffected; it has always had its own switch.
+- **With snapping on, it only aligns to what is on screen.** Every element in the drawing counted as
+  something to line up with, including ones scrolled far out of view — so a shape would jump onto a
+  column belonging to nothing you could see, with a guide line running off the edge of the canvas.
+  On a drawing larger than one screen that happened constantly and looked like the drag blinking at
+  random. Verified against Excalidraw, which ignores off-screen elements the same way. The snap
+  correction itself was already identical to Excalidraw's; only the set of things it considered was
+  wrong.
 - **Aiming anywhere at a shape now connects to it.** Releasing an arrow endpoint inside a
   shape attaches it, not only near the edge — checked against Excalidraw, where an endpoint
   dropped at a box's dead centre attaches and then follows the box. Drawing an arrow
@@ -96,8 +103,10 @@ All notable changes to Deviva Draw are documented here. The format follows
 - **`@deviva-draw/engine` — object snapping is opt-in for embedding hosts too** (breaking, for
   direct API consumers only). `SelectionToolDeps` gained an optional `getObjectSnapEnabled()`, and
   align-to-other-elements snapping no longer happens unless it returns `true` — a host that wants
-  the previous always-on behaviour has to supply it. `registerPreferenceShortcuts` is a new export,
-  already included in `registerFullShortcutMap`.
+  the previous always-on behaviour has to supply it. It also gained an optional
+  `getVisibleSceneRect()`, which limits snap targets to the elements currently on screen; omit it and
+  the whole scene counts, as before. `registerPreferenceShortcuts` is a new export, already included
+  in `registerFullShortcutMap`.
 
 ## [0.3.4] — 2026-08-13
 

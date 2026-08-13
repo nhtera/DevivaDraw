@@ -4,6 +4,7 @@
  * `selection-tool-keyboard.ts`) — split into its own file so those siblings can import the type
  * without importing `selection-tool.ts` itself (which imports them), avoiding a module cycle.
  */
+import type { SceneRect } from "../render/viewport-culling";
 import type { Scene } from "../scene/scene";
 import type { ShapeToolHistory } from "../tools/drag-shape-tool-base";
 import type { InternalClipboard } from "./clipboard";
@@ -23,4 +24,10 @@ export interface SelectionToolDeps {
    * would have no way to turn it off. See `selection-move-gesture.ts` for what being sticky costs.
    */
   getObjectSnapEnabled?(): boolean;
+  /**
+   * The scene rect currently on screen. Object snap only aligns to elements inside it — a drag must
+   * never be pulled onto something the user cannot see. Omit and every element in the scene counts,
+   * which is only safe for a host that keeps the whole drawing in view.
+   */
+  getVisibleSceneRect?(): SceneRect | null;
 }
