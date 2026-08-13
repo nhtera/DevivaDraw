@@ -146,7 +146,16 @@ export class ArrowTool extends NoOpToolHandler {
     this.deps.scene.updateElement(elementId, { arrowType } as Partial<ArrowElement>);
 
     const threshold = BINDING_PROXIMITY_PX / this.deps.getZoom();
-    applyEndpointBindingsOnFinish(this.deps.scene, elementId, this.vertices, threshold);
+    // Binding is a *bonus* on top of a committed arrow, never a precondition for one. A geometry gap
+    // (a bindable-list / border-formula mismatch) used to throw from here, skipping `endBatch`,
+    // `reset` and `onCreated` — leaving the tool wedged mid-gesture with an open history batch, so
+    // the next undo behaved unpredictably. Logged rather than swallowed: any such gap must stay
+    // visible in the console, it just must not cost the user their arrow.
+    try {
+      applyEndpointBindingsOnFinish(this.deps.scene, elementId, this.vertices, threshold);
+    } catch (error) {
+      console.error(`arrow-tool: endpoint binding failed for "${elementId}" (arrow committed unbound):`, error);
+    }
 
     this.deps.history.endBatch(this.deps.scene.getElements());
     this.reset();

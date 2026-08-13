@@ -4,6 +4,20 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **Drawing an arrow onto a sticky note no longer breaks the arrow tool.** Dropping an
+  arrow endpoint on a note threw mid-gesture, and because the throw landed before the
+  tool closed its history batch, the arrow was lost and the next undo behaved
+  unpredictably. Two different questions had been sharing one answer: the check for
+  "can this element hold a text label" — which notes pass — was also being used to
+  decide "does this element have an outline an arrow can attach to", which notes had no
+  formula for. They are now separate checks. Binding a note is a feature that is still
+  to come; until it lands, an arrow drawn onto a note simply commits unbound instead of
+  failing. Binding to rectangles, ellipses and diamonds is unchanged, and a failure in
+  the binding step can no longer cost you the arrow you just drew.
+
 ## [0.3.4] — 2026-08-13
 
 Publishes all three packages: `@deviva-draw/engine` (0.3.2),

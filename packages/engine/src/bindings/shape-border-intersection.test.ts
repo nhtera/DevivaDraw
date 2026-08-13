@@ -4,8 +4,27 @@ import {
   intersectEllipseLocal,
   intersectRectangleLocal,
   intersectShapeBorder,
+  isBindableShapeGeometry,
 } from "./shape-border-intersection";
 import type { BorderRect } from "./shape-border-intersection";
+
+describe("isBindableShapeGeometry", () => {
+  it("accepts exactly the types the border formulas cover", () => {
+    for (const type of ["rectangle", "ellipse", "diamond"]) {
+      expect(isBindableShapeGeometry({ type })).toBe(true);
+    }
+  });
+
+  it("rejects a note — a bound-text container with no border formula here", () => {
+    expect(isBindableShapeGeometry({ type: "note" })).toBe(false);
+  });
+
+  it("rejects every other element type", () => {
+    for (const type of ["arrow", "line", "text", "freedraw", "image", "frame", "embed", "star", "triangle"]) {
+      expect(isBindableShapeGeometry({ type })).toBe(false);
+    }
+  });
+});
 
 describe("intersectRectangleLocal", () => {
   it("hits the right edge for a purely horizontal direction", () => {

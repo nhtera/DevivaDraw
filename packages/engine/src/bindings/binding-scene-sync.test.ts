@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createArrowElement } from "../elements/arrow-element";
+import { createNoteElement } from "../elements/note-element";
 import { createRectangleElement } from "../elements/shape-elements";
 import type { TextElement } from "../elements/text-element";
 import { Scene } from "../scene/scene";
@@ -26,6 +27,19 @@ describe("findBindableShapeNear", () => {
   it("returns null when nothing is near", () => {
     const { scene } = setup();
     expect(findBindableShapeNear(scene, { x: 5000, y: 5000 }, 10)).toBeNull();
+  });
+
+  it("does not offer a sticky note — it holds bound text, but has no border formula to bind an arrow against", () => {
+    const scene = new Scene();
+    scene.addElement(createNoteElement({ x: 0, y: 0, width: 100, height: 100 }));
+    expect(findBindableShapeNear(scene, { x: 50, y: 50 }, 5)).toBeNull();
+  });
+
+  it("looks past a note to a bindable shape underneath it", () => {
+    const scene = new Scene();
+    const rect = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 100, height: 100 }));
+    scene.addElement(createNoteElement({ x: 0, y: 0, width: 100, height: 100 })); // on top
+    expect(findBindableShapeNear(scene, { x: 50, y: 50 }, 0)?.id).toBe(rect.id);
   });
 
   it("ignores deleted shapes and the topmost (last z-order) shape wins on overlap", () => {

@@ -19,11 +19,11 @@ import type { ArrowElement } from "../elements/arrow-element";
 import type { Point } from "../render/camera";
 import { absolutePoints, rebaseArrowPoints } from "../render/arrow-geometry";
 import type { Scene } from "../scene/scene";
-import { isBindableContainer } from "../text/bound-text";
 import type { TextMeasurer } from "../text/text-measurement";
 import { recenterArrowLabelIfPresent } from "./arrow-label";
 import { boundArrowIds, unbindArrowsFromDeletedShape } from "./binding-model";
 import { recomputeBindingPoint } from "./recompute-binding";
+import { isBindableShapeGeometry } from "./shape-border-intersection";
 import type { BindableShapeType } from "./shape-border-intersection";
 
 /**
@@ -34,12 +34,16 @@ import type { BindableShapeType } from "./shape-border-intersection";
  * `render/viewport-culling.ts` makes for culling: a rotated shape's true footprint is a subset of its
  * axis-aligned bbox's expansion, so this can over-offer a bind target but never miss an obviously
  * eligible one.
+ *
+ * Filters on `isBindableShapeGeometry` (types with a solvable border formula), *not* on
+ * `isBindableContainer` (types that can hold bound text) — see the former's doc for why conflating
+ * the two crashed on sticky notes.
  */
 export function findBindableShapeNear(scene: Scene, point: Point, thresholdSceneUnits: number): AnyElement | null {
   const elements = scene.getElements();
   for (let i = elements.length - 1; i >= 0; i -= 1) {
     const element = elements[i];
-    if (!element || element.isDeleted || !isBindableContainer(element)) continue;
+    if (!element || element.isDeleted || !isBindableShapeGeometry(element)) continue;
     const withinX = point.x >= element.x - thresholdSceneUnits && point.x <= element.x + element.width + thresholdSceneUnits;
     const withinY = point.y >= element.y - thresholdSceneUnits && point.y <= element.y + element.height + thresholdSceneUnits;
     if (withinX && withinY) return element;
@@ -87,7 +91,11 @@ function applyEndpointPosition(scene: Scene, arrow: ArrowElement, end: "start" |
  * amplifying storm of no-op deltas that scales with (bound arrows) x (connected peers).
  */
 export function rerouteArrowEndpoints(scene: Scene, arrowId: string, movedShape: AnyElement): void {
-  if (!isBindableContainer(movedShape)) return;
+  // Same geometry-capability guard `findBindableShapeNear` uses. A shape whose outline this module
+  // cannot solve simply does not reroute its arrows, rather than throwing from inside a `Scene`
+  // update hook — a state the bind path no longer produces, but scenes arrive from files, share
+  // links and collab peers too, so the read side does not assume the write side was ours.
+  if (!isBindableShapeGeometry(movedShape)) return;
   const shapeType = movedShape.type as BindableShapeType;
 
   let arrow = scene.getElement(arrowId);

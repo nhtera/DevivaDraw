@@ -26,6 +26,22 @@ export interface BorderRect {
 
 export type BindableShapeType = "rectangle" | "ellipse" | "diamond";
 
+const BINDABLE_SHAPE_GEOMETRY_TYPES: ReadonlySet<string> = new Set<BindableShapeType>(["rectangle", "ellipse", "diamond"]);
+
+/**
+ * Whether this element's type has outline geometry `intersectShapeBorder` can actually solve — the
+ * precondition for an arrow endpoint binding to it.
+ *
+ * Deliberately *not* `text/bound-text.ts`'s `isBindableContainer`: that one answers "can this hold a
+ * bound text label", a different question whose set includes `note`, for which no border formula
+ * exists here. Binding used to reuse it, so dropping an arrow on a sticky note reached the
+ * unsatisfiable branch of `intersectLocal` and threw mid-gesture. The two predicates stay separate
+ * because the two questions are separate.
+ */
+export function isBindableShapeGeometry(element: { type: string }): boolean {
+  return BINDABLE_SHAPE_GEOMETRY_TYPES.has(element.type);
+}
+
 /** Floor for a shape's half-extent so a zero-width/zero-height (or exactly-on-center) degenerate case never divides by zero. */
 const DEGENERATE_EXTENT_EPSILON = 1e-6;
 

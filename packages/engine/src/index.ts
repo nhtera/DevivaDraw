@@ -233,6 +233,7 @@ export {
   intersectEllipseLocal,
   intersectRectangleLocal,
   intersectShapeBorder,
+  isBindableShapeGeometry,
 } from "./bindings/shape-border-intersection";
 
 export { computeFocusForBindingPoint, recomputeBindingPoint } from "./bindings/recompute-binding";
