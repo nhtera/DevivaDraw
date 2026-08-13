@@ -48,6 +48,8 @@ export class LinearPointGesture {
   private readonly deps: SelectionToolDeps;
   private arrowId: string | null = null;
   private frozen: FrozenArrow | null = null;
+  /** True while editing an elbow arrow, which binds from anywhere inside a target rather than only near its outline. */
+  private fullShape = false;
   /** Index of the vertex being dragged. For a midpoint grab this is the newly inserted vertex, resolved in `begin`. */
   private vertexIndex = 0;
   private highlightId: string | null = null;
@@ -64,6 +66,7 @@ export class LinearPointGesture {
   begin(arrow: ArrowElement, target: LinearHandleTarget): boolean {
     const points = absolutePoints({ x: arrow.x, y: arrow.y }, arrow.points);
     this.arrowId = arrow.id;
+    this.fullShape = arrow.arrowType === "elbow";
     this.frozen = {
       x: arrow.x,
       y: arrow.y,
@@ -156,8 +159,8 @@ export class LinearPointGesture {
     if (!end || isBindingSuppressed(modifiers)) return point;
 
     const threshold = maxBindingDistanceSceneUnits(this.deps.getZoom());
-    this.highlightId = resolveBindingHighlight(this.deps.scene.getElements(), point, threshold);
-    const target = findBindableShapeNear(this.deps.scene, point, threshold);
+    this.highlightId = resolveBindingHighlight(this.deps.scene.getElements(), point, threshold, this.fullShape);
+    const target = findBindableShapeNear(this.deps.scene, point, threshold, this.fullShape);
     if (!target || target.id === this.arrowId) return point;
 
     const preview = previewBoundEndpoint(target, point, this.referencePointFor(points));
@@ -177,7 +180,7 @@ export class LinearPointGesture {
   private commitBinding(arrowId: string, end: "start" | "end", points: readonly Point[], modifiers: ModifierKeys): void {
     const droppedAt = points[this.vertexIndex]!;
     const threshold = isBindingSuppressed(modifiers) ? 0 : maxBindingDistanceSceneUnits(this.deps.getZoom());
-    const target = threshold > 0 ? findBindableShapeNear(this.deps.scene, droppedAt, threshold) : null;
+    const target = threshold > 0 ? findBindableShapeNear(this.deps.scene, droppedAt, threshold, this.fullShape) : null;
 
     if (!target) {
       unbindArrowEndpoint(this.deps.scene, arrowId, end); // no-op when it was not bound
@@ -208,6 +211,7 @@ export class LinearPointGesture {
   private reset(): void {
     this.arrowId = null;
     this.frozen = null;
+    this.fullShape = false;
     this.vertexIndex = 0;
     this.highlightId = null;
   }

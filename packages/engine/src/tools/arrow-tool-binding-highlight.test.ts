@@ -31,7 +31,7 @@ describe("ArrowTool — suggested-binding highlight", () => {
     const { scene, tool } = setup();
     const rect = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 100, height: 100 }));
 
-    tool.onHover({ x: 50, y: 50 }, NO_MODIFIERS);
+    tool.onHover({ x: 98, y: 50 }, NO_MODIFIERS); // near the right edge, where binding actually reaches
     expect(tool.getBindingHighlightIds()).toEqual([rect.id]);
 
     tool.onHover({ x: 5000, y: 5000 }, NO_MODIFIERS);
@@ -43,8 +43,8 @@ describe("ArrowTool — suggested-binding highlight", () => {
     const from = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 100, height: 100 }));
     const to = scene.addElement(createNoteElement({ x: 300, y: 0, width: 100, height: 100 }));
 
-    tool.onGestureStart({ x: 50, y: 50 }, NO_MODIFIERS);
-    tool.onGestureMove({ x: 350, y: 50 }, NO_MODIFIERS);
+    tool.onGestureStart({ x: 98, y: 50 }, NO_MODIFIERS);
+    tool.onGestureMove({ x: 302, y: 50 }, NO_MODIFIERS);
     expect(tool.getBindingHighlightIds()).toEqual([from.id, to.id]);
   });
 
@@ -53,9 +53,9 @@ describe("ArrowTool — suggested-binding highlight", () => {
     const from = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 100, height: 100 }));
     const to = scene.addElement(createNoteElement({ x: 300, y: 0, width: 100, height: 100 }));
 
-    tool.onGestureStart({ x: 50, y: 50 }, NO_MODIFIERS);
-    tool.onGestureEnd({ x: 50, y: 50 }, NO_MODIFIERS); // a click, not a drag: multi-point mode
-    tool.onHover({ x: 350, y: 50 }, NO_MODIFIERS);
+    tool.onGestureStart({ x: 98, y: 50 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: 98, y: 50 }, NO_MODIFIERS); // a click, not a drag: multi-point mode
+    tool.onHover({ x: 302, y: 50 }, NO_MODIFIERS);
 
     expect(tool.getBindingHighlightIds()).toEqual([from.id, to.id]);
   });
@@ -86,7 +86,7 @@ describe("ArrowTool — suggested-binding highlight", () => {
     const { scene, tool } = setup();
     scene.addElement(createRectangleElement({ x: 0, y: 0, width: 100, height: 100 }));
 
-    tool.onHover({ x: 50, y: 50 }, NO_MODIFIERS);
+    tool.onHover({ x: 98, y: 50 }, NO_MODIFIERS);
     tool.clearBindingHighlight();
     expect(tool.getBindingHighlightIds()).toEqual([]);
   });

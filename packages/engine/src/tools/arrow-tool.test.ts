@@ -151,8 +151,8 @@ describe("ArrowTool — endpoint binding on create", () => {
     scene.addElement(createRectangleElement({ x: 300, y: 0, width: 40, height: 40 }));
     const tool = new ArrowTool({ scene, styleState: new ShapeStyleState(), history: fakeHistory(), getZoom: () => 1 });
 
-    tool.onGestureStart({ x: 20, y: 20 }, NO_MODIFIERS); // inside the first rectangle
-    tool.onGestureEnd({ x: 320, y: 20 }, NO_MODIFIERS); // inside the second rectangle
+    tool.onGestureStart({ x: 38, y: 20 }, NO_MODIFIERS); // just inside the first rectangle's right edge
+    tool.onGestureEnd({ x: 302, y: 20 }, NO_MODIFIERS); // just inside the second rectangle's left edge
 
     const arrow = arrowOf(scene);
     expect(arrow.startBinding).not.toBeNull();
@@ -163,13 +163,13 @@ describe("ArrowTool — endpoint binding on create", () => {
     for (const shape of shapes) expect(shape.boundElements).toEqual([{ id: arrow.id, type: "arrow" }]);
   });
 
-  it("self-binding: dragging from one point inside a shape to another point inside the SAME shape binds both ends to it", () => {
+  it("self-binding: dragging from one edge of a shape to another edge of the SAME shape binds both ends to it", () => {
     const scene = new Scene();
     const shape = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 200, height: 200 }));
     const tool = new ArrowTool({ scene, styleState: new ShapeStyleState(), history: fakeHistory(), getZoom: () => 1 });
 
-    tool.onGestureStart({ x: 20, y: 20 }, NO_MODIFIERS);
-    tool.onGestureEnd({ x: 180, y: 180 }, NO_MODIFIERS);
+    tool.onGestureStart({ x: 5, y: 100 }, NO_MODIFIERS); // near the left edge
+    tool.onGestureEnd({ x: 195, y: 100 }, NO_MODIFIERS); // near the right edge
 
     const arrow = arrowOf(scene);
     expect(arrow.startBinding?.elementId).toBe(shape.id);

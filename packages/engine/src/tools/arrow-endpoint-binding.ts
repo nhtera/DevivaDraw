@@ -37,15 +37,24 @@ function bindOneEnd(scene: Scene, arrowId: string, end: "start" | "end", target:
  * bindable shape, writes the arrow's resulting geometry back to `Scene`, and returns the
  * (possibly-adjusted) vertex list for the caller's own bookkeeping. No-ops (returns `vertices`
  * unchanged, still written to `Scene`) when neither end is near a bindable shape.
+ *
+ * `fullShape` — true only for elbow arrows — additionally binds an endpoint dropped anywhere inside
+ * a target, not just near its outline. See `findBindableShapeNear`.
  */
-export function applyEndpointBindingsOnFinish(scene: Scene, arrowId: string, vertices: readonly Point[], thresholdSceneUnits: number): Point[] {
+export function applyEndpointBindingsOnFinish(
+  scene: Scene,
+  arrowId: string,
+  vertices: readonly Point[],
+  thresholdSceneUnits: number,
+  fullShape = false,
+): Point[] {
   const result = [...vertices];
   const rawStart = result[0];
   const rawEnd = result[result.length - 1];
   if (!rawStart || !rawEnd) return result;
 
-  const startTarget = findBindableShapeNear(scene, rawStart, thresholdSceneUnits);
-  const endTarget = findBindableShapeNear(scene, rawEnd, thresholdSceneUnits);
+  const startTarget = findBindableShapeNear(scene, rawStart, thresholdSceneUnits, fullShape);
+  const endTarget = findBindableShapeNear(scene, rawEnd, thresholdSceneUnits, fullShape);
 
   let startPoint = rawStart;
   let endPoint = rawEnd;

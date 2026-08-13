@@ -93,6 +93,77 @@ divided by the current zoom to get the scene-space distance — a fixed
 scene-unit threshold would feel wildly more/less forgiving depending on
 zoom level. See `tools/line-tool.ts`, `tools/arrow-tool-zoom-thresholds.test.ts`.
 
+## Arrow binding: how an arrow stays attached to a shape
+
+An arrow does not store *where* it is attached. It stores how to recompute
+that, and the shape stores that it is being pointed at:
+
+```ts
+// on the arrow
+startBinding: { elementId, focus, gap } | null
+endBinding:   { elementId, focus, gap } | null
+// on the shape
+boundElements: [{ id: arrowId, type: "arrow" }, …]
+```
+
+Position is derived, never persisted, so an endpoint can never go stale
+relative to a shape that moved, resized or rotated. `focus` is where along
+the outline the endpoint sits — `0` is straight at the arrow's other end,
+±1 is a full half-extent to either side — and `gap` is the clearance
+between the outline and the tip. `bindings/recompute-binding.ts` turns the
+pair back into a point on every change; `bindings/binding-scene-sync.ts`
+registers the `Scene` update hook that does it.
+
+**Both directions must always agree.** Every write goes through
+`bindings/binding-model.ts`, which keeps the arrow's field and the shape's
+back-ref in lockstep — nothing else may touch either. Note that
+`boundElements` de-duplicates by `(id, type)`, so an arrow attached to the
+same shape at *both* ends shares one entry; it survives until both ends
+have let go.
+
+Geometry is dispatched by outline kind, not by element type:
+
+| Kind | Types | Intersection |
+|---|---|---|
+| `rect` | rectangle, note, x-box, check-box, cloud, heart, cylinder | slab test |
+| `ellipse` | ellipse, double-circle | parametric |
+| `polygon` | diamond, triangle, hexagon, star, parallelogram, trapezoid, block-arrow | nearest positive ray-edge crossing |
+
+The grouping deliberately matches `selection/hit-test.ts`'s own dispatch:
+bind geometry that disagreed with hit geometry would give you shapes you
+can click but not attach to. `elements/polygon-shape-geometry.ts` is the
+single source of vertex truth for both. `bindings/shape-outline-geometry.ts`
+owns the dispatch and the local-frame transform that undoes rotation and
+mirroring.
+
+Flow from pointer to committed binding:
+
+```
+pointer move  → bindings/binding-highlight.ts   [which shape would bind — read-only]
+              → render/interactive-binding-highlight.ts  [the halo]
+drag          → bindings/preview-bound-endpoint.ts  [where it would land]
+release       → bindings/binding-model.ts       [the only writer]
+```
+
+`preview-bound-endpoint.ts` is read by arrow creation, the creation
+preview and the endpoint drag alike, so what a preview shows and what a
+release commits cannot drift apart.
+
+**Hovering writes to `Scene` not at all, and a drag writes only geometry.**
+The binding *fields* are left untouched until release, then committed once.
+Under live collaboration every touched element is rebroadcast to every
+peer, so a binding write per pointer move would multiply out across
+(bound arrows) x (peers) — the same amplification
+`binding-scene-sync.ts`'s `ENDPOINT_UNCHANGED_EPSILON` guards against.
+Live geometry writes during a drag are unavoidable and already the norm
+for every move gesture.
+
+Two thresholds, both in `bindings/binding-thresholds.ts`: the gap scales
+with the target's stroke width, and the bind proximity widens as you zoom
+out but is clamped at twice its 100% value. Elbow connectors additionally
+bind from anywhere *inside* a shape (`fullShape`), which straight and
+curved arrows do not — drawing through something is ordinary.
+
 ## Persistence format: SceneDocumentV1
 
 `persistence/scene-schema.ts` defines the versioned wire envelope shared by

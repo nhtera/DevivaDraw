@@ -31,9 +31,12 @@ import type { BindableShapeType } from "./shape-outline-geometry";
  * `thresholdSceneUnits` of — or inside — the "endpoint dropped near a shape" hit test
  * `tools/arrow-tool.ts` uses to decide whether to bind.
  *
- * Inside counts as a hit, not just near the edge: an endpoint dropped in the middle of a shape is
- * unambiguously aimed at that shape, and the binding's `focus`/`gap` will clip it back out to the
- * outline anyway.
+ * `fullShape` decides whether the shape's *interior* counts too, not just the band around its
+ * outline. It is true only for elbow arrows, matching Excalidraw: an elbow connector exists to join
+ * boxes, so aiming anywhere at a box means it. A straight arrow deliberately does not bind from deep
+ * inside a large shape, because drawing *through* something is a normal thing to do and would
+ * otherwise attach unexpectedly. On a small shape the distinction barely exists — the outline band
+ * already covers most of it.
  *
  * The exact outline distance runs only for shapes that survive `isNearOutlineBounds`, a cheap
  * conservative reject — this is called per candidate on every drop, and per pointer move via the
@@ -43,13 +46,14 @@ import type { BindableShapeType } from "./shape-outline-geometry";
  * `isBindableContainer` (types that can hold bound text) — see the former's doc for why conflating
  * the two crashed on sticky notes.
  */
-export function findBindableShapeNear(scene: Scene, point: Point, thresholdSceneUnits: number): AnyElement | null {
+export function findBindableShapeNear(scene: Scene, point: Point, thresholdSceneUnits: number, fullShape = false): AnyElement | null {
   const elements = scene.getElements();
   for (let i = elements.length - 1; i >= 0; i -= 1) {
     const element = elements[i];
     if (!element || element.isDeleted || !isBindableShapeGeometry(element)) continue;
     if (!isNearOutlineBounds(element, point, thresholdSceneUnits)) continue;
-    if (distanceToShapeOutline(element, point) <= thresholdSceneUnits || isInsideShapeOutline(element, point)) return element;
+    if (distanceToShapeOutline(element, point) <= thresholdSceneUnits) return element;
+    if (fullShape && isInsideShapeOutline(element, point)) return element;
   }
   return null;
 }

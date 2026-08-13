@@ -59,6 +59,13 @@ All notable changes to Deviva Draw are documented here. The format follows
   out you zoom.
 
 ### Changed
+- **Releasing an arrow deep inside a shape no longer connects it.** Connecting now
+  happens when an endpoint is near a shape's edge — inside or outside — rather than
+  anywhere within its bounds. Drawing an arrow straight *through* a large shape is an
+  ordinary thing to do, and it used to attach on the way past. Elbow connectors are the
+  exception and still connect from anywhere inside a shape: joining boxes is the only
+  thing they are for. Since shapes now highlight as you approach them, you can see which
+  is about to happen before you let go. This matches Excalidraw.
 - **`@deviva-draw/engine` — `DEFAULT_BINDING_GAP` has been removed** (breaking, for
   direct API consumers only). The binding gap now depends on the target's stroke width,
   so a single constant can no longer express it. Use `bindingGapFor(target)` instead.

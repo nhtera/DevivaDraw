@@ -18,9 +18,9 @@ function setup() {
 }
 
 describe("findBindableShapeNear", () => {
-  it("finds a rectangle whose expanded bbox contains the point", () => {
+  it("finds a rectangle whose outline the point is within reach of, inside or out", () => {
     const { scene, shapeA } = setup();
-    expect(findBindableShapeNear(scene, { x: 50, y: 25 }, 5)?.id).toBe(shapeA.id);
+    expect(findBindableShapeNear(scene, { x: 97, y: 25 }, 5)?.id).toBe(shapeA.id); // just inside the right edge
     expect(findBindableShapeNear(scene, { x: 105, y: 25 }, 10)?.id).toBe(shapeA.id); // just outside, within threshold
   });
 
@@ -32,7 +32,7 @@ describe("findBindableShapeNear", () => {
   it("offers a sticky note like any other closed shape", () => {
     const scene = new Scene();
     const note = scene.addElement(createNoteElement({ x: 0, y: 0, width: 100, height: 100 }));
-    expect(findBindableShapeNear(scene, { x: 50, y: 50 }, 5)?.id).toBe(note.id);
+    expect(findBindableShapeNear(scene, { x: 97, y: 50 }, 5)?.id).toBe(note.id); // just inside the right edge
     expect(findBindableShapeNear(scene, { x: 103, y: 50 }, 5)?.id).toBe(note.id); // just outside, within threshold
   });
 
@@ -44,21 +44,31 @@ describe("findBindableShapeNear", () => {
     expect(findBindableShapeNear(scene, { x: 2, y: 2 }, 5)).toBeNull();
   });
 
-  it("counts a point inside the shape, not only one near its edge", () => {
+  it("ignores the deep interior for a normal arrow, but takes it for an elbow one", () => {
     const scene = new Scene();
     const rect = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 400, height: 400 }));
-    // Dead centre of a large shape is nowhere near the outline, but is unambiguously aimed at it.
-    expect(findBindableShapeNear(scene, { x: 200, y: 200 }, 5)?.id).toBe(rect.id);
+    const middle = { x: 200, y: 200 };
+
+    // Drawing *through* a shape is ordinary, so releasing deep inside one does not attach a normal
+    // arrow to it. An elbow connector exists to join boxes, so aiming anywhere at a box means it.
+    expect(findBindableShapeNear(scene, middle, 5)).toBeNull();
+    expect(findBindableShapeNear(scene, middle, 5, true)?.id).toBe(rect.id);
+  });
+
+  it("still finds the nearest edge from inside, whatever the arrow type", () => {
+    const scene = new Scene();
+    const rect = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 400, height: 400 }));
+    expect(findBindableShapeNear(scene, { x: 397, y: 200 }, 5)?.id).toBe(rect.id);
   });
 
   it("ignores deleted shapes and the topmost (last z-order) shape wins on overlap", () => {
     const scene = new Scene();
     const back = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 100, height: 100 }));
     const front = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 100, height: 100 }));
-    expect(findBindableShapeNear(scene, { x: 50, y: 50 }, 0)?.id).toBe(front.id);
+    expect(findBindableShapeNear(scene, { x: 100, y: 50 }, 0)?.id).toBe(front.id);
 
     scene.deleteElement(front.id);
-    expect(findBindableShapeNear(scene, { x: 50, y: 50 }, 0)?.id).toBe(back.id);
+    expect(findBindableShapeNear(scene, { x: 100, y: 50 }, 0)?.id).toBe(back.id);
   });
 });
 

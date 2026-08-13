@@ -39,8 +39,8 @@ base.
 | `input/` | `PointerEventPipeline`, `ToolStateMachine`, `ToolHandler` contract, pan/zoom, shortcut registry, DOM adapters. |
 | `render/` | `Camera`, viewport culling, per-element renderers (rough shapes, freedraw, text, image, arrow, frame), dual-layer `StaticLayer`/`InteractiveLayer` compositor, per-element drawable caches. |
 | `tools/` | Concrete `ToolHandler`s: every shape, freedraw/highlighter, text, note, arrow/line, lasso, frame, eraser, laser; shared `DragShapeTool` base + style state. |
-| `selection/` | Hit-test, marquee, lasso select, resize/rotate handles, group transform, align/distribute, group/ungroup, snapping, clipboard, z-order ops, frame membership, `SelectionTool`. |
-| `bindings/` | Arrow-to-shape binding model, border intersection math, binding recompute, scene-sync hooks, arrow labels. |
+| `selection/` | Hit-test, marquee, lasso select, resize/rotate handles, arrow vertex handles + point-drag editor, group transform, align/distribute, group/ungroup, snapping, clipboard, z-order ops, frame membership, `SelectionTool`. |
+| `bindings/` | Arrow-to-shape binding model, per-outline-kind geometry, gap/proximity thresholds, endpoint preview, suggested-binding resolver, binding recompute, scene-sync hooks, arrow labels. See [System Architecture](./system-architecture.md#arrow-binding-how-an-arrow-stays-attached-to-a-shape). |
 | `text/` | Font loading, text measurement/wrap (injectable `TextMeasurer`), bound-text layout/lifecycle for bindable containers, text edit session. |
 | `images/` | Content-addressed file store (`FilesMap`), image insert (resize/validate), `ImageDecodeCache` (injectable decoder). |
 | `persistence/` | `SceneDocumentV1` schema, migrations registry, validation, serialize/deserialize, localStorage autosave. |
