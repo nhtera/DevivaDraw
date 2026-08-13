@@ -40,6 +40,7 @@ export const MENU_GLYPHS: Record<string, ReactNode> = {
   // A clean downward chevron — the custom dropdown indicator for the language <select>.
   "chevron-down": <path d="M5.5 8 L10 12.5 L14.5 8" strokeLinecap="round" strokeLinejoin="round" />,
   "chevron-up": <path d="M5.5 12 L10 7.5 L14.5 12" strokeLinecap="round" strokeLinejoin="round" />,
+  check: <path d="M4 10.5 L8 14.5 L16 5.5" strokeLinecap="round" strokeLinejoin="round" />,
   // The GitHub mark, filled (the 24-unit official silhouette scaled into the shared 20-unit viewBox).
   github: (
     <g transform="scale(0.8333)" fill="currentColor" stroke="none">

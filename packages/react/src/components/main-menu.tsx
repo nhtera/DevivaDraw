@@ -43,11 +43,27 @@ const THEME_OPTIONS: readonly { value: ThemePreference; icon: string }[] = [
 /** Shared style for the small uppercase-ish section headers (Theme / Language). */
 const sectionLabelStyle = { padding: "6px 8px 2px", fontSize: 11, color: "var(--dd-text-secondary)" } as const;
 
-function MenuButton(props: { onClick: () => void; icon: string; children: string; testId: string }) {
+function MenuButton(props: { onClick: () => void; icon: string; children: string; testId: string; checked?: boolean }) {
+  // `checked` distinguishes a toggle row (zen mode, minimap, …) from a plain command row: toggles are
+  // `menuitemcheckbox`es and draw a trailing ✓ when on — the row itself stays unhighlighted so the
+  // eye scans one column of marks, the way Excalidraw's preferences submenu shows active toggles.
+  const isToggle = props.checked !== undefined;
   return (
-    <button type="button" data-testid={props.testId} style={{ ...buttonStyle(false), justifyContent: "flex-start", width: "100%" }} onClick={props.onClick}>
+    <button
+      type="button"
+      role={isToggle ? "menuitemcheckbox" : undefined}
+      aria-checked={isToggle ? props.checked : undefined}
+      data-testid={props.testId}
+      style={{ ...buttonStyle(false), justifyContent: "flex-start", width: "100%" }}
+      onClick={props.onClick}
+    >
       <Icon name={props.icon} />
       {props.children}
+      {props.checked && (
+        <span style={{ marginLeft: "auto", display: "inline-flex", color: "var(--dd-accent)" }}>
+          <Icon name="check" size={14} />
+        </span>
+      )}
     </button>
   );
 }
@@ -218,19 +234,21 @@ export function MainMenu(props: MainMenuProps) {
         <CanvasBackgroundRow scene={runtime.scene} />
       </div>
       <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
-      <MenuButton testId="main-menu-toggle-object-snap" icon="snap" onClick={() => run("toggle-object-snap")}>
+      {/* Toggle rows read their state directly at render: the menu closes on every click (`run` calls
+          `onClose`), so it reopens with fresh state and never needs a live subscription while open. */}
+      <MenuButton testId="main-menu-toggle-object-snap" icon="snap" checked={runtime.objectSnap.enabled} onClick={() => run("toggle-object-snap")}>
         {t("action.toggleObjectSnap")}
       </MenuButton>
-      <MenuButton testId="main-menu-toggle-zen-mode" icon="zen" onClick={() => run("toggle-zen-mode")}>
+      <MenuButton testId="main-menu-toggle-zen-mode" icon="zen" checked={runtime.ui.getZenMode()} onClick={() => run("toggle-zen-mode")}>
         {t("action.toggleZenMode")}
       </MenuButton>
-      <MenuButton testId="main-menu-toggle-view-only" icon="view-only" onClick={() => run("toggle-view-only")}>
+      <MenuButton testId="main-menu-toggle-view-only" icon="view-only" checked={runtime.ui.getViewOnly()} onClick={() => run("toggle-view-only")}>
         {t("action.toggleViewOnly")}
       </MenuButton>
-      <MenuButton testId="main-menu-toggle-minimap" icon="minimap" onClick={() => run("toggle-minimap")}>
+      <MenuButton testId="main-menu-toggle-minimap" icon="minimap" checked={runtime.ui.getMinimapVisible()} onClick={() => run("toggle-minimap")}>
         {t("action.toggleMinimap")}
       </MenuButton>
-      <MenuButton testId="main-menu-toggle-stats" icon="stats" onClick={() => run("toggle-stats")}>
+      <MenuButton testId="main-menu-toggle-stats" icon="stats" checked={runtime.ui.getStatsPanelVisible()} onClick={() => run("toggle-stats")}>
         {t("action.toggleStats")}
       </MenuButton>
       <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
