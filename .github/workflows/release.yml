@@ -21,7 +21,8 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  # write (not read): the last step creates the GitHub Release for the tag.
+  contents: write
   # Required for npm trusted publishing: lets the job mint the OIDC token npm exchanges
   # for a short-lived, workflow-scoped publish credential.
   id-token: write
@@ -71,3 +72,33 @@ jobs:
           else
             echo 'No packages published — every version in this tag is already on the registry.' >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      # The Releases tab should list every v* tag, not only the ones someone remembered to
+      # write up by hand (v0.3.1–v0.3.5 were all missing before this step existed). Notes are
+      # the tag's own CHANGELOG.md section, so the changelog stays the single place release
+      # notes are written. Skips silently if a release already exists (re-run of a tag build)
+      # or when the workflow is dispatched manually off a branch.
+      - name: Create GitHub release from the changelog
+        if: ${{ github.ref_type == 'tag' && !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists — skipping."
+            exit 0
+          fi
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if ! [ -s release-notes.md ]; then
+            echo "_No CHANGELOG.md section found for ${VERSION}._" > release-notes.md
+          fi
+          printf 'Live at [draw.deviva.app](https://draw.deviva.app).\n\n' | cat - release-notes.md > release-notes-full.md
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file release-notes-full.md
