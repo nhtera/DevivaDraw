@@ -1,8 +1,9 @@
 /**
  * Binding is a bonus on top of a committed arrow, never a precondition for one. These cover the two
- * halves of that guarantee independently: the *specific* target type that used to reach an
- * unsatisfiable border formula (a sticky note), and the *general* case of the bind step throwing at
- * all — which must still leave the history batch closed, the tool reset, and the arrow on the canvas.
+ * halves of that guarantee independently: the *specific* target type that once reached an
+ * unsatisfiable border formula and threw (a sticky note, which now has real outline geometry and
+ * binds), and the *general* case of the bind step throwing at all — which must still leave the
+ * history batch closed, the tool reset, and the arrow on the canvas.
  *
  * Kept apart from `arrow-tool.test.ts` because the general case needs the bind module mocked, and
  * that mock is file-wide in Vitest; here it passes through to the real implementation by default so
@@ -35,27 +36,27 @@ function arrowOf(scene: Scene) {
 }
 
 describe("ArrowTool — an arrow dropped on a sticky note", () => {
-  it("commits without throwing, and leaves the note with no arrow back-ref", () => {
+  it("binds to the note and commits without throwing", () => {
     const scene = new Scene();
     const note = scene.addElement(createNoteElement({ x: 0, y: 0, width: 100, height: 100 }));
     const onCreated = vi.fn();
     const history = fakeHistory();
-    const tool = new ArrowTool({ scene, styleState: new ShapeStyleState(), history, getZoom: () => 1, onCreated });
+    const tool = new ArrowTool({ scene, styleState: new ShapeStyleState(), history, getZoom: () => 1 , onCreated });
 
     tool.onGestureStart({ x: 200, y: 50 }, NO_MODIFIERS);
     expect(() => tool.onGestureEnd({ x: 105, y: 50 }, NO_MODIFIERS)).not.toThrow();
 
     const arrow = arrowOf(scene);
-    expect(arrow.endBinding).toBeNull();
-    expect(scene.getElement(note.id)?.boundElements ?? []).toEqual([]);
+    expect(arrow.endBinding?.elementId).toBe(note.id);
+    expect(scene.getElement(note.id)?.boundElements).toEqual([{ id: arrow.id, type: "arrow" }]);
     expect(history.endBatch).toHaveBeenCalledTimes(1);
     expect(onCreated).toHaveBeenCalledWith(arrow.id);
   });
 
-  it("still binds a rectangle at the other end of the same arrow", () => {
+  it("binds both ends when an arrow runs from a rectangle to a note", () => {
     const scene = new Scene();
     const rect = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 100, height: 100 }));
-    scene.addElement(createNoteElement({ x: 300, y: 0, width: 100, height: 100 }));
+    const note = scene.addElement(createNoteElement({ x: 300, y: 0, width: 100, height: 100 }));
     const tool = new ArrowTool({ scene, styleState: new ShapeStyleState(), history: fakeHistory(), getZoom: () => 1 });
 
     tool.onGestureStart({ x: 105, y: 50 }, NO_MODIFIERS);
@@ -63,7 +64,7 @@ describe("ArrowTool — an arrow dropped on a sticky note", () => {
 
     const arrow = arrowOf(scene);
     expect(arrow.startBinding?.elementId).toBe(rect.id);
-    expect(arrow.endBinding).toBeNull();
+    expect(arrow.endBinding?.elementId).toBe(note.id);
   });
 });
 

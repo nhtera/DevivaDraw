@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { bindArrowEndpoint, DEFAULT_BINDING_GAP } from "../bindings/binding-model";
+import { bindArrowEndpoint } from "../bindings/binding-model";
+import { bindingGapFor } from "../bindings/binding-thresholds";
 import { registerArrowBindingHooks } from "../bindings/binding-scene-sync";
 import { createArrowElement } from "../elements/arrow-element";
 import { createFreedrawElement } from "../elements/freedraw-element";
@@ -192,7 +193,7 @@ describe("SelectionTool — move", () => {
     const unregisterHooks = registerArrowBindingHooks(scene);
     const shape = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 40, height: 40, backgroundColor: "#fff" }));
     const arrow = scene.addElement(createArrowElement({ x: 0, y: 0, points: [{ x: 20, y: 20 }, { x: 100, y: 20 }] }));
-    bindArrowEndpoint(scene, arrow.id, "start", shape.id, { focus: 0, gap: DEFAULT_BINDING_GAP });
+    bindArrowEndpoint(scene, arrow.id, "start", shape.id, { focus: 0, gap: bindingGapFor(shape) });
     selection.selectOnly([arrow.id, shape.id]);
 
     // Drag by clicking the shape (already part of the current multi-selection, so it drags the

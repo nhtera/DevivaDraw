@@ -4,6 +4,7 @@
  * `line-tool-zoom-thresholds.test.ts`'s exact "same screen distance, any zoom" pattern.
  */
 import { describe, expect, it, vi } from "vitest";
+import { maxBindingDistanceSceneUnits } from "../bindings/binding-thresholds";
 import { createRectangleElement } from "../elements/shape-elements";
 import { Scene } from "../scene/scene";
 import { ArrowTool } from "./arrow-tool";
@@ -92,30 +93,43 @@ describe("ArrowTool — double-click-to-finish proximity scales with zoom", () =
   });
 });
 
-describe("ArrowTool — endpoint bind proximity scales with zoom", () => {
-  const BIND_THRESHOLD_PX = 20;
-
-  it.each([0.25, 4])("binds at zoom %s when the dropped endpoint is within the fixed screen-pixel proximity of a shape", (zoom) => {
+/**
+ * Bind proximity is the one threshold here that is *not* a fixed screen-pixel budget. A constant
+ * screen distance converts to `px / zoom` scene units, which grows without bound as you zoom out —
+ * at 25% zoom the old flat 20px reached 80 scene units, so on an overview practically everything on
+ * screen was in grabbing range. `maxBindingDistanceSceneUnits` is a scene-unit budget instead,
+ * widened as you zoom out but clamped at twice its 100% value.
+ */
+describe("ArrowTool — endpoint bind proximity is a clamped scene-unit budget, not a fixed screen distance", () => {
+  function dropEndpointAt(zoom: number, distancePastRightEdge: number) {
     const scene = new Scene();
     const shape = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 40, height: 40 }));
     const tool = new ArrowTool({ scene, styleState: new ShapeStyleState(), history: fakeHistory(), getZoom: () => zoom });
-    const sceneOffset = (BIND_THRESHOLD_PX - 2) / zoom; // just inside the bind threshold, past the shape's right edge
 
     tool.onGestureStart({ x: 1000, y: 1000 }, NO_MODIFIERS); // far away, unbound start
-    tool.onGestureEnd({ x: shape.x + shape.width + sceneOffset, y: 20 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: shape.x + shape.width + distancePastRightEdge, y: 20 }, NO_MODIFIERS);
+    return { shapeId: shape.id, arrow: arrowOf(scene) };
+  }
 
-    expect(arrowOf(scene).endBinding?.elementId).toBe(shape.id);
+  it.each([0.25, 1, 4])("binds at zoom %s when the endpoint lands inside that zoom's scene-unit budget", (zoom) => {
+    const budget = maxBindingDistanceSceneUnits(zoom);
+    const { shapeId, arrow } = dropEndpointAt(zoom, budget - 2);
+    expect(arrow.endBinding?.elementId).toBe(shapeId);
   });
 
-  it.each([0.25, 4])("does not bind at zoom %s when the dropped endpoint is just outside the fixed screen-pixel proximity of a shape", (zoom) => {
-    const scene = new Scene();
-    const shape = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 40, height: 40 }));
-    const tool = new ArrowTool({ scene, styleState: new ShapeStyleState(), history: fakeHistory(), getZoom: () => zoom });
-    const sceneOffset = (BIND_THRESHOLD_PX + 2) / zoom; // just outside the bind threshold
+  it.each([0.25, 1, 4])("does not bind at zoom %s when the endpoint lands outside it", (zoom) => {
+    const budget = maxBindingDistanceSceneUnits(zoom);
+    expect(dropEndpointAt(zoom, budget + 2).arrow.endBinding).toBeNull();
+  });
 
-    tool.onGestureStart({ x: 1000, y: 1000 }, NO_MODIFIERS);
-    tool.onGestureEnd({ x: shape.x + shape.width + sceneOffset, y: 20 }, NO_MODIFIERS);
+  it("widens the budget when zoomed out, but never past twice the 100% value", () => {
+    const atFullZoom = maxBindingDistanceSceneUnits(1);
+    expect(maxBindingDistanceSceneUnits(0.5)).toBeGreaterThan(atFullZoom);
+    expect(maxBindingDistanceSceneUnits(0.25)).toBe(atFullZoom * 2);
+    expect(maxBindingDistanceSceneUnits(0.01)).toBe(atFullZoom * 2); // still clamped at the extreme
+  });
 
-    expect(arrowOf(scene).endBinding).toBeNull();
+  it("does not grow when zoomed in — binding proximity is a property of the drawing's own scale", () => {
+    expect(maxBindingDistanceSceneUnits(4)).toBe(maxBindingDistanceSceneUnits(1));
   });
 });

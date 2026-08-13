@@ -20,8 +20,9 @@ describe("applyEndpointBindingsOnFinish", () => {
     }
     expect(scene.getElement(shape.id)?.boundElements).toEqual([{ id: arrow.id, type: "arrow" }]);
     // The bound (start) point snapped onto the shape's border (right edge, facing the far endpoint)
-    // plus the default binding gap (4 scene units) pushing it just outside the outline.
-    expect(result[0]!.x).toBeCloseTo(104);
+    // plus the binding gap pushing it just outside the outline — `bindingGapFor` at the default
+    // stroke width of 1, i.e. 5 + 1/2.
+    expect(result[0]!.x).toBeCloseTo(105.5);
     expect(result[0]!.y).toBeCloseTo(25);
     expect(result[1]).toEqual({ x: 590, y: 25 });
   });

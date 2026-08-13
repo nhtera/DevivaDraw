@@ -227,14 +227,23 @@ export { TextEditSession } from "./text/text-edit-session";
 export type { StandaloneTextStyle } from "./text/standalone-text-edit";
 export { startExistingStandaloneTextEdit, startStandaloneTextEdit, syncStandaloneTextSize } from "./text/standalone-text-edit";
 
-export type { BindableShapeType, BorderRect } from "./bindings/shape-border-intersection";
 export {
   intersectDiamondLocal,
   intersectEllipseLocal,
+  intersectPolygonLocal,
   intersectRectangleLocal,
+} from "./bindings/shape-border-intersection";
+
+export type { BindableShapeType, BorderRect, OutlineKind, OutlineShape } from "./bindings/shape-outline-geometry";
+export {
+  distanceToShapeOutline,
   intersectShapeBorder,
   isBindableShapeGeometry,
-} from "./bindings/shape-border-intersection";
+  isInsideShapeOutline,
+  outlineKindFor,
+} from "./bindings/shape-outline-geometry";
+
+export { BASE_BINDING_DISTANCE, BASE_BINDING_GAP, bindingGapFor, maxBindingDistanceSceneUnits } from "./bindings/binding-thresholds";
 
 export { computeFocusForBindingPoint, recomputeBindingPoint } from "./bindings/recompute-binding";
 
@@ -242,7 +251,6 @@ export type { ArrowEnd } from "./bindings/binding-model";
 export {
   bindArrowEndpoint,
   boundArrowIds,
-  DEFAULT_BINDING_GAP,
   deleteArrowAndUnbind,
   unbindArrowEndpoint,
   unbindArrowsFromDeletedShape,

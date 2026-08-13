@@ -20,7 +20,12 @@ import type { TextEditSession } from "./text-edit-session";
 
 /** Element types a `TextElement` can bind inside — arrows join this set once arrow-bound labels ship (this linking logic is written to be type-agnostic beyond this list, so extending it needs no rework). */
 type BindableContainer = RectangleElement | EllipseElement | DiamondElement | NoteElement;
-const BINDABLE_CONTAINER_TYPES: ReadonlySet<string> = new Set(["rectangle", "ellipse", "diamond", "note"]);
+/**
+ * Exported so `bindings/shape-outline-geometry.test.ts` can assert every one of these is also
+ * bind-geometry-capable. The two lists answer different questions and are allowed to differ in size,
+ * but this one must stay a subset — when it silently wasn't, dropping an arrow on a note threw.
+ */
+export const BINDABLE_CONTAINER_TYPES: ReadonlySet<string> = new Set(["rectangle", "ellipse", "diamond", "note"]);
 
 export function isBindableContainer(element: AnyElement): element is BindableContainer {
   return BINDABLE_CONTAINER_TYPES.has(element.type);

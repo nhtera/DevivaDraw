@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { bindArrowEndpoint, DEFAULT_BINDING_GAP } from "../bindings/binding-model";
+import { bindArrowEndpoint } from "../bindings/binding-model";
+import { bindingGapFor } from "../bindings/binding-thresholds";
 import { registerArrowBindingHooks } from "../bindings/binding-scene-sync";
 import { createArrowElement } from "../elements/arrow-element";
 import { createRectangleElement } from "../elements/shape-elements";
@@ -13,7 +14,7 @@ describe("deleteSelection", () => {
     const scene = new Scene();
     const shape = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 40, height: 40 }));
     const arrow = scene.addElement(createArrowElement({ x: 0, y: 0, points: [{ x: 0, y: 0 }, { x: 100, y: 0 }] }));
-    bindArrowEndpoint(scene, arrow.id, "start", shape.id, { focus: 0, gap: DEFAULT_BINDING_GAP });
+    bindArrowEndpoint(scene, arrow.id, "start", shape.id, { focus: 0, gap: bindingGapFor(shape) });
 
     deleteSelection(scene, [arrow.id]);
 
@@ -38,7 +39,7 @@ describe("deleteSelection", () => {
     const unregister = registerArrowBindingHooks(scene);
     const shape = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 40, height: 40 }));
     const arrow = scene.addElement(createArrowElement({ x: 0, y: 0, points: [{ x: 0, y: 0 }, { x: 100, y: 0 }] }));
-    bindArrowEndpoint(scene, arrow.id, "start", shape.id, { focus: 0, gap: DEFAULT_BINDING_GAP });
+    bindArrowEndpoint(scene, arrow.id, "start", shape.id, { focus: 0, gap: bindingGapFor(shape) });
 
     deleteSelection(scene, [shape.id]);
 

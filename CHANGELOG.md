@@ -6,6 +6,15 @@ All notable changes to Deviva Draw are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Arrows bind to every closed shape.** Binding used to work only for rectangles,
+  ellipses and diamonds. Sticky notes, triangles, hexagons, stars, parallelograms,
+  trapezoids, block arrows, double circles, clouds, hearts, x-boxes, check-boxes and
+  cylinders are all bind targets now, and the endpoint clips to the shape's real
+  outline rather than its bounding box — visible on a star or a triangle, where the two
+  are far apart. Rotated and flipped shapes are handled properly, so an arrow attaches
+  to the outline a shape is actually drawn with rather than an unflipped copy of it.
+
 ### Fixed
 - **Drawing an arrow onto a sticky note no longer breaks the arrow tool.** Dropping an
   arrow endpoint on a note threw mid-gesture, and because the throw landed before the
@@ -13,10 +22,25 @@ All notable changes to Deviva Draw are documented here. The format follows
   unpredictably. Two different questions had been sharing one answer: the check for
   "can this element hold a text label" — which notes pass — was also being used to
   decide "does this element have an outline an arrow can attach to", which notes had no
-  formula for. They are now separate checks. Binding a note is a feature that is still
-  to come; until it lands, an arrow drawn onto a note simply commits unbound instead of
-  failing. Binding to rectangles, ellipses and diamonds is unchanged, and a failure in
-  the binding step can no longer cost you the arrow you just drew.
+  formula for. Notes now have that geometry and bind like anything else, and a failure
+  in the binding step can no longer cost you the arrow you just drew.
+- **A bound endpoint clears the target's stroke instead of overlapping it.** The gap
+  between an arrow's tip and the shape it points at was a flat 4 units regardless of how
+  thick the shape's outline was, so an arrow looked correctly detached from a hairline
+  shape and visibly overlapping a heavy one. It now accounts for the stroke. Existing
+  drawings keep the gap they were saved with and do not shift.
+- **Binding is no longer over-eager when zoomed out.** The proximity that decides whether
+  a dropped endpoint attaches was a fixed screen distance, which at 25% zoom reached four
+  times as far across the canvas as it did at 100% — far enough that endpoints attached
+  to shapes nobody was aiming at. It is now capped at twice its 100% reach, however far
+  out you zoom.
+
+### Changed
+- **`@deviva-draw/engine` — `DEFAULT_BINDING_GAP` has been removed** (breaking, for
+  direct API consumers only). The binding gap now depends on the target's stroke width,
+  so a single constant can no longer express it. Use `bindingGapFor(target)` instead.
+  `BindableShapeType` has widened from three members to sixteen, and `BorderRect` gained
+  optional `scale` and `direction` fields; both are still exported from the package root.
 
 ## [0.3.4] — 2026-08-13
 

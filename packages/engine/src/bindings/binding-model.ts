@@ -25,9 +25,6 @@ import type { Scene } from "../scene/scene";
 
 export type ArrowEnd = "start" | "end";
 
-/** Scene-unit clearance a freshly created binding keeps between the arrow's endpoint and the shape's outline — see `ArrowBinding.gap`'s doc. */
-export const DEFAULT_BINDING_GAP = 4;
-
 function bindingField(end: ArrowEnd): "startBinding" | "endBinding" {
   return end === "start" ? "startBinding" : "endBinding";
 }

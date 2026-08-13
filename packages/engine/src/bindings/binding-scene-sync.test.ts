@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createArrowElement } from "../elements/arrow-element";
 import { createNoteElement } from "../elements/note-element";
-import { createRectangleElement } from "../elements/shape-elements";
+import { createRectangleElement, createStarElement } from "../elements/shape-elements";
 import type { TextElement } from "../elements/text-element";
 import { Scene } from "../scene/scene";
 import { createFixedWidthTextMeasurer } from "../text/text-measurement";
@@ -29,17 +29,26 @@ describe("findBindableShapeNear", () => {
     expect(findBindableShapeNear(scene, { x: 5000, y: 5000 }, 10)).toBeNull();
   });
 
-  it("does not offer a sticky note — it holds bound text, but has no border formula to bind an arrow against", () => {
+  it("offers a sticky note like any other closed shape", () => {
     const scene = new Scene();
-    scene.addElement(createNoteElement({ x: 0, y: 0, width: 100, height: 100 }));
-    expect(findBindableShapeNear(scene, { x: 50, y: 50 }, 5)).toBeNull();
+    const note = scene.addElement(createNoteElement({ x: 0, y: 0, width: 100, height: 100 }));
+    expect(findBindableShapeNear(scene, { x: 50, y: 50 }, 5)?.id).toBe(note.id);
+    expect(findBindableShapeNear(scene, { x: 103, y: 50 }, 5)?.id).toBe(note.id); // just outside, within threshold
   });
 
-  it("looks past a note to a bindable shape underneath it", () => {
+  it("measures against the real outline, so a star's notch is not grabbable where its bounding box is", () => {
     const scene = new Scene();
-    const rect = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 100, height: 100 }));
-    scene.addElement(createNoteElement({ x: 0, y: 0, width: 100, height: 100 })); // on top
-    expect(findBindableShapeNear(scene, { x: 50, y: 50 }, 0)?.id).toBe(rect.id);
+    const star = scene.addElement(createStarElement({ x: 0, y: 0, width: 100, height: 100 }));
+    // The bbox corner is far from a star's actual outline; its top point is right there.
+    expect(findBindableShapeNear(scene, { x: 50, y: -4 }, 5)?.id).toBe(star.id);
+    expect(findBindableShapeNear(scene, { x: 2, y: 2 }, 5)).toBeNull();
+  });
+
+  it("counts a point inside the shape, not only one near its edge", () => {
+    const scene = new Scene();
+    const rect = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 400, height: 400 }));
+    // Dead centre of a large shape is nowhere near the outline, but is unambiguously aimed at it.
+    expect(findBindableShapeNear(scene, { x: 200, y: 200 }, 5)?.id).toBe(rect.id);
   });
 
   it("ignores deleted shapes and the topmost (last z-order) shape wins on overlap", () => {

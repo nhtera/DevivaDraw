@@ -23,19 +23,32 @@ import type { TextMeasurer } from "../text/text-measurement";
 import { recenterArrowLabelIfPresent } from "./arrow-label";
 import { boundArrowIds, unbindArrowsFromDeletedShape } from "./binding-model";
 import { recomputeBindingPoint } from "./recompute-binding";
-import { isBindableShapeGeometry } from "./shape-border-intersection";
-import type { BindableShapeType } from "./shape-border-intersection";
+import { distanceToShapeOutline, isBindableShapeGeometry, isInsideShapeOutline } from "./shape-outline-geometry";
+import type { BindableShapeType } from "./shape-outline-geometry";
+
+/** Cheap axis-aligned reject: is `point` outside `element`'s bbox expanded by `threshold` on every side? */
+function outsideExpandedBounds(element: AnyElement, point: Point, threshold: number): boolean {
+  const withinX = point.x >= element.x - threshold && point.x <= element.x + element.width + threshold;
+  const withinY = point.y >= element.y - threshold && point.y <= element.y + element.height + threshold;
+  return !(withinX && withinY);
+}
 
 /**
- * The topmost (highest z-order) non-deleted bindable shape (rectangle/ellipse/diamond) whose
- * axis-aligned bbox, expanded by `thresholdSceneUnits` on every side, contains `point` — the
- * "endpoint dropped near a shape's border" hit test `tools/arrow-tool.ts` uses to decide whether to
- * bind. Rotation is intentionally ignored, same safe-over-inclusion trade-off
- * `render/viewport-culling.ts` makes for culling: a rotated shape's true footprint is a subset of its
- * axis-aligned bbox's expansion, so this can over-offer a bind target but never miss an obviously
- * eligible one.
+ * The topmost (highest z-order) non-deleted bindable shape whose *outline* `point` is within
+ * `thresholdSceneUnits` of — or inside — the "endpoint dropped near a shape" hit test
+ * `tools/arrow-tool.ts` uses to decide whether to bind.
  *
- * Filters on `isBindableShapeGeometry` (types with a solvable border formula), *not* on
+ * Inside counts as a hit, not just near the edge: an endpoint dropped in the middle of a shape is
+ * unambiguously aimed at that shape, and the binding's `focus`/`gap` will clip it back out to the
+ * outline anyway.
+ *
+ * The exact outline distance runs only for shapes that survive a bbox pre-reject, since this is
+ * called per candidate on every drop (and, once hover highlighting lands, per pointermove). The
+ * bbox is expanded by the same threshold, and a rotated shape's true footprint is a subset of that
+ * expansion, so the cheap test can only ever over-admit — never skip a shape the exact test would
+ * have accepted.
+ *
+ * Filters on `isBindableShapeGeometry` (types with a solvable outline), *not* on
  * `isBindableContainer` (types that can hold bound text) — see the former's doc for why conflating
  * the two crashed on sticky notes.
  */
@@ -44,9 +57,8 @@ export function findBindableShapeNear(scene: Scene, point: Point, thresholdScene
   for (let i = elements.length - 1; i >= 0; i -= 1) {
     const element = elements[i];
     if (!element || element.isDeleted || !isBindableShapeGeometry(element)) continue;
-    const withinX = point.x >= element.x - thresholdSceneUnits && point.x <= element.x + element.width + thresholdSceneUnits;
-    const withinY = point.y >= element.y - thresholdSceneUnits && point.y <= element.y + element.height + thresholdSceneUnits;
-    if (withinX && withinY) return element;
+    if (outsideExpandedBounds(element, point, thresholdSceneUnits)) continue;
+    if (distanceToShapeOutline(element, point) <= thresholdSceneUnits || isInsideShapeOutline(element, point)) return element;
   }
   return null;
 }

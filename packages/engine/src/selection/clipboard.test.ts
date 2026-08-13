@@ -5,7 +5,7 @@ import { createTextElement } from "../elements/text-element";
 import { Scene } from "../scene/scene";
 import { bindTextToContainer, getOrCreateBoundText } from "../text/bound-text";
 import { bindArrowEndpoint } from "../bindings/binding-model";
-import { DEFAULT_BINDING_GAP } from "../bindings/binding-model";
+import { bindingGapFor } from "../bindings/binding-thresholds";
 import { duplicateElements, insertElements, InternalClipboard } from "./clipboard";
 import { expandToGroupMembers, groupSelection } from "./group-ungroup";
 
@@ -43,7 +43,7 @@ describe("duplicateElements", () => {
     const scene = new Scene();
     const shape = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 40, height: 40 }));
     const arrow = scene.addElement(createArrowElement({ x: 0, y: 0, points: [{ x: 0, y: 0 }, { x: 100, y: 0 }] }));
-    bindArrowEndpoint(scene, arrow.id, "start", shape.id, { focus: 0, gap: DEFAULT_BINDING_GAP });
+    bindArrowEndpoint(scene, arrow.id, "start", shape.id, { focus: 0, gap: bindingGapFor(shape) });
 
     const [newArrowId] = duplicateElements(scene, [arrow.id]); // shape not included
     const newArrow = scene.getElement(newArrowId!) as ReturnType<typeof createArrowElement>;
@@ -56,7 +56,7 @@ describe("duplicateElements", () => {
     const scene = new Scene();
     const shape = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 40, height: 40 }));
     const arrow = scene.addElement(createArrowElement({ x: 0, y: 0, points: [{ x: 0, y: 0 }, { x: 100, y: 0 }] }));
-    bindArrowEndpoint(scene, arrow.id, "start", shape.id, { focus: 0, gap: DEFAULT_BINDING_GAP });
+    bindArrowEndpoint(scene, arrow.id, "start", shape.id, { focus: 0, gap: bindingGapFor(shape) });
 
     const newIds = duplicateElements(scene, [arrow.id, shape.id]);
     const newShapeId = newIds.find((id) => scene.getElement(id)?.type === "rectangle")!;

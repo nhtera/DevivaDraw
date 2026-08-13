@@ -9,6 +9,7 @@
  * Only the *first* and *last* vertex are ever checked for shape binding (never a curved arrow's
  * intermediate bend points) — see `arrow-endpoint-binding.ts`, which this tool calls once at finish.
  */
+import { maxBindingDistanceSceneUnits } from "../bindings/binding-thresholds";
 import { createArrowElement } from "../elements/arrow-element";
 import type { ArrowElement, ArrowType } from "../elements/arrow-element";
 import { NoOpToolHandler } from "../input/tool-handler";
@@ -35,8 +36,6 @@ const DOUBLE_CLICK_WINDOW_MS = 300;
 const DOUBLE_CLICK_PROXIMITY_PX = 6;
 /** Pointer movement beyond this (screen px) between the first down and up counts as a real drag, not a click. */
 const DRAG_VS_CLICK_THRESHOLD_PX = 4;
-/** How close (screen px) a dropped endpoint must land to a bindable shape's (expanded) bbox to bind. */
-const BINDING_PROXIMITY_PX = 20;
 const MIN_VERTICES_TO_COMMIT = 2;
 
 function distance(a: Point, b: Point): number {
@@ -145,7 +144,7 @@ export class ArrowTool extends NoOpToolHandler {
     const arrowType: ArrowType = this.vertices.length === 2 ? "straight" : "curved";
     this.deps.scene.updateElement(elementId, { arrowType } as Partial<ArrowElement>);
 
-    const threshold = BINDING_PROXIMITY_PX / this.deps.getZoom();
+    const threshold = maxBindingDistanceSceneUnits(this.deps.getZoom());
     // Binding is a *bonus* on top of a committed arrow, never a precondition for one. A geometry gap
     // (a bindable-list / border-formula mismatch) used to throw from here, skipping `endBatch`,
     // `reset` and `onCreated` — leaving the tool wedged mid-gesture with an open history batch, so

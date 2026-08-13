@@ -19,14 +19,19 @@
  */
 import type { ArrowBinding } from "../elements/arrow-element";
 import type { Point } from "../render/camera";
-import type { BindableShapeType, BorderRect } from "./shape-border-intersection";
-import { intersectShapeBorder } from "./shape-border-intersection";
+import type { BindableShapeType, BorderRect, OutlineShape } from "./shape-outline-geometry";
+import { intersectShapeBorder } from "./shape-outline-geometry";
 
 /** Floor for the perpendicular-offset normalizer so a hairline/zero-size shape never divides by ~0. */
 const MIN_NORMALIZER = 1e-6;
 
 function halfMinExtent(rect: Pick<BorderRect, "width" | "height">): number {
   return Math.max(Math.min(rect.width, rect.height) / 2, MIN_NORMALIZER);
+}
+
+/** The binding's stored type is the authority on which outline to use, so it is what gets attached — never `shape`'s own `type` field, if it happens to have one. */
+function outlineShapeOf(shapeType: BindableShapeType, shape: BorderRect): OutlineShape {
+  return { ...shape, type: shapeType };
 }
 
 function subtract(a: Point, b: Point): Point {
@@ -56,8 +61,9 @@ export function recomputeBindingPoint(
   binding: Pick<ArrowBinding, "focus" | "gap">,
   referencePoint: Point,
 ): Point {
+  const outline = outlineShapeOf(shapeType, shape);
   const center = { x: shape.x + shape.width / 2, y: shape.y + shape.height / 2 };
-  const nearBorder = intersectShapeBorder(shapeType, shape, referencePoint);
+  const nearBorder = intersectShapeBorder(shapeType, outline, referencePoint);
   const direction = normalize(subtract(nearBorder, center));
   const perp = perpendicular(direction);
   const extent = halfMinExtent(shape);
@@ -65,7 +71,7 @@ export function recomputeBindingPoint(
     x: nearBorder.x + perp.x * binding.focus * extent,
     y: nearBorder.y + perp.y * binding.focus * extent,
   };
-  const finalBorder = intersectShapeBorder(shapeType, shape, aimPoint);
+  const finalBorder = intersectShapeBorder(shapeType, outline, aimPoint);
   const outward = normalize(subtract(finalBorder, center));
   return { x: finalBorder.x + outward.x * binding.gap, y: finalBorder.y + outward.y * binding.gap };
 }
@@ -83,7 +89,7 @@ export function computeFocusForBindingPoint(
   desiredPoint: Point,
 ): number {
   const center = { x: shape.x + shape.width / 2, y: shape.y + shape.height / 2 };
-  const nearBorder = intersectShapeBorder(shapeType, shape, referencePoint);
+  const nearBorder = intersectShapeBorder(shapeType, outlineShapeOf(shapeType, shape), referencePoint);
   const direction = normalize(subtract(nearBorder, center));
   const perp = perpendicular(direction);
   const offset = subtract(desiredPoint, nearBorder);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeFocusForBindingPoint, recomputeBindingPoint } from "./recompute-binding";
-import type { BorderRect } from "./shape-border-intersection";
+import type { BorderRect } from "./shape-outline-geometry";
 
 const RECT: BorderRect = { x: 0, y: 0, width: 100, height: 50, angle: 0 };
 

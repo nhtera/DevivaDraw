@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { bindArrowEndpoint, DEFAULT_BINDING_GAP } from "../bindings/binding-model";
+import { bindArrowEndpoint } from "../bindings/binding-model";
+import { bindingGapFor } from "../bindings/binding-thresholds";
 import { registerArrowBindingHooks } from "../bindings/binding-scene-sync";
 import { createArrowElement } from "../elements/arrow-element";
 import type { AnyElement } from "../elements/element-types";
@@ -160,7 +161,7 @@ describe("handleSelectionKeyDown — arrow-key nudge", () => {
     const unregisterHooks = registerArrowBindingHooks(scene);
     const shape = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 40, height: 40 }));
     const arrow = scene.addElement(createArrowElement({ x: 20, y: 20, points: [{ x: 0, y: 0 }, { x: 80, y: 0 }] }));
-    bindArrowEndpoint(scene, arrow.id, "start", shape.id, { focus: 0, gap: DEFAULT_BINDING_GAP });
+    bindArrowEndpoint(scene, arrow.id, "start", shape.id, { focus: 0, gap: bindingGapFor(shape) });
     // Binding itself snaps the endpoint onto the shape's border immediately (the same reroute hook
     // that keeps a binding live) — capture that as the baseline rather than assuming the arrow's
     // pre-bind position, which the reroute already moved it away from.
@@ -184,7 +185,7 @@ describe("handleSelectionKeyDown — arrow-key nudge", () => {
     const unregisterHooks = registerArrowBindingHooks(scene);
     const shape = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 40, height: 40 }));
     const arrow = scene.addElement(createArrowElement({ x: 20, y: 20, points: [{ x: 0, y: 0 }, { x: 80, y: 0 }] }));
-    bindArrowEndpoint(scene, arrow.id, "start", shape.id, { focus: 0, gap: DEFAULT_BINDING_GAP });
+    bindArrowEndpoint(scene, arrow.id, "start", shape.id, { focus: 0, gap: bindingGapFor(shape) });
     selection.selectOnly([arrow.id, shape.id]);
 
     handleSelectionKeyDown(deps, "ArrowRight", NO_MODIFIERS);
