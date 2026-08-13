@@ -36,7 +36,7 @@ function bindOneEnd(
 ): Point | null {
   const preview = previewBoundEndpoint(target, point, referencePoint, snapRadiusSceneUnits);
   if (!preview) return null;
-  bindArrowEndpoint(scene, arrowId, end, target.id, { focus: preview.focus, gap: preview.gap });
+  bindArrowEndpoint(scene, arrowId, end, target.id, { focus: preview.focus, gap: preview.gap, fixedPoint: preview.fixedPoint });
   return preview.point;
 }
 

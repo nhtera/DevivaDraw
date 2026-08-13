@@ -3,9 +3,10 @@
  * the `previewBoundEndpoint` behaviour built on it.
  *
  * The property that matters is that a snap is *exact* — `recomputeBindingPoint` must reproduce the
- * anchor, not merely land near it — because the binding is re-derived from `focus` every time the
- * shape moves. A snap that was only approximate would drift a little further from the dot each time
- * the target was nudged.
+ * anchor, not merely land near it. Where the endpoint actually *stays* is a separate matter, and one
+ * `focus` cannot settle on its own: see `fixed-point-binding.test.ts` for the pin that holds it there.
+ * The `focus` exercised here is what a reader without that pin falls back to, so it still has to put
+ * the endpoint on the anchor for the geometry as it stood at bind time.
  */
 import { describe, expect, it } from "vitest";
 import { createEllipseElement, createRectangleElement } from "../elements/shape-elements";
@@ -115,11 +116,13 @@ describe("previewBoundEndpoint — anchor snapping", () => {
     expect(landed.y).toBeCloseTo(dropped.y, 6);
   });
 
-  it("falls back to the raw drop point when the nearest anchor is unreachable, rather than refusing to bind", () => {
+  it("keeps a usable focus even for an anchor focus cannot express, where the pin does the work", () => {
+    // The endpoint still snaps here — `fixed-point-binding.test.ts` covers that it lands on the top
+    // anchor — but no `focus` reproduces that anchor from due right, so the value stored beside the
+    // pin can only describe the drop point. It must at least stay finite: it is what a reader with no
+    // `fixedPoint` support falls back to, and NaN there would place the endpoint nowhere at all.
     const tall = createRectangleElement({ x: 0, y: 0, width: 100, height: 400 });
-    const fromTheRight = { x: 900, y: 200 };
-    // Right beside the unreachable top anchor.
-    const preview = previewBoundEndpoint(tall, { x: 50, y: 4 }, fromTheRight, SNAP);
+    const preview = previewBoundEndpoint(tall, { x: 50, y: 4 }, { x: 900, y: 200 }, SNAP);
     expect(preview).not.toBeNull();
     expect(Number.isFinite(preview!.focus)).toBe(true);
   });

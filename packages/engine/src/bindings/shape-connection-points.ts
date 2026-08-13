@@ -26,35 +26,59 @@ export const CONNECTION_POINT_SNAP_PX = 12;
 /** Radius (screen px) of the drawn anchor dot. */
 export const CONNECTION_POINT_RADIUS_PX = 3.5;
 
+/**
+ * An anchor in the shape's own unrotated box — `[0, 0]` top-left, `[1, 1]` bottom-right. This is the
+ * form a binding stores (`ArrowBinding.fixedPoint`), because it means the same place on the shape
+ * however that shape is later moved, resized or rotated.
+ */
+export type FixedPoint = readonly [number, number];
+
+/** The four anchors in shape-relative form, in the same order as `shapeConnectionPoints`. */
+export const CONNECTION_FIXED_POINTS: readonly FixedPoint[] = [
+  [0.5, 0],
+  [1, 0.5],
+  [0.5, 1],
+  [0, 0.5],
+];
+
+/** Where `fixedPoint` sits on `shape` right now, in scene coordinates — rotation included. */
+export function fixedPointToScene(shape: BorderRect, fixedPoint: FixedPoint): Point {
+  const center = { x: shape.x + shape.width / 2, y: shape.y + shape.height / 2 };
+  const upright = { x: shape.x + fixedPoint[0] * shape.width, y: shape.y + fixedPoint[1] * shape.height };
+  return rotatePoint(upright, center, shape.angle);
+}
+
 /** `shape`'s four anchors in scene coordinates, ordered top, right, bottom, left before rotation. */
 export function shapeConnectionPoints(shape: BorderRect): Point[] {
-  const halfWidth = shape.width / 2;
-  const halfHeight = shape.height / 2;
-  const center = { x: shape.x + halfWidth, y: shape.y + halfHeight };
-  const upright: Point[] = [
-    { x: center.x, y: shape.y },
-    { x: shape.x + shape.width, y: center.y },
-    { x: center.x, y: shape.y + shape.height },
-    { x: shape.x, y: center.y },
-  ];
-  return upright.map((anchor) => rotatePoint(anchor, center, shape.angle));
+  return CONNECTION_FIXED_POINTS.map((fixedPoint) => fixedPointToScene(shape, fixedPoint));
 }
 
 /**
- * The anchor nearest `point` within `radiusSceneUnits`, or `null` when the pointer is not close to
- * any. A zero or negative radius disables snapping entirely, which is how every caller expresses
- * "bind wherever the user actually put it".
+ * The anchor nearest `point` within `radiusSceneUnits` — both where it currently sits and the
+ * shape-relative form to store — or `null` when the pointer is not close to any. A zero or negative
+ * radius disables snapping entirely, which is how every caller expresses "bind wherever the user
+ * actually put it".
  */
-export function nearestConnectionPoint(shape: BorderRect, point: Point, radiusSceneUnits: number): Point | null {
+export function nearestConnectionAnchor(
+  shape: BorderRect,
+  point: Point,
+  radiusSceneUnits: number,
+): { point: Point; fixedPoint: FixedPoint } | null {
   if (!(radiusSceneUnits > 0)) return null;
-  let nearest: Point | null = null;
+  let nearest: { point: Point; fixedPoint: FixedPoint } | null = null;
   let nearestDistance = radiusSceneUnits;
-  for (const candidate of shapeConnectionPoints(shape)) {
+  for (const fixedPoint of CONNECTION_FIXED_POINTS) {
+    const candidate = fixedPointToScene(shape, fixedPoint);
     const distance = Math.hypot(point.x - candidate.x, point.y - candidate.y);
     if (distance <= nearestDistance) {
       nearestDistance = distance;
-      nearest = candidate;
+      nearest = { point: candidate, fixedPoint };
     }
   }
   return nearest;
+}
+
+/** `nearestConnectionAnchor`'s position alone, for callers with nothing to store. */
+export function nearestConnectionPoint(shape: BorderRect, point: Point, radiusSceneUnits: number): Point | null {
+  return nearestConnectionAnchor(shape, point, radiusSceneUnits)?.point ?? null;
 }

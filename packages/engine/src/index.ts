@@ -254,11 +254,15 @@ export { drawBindingHighlights } from "./render/interactive-binding-highlight";
 
 export { BASE_BINDING_DISTANCE, BASE_BINDING_GAP, bindingGapFor, maxBindingDistanceSceneUnits } from "./bindings/binding-thresholds";
 
-export { computeFocusForBindingPoint, focusForConnectionPoint, recomputeBindingPoint } from "./bindings/recompute-binding";
+export { computeFocusForBindingPoint, fixedPointBindingPosition, focusForConnectionPoint, recomputeBindingPoint } from "./bindings/recompute-binding";
 
+export type { FixedPoint } from "./bindings/shape-connection-points";
 export {
+  CONNECTION_FIXED_POINTS,
   CONNECTION_POINT_RADIUS_PX,
   CONNECTION_POINT_SNAP_PX,
+  fixedPointToScene,
+  nearestConnectionAnchor,
   nearestConnectionPoint,
   shapeConnectionPoints,
 } from "./bindings/shape-connection-points";

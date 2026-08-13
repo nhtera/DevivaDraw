@@ -181,6 +181,22 @@ describe("validateSceneDocument — per-element-type structural validation", () 
     expect(validateSceneDocument(minimalDocument([element])).ok).toBe(true);
   });
 
+  it("accepts a binding pinned to a connection anchor", () => {
+    const element = {
+      ...stored(createArrowElement({ x: 0, y: 0, points: [{ x: 0, y: 0 }, { x: 1, y: 1 }] })),
+      startBinding: { elementId: "shape1", focus: 0, gap: 4, fixedPoint: [1, 0.5] },
+    };
+    expect(validateSceneDocument(minimalDocument([element])).ok).toBe(true);
+  });
+
+  it("rejects a malformed pin rather than positioning an endpoint from NaN", () => {
+    const element = {
+      ...stored(createArrowElement({ x: 0, y: 0, points: [{ x: 0, y: 0 }, { x: 1, y: 1 }] })),
+      startBinding: { elementId: "shape1", focus: 0, gap: 4, fixedPoint: [1] },
+    };
+    expect(validateSceneDocument(minimalDocument([element])).ok).toBe(false);
+  });
+
   it("rejects an out-of-enum arrowhead/arrowType", () => {
     const badHead = { ...stored(createArrowElement({ x: 0, y: 0, points: [{ x: 0, y: 0 }, { x: 1, y: 1 }] })), startArrowhead: "laser" };
     expect(validateSceneDocument(minimalDocument([badHead])).ok).toBe(false);

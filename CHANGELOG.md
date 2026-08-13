@@ -9,9 +9,12 @@ All notable changes to Deviva Draw are documented here. The format follows
 ### Added
 - **Shapes show you where an arrow can connect.** Move over a shape with the arrow tool
   and four grey dots appear — the middle of each side — alongside the highlight. Release
-  an endpoint on one and it snaps exactly to it, so a row of boxes can be wired up with
-  their arrows all meeting the same point on each side. Release it anywhere else and it
-  stays where you put it.
+  an endpoint on one and it snaps exactly to it, and it *stays* on it: move the shape,
+  resize it, rotate it or drag the arrow's far end, and the connection holds where you
+  put it. So a row of boxes can be wired up with their arrows all meeting the same point
+  on each side, and stay that way as the diagram is rearranged. Release an endpoint
+  anywhere else and it keeps the old behaviour of sliding around the outline to face the
+  arrow's other end.
 - **Arrows are edited by their endpoints, not by a box around them.** Selecting a plain
   arrow now shows a small circle on each end instead of a rectangular frame with resize
   handles, plus a dot at its middle — drag that to add a bend. Drag an end onto another
@@ -107,6 +110,14 @@ All notable changes to Deviva Draw are documented here. The format follows
   `getVisibleSceneRect()`, which limits snap targets to the elements currently on screen; omit it and
   the whole scene counts, as before. `registerPreferenceShortcuts` is a new export, already included
   in `registerFullShortcutMap`.
+- **`@deviva-draw/engine` — `ArrowBinding` gained an optional `fixedPoint`** (additive; breaking
+  only for code that builds a `BoundEndpointPreview` itself). It pins an endpoint to a shape-relative
+  position — `[1, 0.5]` is the middle of the right edge — and overrides `focus` when present.
+  `previewBoundEndpoint` now reports it, and `BoundEndpointPreview.fixedPoint` is required, so
+  anything destructuring that result before handing it to `bindArrowEndpoint` should forward the new
+  field. `nearestConnectionAnchor`, `fixedPointToScene`, `fixedPointBindingPosition`,
+  `CONNECTION_FIXED_POINTS` and the `FixedPoint` type are new exports; `nearestConnectionPoint` is
+  unchanged.
 
 ## [0.3.4] — 2026-08-13
 

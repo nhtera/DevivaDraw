@@ -12,8 +12,9 @@ import type { AnyElement } from "../elements/element-types";
 import type { ModifierKeys } from "../input/tool-handler";
 import type { Point } from "../render/camera";
 import { bindingGapFor } from "./binding-thresholds";
-import { computeFocusForBindingPoint, focusForConnectionPoint, recomputeBindingPoint } from "./recompute-binding";
-import { nearestConnectionPoint } from "./shape-connection-points";
+import { computeFocusForBindingPoint, fixedPointBindingPosition, focusForConnectionPoint, recomputeBindingPoint } from "./recompute-binding";
+import type { FixedPoint } from "./shape-connection-points";
+import { nearestConnectionAnchor } from "./shape-connection-points";
 import { isBindableShapeGeometry } from "./shape-outline-geometry";
 
 /**
@@ -35,6 +36,8 @@ export interface BoundEndpointPreview {
   /** The binding fields that reproduce `point` — pass these straight to `bindArrowEndpoint`. */
   focus: number;
   gap: number;
+  /** The anchor this endpoint snapped to, in `target`'s own frame, or `null` when it snapped to none. */
+  fixedPoint: FixedPoint | null;
 }
 
 /**
@@ -44,9 +47,15 @@ export interface BoundEndpointPreview {
  *
  * `snapRadiusSceneUnits` turns on anchor snapping: an endpoint dropped that near one of the target's
  * connection points (`shape-connection-points.ts` — the dots the overlay draws while hovering) binds
- * to that anchor exactly instead of to the pointer's own position. Pass `0` — the default — to bind
- * wherever the endpoint actually is. Snapping silently declines when the anchor is unreachable from
- * this direction; see `focusForConnectionPoint`.
+ * to that anchor exactly instead of to the pointer's own position, and stays pinned there afterwards.
+ * Pass `0` — the default — to bind wherever the endpoint actually is.
+ *
+ * A snapped endpoint reports a `fixedPoint`, which is what positions it from then on. The `focus`
+ * reported alongside is the value that reproduces the same anchor for the geometry as it stands right
+ * now, so a consumer that ignores `fixedPoint` still gets the right position at bind time — and when
+ * the anchor is one `focus` cannot express at all (`focusForConnectionPoint` returning `null`, which
+ * happens for an anchor at right angles to the arrow's direction), the endpoint still snaps. It is
+ * only that fallback value that degrades.
  */
 export function previewBoundEndpoint(
   target: AnyElement,
@@ -56,9 +65,19 @@ export function previewBoundEndpoint(
 ): BoundEndpointPreview | null {
   if (!isBindableShapeGeometry(target)) return null;
   const shapeType = target.type;
-  const anchor = nearestConnectionPoint(target, desiredPoint, snapRadiusSceneUnits);
-  const snappedFocus = anchor ? focusForConnectionPoint(shapeType, target, referencePoint, anchor) : null;
-  const focus = snappedFocus ?? computeFocusForBindingPoint(shapeType, target, referencePoint, desiredPoint);
   const gap = bindingGapFor(target);
-  return { point: recomputeBindingPoint(shapeType, target, { focus, gap }, referencePoint), focus, gap };
+  const anchor = nearestConnectionAnchor(target, desiredPoint, snapRadiusSceneUnits);
+
+  if (anchor) {
+    const focus = focusForConnectionPoint(shapeType, target, referencePoint, anchor.point);
+    return {
+      point: fixedPointBindingPosition(target, anchor.fixedPoint, gap),
+      focus: focus ?? computeFocusForBindingPoint(shapeType, target, referencePoint, anchor.point),
+      gap,
+      fixedPoint: anchor.fixedPoint,
+    };
+  }
+
+  const focus = computeFocusForBindingPoint(shapeType, target, referencePoint, desiredPoint);
+  return { point: recomputeBindingPoint(shapeType, target, { focus, gap }, referencePoint), focus, gap, fixedPoint: null };
 }

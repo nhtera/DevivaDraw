@@ -132,6 +132,27 @@ test("an endpoint released between anchors stays where it was put", async ({ pag
   expect(Math.abs(endY - wellBelowAnchor)).toBeLessThan(6); // near where it was dropped, not at the anchor
 });
 
+test("an endpoint snapped to an anchor stays on it after the shape is moved", async ({ page }) => {
+  await drawBox(page);
+  await page.getByTestId("toolbar-arrow-tool").click();
+  // Start the arrow *on* the left anchor's dot and draw away to the upper left.
+  await drag(page, [LEFT_ANCHOR.x, LEFT_ANCHOR.y], [200, 120]);
+  await page.getByTestId("toolbar-select-tool").click();
+
+  // Grab the box by its top stroke (its fill is transparent, so the interior is not a grab target)
+  // well clear of the edge-midpoint resize handle, and drag it down and to the right.
+  const MOVE = { dx: 90, dy: 110 };
+  await drag(page, [BOX.left + 60, BOX.top], [BOX.left + 60 + MOVE.dx, BOX.top + MOVE.dy]);
+
+  const arrow = await storedArrow(page);
+  const points = arrow.points as Array<{ x: number; y: number }>;
+  const startY = (arrow.y as number) + points[0]!.y;
+  // The anchor moved with the box; the endpoint must have gone exactly with it. Bound by `focus`
+  // alone this drifts tens of pixels — the endpoint slides along the outline as the reference
+  // direction changes.
+  expect(Math.abs(startY - (LEFT_ANCHOR.y + MOVE.dy))).toBeLessThan(1.5);
+});
+
 test("an elbow connector offers no insert-a-bend dot — its route comes from its two endpoints", async ({ page }) => {
   await drawBox(page);
   await page.getByTestId("toolbar-arrow-tool").click();

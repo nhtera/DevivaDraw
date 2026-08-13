@@ -16,9 +16,16 @@
  *     `intersectShapeBorder` corrects that.
  * `computeFocusForBindingPoint` is the exact inverse of step 2, used once at bind time to derive the
  * `focus` that reproduces a user's actual drop point.
+ *
+ * An endpoint snapped to one of the shape's connection anchors skips the walk entirely: it stores a
+ * `fixedPoint` in the shape's own frame and `fixedPointBindingPosition` places it. The walk above is
+ * reference-relative by construction, so it cannot hold an endpoint on a named anchor — the same
+ * `focus` resolves elsewhere the moment either end moves.
  */
 import type { ArrowBinding } from "../elements/arrow-element";
 import type { Point } from "../render/camera";
+import type { FixedPoint } from "./shape-connection-points";
+import { fixedPointToScene } from "./shape-connection-points";
 import type { BindableShapeType, BorderRect, OutlineShape } from "./shape-outline-geometry";
 import { intersectShapeBorder } from "./shape-outline-geometry";
 
@@ -58,17 +65,22 @@ function dot(a: Point, b: Point): number {
 }
 
 /**
- * Where `binding` (a stored `focus`/`gap`) currently places an arrow's endpoint against `shape`,
- * aimed relative to `referencePoint` — see the module doc for the two-step border walk. `gap` finally
- * pushes the result outward from the shape's center by that many scene units, so the endpoint clears
- * the outline rather than touching it exactly.
+ * Where `binding` currently places an arrow's endpoint against `shape`, aimed relative to
+ * `referencePoint` — see the module doc for the two-step border walk. `gap` finally pushes the result
+ * outward from the shape's center by that many scene units, so the endpoint clears the outline rather
+ * than touching it exactly.
+ *
+ * A `fixedPoint` binding short-circuits all of that: the endpoint is pinned to one place on the shape
+ * and `referencePoint` cannot move it. See `ArrowBinding.fixedPoint` for why an anchored endpoint is
+ * stored that way instead of as the `focus` that happens to reproduce it today.
  */
 export function recomputeBindingPoint(
   shapeType: BindableShapeType,
   shape: BorderRect,
-  binding: Pick<ArrowBinding, "focus" | "gap">,
+  binding: Pick<ArrowBinding, "focus" | "gap" | "fixedPoint">,
   referencePoint: Point,
 ): Point {
+  if (binding.fixedPoint) return fixedPointBindingPosition(shape, binding.fixedPoint, binding.gap);
   const outline = outlineShapeOf(shapeType, shape);
   const center = { x: shape.x + shape.width / 2, y: shape.y + shape.height / 2 };
   const nearBorder = intersectShapeBorder(shapeType, outline, referencePoint);
@@ -82,6 +94,18 @@ export function recomputeBindingPoint(
   const finalBorder = intersectShapeBorder(shapeType, outline, aimPoint);
   const outward = normalize(subtract(finalBorder, center));
   return { x: finalBorder.x + outward.x * binding.gap, y: finalBorder.y + outward.y * binding.gap };
+}
+
+/**
+ * A pinned endpoint's position: the anchor itself, pushed clear of the outline by `gap` along the ray
+ * from the shape's centre through it. For all four connection anchors that ray is the edge normal, so
+ * the clearance reads as straight out from the edge the arrow attaches to.
+ */
+export function fixedPointBindingPosition(shape: BorderRect, fixedPoint: FixedPoint, gap: number): Point {
+  const center = { x: shape.x + shape.width / 2, y: shape.y + shape.height / 2 };
+  const anchor = fixedPointToScene(shape, fixedPoint);
+  const outward = normalize(subtract(anchor, center));
+  return { x: anchor.x + outward.x * gap, y: anchor.y + outward.y * gap };
 }
 
 /**

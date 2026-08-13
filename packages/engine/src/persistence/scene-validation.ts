@@ -45,6 +45,7 @@ const ARROW_TYPES = ["straight", "curved", "elbow"] as const;
 const isPoint = (value: unknown): value is { x: number; y: number } => isPlainObject(value) && isFiniteNumber(value.x) && isFiniteNumber(value.y);
 const isFreedrawPoint = (value: unknown): value is [number, number, number] => Array.isArray(value) && value.length === 3 && value.every(isFiniteNumber);
 const isBoundElementRef = (value: unknown): value is { id: string; type: string } => isPlainObject(value) && isString(value.id) && isString(value.type);
+const isFixedPoint = (value: unknown): value is [number, number] => Array.isArray(value) && value.length === 2 && value.every(isFiniteNumber);
 
 /** Validates every `BaseElement` field present on `raw`, common to all 9 element types. Returns an error string describing the first problem found, or `null` once every base field checks out. */
 function validateBaseFields(raw: Record<string, unknown>, index: number): string | null {
@@ -110,6 +111,11 @@ function validateTypeSpecificFields(raw: Record<string, unknown>, index: number)
         const binding = raw[bindingField];
         if (binding !== null && !(isPlainObject(binding) && isString(binding.elementId) && isFiniteNumber(binding.focus) && isFiniteNumber(binding.gap))) {
           return `${label}.${bindingField} must be null or {elementId, focus, gap}`;
+        }
+        // Optional, and only meaningful as a pair of shape-relative coordinates: a malformed one
+        // would pin the endpoint at NaN rather than degrade to the focus beside it.
+        if (isPlainObject(binding) && binding.fixedPoint !== undefined && binding.fixedPoint !== null && !isFixedPoint(binding.fixedPoint)) {
+          return `${label}.${bindingField}.fixedPoint must be null or [x, y] numbers`;
         }
       }
       if (!isOneOf(raw.startArrowhead, ARROWHEADS)) return `${label}.startArrowhead must be one of ${ARROWHEADS.join(", ")}`;

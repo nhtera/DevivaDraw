@@ -100,8 +100,8 @@ that, and the shape stores that it is being pointed at:
 
 ```ts
 // on the arrow
-startBinding: { elementId, focus, gap } | null
-endBinding:   { elementId, focus, gap } | null
+startBinding: { elementId, focus, gap, fixedPoint? } | null
+endBinding:   { elementId, focus, gap, fixedPoint? } | null
 // on the shape
 boundElements: [{ id: arrowId, type: "arrow" }, …]
 ```
@@ -113,6 +113,17 @@ the outline the endpoint sits — `0` is straight at the arrow's other end,
 between the outline and the tip. `bindings/recompute-binding.ts` turns the
 pair back into a point on every change; `bindings/binding-scene-sync.ts`
 registers the `Scene` update hook that does it.
+
+`focus` is measured relative to the direction of the arrow's *other* end,
+which makes it the wrong tool for an endpoint that is supposed to stay
+somewhere specific: the same stored value resolves elsewhere on the
+outline as soon as either end moves. So an endpoint snapped to a
+connection anchor stores a **`fixedPoint`** instead — `[0, 0]` the shape's
+top-left, `[1, 1]` its bottom-right, so `[1, 0.5]` is the middle of the
+right edge. Present, it overrides `focus` entirely and survives the shape
+moving, resizing and rotating. `focus` is still written beside it, holding
+the value that reproduces the same anchor at bind time, as the fallback
+for a reader that predates the field.
 
 **Both directions must always agree.** Every write goes through
 `bindings/binding-model.ts`, which keeps the arrow's field and the shape's
@@ -153,13 +164,21 @@ Every highlighted shape also marks four **connection anchors** — the
 midpoints of its bounding box's edges, rotated with it
 (`bindings/shape-connection-points.ts`). An endpoint released within
 `CONNECTION_POINT_SNAP_PX` of one binds to it exactly rather than to the
-pointer. "Exactly" is a solve, not an approximation:
-`recomputeBindingPoint` re-intersects the outline along the ray from the
-centre through its nudged aim point, so `focusForConnectionPoint` picks
-the `focus` that puts that aim on the centre→anchor ray. Since `focus`
-only slides the endpoint *perpendicular* to the reference direction, an
-anchor more than a half-extent off that direction is unreachable; the
-solve returns `null` there and the endpoint binds where it was dropped.
+pointer, and is pinned there by the `fixedPoint` above — it holds through
+every later move, resize and rotation of either the shape or the arrow.
+Excalidraw pins its elbow connectors the same way; its straight arrows
+keep orbiting on `focus`, and measured against it ours held to 0.0px where
+its own drifted 20.7px in the same scenario.
+
+The `focus` stored alongside comes from `focusForConnectionPoint`, which
+solves rather than approximates: `recomputeBindingPoint` re-intersects the
+outline along the ray from the centre through its nudged aim point, so the
+solve picks the `focus` putting that aim on the centre→anchor ray. Since
+`focus` only slides the endpoint *perpendicular* to the reference
+direction, an anchor at right angles to it cannot be expressed at all —
+the solve returns `null` and the fallback value describes the drop point
+instead. The snap itself is unaffected; only the value a `fixedPoint`-less
+reader would use degrades.
 
 **Hovering writes to `Scene` not at all, and a drag writes only geometry.**
 The binding *fields* are left untouched until release, then committed once.

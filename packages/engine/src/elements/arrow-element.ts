@@ -46,11 +46,31 @@ export type ArrowType = "straight" | "curved" | "elbow";
  * - `gap`: scene-unit distance kept between the arrow's actual endpoint and the shape's outline,
  *   along the line from the shape's center through that border point — purely a visual clearance so
  *   the arrowhead doesn't visually merge into the shape's stroke.
+ * - `fixedPoint`: set only when this endpoint was snapped to one of the shape's connection anchors,
+ *   and it *overrides* `focus` — see below.
  */
 export interface ArrowBinding {
   elementId: string;
   focus: number;
   gap: number;
+  /**
+   * Where this endpoint is pinned on the shape, in the shape's own unrotated box: `[0, 0]` is its
+   * top-left and `[1, 1]` its bottom-right, so `[1, 0.5]` is the middle of the right edge. Absent
+   * (or `null`) for an endpoint bound anywhere else, which is the `focus` case above.
+   *
+   * Present, it is what `recompute-binding.ts` positions the endpoint from, and `focus` is ignored.
+   * The difference is durability: `focus` is measured relative to the direction of this arrow's
+   * *other* end, so the same stored value resolves to a different spot on the outline as soon as
+   * either end moves — an endpoint dropped exactly on a connection dot slides off it on the next
+   * drag. A fixed point is expressed in the shape's own frame and so survives the shape moving,
+   * resizing and rotating, and the arrow's far end moving. That is what the connection dots promise,
+   * and it is how Excalidraw pins its elbow connectors (`fixedPoint: [1, 0.5001]`).
+   *
+   * `focus` is still stored alongside, holding the value that reproduces the same anchor for the
+   * geometry at bind time — it is what a consumer that predates this field (a shared scene opened in
+   * an older build) falls back to.
+   */
+  fixedPoint?: readonly [number, number] | null;
 }
 
 export interface ArrowElement extends BaseElement {

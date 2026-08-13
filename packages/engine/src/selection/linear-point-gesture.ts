@@ -195,13 +195,20 @@ export class LinearPointGesture {
       unbindArrowEndpoint(this.deps.scene, arrowId, end);
       return;
     }
-    bindArrowEndpoint(this.deps.scene, arrowId, end, target.id, { focus: preview.focus, gap: preview.gap });
+    bindArrowEndpoint(this.deps.scene, arrowId, end, target.id, { focus: preview.focus, gap: preview.gap, fixedPoint: preview.fixedPoint });
   }
 
-  /** Puts `binding` back exactly as it was, including the target's back-ref, or clears it if there was none. */
+  /**
+   * Puts `binding` back exactly as it was, including the target's back-ref, or clears it if there was
+   * none. Forwarded field-for-field rather than rebuilt from named fields, so an optional one this
+   * gesture never reads (`fixedPoint`) comes back exactly as it was stored — including not being
+   * there at all. A cancelled drag must leave no trace, and an added key is a trace.
+   */
   private restoreBinding(arrowId: string, end: "start" | "end", binding: ArrowBinding | null): void {
-    if (binding) bindArrowEndpoint(this.deps.scene, arrowId, end, binding.elementId, { focus: binding.focus, gap: binding.gap });
-    else unbindArrowEndpoint(this.deps.scene, arrowId, end);
+    if (binding) {
+      const { elementId, ...fields } = binding;
+      bindArrowEndpoint(this.deps.scene, arrowId, end, elementId, fields);
+    } else unbindArrowEndpoint(this.deps.scene, arrowId, end);
   }
 
   private writePoints(points: readonly Point[]): void {
