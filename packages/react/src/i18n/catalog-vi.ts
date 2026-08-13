@@ -270,9 +270,10 @@ export const catalogVi: Record<TranslationKey, string> = {
   "hint.ellipse": "Kéo để vẽ hình elip.",
   "hint.diamond": "Kéo để vẽ hình thoi.",
   "hint.line": "Kéo để vẽ đường thẳng, hoặc nhấp để thêm điểm. Enter hoặc nhấp đúp để hoàn tất.",
-  "hint.arrow": "Kéo để vẽ mũi tên, hoặc nhấp để thêm điểm. Enter để hoàn tất.",
+  "hint.arrow": "Kéo để vẽ mũi tên, hoặc nhấp để thêm điểm. Enter để hoàn tất. Giữ Ctrl để không nối vào hình.",
   "hint.freedraw": "Kéo để vẽ tự do.",
   "hint.text": "Nhấp để đặt văn bản rồi nhập. Escape để kết thúc, Enter để xuống dòng.",
+  "hint.selectionArrow": "Kéo một đầu mũi tên để nối lại, hoặc kéo giữa đoạn để thêm điểm gấp. Giữ Ctrl để tách ra.",
   "hint.selection": "Kéo để di chuyển, hoặc dùng các điểm neo để đổi kích thước. Shift+H hoặc Shift+V để lật.",
   "hint.editingText": "Escape để kết thúc. Enter để xuống dòng.",
 };

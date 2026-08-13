@@ -270,9 +270,10 @@ export const catalogEn = {
   "hint.ellipse": "Drag to draw an ellipse.",
   "hint.diamond": "Drag to draw a diamond.",
   "hint.line": "Drag for a straight line, or click to add points. Enter or double-click to finish.",
-  "hint.arrow": "Drag to draw an arrow, or click to add points. Enter to finish.",
+  "hint.arrow": "Drag to draw an arrow, or click to add points. Enter to finish. Hold Ctrl to avoid connecting it to a shape.",
   "hint.freedraw": "Drag to draw freehand.",
   "hint.text": "Click to place text, then type. Escape to finish, Enter for a new line.",
+  "hint.selectionArrow": "Drag an endpoint to reconnect it, or the middle of a segment to add a bend. Hold Ctrl to detach.",
   "hint.selection": "Drag to move, or use the handles to resize. Shift+H or Shift+V to flip.",
   "hint.editingText": "Escape to finish. Enter starts a new line.",
 } as const;

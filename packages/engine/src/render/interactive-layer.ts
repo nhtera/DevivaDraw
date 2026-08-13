@@ -10,13 +10,15 @@
 import type { AnyElement } from "../elements/element-types";
 import { handlePositions, inflateSelectionBounds, rotateHandlePosition, RESIZE_HANDLE_IDS } from "../selection/resize-handles";
 import { rotatePointAroundCenter } from "../selection/selection-geometry";
-import { buildSelectionFrame } from "../selection/selection-tool-frame";
+import { linearHandleLayout } from "../selection/linear-handles";
+import { buildSelectionOverlay } from "../selection/selection-tool-frame";
 import type { SelectionFrame } from "../selection/selection-tool-frame";
 import type { SnapGuide } from "../selection/snapping";
 import type { LaserTrailPoint } from "../tools/laser-tool";
 import type { Camera, Point } from "./camera";
 import { sceneToScreen } from "./camera";
 import { drawBindingHighlights } from "./interactive-binding-highlight";
+import { drawLinearHandles } from "./interactive-linear-handles";
 import type { SceneRect } from "./viewport-culling";
 
 /**
@@ -77,6 +79,8 @@ export interface OverlayState {
   bindingHighlightElements?: readonly AnyElement[];
   /** Resolved theme (never `"system"`), so overlay chrome that needs a light/dark colour can pick one. Defaults to light when the host does not supply it. */
   theme?: "light" | "dark";
+  /** Latest pointer position (scene space), or `null`/omitted when the pointer is off-canvas — decides which of a selected arrow's segments offers its insert-a-bend dot. */
+  hoverPoint?: Point | null;
 }
 
 const SELECTION_COLOR = "#1971c2";
@@ -116,8 +120,12 @@ export class InteractiveLayer {
     // selected, and the halo is the thicker of the two.
     drawBindingHighlights(this.ctx, overlayState.bindingHighlightElements ?? [], camera, overlayState.theme ?? "light");
 
-    const frame = buildSelectionFrame(overlayState.selectedElements);
-    if (frame) this.drawSelectionFrame(frame, camera);
+    // A lone arrow shows vertex handles instead of a resize frame — see `buildSelectionOverlay`.
+    const overlay = buildSelectionOverlay(overlayState.selectedElements);
+    if (overlay?.kind === "bbox") this.drawSelectionFrame(overlay.frame, camera);
+    else if (overlay?.kind === "linear") {
+      drawLinearHandles(this.ctx, linearHandleLayout(overlay.arrow, camera.zoom, overlayState.hoverPoint), camera);
+    }
 
     this.drawRemoteCursors(overlayState.remoteCursors ?? [], camera);
     this.drawLaserTrail(overlayState.laserTrail ?? [], camera);

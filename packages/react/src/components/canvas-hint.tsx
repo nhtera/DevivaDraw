@@ -20,6 +20,13 @@ export interface CanvasHintProps {
   editSession: TextEditSession | null;
 }
 
+/** Whether the selection is exactly one arrow — the case with its own editing affordances (endpoint handles, not resize handles). */
+function isSingleArrowSelected(runtime: CanvasHintProps["runtime"]): boolean {
+  if (runtime.selection.size !== 1) return false;
+  const [id] = runtime.selection.getSelectedIds();
+  return id !== undefined && runtime.scene.getElement(id)?.type === "arrow";
+}
+
 export function CanvasHint(props: CanvasHintProps) {
   const { runtime, editSession } = props;
   const { t } = useTranslation();
@@ -31,6 +38,7 @@ export function CanvasHint(props: CanvasHintProps) {
     tool: runtime.toolStateMachine.getActiveToolName(),
     hasSelection: runtime.selection.size > 0,
     isEditingText,
+    hasSingleArrowSelected: isSingleArrowSelected(runtime),
   });
   if (!key) return null;
 

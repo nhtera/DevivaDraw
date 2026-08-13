@@ -17,6 +17,8 @@ import type { ModifierKeys } from "../input/tool-handler";
 import type { Point } from "../render/camera";
 import type { SceneRect } from "../render/viewport-culling";
 import { topmostElementAt } from "./hit-test";
+import { hitLinearHandle, linearHandleLayout } from "./linear-handles";
+import { LinearPointGesture } from "./linear-point-gesture";
 import { hitTestHandles, inflateSelectionBounds } from "./resize-handles";
 import { rotatePointAroundCenter } from "./selection-geometry";
 import { MarqueeGesture } from "./selection-marquee-gesture";
@@ -24,13 +26,13 @@ import { MoveGesture } from "./selection-move-gesture";
 import { ResizeGesture } from "./selection-resize-gesture";
 import { RotateGesture } from "./selection-rotate-gesture";
 import type { SelectionToolDeps } from "./selection-tool-deps";
-import { buildSelectionFrame } from "./selection-tool-frame";
+import { buildSelectionFrame, buildSelectionOverlay } from "./selection-tool-frame";
 import { handleSelectionKeyDown } from "./selection-tool-keyboard";
 import type { SnapGuide } from "./snapping";
 
 export type { SelectionToolDeps } from "./selection-tool-deps";
 
-type Mode = "idle" | "marquee" | "move" | "resize" | "rotate";
+type Mode = "idle" | "marquee" | "move" | "resize" | "rotate" | "linear-point";
 
 const HANDLE_HIT_PX = 8;
 const ROTATE_HANDLE_OFFSET_PX = 28;
@@ -52,7 +54,10 @@ export class SelectionTool extends NoOpToolHandler {
   private readonly resize: ResizeGesture;
   private readonly rotate: RotateGesture;
   private readonly marquee: MarqueeGesture;
+  private readonly linearPoint: LinearPointGesture;
   private mode: Mode = "idle";
+  /** Latest pointer position (scene space) — decides which of a selected arrow's segments offers its insert-a-bend dot. */
+  private hoverPoint: Point | null = null;
   /** Pointer-down point of the in-flight gesture + whether it has crossed `DRAG_ACTIVATE_PX` yet — the "was this a real drag or just a click" gate for move/resize/rotate (see that constant's doc). Marquee is exempt: a zero-size marquee just selects nothing, no spurious transform. */
   private gestureStartPoint: Point | null = null;
   private dragActivated = false;
@@ -64,6 +69,7 @@ export class SelectionTool extends NoOpToolHandler {
     this.resize = new ResizeGesture(deps);
     this.rotate = new RotateGesture(deps);
     this.marquee = new MarqueeGesture(deps);
+    this.linearPoint = new LinearPointGesture(deps);
   }
 
   /** Once the pointer has moved `DRAG_ACTIVATE_PX` from the gesture's start, the drag is "real" and stays activated for the rest of the gesture. Returns the current activation state. */
@@ -83,23 +89,42 @@ export class SelectionTool extends NoOpToolHandler {
     const selectedElements = [...this.deps.selection.getSelectedIds()]
       .map((id) => this.deps.scene.getElement(id))
       .filter((element): element is AnyElement => !!element);
-    const frame = buildSelectionFrame(selectedElements);
+    // A lone selected arrow shows vertex handles instead of a resize frame, so its handles are
+    // hit-tested *first*: the frame's handles are not drawn in that case, and testing them anyway
+    // would leave invisible grab zones where they used to be.
+    const overlay = buildSelectionOverlay(selectedElements);
+    if (overlay?.kind === "linear") {
+      const layout = linearHandleLayout(overlay.arrow, zoom, this.hoverPoint);
+      const target = hitLinearHandle(layout, point, zoom);
+      if (target && this.linearPoint.begin(overlay.arrow, target)) {
+        this.mode = "linear-point";
+        return;
+      }
+    }
+
+    const frame = overlay?.kind === "bbox" ? overlay.frame : buildSelectionFrame(selectedElements);
 
     let insideSelectionBounds = false;
     if (frame) {
       const localPoint = rotatePointAroundCenter(point, frame.pivot, -frame.angle);
-      // Hit-test against the *padded* frame the interactive layer actually paints (see
-      // `inflateSelectionBounds`); the resize/rotate gestures below still begin from the true `frame`.
-      const handle = hitTestHandles(inflateSelectionBounds(frame.bounds, zoom), localPoint, HANDLE_HIT_PX / zoom, ROTATE_HANDLE_OFFSET_PX / zoom);
-      if (handle === "rotate") {
-        this.mode = "rotate";
-        this.rotate.begin(point, frame);
-        return;
-      }
-      if (handle) {
-        this.mode = "resize";
-        this.resize.begin(frame, handle, point);
-        return;
+      // Resize/rotate handles exist only on the bbox overlay. A linear overlay draws none, so
+      // hit-testing them would leave invisible grab zones exactly where they used to be — but the
+      // *inside-the-bounds* grab below still applies, since a selected arrow should stay as easy to
+      // reposition as a selected line.
+      if (overlay?.kind === "bbox") {
+        // Hit-test against the *padded* frame the interactive layer actually paints (see
+        // `inflateSelectionBounds`); the resize/rotate gestures below still begin from the true `frame`.
+        const handle = hitTestHandles(inflateSelectionBounds(frame.bounds, zoom), localPoint, HANDLE_HIT_PX / zoom, ROTATE_HANDLE_OFFSET_PX / zoom);
+        if (handle === "rotate") {
+          this.mode = "rotate";
+          this.rotate.begin(point, frame);
+          return;
+        }
+        if (handle) {
+          this.mode = "resize";
+          this.resize.begin(frame, handle, point);
+          return;
+        }
       }
       const b = frame.bounds;
       insideSelectionBounds = localPoint.x >= b.x && localPoint.x <= b.x + b.width && localPoint.y >= b.y && localPoint.y <= b.y + b.height;
@@ -134,7 +159,8 @@ export class SelectionTool extends NoOpToolHandler {
       return;
     }
     if (!this.updateDragActivation(point)) return; // a not-yet-a-drag click never transforms
-    if (this.mode === "move") this.move.apply(point, modifiers);
+    if (this.mode === "linear-point") this.linearPoint.apply(point, modifiers);
+    else if (this.mode === "move") this.move.apply(point, modifiers);
     else if (this.mode === "resize") this.resize.apply(point, modifiers);
     else if (this.mode === "rotate") this.rotate.apply(point, modifiers);
   }
@@ -159,6 +185,9 @@ export class SelectionTool extends NoOpToolHandler {
     } else if (this.mode === "rotate") {
       if (dragged) this.rotate.apply(point, modifiers);
       this.rotate.finish();
+    } else if (this.mode === "linear-point") {
+      if (dragged) this.linearPoint.apply(point, modifiers);
+      this.linearPoint.finish(point, modifiers);
     }
     this.mode = "idle";
   }
@@ -169,11 +198,28 @@ export class SelectionTool extends NoOpToolHandler {
     else if (this.mode === "resize") this.resize.cancel();
     else if (this.mode === "rotate") this.rotate.cancel();
     else if (this.mode === "marquee") this.marquee.reset();
+    else if (this.mode === "linear-point") this.linearPoint.cancel();
     this.mode = "idle";
   }
 
   override onKeyDown(key: string, modifiers: ModifierKeys): void {
     handleSelectionKeyDown(this.deps, key, modifiers);
+  }
+
+  /** Tracks the pointer between gestures so a selected arrow can offer the insert-a-bend dot on the segment nearest it. */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `modifiers` kept to match `ToolHandler`'s signature
+  override onHover(point: Point, modifiers: ModifierKeys): void {
+    this.hoverPoint = point;
+  }
+
+  /** Latest pointer position for the overlay, or `null` before the pointer has been anywhere. */
+  getHoverPoint(): Point | null {
+    return this.hoverPoint;
+  }
+
+  /** Shapes the dragged arrow endpoint would attach to right now — the same halo the arrow tool shows while drawing. */
+  getBindingHighlightIds(): readonly string[] {
+    return this.mode === "linear-point" ? this.linearPoint.getBindingHighlightIds() : [];
   }
 
   /** Live marquee rect (scene space) for `render/interactive-layer.ts` to draw, or `null` outside a marquee drag. */

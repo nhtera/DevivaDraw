@@ -30,13 +30,15 @@ export interface RenderLoopDeps {
   getBindingHighlightIds(): readonly string[];
   /** The resolved theme (`"system"` already collapsed), so overlay chrome can pick a light/dark colour. Same getter contract as the others, so a theme flip repaints without rebuilding the loop. */
   getTheme(): "light" | "dark";
+  /** Latest pointer position (scene space), or `null` — decides which segment of a selected arrow offers its insert-a-bend dot. Same getter contract as the others. */
+  getHoverPoint(): Point | null;
   /** The active theme's render-time color adapter (default-palette colors → legible-on-this-canvas), or `null` for authored colors. Same getter contract as the others, so a theme change is picked up without rebuilding the loop. */
   getColorAdapter(): (ElementColorAdapter & { key: string }) | null;
 }
 
 /** Starts the loop; returns a stop function for the owning effect's cleanup. */
 export function startRenderLoop(deps: RenderLoopDeps): () => void {
-  const { stage, scene, cameraStore, selection, getMarqueeRect, getSnapGuides, grid, getRemoteCursors, getTextDraft, getPendingEraseIds, getLaserTrail, getLassoPath, getColorAdapter, getBindingHighlightIds, getTheme } = deps;
+  const { stage, scene, cameraStore, selection, getMarqueeRect, getSnapGuides, grid, getRemoteCursors, getTextDraft, getPendingEraseIds, getLaserTrail, getLassoPath, getColorAdapter, getBindingHighlightIds, getTheme, getHoverPoint } = deps;
   let frameHandle = requestAnimationFrame(function renderFrame() {
     const camera = cameraStore.getCamera();
     const textDraft = getTextDraft();
@@ -64,6 +66,7 @@ export function startRenderLoop(deps: RenderLoopDeps): () => void {
         lassoPath: getLassoPath(),
         bindingHighlightElements,
         theme: getTheme(),
+        hoverPoint: getHoverPoint(),
       },
       camera,
     );

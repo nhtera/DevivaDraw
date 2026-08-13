@@ -181,6 +181,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
       getLaserTrail: builtRuntime.getLaserTrail,
       getLassoPath: builtRuntime.getLassoPath,
       getBindingHighlightIds: builtRuntime.getBindingHighlightIds,
+      getHoverPoint: builtRuntime.getHoverPoint,
       // The same resolved-theme source `getColorAdapter` keys on, rather than a second derivation —
       // `getThemeMode()` has already collapsed "system" to a concrete light/dark.
       getTheme: getThemeMode,

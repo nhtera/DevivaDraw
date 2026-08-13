@@ -7,6 +7,16 @@ All notable changes to Deviva Draw are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Arrows are edited by their endpoints, not by a box around them.** Selecting an arrow
+  now shows a small circle on each end instead of a rectangular frame with eight resize
+  handles. Drag an end onto another shape to reconnect it, or into empty space to detach
+  it. Hover near the middle of a segment and a dot appears — drag that to add a bend.
+  Hold Ctrl (Cmd on macOS) while dragging to place an end near a shape without connecting
+  to it. Selecting an arrow together with other elements still shows the usual frame, and
+  the group still resizes as one.
+- **The endpoint snaps to the shape while you draw, not after you let go.** Drawing an
+  arrow toward a shape now shows the endpoint already clipped to its edge, so what you see
+  mid-drag is exactly what you get on release.
 - **Shapes light up when an arrow can connect to them.** Pick the arrow tool and move
   over the canvas: any shape you could attach to gets a soft blue halo tracing its
   outline, and while you drag an arrow both ends light up so a connection between two
@@ -34,6 +44,10 @@ All notable changes to Deviva Draw are documented here. The format follows
   thick the shape's outline was, so an arrow looked correctly detached from a hairline
   shape and visibly overlapping a heavy one. It now accounts for the stroke. Existing
   drawings keep the gap they were saved with and do not shift.
+- **An arrow attached to a shape at both ends no longer loses one of them.** When an arrow
+  had both its ends on the same shape, detaching or moving one end quietly broke the
+  shape's record of the other — so that end stopped following the shape when it moved. The
+  record is now kept until both ends have let go.
 - **Arrows can now attach to the whole of a rotated shape.** The check for "is this
   endpoint near a shape" measured against the shape's unrotated box, so on a rotated one
   most of its length was ruled out before the real test ran — a rotated bar could only be

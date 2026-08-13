@@ -15,12 +15,16 @@ export interface CanvasHintState {
   tool: string;
   hasSelection: boolean;
   isEditingText: boolean;
+  /** A lone selected arrow has different moves available to it than a shape — endpoints to drag, not handles to resize. */
+  hasSingleArrowSelected?: boolean;
 }
 
 export function canvasHintKey(state: CanvasHintState): TranslationKey | null {
   // Typing wins over everything: the tool underneath is irrelevant while there is a caret on screen.
   if (state.isEditingText) return "hint.editingText";
-  if (state.tool === "select" && state.hasSelection) return "hint.selection";
+  if (state.tool === "select" && state.hasSelection) {
+    return state.hasSingleArrowSelected ? "hint.selectionArrow" : "hint.selection";
+  }
 
   // Checked against the catalog rather than a list kept here, so a hint added for a tool starts
   // showing up on its own and one that is missing degrades to silence.

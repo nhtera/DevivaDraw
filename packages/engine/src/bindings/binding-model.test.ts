@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createArrowElement } from "../elements/arrow-element";
+import type { ArrowElement } from "../elements/arrow-element";
 import { createRectangleElement } from "../elements/shape-elements";
 import { Scene } from "../scene/scene";
 import {
@@ -175,5 +176,49 @@ describe("boundArrowIds", () => {
 
   it("returns [] for null boundElements", () => {
     expect(boundArrowIds({ boundElements: null })).toEqual([]);
+  });
+});
+
+describe("shared back-ref on a self-loop arrow", () => {
+  /**
+   * `boundElements` de-duplicates by `(id, type)`, so an arrow bound at both ends to the same shape
+   * has one back-ref that both ends share. Letting go of one end must not strand the other.
+   */
+  function selfLoop() {
+    const scene = new Scene();
+    const shape = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 100, height: 100 }));
+    const other = scene.addElement(createRectangleElement({ x: 400, y: 0, width: 100, height: 100 }));
+    const arrow = scene.addElement(createArrowElement({ x: 0, y: 0, points: [{ x: 0, y: 0 }, { x: 50, y: 50 }] }));
+    bindArrowEndpoint(scene, arrow.id, "start", shape.id, { focus: 0, gap: 4 });
+    bindArrowEndpoint(scene, arrow.id, "end", shape.id, { focus: 0.5, gap: 4 });
+    return { scene, shape, other, arrow };
+  }
+
+  const arrowRefCount = (scene: Scene, shapeId: string) =>
+    (scene.getElement(shapeId)?.boundElements ?? []).filter((ref) => ref.type === "arrow").length;
+
+  it("keeps the back-ref when one end re-targets a different shape", () => {
+    const { scene, shape, other, arrow } = selfLoop();
+    bindArrowEndpoint(scene, arrow.id, "end", other.id, { focus: 0, gap: 4 });
+
+    expect(arrowRefCount(scene, shape.id)).toBe(1); // the start end still needs it
+    expect(arrowRefCount(scene, other.id)).toBe(1);
+    expect((scene.getElement(arrow.id) as ArrowElement).startBinding?.elementId).toBe(shape.id);
+  });
+
+  it("keeps the back-ref when one end unbinds", () => {
+    const { scene, shape, arrow } = selfLoop();
+    unbindArrowEndpoint(scene, arrow.id, "end");
+
+    expect(arrowRefCount(scene, shape.id)).toBe(1);
+    expect((scene.getElement(arrow.id) as ArrowElement).startBinding?.elementId).toBe(shape.id);
+  });
+
+  it("drops the back-ref only once both ends have let go", () => {
+    const { scene, shape, arrow } = selfLoop();
+    unbindArrowEndpoint(scene, arrow.id, "end");
+    unbindArrowEndpoint(scene, arrow.id, "start");
+
+    expect(arrowRefCount(scene, shape.id)).toBe(0);
   });
 });

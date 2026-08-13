@@ -17,22 +17,19 @@ import type { Point } from "../render/camera";
 import { rebaseArrowPoints } from "../render/arrow-geometry";
 import { bindArrowEndpoint } from "../bindings/binding-model";
 import { findBindableShapeNear } from "../bindings/binding-scene-sync";
-import { bindingGapFor } from "../bindings/binding-thresholds";
-import { computeFocusForBindingPoint, recomputeBindingPoint } from "../bindings/recompute-binding";
-import { isBindableShapeGeometry } from "../bindings/shape-outline-geometry";
+import { previewBoundEndpoint } from "../bindings/preview-bound-endpoint";
 import type { Scene } from "../scene/scene";
 
-/** Binds `end` to `target` and returns where that binding puts the endpoint, or `null` if `target` has no outline to bind against. */
+/**
+ * Binds `end` to `target` and returns where that binding puts the endpoint, or `null` if `target` has
+ * no outline to bind against. The position is whatever `previewBoundEndpoint` computed — the same
+ * numbers the live drag preview showed, committed verbatim rather than recomputed.
+ */
 function bindOneEnd(scene: Scene, arrowId: string, end: "start" | "end", target: AnyElement, point: Point, referencePoint: Point): Point | null {
-  // `findBindableShapeNear` only offers bindable shapes, so this narrows rather than filters — but it
-  // is a type guard rather than a cast, so widening the bindable set can never again leave this
-  // function handing a type to geometry that has no formula for it.
-  if (!isBindableShapeGeometry(target)) return null;
-  const shapeType = target.type;
-  const focus = computeFocusForBindingPoint(shapeType, target, referencePoint, point);
-  const binding = { focus, gap: bindingGapFor(target) };
-  bindArrowEndpoint(scene, arrowId, end, target.id, binding);
-  return recomputeBindingPoint(shapeType, target, binding, referencePoint);
+  const preview = previewBoundEndpoint(target, point, referencePoint);
+  if (!preview) return null;
+  bindArrowEndpoint(scene, arrowId, end, target.id, { focus: preview.focus, gap: preview.gap });
+  return preview.point;
 }
 
 /**

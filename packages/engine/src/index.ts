@@ -147,6 +147,7 @@ export { drawGrid } from "./render/grid-renderer";
 
 export type { InteractiveLayerContext, OverlayState, RemoteCursorOverlay } from "./render/interactive-layer";
 export { InteractiveLayer } from "./render/interactive-layer";
+export { drawLinearHandles } from "./render/interactive-linear-handles";
 
 export { CanvasStage } from "./render/canvas-stage";
 
@@ -246,6 +247,8 @@ export {
 } from "./bindings/shape-outline-geometry";
 
 export { resolveBindingHighlight, resolveBindingHighlights } from "./bindings/binding-highlight";
+export type { BoundEndpointPreview } from "./bindings/preview-bound-endpoint";
+export { isBindingSuppressed, previewBoundEndpoint } from "./bindings/preview-bound-endpoint";
 export { drawBindingHighlights } from "./render/interactive-binding-highlight";
 
 export { BASE_BINDING_DISTANCE, BASE_BINDING_GAP, bindingGapFor, maxBindingDistanceSceneUnits } from "./bindings/binding-thresholds";
@@ -384,8 +387,19 @@ export { DEFAULT_DUPLICATE_OFFSET, duplicateElements, expandForDuplication, inse
 
 export { deleteSelection } from "./selection/delete-selection";
 
-export type { SelectionFrame } from "./selection/selection-tool-frame";
-export { buildSelectionFrame } from "./selection/selection-tool-frame";
+export type { SelectionFrame, SelectionOverlay } from "./selection/selection-tool-frame";
+export { buildSelectionFrame, buildSelectionOverlay } from "./selection/selection-tool-frame";
+
+export type { LinearHandleLayout, LinearHandleTarget, MidpointHandle, VertexHandle } from "./selection/linear-handles";
+export {
+  HANDLE_GRAB_PX,
+  hitLinearHandle,
+  linearHandleLayout,
+  MIDPOINT_HANDLE_RADIUS_PX,
+  MIDPOINT_HOVER_PX,
+  MIN_SEGMENT_FOR_MIDPOINT_PX,
+  VERTEX_HANDLE_RADIUS_PX,
+} from "./selection/linear-handles";
 
 export type { SelectionToolDeps } from "./selection/selection-tool";
 export { SelectionTool } from "./selection/selection-tool";

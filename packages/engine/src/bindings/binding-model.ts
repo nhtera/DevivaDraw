@@ -29,6 +29,20 @@ function bindingField(end: ArrowEnd): "startBinding" | "endBinding" {
   return end === "start" ? "startBinding" : "endBinding";
 }
 
+/**
+ * Whether the arrow's *other* end is bound to `elementId` too.
+ *
+ * `boundElements` de-duplicates by `(id, type)`, so a self-loop arrow — both ends attached to the
+ * same shape — is represented by a single back-ref that both ends share. Detaching or re-targeting
+ * one end must therefore leave that entry alone while the other end still needs it; removing it
+ * unconditionally would strand the surviving binding with no reciprocal reference, exactly the
+ * dangling state this module exists to make impossible.
+ */
+function otherEndAlsoBoundTo(arrow: ArrowElement, end: ArrowEnd, elementId: string): boolean {
+  const other = end === "start" ? arrow.endBinding : arrow.startBinding;
+  return other?.elementId === elementId;
+}
+
 function addBoundElementRef(scene: Scene, elementId: string, ref: BoundElementRef): void {
   const element = scene.getElement(elementId);
   if (!element) return;
@@ -61,7 +75,9 @@ export function bindArrowEndpoint(
   const arrow = scene.getElement(arrowId);
   if (!arrow || arrow.type !== "arrow") return;
   const previous = end === "start" ? arrow.startBinding : arrow.endBinding;
-  if (previous && previous.elementId !== targetId) removeBoundElementRef(scene, previous.elementId, arrowId, "arrow");
+  if (previous && previous.elementId !== targetId && !otherEndAlsoBoundTo(arrow, end, previous.elementId)) {
+    removeBoundElementRef(scene, previous.elementId, arrowId, "arrow");
+  }
 
   const changes: Partial<ArrowElement> = { [bindingField(end)]: { elementId: targetId, ...binding } };
   scene.updateElement(arrowId, changes);
@@ -77,7 +93,9 @@ export function unbindArrowEndpoint(scene: Scene, arrowId: string, end: ArrowEnd
 
   const changes: Partial<ArrowElement> = { [bindingField(end)]: null };
   scene.updateElement(arrowId, changes);
-  removeBoundElementRef(scene, binding.elementId, arrowId, "arrow");
+  // Same shared-back-ref rule as `bindArrowEndpoint`: a self-loop's single entry survives until
+  // *both* ends have let go of it.
+  if (!otherEndAlsoBoundTo(arrow, end, binding.elementId)) removeBoundElementRef(scene, binding.elementId, arrowId, "arrow");
 }
 
 /** Soft-deletes `arrowId` and removes its back-ref from both bound shapes (if any) — see module doc's first cascade. */

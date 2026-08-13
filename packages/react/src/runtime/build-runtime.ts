@@ -95,7 +95,10 @@ export function buildRuntime(options: BuildRuntimeOptions): DevivaRuntime {
     getPendingEraseIds: () => tools.eraserTool.getPendingEraseIds(),
     getLaserTrail: () => tools.laserTool.getTrail(),
     getLassoPath: () => tools.lassoTool.getPath(),
-    getBindingHighlightIds: () => tools.arrowTool.getBindingHighlightIds(),
+    // Either tool can be offering a bind target: the arrow tool while drawing, the select tool while
+    // dragging an existing endpoint. Only one is ever active, so concatenating needs no arbitration.
+    getBindingHighlightIds: () => [...tools.arrowTool.getBindingHighlightIds(), ...tools.selectionTool.getBindingHighlightIds()],
+    getHoverPoint: () => tools.selectionTool.getHoverPoint(),
     dispose: () => {
       /* replaced below */
     },

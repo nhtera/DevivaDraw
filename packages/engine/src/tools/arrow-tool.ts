@@ -10,7 +10,9 @@
  * intermediate bend points) — see `arrow-endpoint-binding.ts`, which this tool calls once at finish.
  */
 import { resolveBindingHighlights } from "../bindings/binding-highlight";
+import { findBindableShapeNear } from "../bindings/binding-scene-sync";
 import { maxBindingDistanceSceneUnits } from "../bindings/binding-thresholds";
+import { isBindingSuppressed, previewBoundEndpoint } from "../bindings/preview-bound-endpoint";
 import { createArrowElement } from "../elements/arrow-element";
 import type { ArrowElement, ArrowType } from "../elements/arrow-element";
 import { NoOpToolHandler } from "../input/tool-handler";
@@ -79,7 +81,12 @@ export class ArrowTool extends NoOpToolHandler {
     this.bindingHighlightIds = [];
   }
 
-  private updateHighlight(points: readonly (Point | null)[]): void {
+  private updateHighlight(points: readonly (Point | null)[], modifiers: ModifierKeys): void {
+    // Suppress held means nothing will bind, so nothing should claim it will.
+    if (isBindingSuppressed(modifiers)) {
+      this.bindingHighlightIds = [];
+      return;
+    }
     const elements = this.deps.scene.getElements();
     const threshold = maxBindingDistanceSceneUnits(this.deps.getZoom());
     this.bindingHighlightIds = resolveBindingHighlights(elements, points, threshold);
@@ -90,9 +97,8 @@ export class ArrowTool extends NoOpToolHandler {
    * gesture is in progress) the already-placed first vertex stays lit alongside the pointer, so a
    * click-built arrow shows the same "connecting these two" pair a dragged one does.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `modifiers` kept to match `ToolHandler`'s signature
   override onHover(point: Point, modifiers: ModifierKeys): void {
-    this.updateHighlight([this.vertices[0] ?? null, point]);
+    this.updateHighlight([this.vertices[0] ?? null, point], modifiers);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `modifiers` kept to match `ToolHandler`'s signature
@@ -109,10 +115,29 @@ export class ArrowTool extends NoOpToolHandler {
     if (!this.elementId || !this.isFirstVertexGesture) return;
     const start = this.vertices[0]!;
     const moving = constrainSegmentAngle(start, point, modifiers.shift);
-    this.syncElement([start, moving]); // shift = angle-locked preview
     // Both ends, so a short arrow spanning two shapes reads as "connecting these two" rather than
     // only lighting up whichever one the pointer happens to be over.
-    this.updateHighlight([start, moving]);
+    this.updateHighlight([start, moving], modifiers);
+    // Draw the endpoints where releasing would actually put them — clipped to their targets'
+    // outlines — rather than under the pointer and then jumping on release.
+    this.syncElement(this.snappedEnds(start, moving, modifiers));
+  }
+
+  /**
+   * `[start, moving]` with each end clipped to whatever bindable shape it is over. Resolved in the
+   * same order, and against the same reference points, as the commit in `arrow-endpoint-binding.ts`:
+   * the start first, then the end aimed at the *already-snapped* start. Anything else and the
+   * preview would show a position the release then corrects.
+   */
+  private snappedEnds(start: Point, moving: Point, modifiers: ModifierKeys): [Point, Point] {
+    if (isBindingSuppressed(modifiers)) return [start, moving];
+    const threshold = maxBindingDistanceSceneUnits(this.deps.getZoom());
+    const startTarget = findBindableShapeNear(this.deps.scene, start, threshold);
+    const endTarget = findBindableShapeNear(this.deps.scene, moving, threshold);
+
+    const snappedStart = startTarget ? (previewBoundEndpoint(startTarget, start, moving)?.point ?? start) : start;
+    const snappedEnd = endTarget ? (previewBoundEndpoint(endTarget, moving, snappedStart)?.point ?? moving) : moving;
+    return [snappedStart, snappedEnd];
   }
 
   override onGestureEnd(point: Point, modifiers: ModifierKeys): void {
@@ -124,7 +149,7 @@ export class ArrowTool extends NoOpToolHandler {
       const threshold = DRAG_VS_CLICK_THRESHOLD_PX / this.deps.getZoom();
       if (distance(startPoint, point) > threshold) {
         this.vertices = [startPoint, constrainSegmentAngle(startPoint, point, modifiers.shift)];
-        this.finish();
+        this.finish(modifiers);
         return;
       }
       // A click, not a drag: stay in multi-point mode with just vertex 1 committed so far.
@@ -133,7 +158,7 @@ export class ArrowTool extends NoOpToolHandler {
     }
 
     if (this.isDoubleClick(point)) {
-      this.finish();
+      this.finish(modifiers);
       return;
     }
     // Each further vertex snaps its angle relative to the previously placed vertex when shift is held.
@@ -153,9 +178,8 @@ export class ArrowTool extends NoOpToolHandler {
     this.reset();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `modifiers` kept to match `ToolHandler`'s signature
   override onKeyDown(key: string, modifiers: ModifierKeys): void {
-    if (key === "Enter" || key === "Escape") this.finish();
+    if (key === "Enter" || key === "Escape") this.finish(modifiers);
   }
 
   private isDoubleClick(point: Point): boolean {
@@ -175,7 +199,7 @@ export class ArrowTool extends NoOpToolHandler {
   }
 
   /** Commits the draft. Fewer than 2 vertices has nothing meaningful to keep (mirrors `LineTool`'s single-vertex discard rule), so it's discarded instead. */
-  private finish(): void {
+  private finish(modifiers: ModifierKeys): void {
     const elementId = this.elementId;
     if (!elementId || this.vertices.length < MIN_VERTICES_TO_COMMIT) {
       this.discardDraft();
@@ -186,7 +210,7 @@ export class ArrowTool extends NoOpToolHandler {
     const arrowType: ArrowType = this.vertices.length === 2 ? "straight" : "curved";
     this.deps.scene.updateElement(elementId, { arrowType } as Partial<ArrowElement>);
 
-    const threshold = maxBindingDistanceSceneUnits(this.deps.getZoom());
+    const threshold = isBindingSuppressed(modifiers) ? 0 : maxBindingDistanceSceneUnits(this.deps.getZoom());
     // Binding is a *bonus* on top of a committed arrow, never a precondition for one. A geometry gap
     // (a bindable-list / border-formula mismatch) used to throw from here, skipping `endBatch`,
     // `reset` and `onCreated` — leaving the tool wedged mid-gesture with an open history batch, so
