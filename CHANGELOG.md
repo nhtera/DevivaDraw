@@ -6,7 +6,14 @@ All notable changes to Deviva Draw are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.5] — 2026-08-14
+
 ### Added
+- **The menu shows which preferences are switched on.** The main menu's toggle rows —
+  snap to objects, zen mode, view-only mode, the minimap and the stats panel — now carry
+  a checkmark while they are active, the way Excalidraw's preferences submenu does, so
+  the current state is visible before clicking rather than discoverable only by toggling
+  and watching what happens.
 - **Shapes show you where an arrow can connect.** Move over a shape with the arrow tool
   and four grey dots appear — the middle of each side — alongside the highlight. Release
   an endpoint on one and it snaps exactly to it, and it *stays* on it: move the shape,
@@ -39,6 +46,22 @@ All notable changes to Deviva Draw are documented here. The format follows
   to the outline a shape is actually drawn with rather than an unflipped copy of it.
 
 ### Fixed
+- **Dragging a shape with an arrow attached is smooth again.** With "Snap to objects"
+  on, dragging a connected shape made it stick in place and then jump forward in steps,
+  over and over, with the alignment guide flickering — nothing like the one-for-one drag
+  the preference promises. The shape's own arrow was the culprit: it follows the shape as
+  it moves, and because the set of things to align with was re-read on every frame, the
+  shape kept snapping back to where its own arrow had been one frame earlier. Alignment
+  targets are now fixed at the moment a drag begins — as Excalidraw's are — and a shape's
+  own connectors are never alignment targets at all. Measured on a one-pixel-per-step
+  drag of a connected shape, every step now moves exactly one pixel.
+- **A refused pointer capture can no longer freeze the canvas.** Starting a gesture asks
+  the browser to capture the pointer, and the browser may refuse — a pen lifted between
+  queued events, or input injected by automation tooling. That refusal escaped mid-setup
+  and left the input pipeline convinced a gesture was still running, so every later
+  click, drag and draw on the canvas was ignored until the page was reloaded. The
+  capture is best-effort now; a gesture without it merely loses tracking outside the
+  window's edge.
 - **Drawing an arrow onto a sticky note no longer breaks the arrow tool.** Dropping an
   arrow endpoint on a note threw mid-gesture, and because the throw landed before the
   tool closed its history batch, the arrow was lost and the next undo behaved
