@@ -8,6 +8,9 @@
  * lurches out the far side. These tests pin both halves — off means 1:1, on means it still snaps.
  */
 import { describe, expect, it, vi } from "vitest";
+import { bindArrowEndpoint } from "../bindings/binding-model";
+import { registerArrowBindingHooks } from "../bindings/binding-scene-sync";
+import { createArrowElement } from "../elements/arrow-element";
 import { createRectangleElement } from "../elements/shape-elements";
 import { HistoryStack } from "../history/history-stack";
 import type { AnyElement } from "../elements/element-types";
@@ -112,6 +115,75 @@ describe("object snap is opt-in", () => {
     const moved = scene.getElement(moving.id)!;
     expect(moved.x % 20).toBe(0);
     expect(moved.y % 20).toBe(0);
+  });
+});
+
+/**
+ * A shape's own bound arrow must never act as a snap target. The arrow reroutes to follow the shape
+ * on every move, so as a live candidate its bounds trail the drag one frame behind — the shape then
+ * snaps back to its own previous position each frame, sitting frozen until the pointer clears the
+ * threshold and then lurching the whole arrears at once, over and over for the entire drag. That is
+ * the connected-shapes "jump/blink" this pins down; Excalidraw avoids it by freezing snap references
+ * at drag start (its SnapCache), which these gestures mirror — plus dropping bound arrows outright,
+ * since even their drag-start bounds are just an echo of the selection itself.
+ */
+describe("a bound arrow neither ratchets nor guides the drag of its shape", () => {
+  function setupConnected() {
+    const scene = new Scene();
+    registerArrowBindingHooks(scene);
+    const moving = scene.addElement(createRectangleElement({ x: 585, y: 400, width: 120, height: 80 }));
+    const arrow = scene.addElement(createArrowElement({ x: 705, y: 440, points: [{ x: 0, y: 0 }, { x: 300, y: 0 }] }));
+    bindArrowEndpoint(scene, arrow.id, "start", moving.id, { focus: 0, gap: 4 });
+    const selection = new SelectionState();
+    selection.selectOnly([moving.id]);
+    const tool = new SelectionTool({
+      scene,
+      selection,
+      history: new HistoryStack<AnyElement[]>(scene.getElements()),
+      clipboard: new InternalClipboard(),
+      getZoom: () => 1,
+      getObjectSnapEnabled: () => true,
+    });
+    return { scene, tool, movingId: moving.id };
+  }
+
+  it("tracks the pointer one-for-one — no frames stuck at the arrow's previous position, no catch-up lurch", () => {
+    const { scene, tool, movingId } = setupConnected();
+    tool.onGestureStart({ x: 600, y: 440 }, NO_MODIFIERS);
+    tool.onGestureMove({ x: 600, y: 445 }, NO_MODIFIERS); // clear DRAG_ACTIVATE_PX before measuring
+    const positions: number[] = [];
+    for (let step = 6; step <= 30; step += 1) {
+      tool.onGestureMove({ x: 600, y: 440 + step }, NO_MODIFIERS);
+      positions.push(scene.getElement(movingId)!.y);
+    }
+    tool.onGestureEnd({ x: 600, y: 470 }, NO_MODIFIERS);
+    const perStep = steps(positions);
+    expect(perStep.every((step) => step === 1)).toBe(true);
+  });
+
+  it("draws no guide to its own connector", () => {
+    const { tool } = setupConnected();
+    tool.onGestureStart({ x: 600, y: 440 }, NO_MODIFIERS);
+    tool.onGestureMove({ x: 600, y: 452 }, NO_MODIFIERS);
+    expect(tool.getSnapGuides()).toEqual([]);
+  });
+});
+
+/**
+ * Candidates are captured once per gesture (Excalidraw's SnapCache behaviour): a reference that
+ * moves mid-drag — a collaborator's edit, or anything else rerouting elements while the pointer is
+ * down — still snaps at its drag-start position instead of becoming a moving target.
+ */
+describe("snap references are frozen at drag start", () => {
+  it("snaps to where the neighbour was when the drag began, not where it moved to mid-drag", () => {
+    const { scene, tool, movingId } = setup(true);
+    const neighbourId = scene.getElements().find((element) => element.id !== movingId)!.id;
+    tool.onGestureStart({ x: 600, y: 440 }, NO_MODIFIERS);
+    tool.onGestureMove({ x: 605, y: 440 }, NO_MODIFIERS); // freeze candidates on the first snapping move
+    scene.updateElement(neighbourId, { x: 1000 }); // collaborator-style mid-drag edit
+    tool.onGestureMove({ x: 617, y: 440 }, NO_MODIFIERS); // raw landing 602 — within 8 of the frozen 600
+    tool.onGestureEnd({ x: 617, y: 440 }, NO_MODIFIERS);
+    expect(scene.getElement(movingId)!.x).toBe(600);
   });
 });
 

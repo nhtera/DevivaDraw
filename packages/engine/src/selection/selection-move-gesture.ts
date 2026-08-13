@@ -7,6 +7,7 @@
 import type { AnyElement } from "../elements/element-types";
 import type { ModifierKeys } from "../input/tool-handler";
 import type { Point } from "../render/camera";
+import { boundArrowIds } from "../bindings/binding-model";
 import { dropArrowBindingsMovingAlone } from "./arrow-binding-drop";
 import { duplicateElements } from "./clipboard";
 import { expandMovingIdsWithFrameChildren } from "./frame-membership";
@@ -40,6 +41,7 @@ export class MoveGesture {
   private wasDuplicating = false;
   private preDuplicateSelectionIds: string[] | null = null;
   private snapGuides: readonly SnapGuide[] = [];
+  private frozenSnapCandidates: SceneRect[] | null = null;
 
   constructor(deps: SelectionToolDeps) {
     this.deps = deps;
@@ -102,7 +104,8 @@ export class MoveGesture {
         dx += correction.dx;
         dy += correction.dy;
       } else if (this.deps.getObjectSnapEnabled?.()) {
-        const snap = computeObjectSnap(movingBounds, this.snapCandidates(), SNAP_THRESHOLD_PX / this.deps.getZoom());
+        this.frozenSnapCandidates ??= this.snapCandidates();
+        const snap = computeObjectSnap(movingBounds, this.frozenSnapCandidates, SNAP_THRESHOLD_PX / this.deps.getZoom());
         dx += snap.dx;
         dy += snap.dy;
         this.snapGuides = snap.guides;
@@ -113,8 +116,9 @@ export class MoveGesture {
   }
 
   /**
-   * The elements this drag may align to: everything not being dragged, and — when the host tells us
-   * where the viewport is — nothing scrolled off screen.
+   * The elements this drag may align to: everything not being dragged, nothing scrolled off screen
+   * (when the host tells us where the viewport is), and nothing whose own position follows the
+   * dragged selection.
    *
    * The viewport filter is what the snap *means*, not an optimisation. An alignment the user cannot
    * see has no explanation: the shape lurches onto a column belonging to something outside the
@@ -122,13 +126,29 @@ export class MoveGesture {
    * one screen that happens constantly, and reads as the drag blinking and jumping at random.
    * Excalidraw filters the same way — verified by scrolling a reference element out of view and
    * watching its snap stop applying.
+   *
+   * This runs once per gesture, on the first move that wants object snap, and the result is held in
+   * `frozenSnapCandidates` for the rest of the drag. Candidates must not be re-read per move: an
+   * arrow bound to the dragged shape reroutes on every `updateElement` (see
+   * `bindings/binding-scene-sync.ts`), so live candidate bounds would include a target that tracks
+   * the selection one frame behind — the shape then keeps getting pulled back to its own previous
+   * position and only escapes in threshold-sized lurches. Excalidraw freezes references the same way
+   * (its `SnapCache` of reference snap points, filled at drag start and cleared on pointer-up).
+   *
+   * Arrows bound to a moving element are dropped outright rather than frozen: even their drag-start
+   * bounds are derived from the selection, so a guide to them aligns the shape with where its own
+   * connector used to be — an alignment with no independent referent.
    */
   private snapCandidates(): SceneRect[] {
     const movingIds = new Set(this.originalElements?.keys() ?? []);
+    const attachedArrowIds = new Set<string>();
+    for (const element of this.originalElements?.values() ?? []) {
+      for (const arrowId of boundArrowIds(element)) attachedArrowIds.add(arrowId);
+    }
     const visible = this.deps.getVisibleSceneRect?.() ?? null;
     const candidates: SceneRect[] = [];
     for (const element of this.deps.scene.getElements()) {
-      if (element.isDeleted || movingIds.has(element.id)) continue;
+      if (element.isDeleted || movingIds.has(element.id) || attachedArrowIds.has(element.id)) continue;
       if (visible && !elementIntersectsRect(element, visible)) continue;
       candidates.push(elementBounds(element));
     }
@@ -171,5 +191,6 @@ export class MoveGesture {
     this.wasDuplicating = false;
     this.preDuplicateSelectionIds = null;
     this.snapGuides = [];
+    this.frozenSnapCandidates = null;
   }
 }
