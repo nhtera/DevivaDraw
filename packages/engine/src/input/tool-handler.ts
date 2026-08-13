@@ -39,6 +39,16 @@ export interface ToolHandler {
   onGestureCancel(modifiers: ModifierKeys): void;
   /** A key was pressed while this tool is active and no shortcut/action registry consumed it. */
   onKeyDown(key: string, modifiers: ModifierKeys): void;
+  /**
+   * The pointer moved over the canvas with no gesture in progress. Optional, unlike every other
+   * member here: only a tool that shows a pre-gesture affordance needs it (today just the arrow
+   * tool's "you can connect here" halo), and leaving it optional means every existing tool satisfies
+   * this interface unchanged.
+   *
+   * Fires far more often than the gesture callbacks — anything done here runs on raw pointer input
+   * with no drag threshold in front of it, so it must stay cheap and must not write to `Scene`.
+   */
+  onHover?(point: Point, modifiers: ModifierKeys): void;
 }
 
 /** No-op base so a concrete tool only overrides the handful of methods it actually cares about. */
@@ -49,5 +59,6 @@ export class NoOpToolHandler implements ToolHandler {
   onGestureEnd(point: Point, modifiers: ModifierKeys): void {}
   onGestureCancel(modifiers: ModifierKeys): void {}
   onKeyDown(key: string, modifiers: ModifierKeys): void {}
+  onHover(point: Point, modifiers: ModifierKeys): void {}
 }
 /* eslint-enable @typescript-eslint/no-unused-vars */

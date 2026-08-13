@@ -46,6 +46,10 @@ export class RecordingToolHandler extends NoOpToolHandler {
   override onKeyDown(key: string): void {
     this.calls.push(`key:${key}`);
   }
+  /** Hover is optional on `ToolHandler`; recorded here so tests can assert the no-gesture pointer path. */
+  override onHover(point: { x: number; y: number }): void {
+    this.calls.push(`hover:${point.x},${point.y}`);
+  }
 }
 
 /** Captures the single handler registered per event type and lets tests fire it directly. */

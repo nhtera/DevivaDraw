@@ -5,7 +5,9 @@ import {
   intersectShapeBorder,
   isBindableShapeGeometry,
   isInsideShapeOutline,
+  isNearOutlineBounds,
   outlineKindFor,
+  shapeOutlineScenePoints,
 } from "./shape-outline-geometry";
 import type { BorderRect, OutlineShape } from "./shape-outline-geometry";
 
@@ -213,5 +215,69 @@ describe("intersectShapeBorder — rotation and degenerate cases carried over fr
     const onRightEdge = Math.abs(result.x - 100) < 1e-6;
     const onBottomEdge = Math.abs(result.y - 50) < 1e-6;
     expect(onRightEdge || onBottomEdge).toBe(true);
+  });
+});
+
+describe("isNearOutlineBounds", () => {
+  it("accepts points near an unrotated box and rejects distant ones", () => {
+    const rect = shapeOf("rectangle");
+    expect(isNearOutlineBounds(rect, { x: 105, y: 25 }, 10)).toBe(true);
+    expect(isNearOutlineBounds(rect, { x: 130, y: 25 }, 10)).toBe(false);
+  });
+
+  it("follows the rotated footprint, which reaches well outside the stored box", () => {
+    // A 200x20 bar turned a quarter turn stands 200 tall in a box only 20 tall. Rejecting against
+    // the stored box would discard every point along most of its length before the exact test ran.
+    const bar = shapeOf("rectangle", { width: 200, height: 20, angle: Math.PI / 2 });
+    expect(isNearOutlineBounds(bar, { x: 100, y: 100 }, 5)).toBe(true); // on the rotated bar
+    expect(isNearOutlineBounds(bar, { x: 190, y: 10 }, 5)).toBe(false); // inside the stored box, off the rotated bar
+  });
+
+  it("never rejects a point the exact outline test would accept, across a sweep of angles", () => {
+    // A corner sits at *exactly* the computed extent, so a literal 0 threshold is a floating-point
+    // knife edge that can round either way. A nominal epsilon keeps the property under test — "the
+    // cheap reject never discards a point on the real outline" — without asserting bit-exactness;
+    // every real caller passes a threshold of 15 scene units or more.
+    const NOMINAL = 1e-9;
+    for (let step = 0; step < 16; step += 1) {
+      const angle = (step * Math.PI) / 8;
+      const shape = shapeOf("rectangle", { width: 160, height: 30, angle });
+      for (const corner of shapeOutlineScenePoints(shape) ?? []) {
+        expect(isNearOutlineBounds(shape, corner, NOMINAL)).toBe(true);
+      }
+    }
+  });
+
+  it("is unaffected by mirroring, which cannot move an outline outside its own box", () => {
+    const shape = shapeOf("parallelogram");
+    const flipped = shapeOf("parallelogram", { scale: [-1, 1] });
+    expect(isNearOutlineBounds(shape, { x: 50, y: 25 }, 0)).toBe(isNearOutlineBounds(flipped, { x: 50, y: 25 }, 0));
+  });
+});
+
+describe("shapeOutlineScenePoints", () => {
+  it("returns the four rotated corners for a rect-kind shape", () => {
+    const points = shapeOutlineScenePoints(shapeOf("note"));
+    expect(points).toEqual([
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 50 },
+      { x: 0, y: 50 },
+    ]);
+  });
+
+  it("returns the real polygon outline, not the bounding box", () => {
+    const points = shapeOutlineScenePoints(shapeOf("triangle"))!;
+    expect(points).toHaveLength(3);
+    expect(points[0]).toEqual({ x: 50, y: 0 }); // apex at the top centre
+  });
+
+  it("returns null for the ellipse kind, which needs a curve primitive rather than a vertex walk", () => {
+    expect(shapeOutlineScenePoints(shapeOf("ellipse"))).toBeNull();
+    expect(shapeOutlineScenePoints(shapeOf("double-circle"))).toBeNull();
+  });
+
+  it("returns null for a type with no outline at all", () => {
+    expect(shapeOutlineScenePoints(shapeOf("freedraw"))).toBeNull();
   });
 });

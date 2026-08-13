@@ -16,6 +16,7 @@ import type { SnapGuide } from "../selection/snapping";
 import type { LaserTrailPoint } from "../tools/laser-tool";
 import type { Camera, Point } from "./camera";
 import { sceneToScreen } from "./camera";
+import { drawBindingHighlights } from "./interactive-binding-highlight";
 import type { SceneRect } from "./viewport-culling";
 
 /**
@@ -23,6 +24,10 @@ import type { SceneRect } from "./viewport-culling";
  * `fillText`/`font` are optional (unlike every other member here): they're only reached by remote-cursor
  * name labels (see `drawRemoteCursors`), so a caller that never wires collaboration (most tests, and any
  * embedder that doesn't pass `remoteCursors`) never needs to implement them on a fake context.
+ *
+ * `ellipse`/`arc` are optional for the same reason: only the binding halo (and, next, the linear
+ * point handles) reach for a true curve primitive, and a fake context that omits them degrades to
+ * skipping that one shape rather than throwing.
  */
 export interface InteractiveLayerContext {
   readonly canvas: { clientWidth: number; clientHeight: number };
@@ -43,6 +48,8 @@ export interface InteractiveLayerContext {
   lineWidth: number;
   fillText?(text: string, x: number, y: number): void;
   font?: string;
+  ellipse?(x: number, y: number, radiusX: number, radiusY: number, rotation: number, startAngle: number, endAngle: number): void;
+  arc?(x: number, y: number, radius: number, startAngle: number, endAngle: number): void;
 }
 
 /** A collaborator's live cursor, already resolved to scene coordinates — the host (`packages/react`'s render loop) owns turning `@deviva-draw/collab-client` presence data into this shape each frame. */
@@ -66,6 +73,10 @@ export interface OverlayState {
   laserTrail?: readonly LaserTrailPoint[];
   /** Live free-form lasso-selection loop (scene space), or `[]`/omitted outside a lasso drag — see `tools/lasso-tool.ts`. */
   lassoPath?: readonly Point[];
+  /** Shapes to halo as "an arrow can connect here" — see `interactive-binding-highlight.ts`. Empty/omitted whenever the arrow tool is not offering a binding. */
+  bindingHighlightElements?: readonly AnyElement[];
+  /** Resolved theme (never `"system"`), so overlay chrome that needs a light/dark colour can pick one. Defaults to light when the host does not supply it. */
+  theme?: "light" | "dark";
 }
 
 const SELECTION_COLOR = "#1971c2";
@@ -101,6 +112,9 @@ export class InteractiveLayer {
     this.drawMarquee(overlayState.marqueeRect, camera);
     this.drawLasso(overlayState.lassoPath ?? [], camera);
     this.drawSnapGuides(overlayState.snapGuides, camera);
+    // Beneath the selection frame: a shape that is both highlighted and selected must still read as
+    // selected, and the halo is the thicker of the two.
+    drawBindingHighlights(this.ctx, overlayState.bindingHighlightElements ?? [], camera, overlayState.theme ?? "light");
 
     const frame = buildSelectionFrame(overlayState.selectedElements);
     if (frame) this.drawSelectionFrame(frame, camera);

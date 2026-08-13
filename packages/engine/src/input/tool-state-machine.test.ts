@@ -187,3 +187,38 @@ describe("ToolStateMachine.registerTool", () => {
     expect(machine.getActiveTool()).toBe(toolC);
   });
 });
+
+describe("ToolStateMachine — hover dispatch", () => {
+  /** Hover is optional on `ToolHandler`, so a tool that wants it opts in by declaring the method. */
+  class HoveringToolHandler extends RecordingToolHandler {
+    override onHover(point: Point): void {
+      this.calls.push(`hover:${point.x},${point.y}`);
+    }
+  }
+
+  it("forwards a hover to the active tool", () => {
+    const tool = new HoveringToolHandler();
+    new ToolStateMachine({ a: tool }, "a").dispatchHover({ x: 5, y: 6 }, NO_MODIFIERS);
+    expect(tool.calls).toEqual(["hover:5,6"]);
+  });
+
+  it("drops hovers while a gesture is in progress — that movement belongs to the gesture", () => {
+    const tool = new HoveringToolHandler();
+    const machine = new ToolStateMachine({ a: tool }, "a");
+
+    machine.dispatchGestureStart({ x: 0, y: 0 }, NO_MODIFIERS);
+    machine.dispatchHover({ x: 5, y: 6 }, NO_MODIFIERS);
+    expect(tool.calls).toEqual(["start:0,0"]);
+
+    machine.dispatchGestureEnd({ x: 1, y: 1 }, NO_MODIFIERS);
+    machine.dispatchHover({ x: 5, y: 6 }, NO_MODIFIERS);
+    expect(tool.calls).toEqual(["start:0,0", "end:1,1", "hover:5,6"]);
+  });
+
+  it("is a no-op for a tool that declares no hover handler", () => {
+    const tool = new RecordingToolHandler();
+    const machine = new ToolStateMachine({ a: tool }, "a");
+    expect(() => machine.dispatchHover({ x: 5, y: 6 }, NO_MODIFIERS)).not.toThrow();
+    expect(tool.calls).toEqual([]);
+  });
+});

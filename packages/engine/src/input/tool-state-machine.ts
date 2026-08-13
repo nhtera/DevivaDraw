@@ -87,6 +87,16 @@ export class ToolStateMachine {
     this.getActiveTool().onGestureCancel(modifiers);
   }
 
+  /**
+   * Pointer moved with no gesture in progress. Dropped outright while a gesture *is* in progress —
+   * that movement is the gesture's, and a tool would otherwise see the same pointer twice per frame
+   * through two different callbacks. Silently ignored by tools that declare no `onHover`.
+   */
+  dispatchHover(point: Point, modifiers: ModifierKeys): void {
+    if (this.gestureInProgress) return;
+    this.getActiveTool().onHover?.(point, modifiers);
+  }
+
   /** Forwarded unconditionally, including mid-gesture (a live modifier-key toggle while dragging). */
   dispatchKeyDown(key: string, modifiers: ModifierKeys): void {
     this.getActiveTool().onKeyDown(key, modifiers);

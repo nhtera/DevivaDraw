@@ -7,6 +7,11 @@ All notable changes to Deviva Draw are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Shapes light up when an arrow can connect to them.** Pick the arrow tool and move
+  over the canvas: any shape you could attach to gets a soft blue halo tracing its
+  outline, and while you drag an arrow both ends light up so a connection between two
+  shapes reads as one before you release. Previously there was no indication at all that
+  arrows connected to shapes — you found out after letting go.
 - **Arrows bind to every closed shape.** Binding used to work only for rectangles,
   ellipses and diamonds. Sticky notes, triangles, hexagons, stars, parallelograms,
   trapezoids, block arrows, double circles, clouds, hearts, x-boxes, check-boxes and
@@ -29,6 +34,10 @@ All notable changes to Deviva Draw are documented here. The format follows
   thick the shape's outline was, so an arrow looked correctly detached from a hairline
   shape and visibly overlapping a heavy one. It now accounts for the stroke. Existing
   drawings keep the gap they were saved with and do not shift.
+- **Arrows can now attach to the whole of a rotated shape.** The check for "is this
+  endpoint near a shape" measured against the shape's unrotated box, so on a rotated one
+  most of its length was ruled out before the real test ran — a rotated bar could only be
+  connected to near its middle. It now measures the rotated footprint.
 - **Binding is no longer over-eager when zoomed out.** The proximity that decides whether
   a dropped endpoint attaches was a fixed screen distance, which at 25% zoom reached four
   times as far across the canvas as it did at 100% — far enough that endpoints attached

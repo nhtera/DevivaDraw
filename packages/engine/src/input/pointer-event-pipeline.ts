@@ -139,7 +139,14 @@ export class PointerEventPipeline {
   };
 
   private readonly handlePointerMove = (event: PointerLikeEvent): void => {
-    if (this.activePointerId !== event.pointerId || !this.gestureCamera) return;
+    if (this.activePointerId !== event.pointerId || !this.gestureCamera) {
+      // No gesture owns this pointer, so it is a plain hover. Read the camera live rather than using
+      // `gestureCamera` (which is null here anyway): the per-gesture freeze exists to stop a pan
+      // feeding its own mutation back into the next point, and outside a gesture there is nothing to
+      // freeze — a hover must reflect wherever the camera is right now.
+      this.options.toolStateMachine.dispatchHover(this.toScenePoint(event.clientX, event.clientY, this.options.getCamera()), extractModifiers(event));
+      return;
+    }
     const point = this.toScenePoint(event.clientX, event.clientY, this.gestureCamera);
     const { pressure, pointerType } = extractPointerSample(event);
     this.options.toolStateMachine.dispatchGestureMove(point, extractModifiers(event), pressure, pointerType);

@@ -180,6 +180,10 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
       getPendingEraseIds: builtRuntime.getPendingEraseIds,
       getLaserTrail: builtRuntime.getLaserTrail,
       getLassoPath: builtRuntime.getLassoPath,
+      getBindingHighlightIds: builtRuntime.getBindingHighlightIds,
+      // The same resolved-theme source `getColorAdapter` keys on, rather than a second derivation —
+      // `getThemeMode()` has already collapsed "system" to a concrete light/dark.
+      getTheme: getThemeMode,
       // Adapt default-palette colors to the live theme at render time (non-destructive) so a scene is
       // legible whatever theme it was authored/loaded in — the fix for near-black strokes on a dark
       // canvas that a load/collab/share can't otherwise resolve. Custom colors + images pass through.

@@ -23,15 +23,8 @@ import type { TextMeasurer } from "../text/text-measurement";
 import { recenterArrowLabelIfPresent } from "./arrow-label";
 import { boundArrowIds, unbindArrowsFromDeletedShape } from "./binding-model";
 import { recomputeBindingPoint } from "./recompute-binding";
-import { distanceToShapeOutline, isBindableShapeGeometry, isInsideShapeOutline } from "./shape-outline-geometry";
+import { distanceToShapeOutline, isBindableShapeGeometry, isInsideShapeOutline, isNearOutlineBounds } from "./shape-outline-geometry";
 import type { BindableShapeType } from "./shape-outline-geometry";
-
-/** Cheap axis-aligned reject: is `point` outside `element`'s bbox expanded by `threshold` on every side? */
-function outsideExpandedBounds(element: AnyElement, point: Point, threshold: number): boolean {
-  const withinX = point.x >= element.x - threshold && point.x <= element.x + element.width + threshold;
-  const withinY = point.y >= element.y - threshold && point.y <= element.y + element.height + threshold;
-  return !(withinX && withinY);
-}
 
 /**
  * The topmost (highest z-order) non-deleted bindable shape whose *outline* `point` is within
@@ -42,11 +35,9 @@ function outsideExpandedBounds(element: AnyElement, point: Point, threshold: num
  * unambiguously aimed at that shape, and the binding's `focus`/`gap` will clip it back out to the
  * outline anyway.
  *
- * The exact outline distance runs only for shapes that survive a bbox pre-reject, since this is
- * called per candidate on every drop (and, once hover highlighting lands, per pointermove). The
- * bbox is expanded by the same threshold, and a rotated shape's true footprint is a subset of that
- * expansion, so the cheap test can only ever over-admit — never skip a shape the exact test would
- * have accepted.
+ * The exact outline distance runs only for shapes that survive `isNearOutlineBounds`, a cheap
+ * conservative reject — this is called per candidate on every drop, and per pointer move via the
+ * binding halo's own resolver.
  *
  * Filters on `isBindableShapeGeometry` (types with a solvable outline), *not* on
  * `isBindableContainer` (types that can hold bound text) — see the former's doc for why conflating
@@ -57,7 +48,7 @@ export function findBindableShapeNear(scene: Scene, point: Point, thresholdScene
   for (let i = elements.length - 1; i >= 0; i -= 1) {
     const element = elements[i];
     if (!element || element.isDeleted || !isBindableShapeGeometry(element)) continue;
-    if (outsideExpandedBounds(element, point, thresholdSceneUnits)) continue;
+    if (!isNearOutlineBounds(element, point, thresholdSceneUnits)) continue;
     if (distanceToShapeOutline(element, point) <= thresholdSceneUnits || isInsideShapeOutline(element, point)) return element;
   }
   return null;

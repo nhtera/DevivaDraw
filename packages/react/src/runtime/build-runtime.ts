@@ -95,6 +95,7 @@ export function buildRuntime(options: BuildRuntimeOptions): DevivaRuntime {
     getPendingEraseIds: () => tools.eraserTool.getPendingEraseIds(),
     getLaserTrail: () => tools.laserTool.getTrail(),
     getLassoPath: () => tools.lassoTool.getPath(),
+    getBindingHighlightIds: () => tools.arrowTool.getBindingHighlightIds(),
     dispose: () => {
       /* replaced below */
     },

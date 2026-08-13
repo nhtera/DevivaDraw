@@ -9,6 +9,7 @@
  * Only the *first* and *last* vertex are ever checked for shape binding (never a curved arrow's
  * intermediate bend points) — see `arrow-endpoint-binding.ts`, which this tool calls once at finish.
  */
+import { resolveBindingHighlights } from "../bindings/binding-highlight";
 import { maxBindingDistanceSceneUnits } from "../bindings/binding-thresholds";
 import { createArrowElement } from "../elements/arrow-element";
 import type { ArrowElement, ArrowType } from "../elements/arrow-element";
@@ -51,10 +52,47 @@ export class ArrowTool extends NoOpToolHandler {
   private isFirstVertexGesture = true;
   private lastClickAt = 0;
   private lastClickPoint: Point | null = null;
+  /** Shapes the overlay is currently haloing as "you can connect here" — see `getBindingHighlightIds`. */
+  private bindingHighlightIds: readonly string[] = [];
 
   constructor(deps: ArrowToolDeps) {
     super();
     this.deps = deps;
+  }
+
+  /**
+   * Ids of the shapes to halo this frame. A getter the host polls each frame rather than a change
+   * callback, matching how the eraser's pending-delete ids, the laser's trail and the lasso's path
+   * already reach the render loop — the loop is rebuilt only on scene swap, so it reads state
+   * through getters instead of holding values that would go stale.
+   *
+   * Overlay state only: nothing here is ever written to `Scene`. Hover is a per-pointermove event,
+   * and under live collaboration every touched element is rebroadcast to every peer, so a hover that
+   * wrote to the scene would flood the session with no-op deltas.
+   */
+  getBindingHighlightIds(): readonly string[] {
+    return this.bindingHighlightIds;
+  }
+
+  /** Drops the halo — called when the arrow tool stops being the active tool, since a hover it never receives can no longer clear itself. */
+  clearBindingHighlight(): void {
+    this.bindingHighlightIds = [];
+  }
+
+  private updateHighlight(points: readonly (Point | null)[]): void {
+    const elements = this.deps.scene.getElements();
+    const threshold = maxBindingDistanceSceneUnits(this.deps.getZoom());
+    this.bindingHighlightIds = resolveBindingHighlights(elements, points, threshold);
+  }
+
+  /**
+   * Halo whatever a click right here would bind to. In multi-point mode (between clicks, when no
+   * gesture is in progress) the already-placed first vertex stays lit alongside the pointer, so a
+   * click-built arrow shows the same "connecting these two" pair a dragged one does.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `modifiers` kept to match `ToolHandler`'s signature
+  override onHover(point: Point, modifiers: ModifierKeys): void {
+    this.updateHighlight([this.vertices[0] ?? null, point]);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `modifiers` kept to match `ToolHandler`'s signature
@@ -70,7 +108,11 @@ export class ArrowTool extends NoOpToolHandler {
   override onGestureMove(point: Point, modifiers: ModifierKeys): void {
     if (!this.elementId || !this.isFirstVertexGesture) return;
     const start = this.vertices[0]!;
-    this.syncElement([start, constrainSegmentAngle(start, point, modifiers.shift)]); // shift = angle-locked preview
+    const moving = constrainSegmentAngle(start, point, modifiers.shift);
+    this.syncElement([start, moving]); // shift = angle-locked preview
+    // Both ends, so a short arrow spanning two shapes reads as "connecting these two" rather than
+    // only lighting up whichever one the pointer happens to be over.
+    this.updateHighlight([start, moving]);
   }
 
   override onGestureEnd(point: Point, modifiers: ModifierKeys): void {
@@ -167,6 +209,7 @@ export class ArrowTool extends NoOpToolHandler {
     this.reset();
   }
 
+  /** Every exit path — commit, discard, cancel — funnels through here, so the halo is cleared in exactly one place. */
   private reset(): void {
     this.vertices = [];
     this.elementId = null;
@@ -174,5 +217,6 @@ export class ArrowTool extends NoOpToolHandler {
     this.isFirstVertexGesture = true;
     this.lastClickAt = 0;
     this.lastClickPoint = null;
+    this.bindingHighlightIds = [];
   }
 }

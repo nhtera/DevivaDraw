@@ -16,6 +16,8 @@ export interface DevivaRuntime extends ActionRuntime {
   getLaserTrail(): readonly LaserTrailPoint[];
   /** The lasso tool's in-progress free-form loop (empty when idle) — the interactive layer draws it each frame. */
   getLassoPath(): readonly Point[];
+  /** Shapes the arrow tool is offering as bind targets right now (empty when idle) — the interactive layer haloes them each frame. */
+  getBindingHighlightIds(): readonly string[];
   /** Detaches the pointer pipeline, the double-click listener, and the binding/bound-text sync hooks — call from the owning effect's cleanup. */
   dispose(): void;
 }

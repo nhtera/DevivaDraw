@@ -240,8 +240,13 @@ export {
   intersectShapeBorder,
   isBindableShapeGeometry,
   isInsideShapeOutline,
+  isNearOutlineBounds,
   outlineKindFor,
+  shapeOutlineScenePoints,
 } from "./bindings/shape-outline-geometry";
+
+export { resolveBindingHighlight, resolveBindingHighlights } from "./bindings/binding-highlight";
+export { drawBindingHighlights } from "./render/interactive-binding-highlight";
 
 export { BASE_BINDING_DISTANCE, BASE_BINDING_GAP, bindingGapFor, maxBindingDistanceSceneUnits } from "./bindings/binding-thresholds";
 

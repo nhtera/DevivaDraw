@@ -84,6 +84,7 @@ export interface BuiltTools {
   selectionTool: SelectionTool;
   eraserTool: EraserTool;
   laserTool: LaserTool;
+  arrowTool: ArrowTool;
   lassoTool: LassoTool;
   editSession: TextEditSession;
   textMeasurer: TextMeasurer;
@@ -222,6 +223,12 @@ export function buildTools(
     SELECT_TOOL_NAME,
   );
 
+  // The halo clears itself on every arrow-tool exit path, but switching *away* from the tool is not
+  // one of them — it simply stops receiving hovers, which would leave the last halo painted.
+  toolStateMachine.subscribe(() => {
+    if (toolStateMachine.getActiveToolName() !== ARROW_TOOL_NAME) arrowTool.clearBindingHighlight();
+  });
+
   handleCreated = (elementId: string, options?: { select?: boolean }) => {
     if (getToolLocked()) return;
     if (options?.select !== false) selectionState.selectOnly([elementId]);
@@ -240,6 +247,7 @@ export function buildTools(
     eraserTool,
     laserTool,
     lassoTool,
+    arrowTool,
     editSession,
     textMeasurer,
     disposeHooks: () => {

@@ -183,6 +183,61 @@ export function intersectShapeBorder(shapeType: string, shape: OutlineShape, tar
 }
 
 /**
+ * Cheap conservative pre-reject: could `point` possibly be within `threshold` of `shape`'s outline?
+ * `false` is a definite no; `true` means run the exact test.
+ *
+ * Rotation-aware, and it has to be. The obvious version — expand the element's stored `x/y/width/
+ * height` box — is wrong for a rotated shape, because a rotated footprint is *not* a subset of the
+ * unrotated box: turn a 200x20 bar a quarter turn and it reaches 90 units above and below a box only
+ * 20 tall, so every one of those positions would be rejected before the exact test ever ran. What is
+ * safe is the rotated box's own axis-aligned extent, which is what this computes.
+ *
+ * Mirroring is deliberately ignored: reflecting an outline about its own centre cannot move it
+ * outside the box it already occupies.
+ */
+export function isNearOutlineBounds(shape: BorderRect, point: Point, threshold: number): boolean {
+  const center = { x: shape.x + shape.width / 2, y: shape.y + shape.height / 2 };
+  const halfWidth = shape.width / 2;
+  const halfHeight = shape.height / 2;
+  // The overwhelmingly common case is unrotated; skip the trig entirely for it since this runs per
+  // candidate element on every pointer move.
+  const absCos = shape.angle === 0 ? 1 : Math.abs(Math.cos(shape.angle));
+  const absSin = shape.angle === 0 ? 0 : Math.abs(Math.sin(shape.angle));
+  const extentX = halfWidth * absCos + halfHeight * absSin;
+  const extentY = halfWidth * absSin + halfHeight * absCos;
+  return Math.abs(point.x - center.x) <= extentX + threshold && Math.abs(point.y - center.y) <= extentY + threshold;
+}
+
+/**
+ * `shape`'s bind outline as a closed loop of scene-space points, with rotation and mirroring already
+ * applied — what a highlight has to trace to promise the truth about where an arrow will attach.
+ *
+ * `null` for the ellipse kind, which has no polygonal outline: a caller drawing it needs a real
+ * ellipse primitive (with `shape.angle` as its rotation) rather than a vertex walk.
+ *
+ * Note this is the *bind* outline, not always the drawn one — the rect kind covers curve shapes like
+ * `cloud` and `heart`, whose silhouettes are inset from the box they bind against. Tracing the box is
+ * the honest thing to draw: it is where the endpoint will actually land.
+ */
+export function shapeOutlineScenePoints(shape: OutlineShape): Point[] | null {
+  const kind = outlineKindFor(shape.type);
+  if (!kind || kind === "ellipse") return null;
+
+  const halfWidth = shape.width / 2;
+  const halfHeight = shape.height / 2;
+  const local =
+    kind === "rect"
+      ? [
+          { x: -halfWidth, y: -halfHeight },
+          { x: halfWidth, y: -halfHeight },
+          { x: halfWidth, y: halfHeight },
+          { x: -halfWidth, y: halfHeight },
+        ]
+      : polygonVerticesLocal(shape, shape.type);
+  return local.map((point) => toScene(shape, point));
+}
+
+/**
  * Whether `point` falls within `shape`'s outline, honouring rotation and mirroring.
  *
  * Purely geometric, unlike `selection/hit-test.ts`'s superficially similar test: fill, bound labels,

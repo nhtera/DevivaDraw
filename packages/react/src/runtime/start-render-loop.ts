@@ -26,13 +26,17 @@ export interface RenderLoopDeps {
   getLaserTrail(): readonly LaserTrailPoint[];
   /** The lasso tool's in-progress free-form loop (scene space) — drawn on the interactive layer each frame; empty when idle. Same getter contract as the others. */
   getLassoPath(): readonly Point[];
+  /** Ids of the shapes the arrow tool is offering as bind targets — haloed on the interactive layer each frame; empty when idle. Same getter contract as the others. */
+  getBindingHighlightIds(): readonly string[];
+  /** The resolved theme (`"system"` already collapsed), so overlay chrome can pick a light/dark colour. Same getter contract as the others, so a theme flip repaints without rebuilding the loop. */
+  getTheme(): "light" | "dark";
   /** The active theme's render-time color adapter (default-palette colors → legible-on-this-canvas), or `null` for authored colors. Same getter contract as the others, so a theme change is picked up without rebuilding the loop. */
   getColorAdapter(): (ElementColorAdapter & { key: string }) | null;
 }
 
 /** Starts the loop; returns a stop function for the owning effect's cleanup. */
 export function startRenderLoop(deps: RenderLoopDeps): () => void {
-  const { stage, scene, cameraStore, selection, getMarqueeRect, getSnapGuides, grid, getRemoteCursors, getTextDraft, getPendingEraseIds, getLaserTrail, getLassoPath, getColorAdapter } = deps;
+  const { stage, scene, cameraStore, selection, getMarqueeRect, getSnapGuides, grid, getRemoteCursors, getTextDraft, getPendingEraseIds, getLaserTrail, getLassoPath, getColorAdapter, getBindingHighlightIds, getTheme } = deps;
   let frameHandle = requestAnimationFrame(function renderFrame() {
     const camera = cameraStore.getCamera();
     const textDraft = getTextDraft();
@@ -45,8 +49,22 @@ export function startRenderLoop(deps: RenderLoopDeps): () => void {
     const selectedElements = textDraft
       ? []
       : [...selection.getSelectedIds()].map((id) => scene.getElement(id)).filter((element): element is AnyElement => !!element);
+    // Resolved here, not in the engine: the interactive layer is handed elements to draw, never ids
+    // to look up — the same contract `selectedElements` follows.
+    const bindingHighlightElements = getBindingHighlightIds()
+      .map((id) => scene.getElement(id))
+      .filter((element): element is AnyElement => !!element);
     stage.interactiveLayer.render(
-      { selectedElements, marqueeRect: getMarqueeRect(), snapGuides: getSnapGuides(), remoteCursors: getRemoteCursors?.() ?? [], laserTrail: getLaserTrail(), lassoPath: getLassoPath() },
+      {
+        selectedElements,
+        marqueeRect: getMarqueeRect(),
+        snapGuides: getSnapGuides(),
+        remoteCursors: getRemoteCursors?.() ?? [],
+        laserTrail: getLaserTrail(),
+        lassoPath: getLassoPath(),
+        bindingHighlightElements,
+        theme: getTheme(),
+      },
       camera,
     );
     frameHandle = requestAnimationFrame(renderFrame);

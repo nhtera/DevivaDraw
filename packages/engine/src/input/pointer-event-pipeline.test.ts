@@ -213,3 +213,50 @@ describe("PointerEventPipeline.detach", () => {
     expect(globalTarget.disposed).toBe(true);
   });
 });
+
+describe("PointerEventPipeline hover routing", () => {
+  it("routes a pointer move with no gesture in progress to the tool as a hover", () => {
+    const { element, selectTool, cameraState } = buildHarness();
+    cameraState.camera = { scrollX: 0, scrollY: 0, zoom: 2 };
+
+    element.firePointerMove({ pointerId: 1, clientX: 40, clientY: 60 });
+
+    expect(selectTool.calls).toEqual(["hover:20,30"]);
+  });
+
+  it("reads the live camera for a hover, since there is no gesture whose frame needs freezing", () => {
+    const { element, selectTool, cameraState } = buildHarness();
+    element.firePointerMove({ pointerId: 1, clientX: 100, clientY: 100 });
+    cameraState.camera = { scrollX: 0, scrollY: 0, zoom: 4 };
+    element.firePointerMove({ pointerId: 1, clientX: 100, clientY: 100 });
+
+    // The same screen point resolves differently once the camera moves — a stale frozen camera would
+    // report the first point twice.
+    expect(selectTool.calls).toEqual(["hover:100,100", "hover:25,25"]);
+  });
+
+  it("does not report hovers during a gesture — that movement belongs to the gesture", () => {
+    const { element, selectTool } = buildHarness();
+    element.firePointerDown({ pointerId: 1, clientX: 0, clientY: 0 });
+    element.firePointerMove({ pointerId: 1, clientX: 10, clientY: 10 });
+
+    expect(selectTool.calls).toEqual(["start:0,0", "move:10,10"]);
+  });
+
+  it("drops a stray second pointer's movement mid-gesture instead of reporting it as a hover", () => {
+    const { element, selectTool } = buildHarness();
+    element.firePointerDown({ pointerId: 1, clientX: 0, clientY: 0 });
+    element.firePointerMove({ pointerId: 2, clientX: 999, clientY: 999 }); // a palm or second finger
+
+    expect(selectTool.calls).toEqual(["start:0,0"]);
+  });
+
+  it("resumes reporting hovers once the gesture ends", () => {
+    const { element, selectTool } = buildHarness();
+    element.firePointerDown({ pointerId: 1, clientX: 0, clientY: 0 });
+    element.firePointerUp({ pointerId: 1, clientX: 5, clientY: 5 });
+    element.firePointerMove({ pointerId: 1, clientX: 30, clientY: 30 });
+
+    expect(selectTool.calls).toEqual(["start:0,0", "end:5,5", "hover:30,30"]);
+  });
+});
