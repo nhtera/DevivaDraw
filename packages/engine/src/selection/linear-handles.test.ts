@@ -22,16 +22,25 @@ describe("linearHandleLayout", () => {
     ]);
   });
 
-  it("offers no midpoint without a hover point — mid-drag there is nothing to insert", () => {
-    expect(linearHandleLayout(straightArrow(), 1).midpoint).toBeNull();
+  it("offers a two-point arrow's only midpoint always, hover or not — nothing else could be meant", () => {
+    expect(linearHandleLayout(straightArrow(), 1).midpoint).toEqual({ segmentIndex: 0, point: { x: 100, y: 0 }, hovered: false });
+  });
+
+  it("marks a two-point arrow's midpoint hovered once the pointer reaches it, so the renderer can swell it", () => {
+    expect(linearHandleLayout(straightArrow(), 1, { x: 100, y: 3 }).midpoint?.hovered).toBe(true);
+    expect(linearHandleLayout(straightArrow(), 1, { x: 100, y: MIDPOINT_HOVER_PX + 2 }).midpoint?.hovered).toBe(false);
+  });
+
+  it("offers a multi-point arrow no midpoint without a hover point — mid-drag there is nothing to insert", () => {
+    expect(linearHandleLayout(bentArrow(), 1).midpoint).toBeNull();
   });
 
   it("offers the midpoint of the segment the pointer is near", () => {
-    expect(linearHandleLayout(straightArrow(), 1, { x: 100, y: 3 }).midpoint).toEqual({ segmentIndex: 0, point: { x: 100, y: 0 } });
+    expect(linearHandleLayout(bentArrow(), 1, { x: 100, y: 3 }).midpoint).toEqual({ segmentIndex: 0, point: { x: 100, y: 0 }, hovered: true });
   });
 
-  it("offers nothing once the pointer is beyond the hover radius", () => {
-    expect(linearHandleLayout(straightArrow(), 1, { x: 100, y: MIDPOINT_HOVER_PX + 2 }).midpoint).toBeNull();
+  it("offers a multi-point arrow nothing once the pointer is beyond the hover radius", () => {
+    expect(linearHandleLayout(bentArrow(), 1, { x: 100, y: MIDPOINT_HOVER_PX + 2 }).midpoint).toBeNull();
   });
 
   it("picks the nearest segment when a bend puts two in range", () => {
@@ -47,7 +56,7 @@ describe("linearHandleLayout", () => {
   });
 
   it("scales the hover radius with zoom, so the dot appears at the same screen distance", () => {
-    const arrow = straightArrow();
+    const arrow = bentArrow();
     const justOutsideAtFullZoom = { x: 100, y: MIDPOINT_HOVER_PX + 4 };
     expect(linearHandleLayout(arrow, 1, justOutsideAtFullZoom).midpoint).toBeNull();
     // Zoomed out, the same scene distance is a much shorter screen distance — so it is in range.
@@ -76,7 +85,7 @@ describe("hitLinearHandle", () => {
 
   it("misses everything beyond the hitbox", () => {
     expect(hitLinearHandle(layout(), { x: HANDLE_GRAB_PX + 2, y: 0 }, 1)).toBeNull();
-    expect(hitLinearHandle(layout(), { x: 100, y: 0 }, 1)).toBeNull(); // mid-segment, no dot offered
+    expect(hitLinearHandle(layout(), { x: 100, y: HANDLE_GRAB_PX + 2 }, 1)).toBeNull(); // off the midpoint dot, off the line
   });
 
   it("grabs the midpoint dot when one is offered", () => {

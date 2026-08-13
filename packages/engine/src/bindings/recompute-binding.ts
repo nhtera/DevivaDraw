@@ -49,6 +49,14 @@ function perpendicular(v: Point): Point {
   return { x: -v.y, y: v.x };
 }
 
+function cross(a: Point, b: Point): number {
+  return a.x * b.y - a.y * b.x;
+}
+
+function dot(a: Point, b: Point): number {
+  return a.x * b.x + a.y * b.y;
+}
+
 /**
  * Where `binding` (a stored `focus`/`gap`) currently places an arrow's endpoint against `shape`,
  * aimed relative to `referencePoint` — see the module doc for the two-step border walk. `gap` finally
@@ -95,4 +103,64 @@ export function computeFocusForBindingPoint(
   const offset = subtract(desiredPoint, nearBorder);
   const extent = halfMinExtent(shape);
   return (offset.x * perp.x + offset.y * perp.y) / extent;
+}
+
+/**
+ * A sanity bound on the solved focus, not a reachability rule. Reachability is decided by actually
+ * running `recomputeBindingPoint` and checking where it lands (see below) — a fixed cap would reject
+ * perfectly good snaps on wide or flat shapes, where a modest angle off the reference direction
+ * legitimately needs a focus of two or three.
+ */
+const MAX_SANE_FOCUS = 50;
+
+/** How close the solve has to land to count as exact. Sub-pixel at 100% zoom. */
+const LANDING_TOLERANCE = 0.5;
+
+/**
+ * The `focus` that makes `recomputeBindingPoint` land exactly on `connectionPoint` — used to snap an
+ * endpoint onto one of `shape-connection-points.ts`'s anchors — or `null` when the binding model
+ * cannot reach that anchor from this direction.
+ *
+ * `focus` slides the endpoint *perpendicular to the reference direction*, so it can only ever reach
+ * the half of the outline facing the arrow's other end. An anchor at ninety degrees to that direction
+ * (the top of a box an arrow approaches from the right) is unreachable however far the nudge goes,
+ * and the solve degenerates there rather than quietly returning an enormous focus. The caller falls
+ * back to binding where the user actually dropped the endpoint.
+ *
+ * Solved rather than approximated: `recomputeBindingPoint` re-intersects the outline along the ray
+ * from the centre through its nudged aim point, so *any* aim point on the centre→anchor ray produces
+ * the anchor. Setting `focus` so the nudge lands on that ray is therefore exact, whereas simply aiming
+ * the unsolved formula at the anchor lands near it only when the two rays happen to agree.
+ *
+ * The answer is then *verified* by running `recomputeBindingPoint` with it, rather than trusted
+ * because the algebra says so. That is what defines reachable here: a fixed cap on `focus` would
+ * reject sound snaps on a wide or flat shape — where a modest angle off the reference direction
+ * legitimately needs a focus above one — and the whole promise of the anchor dots is that aiming at
+ * one lands on it.
+ */
+export function focusForConnectionPoint(
+  shapeType: BindableShapeType,
+  shape: BorderRect,
+  referencePoint: Point,
+  connectionPoint: Point,
+): number | null {
+  const center = { x: shape.x + shape.width / 2, y: shape.y + shape.height / 2 };
+  const nearBorder = intersectShapeBorder(shapeType, outlineShapeOf(shapeType, shape), referencePoint);
+  const fromCenter = subtract(nearBorder, center);
+  const perp = perpendicular(normalize(fromCenter));
+  const target = subtract(connectionPoint, center);
+  const extent = halfMinExtent(shape);
+
+  const denominator = cross(target, perp);
+  if (Math.abs(denominator) < MIN_NORMALIZER) return null; // anchor lies along the nudge itself — never crossed
+  const focus = -cross(target, fromCenter) / (extent * denominator);
+  if (!Number.isFinite(focus) || Math.abs(focus) > MAX_SANE_FOCUS) return null;
+
+  // The solve only guarantees the aim is *collinear* with the centre→anchor ray; collinear includes
+  // pointing the opposite way, which would clip the endpoint to the far side of the shape.
+  const aim = { x: fromCenter.x + perp.x * focus * extent, y: fromCenter.y + perp.y * focus * extent };
+  if (dot(aim, target) <= 0) return null;
+
+  const landed = recomputeBindingPoint(shapeType, shape, { focus, gap: 0 }, referencePoint);
+  return Math.hypot(landed.x - connectionPoint.x, landed.y - connectionPoint.y) <= LANDING_TOLERANCE ? focus : null;
 }

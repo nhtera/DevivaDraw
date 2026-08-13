@@ -51,6 +51,7 @@ const GLYPHS: Record<string, string> = {
   "zoom-out": "−",
   "zoom-fit": "⤢",
   grid: "▦",
+  snap: "⌗",
   theme: "◐",
   command: "⌘",
   zen: "◎",

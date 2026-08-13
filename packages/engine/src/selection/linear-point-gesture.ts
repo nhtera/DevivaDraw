@@ -19,6 +19,7 @@ import { findBindableShapeNear } from "../bindings/binding-scene-sync";
 import { maxBindingDistanceSceneUnits } from "../bindings/binding-thresholds";
 import { resolveBindingHighlight } from "../bindings/binding-highlight";
 import { isBindingSuppressed, previewBoundEndpoint } from "../bindings/preview-bound-endpoint";
+import { CONNECTION_POINT_SNAP_PX } from "../bindings/shape-connection-points";
 import type { ModifierKeys } from "../input/tool-handler";
 import { absolutePoints, rebaseArrowPoints } from "../render/arrow-geometry";
 import type { Point } from "../render/camera";
@@ -48,8 +49,6 @@ export class LinearPointGesture {
   private readonly deps: SelectionToolDeps;
   private arrowId: string | null = null;
   private frozen: FrozenArrow | null = null;
-  /** True while editing an elbow arrow, which binds from anywhere inside a target rather than only near its outline. */
-  private fullShape = false;
   /** Index of the vertex being dragged. For a midpoint grab this is the newly inserted vertex, resolved in `begin`. */
   private vertexIndex = 0;
   private highlightId: string | null = null;
@@ -66,7 +65,6 @@ export class LinearPointGesture {
   begin(arrow: ArrowElement, target: LinearHandleTarget): boolean {
     const points = absolutePoints({ x: arrow.x, y: arrow.y }, arrow.points);
     this.arrowId = arrow.id;
-    this.fullShape = arrow.arrowType === "elbow";
     this.frozen = {
       x: arrow.x,
       y: arrow.y,
@@ -159,12 +157,17 @@ export class LinearPointGesture {
     if (!end || isBindingSuppressed(modifiers)) return point;
 
     const threshold = maxBindingDistanceSceneUnits(this.deps.getZoom());
-    this.highlightId = resolveBindingHighlight(this.deps.scene.getElements(), point, threshold, this.fullShape);
-    const target = findBindableShapeNear(this.deps.scene, point, threshold, this.fullShape);
+    this.highlightId = resolveBindingHighlight(this.deps.scene.getElements(), point, threshold);
+    const target = findBindableShapeNear(this.deps.scene, point, threshold);
     if (!target || target.id === this.arrowId) return point;
 
-    const preview = previewBoundEndpoint(target, point, this.referencePointFor(points));
+    const preview = previewBoundEndpoint(target, point, this.referencePointFor(points), this.connectionSnapRadius());
     return preview?.point ?? point;
+  }
+
+  /** The anchor-snap distance in scene units — a screen-space constant, so a dot is equally easy to hit at any zoom. */
+  private connectionSnapRadius(): number {
+    return CONNECTION_POINT_SNAP_PX / this.deps.getZoom();
   }
 
   /** The arrow's *other* end, which sets the direction a binding aims along. */
@@ -180,14 +183,14 @@ export class LinearPointGesture {
   private commitBinding(arrowId: string, end: "start" | "end", points: readonly Point[], modifiers: ModifierKeys): void {
     const droppedAt = points[this.vertexIndex]!;
     const threshold = isBindingSuppressed(modifiers) ? 0 : maxBindingDistanceSceneUnits(this.deps.getZoom());
-    const target = threshold > 0 ? findBindableShapeNear(this.deps.scene, droppedAt, threshold, this.fullShape) : null;
+    const target = threshold > 0 ? findBindableShapeNear(this.deps.scene, droppedAt, threshold) : null;
 
     if (!target) {
       unbindArrowEndpoint(this.deps.scene, arrowId, end); // no-op when it was not bound
       return;
     }
 
-    const preview = previewBoundEndpoint(target, droppedAt, this.referencePointFor(points));
+    const preview = previewBoundEndpoint(target, droppedAt, this.referencePointFor(points), this.connectionSnapRadius());
     if (!preview) {
       unbindArrowEndpoint(this.deps.scene, arrowId, end);
       return;
@@ -211,7 +214,6 @@ export class LinearPointGesture {
   private reset(): void {
     this.arrowId = null;
     this.frozen = null;
-    this.fullShape = false;
     this.vertexIndex = 0;
     this.highlightId = null;
   }

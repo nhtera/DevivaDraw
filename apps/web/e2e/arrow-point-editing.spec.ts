@@ -2,8 +2,9 @@ import { test, expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
 /**
- * Editing a selected arrow by its points: hollow endpoint handles instead of a resize box, a
- * midpoint dot on hover, and dragging an endpoint to re-attach or detach it.
+ * Editing a selected arrow by its points: hollow endpoint handles instead of a resize box, an
+ * always-present midpoint dot that swells under the pointer, and dragging an endpoint to re-attach
+ * or detach it.
  */
 
 const AUTOSAVE_FLUSH_MS = 1300;
@@ -88,15 +89,18 @@ test("a selected arrow shows endpoint handles instead of a resize box", async ({
   expect(await handleInkNear(page, { x: (HANDLE.fromX + HANDLE.toX) / 2, y: HANDLE.y - 40 })).toBe(0);
 });
 
-test("hovering the middle of a segment fades in the insert-a-bend dot", async ({ page }) => {
+test("the insert-a-bend dot is always there on a plain arrow, and swells when the pointer reaches it", async ({ page }) => {
   await drawScene(page);
   const middle = { x: (HANDLE.fromX + HANDLE.toX) / 2, y: HANDLE.y };
 
-  await page.mouse.move(middle.x, middle.y - 60); // away from the arrow
-  expect(await handleInkNear(page, middle, 8, 40)).toBe(0);
+  // A two-point arrow has exactly one place a bend could go, so the dot is shown without hovering —
+  // an affordance nobody knows to hover for is one nobody finds. Excalidraw shows it the same way.
+  await page.mouse.move(middle.x, middle.y - 60); // pointer well away from the arrow
+  const resting = await handleInkNear(page, middle, 8, 40);
+  expect(resting).toBeGreaterThan(0);
 
   await page.mouse.move(middle.x, middle.y);
-  expect(await handleInkNear(page, middle, 8, 40)).toBeGreaterThan(0);
+  expect(await handleInkNear(page, middle, 8, 40)).toBeGreaterThan(resting);
 });
 
 test("dragging an endpoint onto another shape re-attaches it, and that shape then drags the arrow", async ({ page }) => {

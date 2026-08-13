@@ -31,12 +31,11 @@ import type { BindableShapeType } from "./shape-outline-geometry";
  * `thresholdSceneUnits` of — or inside — the "endpoint dropped near a shape" hit test
  * `tools/arrow-tool.ts` uses to decide whether to bind.
  *
- * `fullShape` decides whether the shape's *interior* counts too, not just the band around its
- * outline. It is true only for elbow arrows, matching Excalidraw: an elbow connector exists to join
- * boxes, so aiming anywhere at a box means it. A straight arrow deliberately does not bind from deep
- * inside a large shape, because drawing *through* something is a normal thing to do and would
- * otherwise attach unexpectedly. On a small shape the distinction barely exists — the outline band
- * already covers most of it.
+ * A shape's whole interior counts, not only the band around its outline — aiming anywhere at a shape
+ * means that shape, whatever kind of arrow is being drawn. This is what Excalidraw does for every
+ * arrow type, verified against it directly: an endpoint released at a box's dead centre attaches and
+ * then follows the box. Drawing *through* a shape does attach on the way past as a result; Ctrl
+ * (`isBindingSuppressed`) is the escape hatch for the times that is not wanted.
  *
  * The exact outline distance runs only for shapes that survive `isNearOutlineBounds`, a cheap
  * conservative reject — this is called per candidate on every drop, and per pointer move via the
@@ -45,15 +44,21 @@ import type { BindableShapeType } from "./shape-outline-geometry";
  * Filters on `isBindableShapeGeometry` (types with a solvable outline), *not* on
  * `isBindableContainer` (types that can hold bound text) — see the former's doc for why conflating
  * the two crashed on sticky notes.
+ *
+ * Locked shapes are skipped, matching `resolveBindingHighlight`: the halo must promise exactly what
+ * the commit does, and a locked shape draws no halo. Binding to one anyway would be an attachment
+ * with no visible cause — invisible until the shape was unlocked and moved, at which point arrows
+ * nobody connected would start following it. The interior counting as a target is what makes this
+ * worth being strict about: a large locked backdrop covers most of the canvas.
  */
-export function findBindableShapeNear(scene: Scene, point: Point, thresholdSceneUnits: number, fullShape = false): AnyElement | null {
+export function findBindableShapeNear(scene: Scene, point: Point, thresholdSceneUnits: number): AnyElement | null {
   const elements = scene.getElements();
   for (let i = elements.length - 1; i >= 0; i -= 1) {
     const element = elements[i];
-    if (!element || element.isDeleted || !isBindableShapeGeometry(element)) continue;
+    if (!element || element.isDeleted || element.locked || !isBindableShapeGeometry(element)) continue;
     if (!isNearOutlineBounds(element, point, thresholdSceneUnits)) continue;
     if (distanceToShapeOutline(element, point) <= thresholdSceneUnits) return element;
-    if (fullShape && isInsideShapeOutline(element, point)) return element;
+    if (isInsideShapeOutline(element, point)) return element;
   }
   return null;
 }

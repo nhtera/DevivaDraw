@@ -15,6 +15,12 @@ export interface SelectionToolDeps {
   history: ShapeToolHistory;
   clipboard: InternalClipboard;
   getZoom(): number;
-  /** Live grid state; grid snap only applies while `enabled` — omit for a host with no grid UI yet (object snap still applies). */
+  /** Live grid state; grid snap only applies while `enabled` — omit for a host with no grid UI yet. */
   getGrid?(): { enabled: boolean; size: number };
+  /**
+   * Whether align-to-other-elements snapping is switched on. Off when omitted, matching Excalidraw's
+   * own default: a snap that is always on makes every drag sticky, and a host with no preference UI
+   * would have no way to turn it off. See `selection-move-gesture.ts` for what being sticky costs.
+   */
+  getObjectSnapEnabled?(): boolean;
 }

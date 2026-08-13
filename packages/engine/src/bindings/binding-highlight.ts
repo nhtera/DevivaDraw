@@ -15,33 +15,25 @@ import type { Point } from "../render/camera";
 import { distanceToShapeOutline, isBindableShapeGeometry, isInsideShapeOutline, isNearOutlineBounds } from "./shape-outline-geometry";
 
 /** Whether `point` would bind to `element` — the exact condition `findBindableShapeNear` applies, minus the z-order search. */
-function wouldBind(element: AnyElement, point: Point, thresholdSceneUnits: number, fullShape: boolean): boolean {
+function wouldBind(element: AnyElement, point: Point, thresholdSceneUnits: number): boolean {
   if (element.isDeleted || element.locked || !isBindableShapeGeometry(element)) return false;
   if (!isNearOutlineBounds(element, point, thresholdSceneUnits)) return false; // cheap reject before the exact outline distance
   if (distanceToShapeOutline(element, point) <= thresholdSceneUnits) return true;
-  return fullShape && isInsideShapeOutline(element, point);
+  return isInsideShapeOutline(element, point);
 }
 
 /**
  * The id of the topmost shape `point` would bind to, or `null`. Iterates back-to-front so the
  * visually-frontmost shape wins, matching `findBindableShapeNear` and `topmostElementAt`.
  *
- * `fullShape` matches `findBindableShapeNear`'s parameter of the same name — the halo must promise
- * exactly what the commit would do, so both sides read the same flag.
- *
  * Locked elements are excluded here but not in `findBindableShapeNear`, deliberately: a locked shape
  * cannot be selected or moved, so highlighting it would advertise a connection the user cannot then
  * do anything with.
  */
-export function resolveBindingHighlight(
-  elements: readonly AnyElement[],
-  point: Point,
-  thresholdSceneUnits: number,
-  fullShape = false,
-): string | null {
+export function resolveBindingHighlight(elements: readonly AnyElement[], point: Point, thresholdSceneUnits: number): string | null {
   for (let i = elements.length - 1; i >= 0; i -= 1) {
     const element = elements[i];
-    if (element && wouldBind(element, point, thresholdSceneUnits, fullShape)) return element.id;
+    if (element && wouldBind(element, point, thresholdSceneUnits)) return element.id;
   }
   return null;
 }
@@ -52,16 +44,11 @@ export function resolveBindingHighlight(
  * shapes — the "connecting these two" read. De-duplicated, so an arrow with both ends over the same
  * shape (a self-loop being drawn) highlights it once.
  */
-export function resolveBindingHighlights(
-  elements: readonly AnyElement[],
-  points: readonly (Point | null)[],
-  thresholdSceneUnits: number,
-  fullShape = false,
-): string[] {
+export function resolveBindingHighlights(elements: readonly AnyElement[], points: readonly (Point | null)[], thresholdSceneUnits: number): string[] {
   const ids: string[] = [];
   for (const point of points) {
     if (!point) continue;
-    const id = resolveBindingHighlight(elements, point, thresholdSceneUnits, fullShape);
+    const id = resolveBindingHighlight(elements, point, thresholdSceneUnits);
     if (id && !ids.includes(id)) ids.push(id);
   }
   return ids;

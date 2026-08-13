@@ -218,6 +218,9 @@ export function MainMenu(props: MainMenuProps) {
         <CanvasBackgroundRow scene={runtime.scene} />
       </div>
       <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
+      <MenuButton testId="main-menu-toggle-object-snap" icon="snap" onClick={() => run("toggle-object-snap")}>
+        {t("action.toggleObjectSnap")}
+      </MenuButton>
       <MenuButton testId="main-menu-toggle-zen-mode" icon="zen" onClick={() => run("toggle-zen-mode")}>
         {t("action.toggleZenMode")}
       </MenuButton>

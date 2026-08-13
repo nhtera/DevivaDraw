@@ -168,6 +168,7 @@ export {
   registerCoreShortcuts,
   registerFullShortcutMap,
   registerHistoryShortcuts,
+  registerPreferenceShortcuts,
   registerStyleClipboardShortcuts,
   registerToolShortcuts,
   ShortcutRegistry,
@@ -253,7 +254,14 @@ export { drawBindingHighlights } from "./render/interactive-binding-highlight";
 
 export { BASE_BINDING_DISTANCE, BASE_BINDING_GAP, bindingGapFor, maxBindingDistanceSceneUnits } from "./bindings/binding-thresholds";
 
-export { computeFocusForBindingPoint, recomputeBindingPoint } from "./bindings/recompute-binding";
+export { computeFocusForBindingPoint, focusForConnectionPoint, recomputeBindingPoint } from "./bindings/recompute-binding";
+
+export {
+  CONNECTION_POINT_RADIUS_PX,
+  CONNECTION_POINT_SNAP_PX,
+  nearestConnectionPoint,
+  shapeConnectionPoints,
+} from "./bindings/shape-connection-points";
 
 export type { ArrowEnd } from "./bindings/binding-model";
 export {

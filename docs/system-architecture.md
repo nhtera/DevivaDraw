@@ -140,7 +140,7 @@ Flow from pointer to committed binding:
 
 ```
 pointer move  → bindings/binding-highlight.ts   [which shape would bind — read-only]
-              → render/interactive-binding-highlight.ts  [the halo]
+              → render/interactive-binding-highlight.ts  [the halo + anchor dots]
 drag          → bindings/preview-bound-endpoint.ts  [where it would land]
 release       → bindings/binding-model.ts       [the only writer]
 ```
@@ -148,6 +148,18 @@ release       → bindings/binding-model.ts       [the only writer]
 `preview-bound-endpoint.ts` is read by arrow creation, the creation
 preview and the endpoint drag alike, so what a preview shows and what a
 release commits cannot drift apart.
+
+Every highlighted shape also marks four **connection anchors** — the
+midpoints of its bounding box's edges, rotated with it
+(`bindings/shape-connection-points.ts`). An endpoint released within
+`CONNECTION_POINT_SNAP_PX` of one binds to it exactly rather than to the
+pointer. "Exactly" is a solve, not an approximation:
+`recomputeBindingPoint` re-intersects the outline along the ray from the
+centre through its nudged aim point, so `focusForConnectionPoint` picks
+the `focus` that puts that aim on the centre→anchor ray. Since `focus`
+only slides the endpoint *perpendicular* to the reference direction, an
+anchor more than a half-extent off that direction is unreachable; the
+solve returns `null` there and the endpoint binds where it was dropped.
 
 **Hovering writes to `Scene` not at all, and a drag writes only geometry.**
 The binding *fields* are left untouched until release, then committed once.
@@ -160,9 +172,12 @@ for every move gesture.
 
 Two thresholds, both in `bindings/binding-thresholds.ts`: the gap scales
 with the target's stroke width, and the bind proximity widens as you zoom
-out but is clamped at twice its 100% value. Elbow connectors additionally
-bind from anywhere *inside* a shape (`fullShape`), which straight and
-curved arrows do not — drawing through something is ordinary.
+out but is clamped at twice its 100% value. That band is only the
+*outside* reach — a shape's whole interior binds too, for every arrow
+type. Verified against excalidraw.com directly: an endpoint released at a
+box's dead centre attaches there and then follows the box. Drawing
+*through* a shape therefore attaches on the way past; Ctrl
+(`isBindingSuppressed`) is the way out.
 
 ## Persistence format: SceneDocumentV1
 

@@ -17,6 +17,18 @@ import type { SelectionToolDeps } from "./selection-tool-deps";
 import { computeGridSnap, computeObjectSnap } from "./snapping";
 import type { SnapGuide } from "./snapping";
 
+/**
+ * How near (screen px) an edge or centre has to come to another element's before the drag is pulled
+ * onto it. This is a *capture* distance with no easing: entering the band moves the selection the
+ * whole way in one frame, and the pointer then travels the band's full width again before the
+ * selection resumes tracking it — a 1px-per-step sweep past one neighbour measures as
+ * `1 1 1 1 1 1 9 0 0 …0 9 1 1 1`.
+ *
+ * That is why object snap is opt-in (`SelectionToolDeps.getObjectSnapEnabled`) rather than always on,
+ * as it is in Excalidraw: when you want alignment the stickiness is the feature, and when you don't
+ * it reads as the drag lagging and jumping. Grid snap has the same shape but is already gated behind
+ * grid mode being switched on.
+ */
 const SNAP_THRESHOLD_PX = 8;
 
 export class MoveGesture {
@@ -87,7 +99,7 @@ export class MoveGesture {
         const correction = computeGridSnap(movingBounds, grid.size);
         dx += correction.dx;
         dy += correction.dy;
-      } else {
+      } else if (this.deps.getObjectSnapEnabled?.()) {
         const movingIds = new Set(this.originalElements.keys());
         const candidates = this.deps.scene.getElements().filter((element) => !element.isDeleted && !movingIds.has(element.id)).map(elementBounds);
         const snap = computeObjectSnap(movingBounds, candidates, SNAP_THRESHOLD_PX / this.deps.getZoom());

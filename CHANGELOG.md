@@ -7,13 +7,18 @@ All notable changes to Deviva Draw are documented here. The format follows
 ## [Unreleased]
 
 ### Added
-- **Arrows are edited by their endpoints, not by a box around them.** Selecting an arrow
-  now shows a small circle on each end instead of a rectangular frame with eight resize
-  handles. Drag an end onto another shape to reconnect it, or into empty space to detach
-  it. Hover near the middle of a segment and a dot appears — drag that to add a bend.
-  Hold Ctrl (Cmd on macOS) while dragging to place an end near a shape without connecting
-  to it. Selecting an arrow together with other elements still shows the usual frame, and
-  the group still resizes as one.
+- **Shapes show you where an arrow can connect.** Move over a shape with the arrow tool
+  and four grey dots appear — the middle of each side — alongside the highlight. Release
+  an endpoint on one and it snaps exactly to it, so a row of boxes can be wired up with
+  their arrows all meeting the same point on each side. Release it anywhere else and it
+  stays where you put it.
+- **Arrows are edited by their endpoints, not by a box around them.** Selecting a plain
+  arrow now shows a small circle on each end instead of a rectangular frame with resize
+  handles, plus a dot at its middle — drag that to add a bend. Drag an end onto another
+  shape to reconnect it, or into empty space to detach it. Hold Ctrl (Cmd on macOS) while
+  dragging to place an end near a shape without connecting to it. An arrow that already
+  has a bend keeps its frame as well as its point handles, so it can still be scaled and
+  rotated as a whole; so does an arrow selected together with other elements.
 - **The endpoint snaps to the shape while you draw, not after you let go.** Drawing an
   arrow toward a shape now shows the endpoint already clipped to its edge, so what you see
   mid-drag is exactly what you get on release.
@@ -48,6 +53,10 @@ All notable changes to Deviva Draw are documented here. The format follows
   had both its ends on the same shape, detaching or moving one end quietly broke the
   shape's record of the other — so that end stopped following the shape when it moved. The
   record is now kept until both ends have let go.
+- **Arrows no longer attach to locked shapes.** A locked shape never showed the "you can connect
+  here" highlight, but an endpoint dropped on one attached anyway — an invisible connection that
+  only revealed itself once the shape was unlocked and moved, dragging arrows nobody had joined to
+  it. It is now skipped by the connection logic as well as by the highlight.
 - **Arrows can now attach to the whole of a rotated shape.** The check for "is this
   endpoint near a shape" measured against the shape's unrotated box, so on a rotated one
   most of its length was ruled out before the real test ran — a rotated bar could only be
@@ -59,18 +68,36 @@ All notable changes to Deviva Draw are documented here. The format follows
   out you zoom.
 
 ### Changed
-- **Releasing an arrow deep inside a shape no longer connects it.** Connecting now
-  happens when an endpoint is near a shape's edge — inside or outside — rather than
-  anywhere within its bounds. Drawing an arrow straight *through* a large shape is an
-  ordinary thing to do, and it used to attach on the way past. Elbow connectors are the
-  exception and still connect from anywhere inside a shape: joining boxes is the only
-  thing they are for. Since shapes now highlight as you approach them, you can see which
-  is about to happen before you let go. This matches Excalidraw.
+- **Dragging follows the pointer again: "Snap to objects" is now a preference, off by default.**
+  Align-to-other-elements snapping used to be permanently on, and it does not ease in — a shape
+  entering an alignment band jumped the whole way at once, then sat still while the pointer crossed
+  the band's full width, then lurched out the far side. Measured on a one-pixel-per-step drag past a
+  single neighbour, the shape moved `1 1 1 1 1 1 9 0 0 … 0 9 1 1 1`. With enough elements on the
+  canvas you are inside one of those bands most of the time, which reads as the drag lagging and
+  jumping rather than as alignment. It is now switched on from the main menu or with `Alt+S`, and
+  remembered across reloads — the same default and the same shortcut Excalidraw uses. Grid snapping
+  is unaffected; it has always had its own switch.
+- **Aiming anywhere at a shape now connects to it.** Releasing an arrow endpoint inside a
+  shape attaches it, not only near the edge — checked against Excalidraw, where an endpoint
+  dropped at a box's dead centre attaches and then follows the box. Drawing an arrow
+  straight *through* a shape does attach on the way past as a result; hold Ctrl (Cmd on
+  macOS) to place an end without connecting. The shape lights up as you approach, so you
+  can see which is about to happen before you let go.
 - **`@deviva-draw/engine` — `DEFAULT_BINDING_GAP` has been removed** (breaking, for
   direct API consumers only). The binding gap now depends on the target's stroke width,
   so a single constant can no longer express it. Use `bindingGapFor(target)` instead.
   `BindableShapeType` has widened from three members to sixteen, and `BorderRect` gained
   optional `scale` and `direction` fields; both are still exported from the package root.
+  `findBindableShapeNear`, `resolveBindingHighlight` and `resolveBindingHighlights` have
+  dropped their trailing `fullShape` argument — a shape's interior always counts now, so
+  there is nothing left to switch on. `MidpointHandle` gained a `hovered` field, and
+  `SelectionOverlay`'s `bbox` variant gained `arrow` (the lone selected arrow whose point
+  handles the overlay should also draw, or `null`).
+- **`@deviva-draw/engine` — object snapping is opt-in for embedding hosts too** (breaking, for
+  direct API consumers only). `SelectionToolDeps` gained an optional `getObjectSnapEnabled()`, and
+  align-to-other-elements snapping no longer happens unless it returns `true` — a host that wants
+  the previous always-on behaviour has to supply it. `registerPreferenceShortcuts` is a new export,
+  already included in `registerFullShortcutMap`.
 
 ## [0.3.4] — 2026-08-13
 

@@ -76,6 +76,7 @@ export const catalogVi: Record<TranslationKey, string> = {
   "action.toggleMinimap": "Bật/tắt bản đồ thu nhỏ",
   "topbar.zoomMenu": "Tùy chọn thu phóng",
   "action.toggleGrid": "Bật/tắt lưới",
+  "action.toggleObjectSnap": "Bám theo đối tượng",
   "action.toggleTheme": "Đổi giao diện",
   "action.toggleZenMode": "Chế độ tập trung",
   "action.toggleViewOnly": "Chế độ chỉ xem",

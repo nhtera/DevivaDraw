@@ -40,7 +40,8 @@ import {
   XBoxTool,
 } from "@deviva-draw/engine";
 import type { AnyElement, Camera, Scene, TextMeasurer } from "@deviva-draw/engine";
-import type { GridState } from "../actions/action-types";
+import type { GridState, ObjectSnapState } from "../actions/action-types";
+import { readStoredObjectSnap } from "../preferences/object-snap-storage";
 import { adaptStrokeColorForTheme } from "../theme/canvas-color-inversion";
 import type { ThemeMode } from "../theme/theme-tokens";
 import {
@@ -73,6 +74,15 @@ import {
   X_BOX_TOOL_NAME,
 } from "./tool-names";
 
+/** The persisted "snap to objects" preference, or `false` outside a browser (SSR, tests, headless hosts). */
+function readInitialObjectSnap(): boolean {
+  try {
+    return typeof window !== "undefined" ? readStoredObjectSnap(window.localStorage) : false;
+  } catch {
+    return false; // storage can throw outright under a blocked-cookies policy
+  }
+}
+
 export interface BuiltTools {
   toolStateMachine: ToolStateMachine;
   panZoomTool: PanZoomTool;
@@ -81,6 +91,7 @@ export interface BuiltTools {
   selectionState: SelectionState;
   clipboard: InternalClipboard;
   grid: GridState;
+  objectSnap: ObjectSnapState;
   selectionTool: SelectionTool;
   eraserTool: EraserTool;
   laserTool: LaserTool;
@@ -169,6 +180,9 @@ export function buildTools(
   const selectionState = new SelectionState();
   const clipboard = new InternalClipboard();
   const grid: GridState = { enabled: false, size: 20 };
+  // Read once at build time and mutated in place afterwards, exactly like `grid`: the move gesture
+  // reads it every pointer move, so it has to be a live object rather than a captured boolean.
+  const objectSnap: ObjectSnapState = { enabled: readInitialObjectSnap() };
   styleState.bindSelection({ scene, getSelectedIds: () => selectionState.getSelectedIds() });
   const selectionTool = new SelectionTool({
     scene,
@@ -177,6 +191,7 @@ export function buildTools(
     clipboard,
     getZoom: () => getCamera().zoom,
     getGrid: () => grid,
+    getObjectSnapEnabled: () => objectSnap.enabled,
   });
   // The lasso is a free-form selection gesture; it feeds the same selection state as the select tool.
   const lassoTool = new LassoTool({ scene, selection: selectionState });
@@ -243,6 +258,7 @@ export function buildTools(
     selectionState,
     clipboard,
     grid,
+    objectSnap,
     selectionTool,
     eraserTool,
     laserTool,

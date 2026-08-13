@@ -25,8 +25,16 @@ import type { Scene } from "../scene/scene";
  * no outline to bind against. The position is whatever `previewBoundEndpoint` computed — the same
  * numbers the live drag preview showed, committed verbatim rather than recomputed.
  */
-function bindOneEnd(scene: Scene, arrowId: string, end: "start" | "end", target: AnyElement, point: Point, referencePoint: Point): Point | null {
-  const preview = previewBoundEndpoint(target, point, referencePoint);
+function bindOneEnd(
+  scene: Scene,
+  arrowId: string,
+  end: "start" | "end",
+  target: AnyElement,
+  point: Point,
+  referencePoint: Point,
+  snapRadiusSceneUnits: number,
+): Point | null {
+  const preview = previewBoundEndpoint(target, point, referencePoint, snapRadiusSceneUnits);
   if (!preview) return null;
   bindArrowEndpoint(scene, arrowId, end, target.id, { focus: preview.focus, gap: preview.gap });
   return preview.point;
@@ -38,29 +46,29 @@ function bindOneEnd(scene: Scene, arrowId: string, end: "start" | "end", target:
  * (possibly-adjusted) vertex list for the caller's own bookkeeping. No-ops (returns `vertices`
  * unchanged, still written to `Scene`) when neither end is near a bindable shape.
  *
- * `fullShape` — true only for elbow arrows — additionally binds an endpoint dropped anywhere inside
- * a target, not just near its outline. See `findBindableShapeNear`.
+ * `snapRadiusSceneUnits` is forwarded to `previewBoundEndpoint`: an end released that near one of the
+ * target's connection anchors binds to the anchor instead of to the raw drop point.
  */
 export function applyEndpointBindingsOnFinish(
   scene: Scene,
   arrowId: string,
   vertices: readonly Point[],
   thresholdSceneUnits: number,
-  fullShape = false,
+  snapRadiusSceneUnits = 0,
 ): Point[] {
   const result = [...vertices];
   const rawStart = result[0];
   const rawEnd = result[result.length - 1];
   if (!rawStart || !rawEnd) return result;
 
-  const startTarget = findBindableShapeNear(scene, rawStart, thresholdSceneUnits, fullShape);
-  const endTarget = findBindableShapeNear(scene, rawEnd, thresholdSceneUnits, fullShape);
+  const startTarget = findBindableShapeNear(scene, rawStart, thresholdSceneUnits);
+  const endTarget = findBindableShapeNear(scene, rawEnd, thresholdSceneUnits);
 
   let startPoint = rawStart;
   let endPoint = rawEnd;
   try {
-    if (startTarget) startPoint = bindOneEnd(scene, arrowId, "start", startTarget, rawStart, rawEnd) ?? startPoint;
-    if (endTarget) endPoint = bindOneEnd(scene, arrowId, "end", endTarget, rawEnd, startPoint) ?? endPoint;
+    if (startTarget) startPoint = bindOneEnd(scene, arrowId, "start", startTarget, rawStart, rawEnd, snapRadiusSceneUnits) ?? startPoint;
+    if (endTarget) endPoint = bindOneEnd(scene, arrowId, "end", endTarget, rawEnd, startPoint, snapRadiusSceneUnits) ?? endPoint;
   } finally {
     result[0] = startPoint;
     result[result.length - 1] = endPoint;

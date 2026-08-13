@@ -1,13 +1,14 @@
 /**
  * The suggested-binding halo: a thick translucent outline on a shape an arrow endpoint would attach
- * to right now. This is the whole "you can connect here" affordance, so what it traces has to be the
- * *bind* outline (`bindings/shape-outline-geometry.ts`), not the drawn silhouette — for a cloud or a
- * heart those differ, and haloing the puffy edge would promise an attachment point the endpoint then
- * does not use.
+ * to right now, plus a dot on each of that shape's connection anchors. This is the whole "you can
+ * connect here" affordance, so what it traces has to be the *bind* outline
+ * (`bindings/shape-outline-geometry.ts`), not the drawn silhouette — for a cloud or a heart those
+ * differ, and haloing the puffy edge would promise an attachment point the endpoint then does not use.
  *
  * A sibling of `interactive-layer.ts` rather than more methods on it: that file is already over the
  * house line-count guideline, and this is self-contained drawing with no state.
  */
+import { CONNECTION_POINT_RADIUS_PX, shapeConnectionPoints } from "../bindings/shape-connection-points";
 import { shapeOutlineScenePoints } from "../bindings/shape-outline-geometry";
 import type { AnyElement } from "../elements/element-types";
 import type { Camera } from "./camera";
@@ -16,6 +17,13 @@ import type { InteractiveLayerContext } from "./interactive-layer";
 
 /** Excalidraw's suggested-binding colours: a light blue that reads on white, a deeper one that reads on the dark canvas. */
 const HIGHLIGHT_COLOR = { light: "rgba(106,189,252,1)", dark: "rgba(3,93,161,1)" } as const;
+
+/**
+ * The anchor dots are neutral grey rather than the halo's blue, deliberately: the halo says "this
+ * shape", the dots say "these exact spots on it", and one colour for both would read as a single
+ * decoration instead of two pieces of information.
+ */
+const CONNECTION_DOT_COLOR = { light: "rgba(105,105,105,0.9)", dark: "rgba(190,190,190,0.9)" } as const;
 
 /**
  * Screen-space stroke width bounds. The halo is overlay chrome, like the selection frame, so it is
@@ -72,5 +80,33 @@ export function drawBindingHighlights(
     ctx.stroke();
   }
 
+  drawConnectionDots(ctx, elements, camera, theme);
   ctx.restore();
+}
+
+/**
+ * A filled dot on each highlighted shape's four connection anchors — where an endpoint released
+ * nearby snaps to. Positions come from `bindings/shape-connection-points.ts`, the same function the
+ * snap reads, so a dot is always drawn exactly where an endpoint would land.
+ *
+ * All four are shown, without regard to which the current arrow could reach: reachability depends on
+ * the arrow's *other* end (see `focusForConnectionPoint`), which this layer has no business knowing,
+ * and the dots describe the shape rather than any one gesture. An endpoint aimed at an anchor the
+ * binding cannot express simply attaches where it was dropped.
+ *
+ * Drawn after every halo rather than interleaved, so a dot is never painted under the halo of a shape
+ * stacked on top of it. Skipped wholesale on a context without `arc`: a square substituted for the
+ * dot would read as a resize handle.
+ */
+function drawConnectionDots(ctx: InteractiveLayerContext, elements: readonly AnyElement[], camera: Camera, theme: "light" | "dark"): void {
+  if (!ctx.arc) return;
+  ctx.fillStyle = CONNECTION_DOT_COLOR[theme];
+  for (const element of elements) {
+    for (const anchor of shapeConnectionPoints(element)) {
+      const screen = sceneToScreen(anchor, camera);
+      ctx.beginPath();
+      ctx.arc(screen.x, screen.y, CONNECTION_POINT_RADIUS_PX, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
 }

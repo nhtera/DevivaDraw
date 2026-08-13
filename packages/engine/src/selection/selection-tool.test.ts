@@ -177,13 +177,15 @@ describe("SelectionTool — move", () => {
 
   it("dragging a bound-endpoint arrow directly drops its binding", () => {
     const { scene, selection, tool } = setup();
-    const arrow = scene.addElement(createArrowElement({ x: 0, y: 0, points: [{ x: 0, y: 0 }, { x: 40, y: 0 }] }));
+    const arrow = scene.addElement(createArrowElement({ x: 0, y: 0, points: [{ x: 0, y: 0 }, { x: 100, y: 0 }], width: 100 }));
     scene.updateElement(arrow.id, { startBinding: { elementId: "some-shape", focus: 0, gap: 4 } } as Partial<ReturnType<typeof createArrowElement>>);
     selection.selectOnly([arrow.id]);
 
-    tool.onGestureStart({ x: 20, y: 0 }, NO_MODIFIERS);
-    tool.onGestureMove({ x: 20, y: 30 }, NO_MODIFIERS);
-    tool.onGestureEnd({ x: 20, y: 30 }, NO_MODIFIERS);
+    // Grabbed off every handle — clear of both endpoints and of the always-shown midpoint dot — so
+    // this is a move of the whole arrow, which is what drops a binding.
+    tool.onGestureStart({ x: 70, y: 0 }, NO_MODIFIERS);
+    tool.onGestureMove({ x: 70, y: 30 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: 70, y: 30 }, NO_MODIFIERS);
 
     expect((scene.getElement(arrow.id) as ReturnType<typeof createArrowElement>).startBinding).toBeNull();
   });

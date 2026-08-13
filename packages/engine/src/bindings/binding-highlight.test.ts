@@ -18,12 +18,11 @@ describe("resolveBindingHighlight", () => {
     }
   });
 
-  it("leaves the deep interior alone for a normal arrow, and takes it for an elbow one", () => {
-    // The halo has to promise exactly what the commit does, so it reads the same flag — see
-    // `findBindableShapeNear`, where the reasoning for the split lives.
+  it("takes the deep interior, so the halo lights up from anywhere inside a shape", () => {
+    // The halo has to promise exactly what the commit does — see `findBindableShapeNear`, which
+    // likewise accepts the interior whatever kind of arrow is being drawn.
     const rect = createRectangleElement({ x: 0, y: 0, width: 400, height: 400 });
-    expect(resolveBindingHighlight([rect], { x: 200, y: 200 }, THRESHOLD)).toBeNull();
-    expect(resolveBindingHighlight([rect], { x: 200, y: 200 }, THRESHOLD, true)).toBe(rect.id);
+    expect(resolveBindingHighlight([rect], { x: 200, y: 200 }, THRESHOLD)).toBe(rect.id);
   });
 
   it("returns null just beyond the threshold", () => {

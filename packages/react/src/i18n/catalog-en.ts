@@ -76,6 +76,7 @@ export const catalogEn = {
   "action.toggleMinimap": "Toggle minimap",
   "topbar.zoomMenu": "Zoom options",
   "action.toggleGrid": "Toggle grid",
+  "action.toggleObjectSnap": "Snap to objects",
   "action.toggleTheme": "Toggle theme",
   "action.toggleZenMode": "Toggle zen mode",
   "action.toggleViewOnly": "Toggle view-only mode",

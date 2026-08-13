@@ -31,28 +31,107 @@ function setup() {
 const arrowOf = (scene: Scene, id: string): ArrowElement => scene.getElement(id) as ArrowElement;
 
 describe("buildSelectionOverlay", () => {
-  it("gives a lone arrow the linear overlay", () => {
+  it("gives a lone two-point arrow the linear overlay and no frame at all", () => {
     const arrow = createArrowElement({ x: 0, y: 0, points: [{ x: 0, y: 0 }, { x: 10, y: 10 }] });
     expect(buildSelectionOverlay([arrow])).toEqual({ kind: "linear", arrow });
   });
 
-  it("keeps the bbox frame for a lone non-arrow", () => {
-    expect(buildSelectionOverlay([createRectangleElement({ x: 0, y: 0, width: 10, height: 10 })])?.kind).toBe("bbox");
+  it("gives a lone bent arrow both — the frame, and its vertex handles on top", () => {
+    // Once an arrow has interior points, scaling the whole shape of it is a real edit again, and the
+    // frame is the only way to rotate one. Excalidraw draws both for a multi-point arrow.
+    const bent = createArrowElement({ x: 0, y: 0, points: [{ x: 0, y: 0 }, { x: 10, y: 10 }, { x: 20, y: 0 }] });
+    const overlay = buildSelectionOverlay([bent]);
+    expect(overlay?.kind).toBe("bbox");
+    expect(overlay?.arrow).toBe(bent);
+  });
+
+  it("keeps the bbox frame for a lone non-arrow, with no handles to draw", () => {
+    const overlay = buildSelectionOverlay([createRectangleElement({ x: 0, y: 0, width: 10, height: 10 })]);
+    expect(overlay?.kind).toBe("bbox");
+    expect(overlay?.arrow).toBeNull();
   });
 
   it("keeps the bbox frame when an arrow is selected alongside anything else — the group really does resize as a unit", () => {
     const arrow = createArrowElement({ x: 0, y: 0, points: [{ x: 0, y: 0 }, { x: 10, y: 10 }] });
     const rect = createRectangleElement({ x: 0, y: 0, width: 10, height: 10 });
-    expect(buildSelectionOverlay([arrow, rect])?.kind).toBe("bbox");
+    const overlay = buildSelectionOverlay([arrow, rect]);
+    expect(overlay?.kind).toBe("bbox");
+    expect(overlay?.arrow).toBeNull();
   });
 
   it("keeps the bbox frame for a locked arrow, whose handles would promise an edit that cannot happen", () => {
     const arrow = { ...createArrowElement({ x: 0, y: 0, points: [{ x: 0, y: 0 }, { x: 10, y: 10 }] }), locked: true };
-    expect(buildSelectionOverlay([arrow])?.kind).toBe("bbox");
+    const overlay = buildSelectionOverlay([arrow]);
+    expect(overlay?.kind).toBe("bbox");
+    expect(overlay?.arrow).toBeNull(); // no handles either
   });
 
   it("is null for an empty selection", () => {
     expect(buildSelectionOverlay([])).toBeNull();
+  });
+});
+
+describe("SelectionTool — a bent arrow keeps both affordances", () => {
+  /**
+   * A V: (100,50) -> (200,150) -> (300,50). Its two endpoints sit on the *top* bbox corners, leaving
+   * the bottom two corners free — so the frame's handles can be aimed at without a vertex handle in
+   * the way, which is what makes the resize case below testable at all.
+   */
+  function bentSetup() {
+    const base = setup();
+    const bent = base.scene.addElement(
+      createArrowElement({ x: 100, y: 50, points: [{ x: 0, y: 0 }, { x: 100, y: 100 }, { x: 200, y: 0 }], width: 200, height: 100 }),
+    );
+    base.selection.selectOnly([bent.id]);
+    return { ...base, bent };
+  }
+
+  it("still grabs a vertex handle, which is tested ahead of the frame's resize handles", () => {
+    const { scene, tool, bent, target } = bentSetup();
+
+    tool.onGestureStart({ x: 300, y: 50 }, NO_MODIFIERS); // the arrow's last vertex
+    tool.onGestureMove({ x: 395, y: 50 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: 395, y: 50 }, NO_MODIFIERS);
+
+    const updated = arrowOf(scene, bent.id);
+    expect(updated.endBinding?.elementId).toBe(target.id);
+    expect(updated.points).toHaveLength(3); // dragged, not bent again
+  });
+
+  it("still resizes from a frame corner that has no vertex on it — which a two-point arrow offers nowhere", () => {
+    const { scene, tool, bent } = bentSetup();
+    const before = arrowOf(scene, bent.id);
+
+    // The bottom-right corner of the frame, a hundred units from the nearest vertex. Only a resize
+    // can change the arrow's size: a grab that missed every handle would move it instead.
+    tool.onGestureStart({ x: 306, y: 156 }, NO_MODIFIERS);
+    tool.onGestureMove({ x: 420, y: 260 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: 420, y: 260 }, NO_MODIFIERS);
+
+    const after = arrowOf(scene, bent.id);
+    expect(after.width).toBeGreaterThan(before.width);
+    expect(after.height).toBeGreaterThan(before.height);
+    expect(after.points).toHaveLength(3);
+  });
+
+  it("gives the vertex the corner when the two coincide — dragging a point is what the circle promises", () => {
+    // Deliberate priority, not an accident: at a corner where an endpoint sits, the vertex circle is
+    // drawn on top of the resize square, and the endpoint drag is both the likelier intent and the
+    // one the visible handle advertises. Resize stays available from the other three corners.
+    const { scene, tool, bent } = bentSetup();
+    const before = arrowOf(scene, bent.id);
+
+    const absolute = (arrow: ArrowElement, index: number) => ({ x: arrow.x + arrow.points[index]!.x, y: arrow.y + arrow.points[index]!.y });
+
+    tool.onGestureStart({ x: 304, y: 44 }, NO_MODIFIERS); // top-right corner — and the arrow's end vertex
+    tool.onGestureMove({ x: 360, y: 44 }, NO_MODIFIERS); // clear of the bindable rect at x >= 400
+    tool.onGestureEnd({ x: 360, y: 44 }, NO_MODIFIERS);
+
+    const after = arrowOf(scene, bent.id);
+    // A resize would have scaled every point; the vertex drag moved only the one that was grabbed.
+    expect(absolute(after, 1)).toEqual(absolute(before, 1));
+    expect(absolute(after, 0)).toEqual(absolute(before, 0));
+    expect(absolute(after, 2).x).toBeCloseTo(360);
   });
 });
 
@@ -101,9 +180,10 @@ describe("SelectionTool — arrow endpoint editing", () => {
     const { scene, selection, tool, arrow } = setup();
     selection.selectOnly([arrow.id]);
 
-    tool.onGestureStart({ x: 150, y: 50 }, NO_MODIFIERS); // mid-segment, no dot offered without a hover
-    tool.onGestureMove({ x: 150, y: 150 }, NO_MODIFIERS);
-    tool.onGestureEnd({ x: 150, y: 150 }, NO_MODIFIERS);
+    // Off every handle: clear of both endpoints and of the midpoint dot a two-point arrow always shows.
+    tool.onGestureStart({ x: 130, y: 50 }, NO_MODIFIERS);
+    tool.onGestureMove({ x: 130, y: 150 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: 130, y: 150 }, NO_MODIFIERS);
 
     const after = arrowOf(scene, arrow.id);
     expect(after.y).toBeCloseTo(150); // the whole arrow travelled

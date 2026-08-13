@@ -44,15 +44,13 @@ describe("findBindableShapeNear", () => {
     expect(findBindableShapeNear(scene, { x: 2, y: 2 }, 5)).toBeNull();
   });
 
-  it("ignores the deep interior for a normal arrow, but takes it for an elbow one", () => {
+  it("takes the deep interior, whatever kind of arrow is being drawn", () => {
     const scene = new Scene();
     const rect = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 400, height: 400 }));
-    const middle = { x: 200, y: 200 };
 
-    // Drawing *through* a shape is ordinary, so releasing deep inside one does not attach a normal
-    // arrow to it. An elbow connector exists to join boxes, so aiming anywhere at a box means it.
-    expect(findBindableShapeNear(scene, middle, 5)).toBeNull();
-    expect(findBindableShapeNear(scene, middle, 5, true)?.id).toBe(rect.id);
+    // Aiming anywhere at a shape means that shape — verified against Excalidraw, where an endpoint
+    // released at a box's dead centre attaches and then follows the box. Ctrl is the way out.
+    expect(findBindableShapeNear(scene, { x: 200, y: 200 }, 5)?.id).toBe(rect.id);
   });
 
   it("still finds the nearest edge from inside, whatever the arrow type", () => {
@@ -238,5 +236,28 @@ describe("registerArrowBindingHooks", () => {
     scene.updateElement(shapeA.id, { x: 900, y: 900 });
 
     expect(scene.getElement(textElementId)).toEqual(labelBefore);
+  });
+});
+
+describe("findBindableShapeNear — locked shapes", () => {
+  it("skips a locked shape, so the halo and the commit agree about what is a target", () => {
+    // A locked shape draws no halo (`resolveBindingHighlight` excludes it), so binding to one would
+    // be an attachment with no visible cause. Interior binding makes this matter: a large locked
+    // backdrop covers most of the canvas.
+    const scene = new Scene();
+    const rect = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 400, height: 400 }));
+    scene.updateElement(rect.id, { locked: true });
+
+    expect(findBindableShapeNear(scene, { x: 200, y: 200 }, 5)).toBeNull();
+    expect(findBindableShapeNear(scene, { x: 2, y: 200 }, 5)).toBeNull();
+  });
+
+  it("still finds an unlocked shape stacked beneath a locked one", () => {
+    const scene = new Scene();
+    const below = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 400, height: 400 }));
+    const above = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 400, height: 400 }));
+    scene.updateElement(above.id, { locked: true });
+
+    expect(findBindableShapeNear(scene, { x: 200, y: 200 }, 5)?.id).toBe(below.id);
   });
 });

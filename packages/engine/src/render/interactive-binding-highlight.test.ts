@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createEllipseElement, createRectangleElement, createTriangleElement } from "../elements/shape-elements";
 import { createNoteElement } from "../elements/note-element";
+import { CONNECTION_POINT_RADIUS_PX } from "../bindings/shape-connection-points";
 import { createCamera } from "./camera";
 import { drawBindingHighlights } from "./interactive-binding-highlight";
 import type { InteractiveLayerContext } from "./interactive-layer";
@@ -51,6 +52,15 @@ function fakeContext(options: { withEllipse?: boolean } = {}) {
   };
 
   return { ctx: ctx as unknown as InteractiveLayerContext, calls, lineWidths, strokeStyles, ellipseArgs, linePoints };
+}
+
+/** A context that can draw circles, so the connection-anchor dots are recorded rather than skipped. */
+function fakeContextWithArc() {
+  const dots: Array<{ x: number; y: number; radius: number; fill: string }> = [];
+  const base = fakeContext();
+  const ctx = base.ctx as unknown as Record<string, unknown>;
+  ctx.arc = (x: number, y: number, radius: number) => dots.push({ x, y, radius, fill: String(ctx.fillStyle) });
+  return { ...base, dots };
 }
 
 const CAMERA = createCamera();
@@ -145,5 +155,52 @@ describe("drawBindingHighlights", () => {
       "light",
     );
     expect(calls.filter((call) => call === "stroke")).toHaveLength(2);
+  });
+});
+
+describe("drawBindingHighlights — connection anchors", () => {
+  it("marks the four anchors of every highlighted shape", () => {
+    const { ctx, dots } = fakeContextWithArc();
+    drawBindingHighlights(ctx, [createRectangleElement({ x: 0, y: 0, width: 100, height: 60 })], CAMERA, "light");
+
+    expect(dots.map((dot) => [dot.x, dot.y])).toEqual([
+      [50, 0],
+      [100, 30],
+      [50, 60],
+      [0, 30],
+    ]);
+  });
+
+  it("draws them in grey, not the halo's blue — the halo says which shape, the dots say where on it", () => {
+    const { ctx, dots } = fakeContextWithArc();
+    drawBindingHighlights(ctx, [createRectangleElement({ x: 0, y: 0, width: 100, height: 60 })], CAMERA, "light");
+    for (const dot of dots) expect(dot.fill).toBe("rgba(105,105,105,0.9)");
+  });
+
+  it("uses a lighter grey on the dark canvas, as the halo does", () => {
+    const { ctx, dots } = fakeContextWithArc();
+    drawBindingHighlights(ctx, [createRectangleElement({ x: 0, y: 0, width: 100, height: 60 })], CAMERA, "dark");
+    expect(dots[0]!.fill).toBe("rgba(190,190,190,0.9)");
+  });
+
+  it("keeps the dots a fixed screen size, since they are pointer targets rather than drawing", () => {
+    for (const zoom of [0.5, 1, 3]) {
+      const { ctx, dots } = fakeContextWithArc();
+      drawBindingHighlights(ctx, [createRectangleElement({ x: 0, y: 0, width: 100, height: 60 })], { ...CAMERA, zoom }, "light");
+      expect(dots[0]!.radius).toBe(CONNECTION_POINT_RADIUS_PX);
+    }
+  });
+
+  it("marks every shape in the list, so both ends of an arrow spanning two shapes show their anchors", () => {
+    const { ctx, dots } = fakeContextWithArc();
+    const shapes = [createRectangleElement({ x: 0, y: 0, width: 40, height: 40 }), createRectangleElement({ x: 200, y: 0, width: 40, height: 40 })];
+    drawBindingHighlights(ctx, shapes, CAMERA, "light");
+    expect(dots).toHaveLength(8);
+  });
+
+  it("skips the dots entirely on a context without a curve primitive, rather than substituting squares", () => {
+    const { ctx, calls } = fakeContext();
+    drawBindingHighlights(ctx, [createRectangleElement({ x: 0, y: 0, width: 100, height: 60 })], CAMERA, "light");
+    expect(calls).not.toContain("fill");
   });
 });

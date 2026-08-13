@@ -27,6 +27,11 @@ export interface GridState {
   size: number;
 }
 
+/** Live mutable "snap to objects" state — same in-place-mutation contract as `GridState`: the move gesture reads it on every pointer move, so it must not be a captured boolean. */
+export interface ObjectSnapState {
+  enabled: boolean;
+}
+
 /** Booleans backed by the app shell's own React state, exposed as get/set pairs so action handlers (living outside React) can read/toggle them without needing hooks. */
 export interface UiToggleState {
   getZenMode(): boolean;
@@ -96,6 +101,7 @@ export interface ActionRuntime {
   getCamera(): Camera;
   getViewportSize(): { width: number; height: number };
   grid: GridState;
+  objectSnap: ObjectSnapState;
   ui: UiToggleState;
   theme: { mode: ThemeMode; toggleMode(): void };
   persistence: PersistenceOperations;

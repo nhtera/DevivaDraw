@@ -40,7 +40,7 @@ base.
 | `render/` | `Camera`, viewport culling, per-element renderers (rough shapes, freedraw, text, image, arrow, frame), dual-layer `StaticLayer`/`InteractiveLayer` compositor, per-element drawable caches. |
 | `tools/` | Concrete `ToolHandler`s: every shape, freedraw/highlighter, text, note, arrow/line, lasso, frame, eraser, laser; shared `DragShapeTool` base + style state. |
 | `selection/` | Hit-test, marquee, lasso select, resize/rotate handles, arrow vertex handles + point-drag editor, group transform, align/distribute, group/ungroup, snapping, clipboard, z-order ops, frame membership, `SelectionTool`. |
-| `bindings/` | Arrow-to-shape binding model, per-outline-kind geometry, gap/proximity thresholds, endpoint preview, suggested-binding resolver, binding recompute, scene-sync hooks, arrow labels. See [System Architecture](./system-architecture.md#arrow-binding-how-an-arrow-stays-attached-to-a-shape). |
+| `bindings/` | Arrow-to-shape binding model, per-outline-kind geometry, connection anchors + snap solve, gap/proximity thresholds, endpoint preview, suggested-binding resolver, binding recompute, scene-sync hooks, arrow labels. See [System Architecture](./system-architecture.md#arrow-binding-how-an-arrow-stays-attached-to-a-shape). |
 | `text/` | Font loading, text measurement/wrap (injectable `TextMeasurer`), bound-text layout/lifecycle for bindable containers, text edit session. |
 | `images/` | Content-addressed file store (`FilesMap`), image insert (resize/validate), `ImageDecodeCache` (injectable decoder). |
 | `persistence/` | `SceneDocumentV1` schema, migrations registry, validation, serialize/deserialize, localStorage autosave. |
@@ -59,6 +59,7 @@ React or a DOM.
 - `components/` — the full UI chrome: toolbar, more-tools overflow menu, main menu (open/save/export/theme/language), style panel, context menu, shortcuts dialog, command palette, share & collab dialogs, canvas hint, text-editor overlay.
 - `runtime/` — wires engine tools, actions, and render loop into the React tree (`use-deviva-runtime`, `build-tools`, `build-runtime`, `start-render-loop`).
 - `theme/` — light/dark/system theme provider, tokens, and storage.
+- `preferences/` — canvas preferences that persist on their own key, independent of the scene (currently "snap to objects").
 - `i18n/` — translation catalogs (English + Vietnamese) and `useTranslation`.
 - `hooks/` — text editing, paste/drop-to-insert-image, clipboard detection, Enter-vs-Shift+Enter commit logic.
 

@@ -4,6 +4,7 @@
  * as everything else — kept intentionally tiny, no dedicated UI beyond a main-menu toggle each).
  */
 import { selectionBoundsOf } from "@deviva-draw/engine";
+import { writeStoredObjectSnap } from "../preferences/object-snap-storage";
 import type { Action, ActionRuntime } from "./action-types";
 
 /** Rotation-aware bounds of the current selection, or `null` when nothing is selected. */
@@ -33,6 +34,21 @@ export function buildViewActions(): Action[] {
       icon: "grid",
       run: (runtime) => {
         runtime.grid.enabled = !runtime.grid.enabled;
+      },
+    },
+    {
+      id: "toggle-object-snap",
+      labelKey: "action.toggleObjectSnap",
+      icon: "snap",
+      // Alt+S, the shortcut Excalidraw uses for the same preference.
+      shortcut: "alt+s",
+      run: (runtime) => {
+        runtime.objectSnap.enabled = !runtime.objectSnap.enabled;
+        try {
+          if (typeof window !== "undefined") writeStoredObjectSnap(window.localStorage, runtime.objectSnap.enabled);
+        } catch {
+          // A blocked-storage policy costs the preference its memory across reloads, never the toggle itself.
+        }
       },
     },
     { id: "toggle-theme", labelKey: "action.toggleTheme", icon: "theme", run: (runtime) => runtime.theme.toggleMode() },

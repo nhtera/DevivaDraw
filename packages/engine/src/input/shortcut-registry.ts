@@ -113,6 +113,14 @@ export function registerStyleClipboardShortcuts(registry: ShortcutRegistry): voi
   registry.register("shift+x", "draw-to-shape");
 }
 
+/**
+ * Canvas preferences that have no tool of their own — `Alt+S` toggles align-to-other-elements
+ * snapping, the combo Excalidraw uses for the same preference.
+ */
+export function registerPreferenceShortcuts(registry: ShortcutRegistry): void {
+  registry.register("alt+s", "toggle-object-snap");
+}
+
 /** Mirroring the selection — `Shift+H` / `Shift+V`, matching Excalidraw. */
 export function registerFlipShortcuts(registry: ShortcutRegistry): void {
   registry.register("shift+h", "flip-horizontal");
@@ -137,6 +145,7 @@ export function registerCommandPaletteShortcut(registry: ShortcutRegistry): void
 export function registerFullShortcutMap(registry: ShortcutRegistry): void {
   registerCoreShortcuts(registry);
   registerToolShortcuts(registry);
+  registerPreferenceShortcuts(registry);
   registerHistoryShortcuts(registry);
   registerCommandPaletteShortcut(registry);
   registerStyleClipboardShortcuts(registry);

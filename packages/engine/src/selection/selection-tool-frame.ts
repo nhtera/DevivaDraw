@@ -45,24 +45,36 @@ export function buildSelectionFrame(elements: readonly AnyElement[]): SelectionF
 }
 
 /**
- * What the overlay should draw for the current selection. A lone arrow is a polyline, not a box, so
- * it gets vertex handles (`selection/linear-handles.ts`) instead of a bounding box with eight resize
- * squares — dragging an arrow's corner to "resize" it was never a meaningful edit, whereas dragging
- * its endpoint is the whole point of an arrow.
+ * What the overlay should draw for the current selection, split the way Excalidraw splits it.
  *
- * Everything else — several elements, or anything that is not an arrow — keeps the bbox frame
- * untouched, including an arrow selected *alongside* other elements, where the group really does
- * resize as a unit.
+ * A lone *two-point* arrow is a line, not a box: it gets vertex handles
+ * (`selection/linear-handles.ts`) and no frame at all. Dragging such an arrow's corner to "resize" it
+ * was never a meaningful edit, whereas dragging its endpoint is the whole point of an arrow, and a
+ * box drawn around a single diagonal segment is mostly empty canvas.
+ *
+ * A lone arrow with a bend has both: the bbox frame *and* its vertex handles on top. Once an arrow
+ * has interior points, scaling the whole shape of it is a real edit again — and it is the only way to
+ * rotate one.
+ *
+ * Everything else keeps the bbox frame untouched: several elements (where the group resizes as a
+ * unit), anything that is not an arrow, and a locked arrow — whose handles would advertise an edit
+ * that cannot happen. `arrow` is the lone arrow whose handles the overlay should also draw, or
+ * `null`.
  */
-export type SelectionOverlay = { kind: "bbox"; frame: SelectionFrame } | { kind: "linear"; arrow: ArrowElement };
+export type SelectionOverlay =
+  | { kind: "bbox"; frame: SelectionFrame; arrow: ArrowElement | null }
+  | { kind: "linear"; arrow: ArrowElement };
+
+/** A two-point arrow has no interior geometry to scale, so it is the one that drops the frame. */
+const MAX_POINTS_WITHOUT_FRAME = 2;
 
 /** `null` for an empty selection — see `buildSelectionFrame`, which this wraps. */
 export function buildSelectionOverlay(elements: readonly AnyElement[]): SelectionOverlay | null {
   const live = elements.filter((element) => !element.isDeleted);
   const only = live.length === 1 ? live[0]! : null;
-  // A locked arrow keeps the plain frame: its handles would advertise an edit that cannot happen.
-  if (only?.type === "arrow" && !only.locked) return { kind: "linear", arrow: only };
+  const arrow = only?.type === "arrow" && !only.locked ? only : null;
+  if (arrow && arrow.points.length <= MAX_POINTS_WITHOUT_FRAME) return { kind: "linear", arrow };
 
   const frame = buildSelectionFrame(elements);
-  return frame ? { kind: "bbox", frame } : null;
+  return frame ? { kind: "bbox", frame, arrow } : null;
 }

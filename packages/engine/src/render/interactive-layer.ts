@@ -120,12 +120,12 @@ export class InteractiveLayer {
     // selected, and the halo is the thicker of the two.
     drawBindingHighlights(this.ctx, overlayState.bindingHighlightElements ?? [], camera, overlayState.theme ?? "light");
 
-    // A lone arrow shows vertex handles instead of a resize frame — see `buildSelectionOverlay`.
+    // A lone two-point arrow shows vertex handles instead of a resize frame; a bent one shows both,
+    // handles last so they sit above the frame — see `buildSelectionOverlay`.
     const overlay = buildSelectionOverlay(overlayState.selectedElements);
     if (overlay?.kind === "bbox") this.drawSelectionFrame(overlay.frame, camera);
-    else if (overlay?.kind === "linear") {
-      drawLinearHandles(this.ctx, linearHandleLayout(overlay.arrow, camera.zoom, overlayState.hoverPoint), camera);
-    }
+    const handleArrow = overlay?.arrow ?? null;
+    if (handleArrow) drawLinearHandles(this.ctx, linearHandleLayout(handleArrow, camera.zoom, overlayState.hoverPoint), camera);
 
     this.drawRemoteCursors(overlayState.remoteCursors ?? [], camera);
     this.drawLaserTrail(overlayState.laserTrail ?? [], camera);

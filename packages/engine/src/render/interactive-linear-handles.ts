@@ -1,9 +1,11 @@
 /**
  * Draws a selected arrow's editing handles: a hollow circle on each stored vertex, and a soft dot at
- * the midpoint of whichever segment the pointer is near.
+ * a segment's midpoint (which one, and when, is `selection/linear-handles.ts`'s decision).
  *
- * No bounding box and no outline around the arrow — the handles plus the arrow's own stroke already
- * say everything a frame would, and a box around a diagonal line mostly encloses empty canvas.
+ * Nothing here draws a frame. A plain two-point arrow gets no bounding box at all — the two circles
+ * plus the arrow's own stroke say everything a box would, and a box around a diagonal line mostly
+ * encloses empty canvas. A multi-point arrow does get one, but from `drawSelectionFrame`; these
+ * handles are then painted over it.
  *
  * Positions come from `selection/linear-handles.ts`, the same function the hit test uses, so a handle
  * is never drawn somewhere it cannot be grabbed.
@@ -18,6 +20,8 @@ const HANDLE_STROKE = "#6965db";
 const HANDLE_FILL = "#ffffff";
 const MIDPOINT_FILL = "rgba(105,101,219,0.35)";
 const HANDLE_LINE_WIDTH = 1.5;
+/** How much the insert-a-bend dot grows while the pointer is on it. */
+const MIDPOINT_HOVER_SCALE = 1.8;
 
 /**
  * Strokes `layout`'s handles. Radii are screen-space constants, so handles stay the same size at any
@@ -43,12 +47,14 @@ export function drawLinearHandles(ctx: InteractiveLayerContext, layout: LinearHa
     ctx.stroke();
   }
 
-  // Drawn last so it sits above a vertex handle it may partly overlap on a short segment.
+  // Drawn last so it sits above a vertex handle it may partly overlap on a short segment. A hovered
+  // dot swells rather than changing colour: it is the same target either way, and the growth confirms
+  // the pointer has it without introducing a second meaning.
   if (layout.midpoint) {
     const screen = sceneToScreen(layout.midpoint.point, camera);
     ctx.fillStyle = MIDPOINT_FILL;
     ctx.beginPath();
-    ctx.arc(screen.x, screen.y, MIDPOINT_HANDLE_RADIUS_PX, 0, Math.PI * 2);
+    ctx.arc(screen.x, screen.y, layout.midpoint.hovered ? MIDPOINT_HANDLE_RADIUS_PX * MIDPOINT_HOVER_SCALE : MIDPOINT_HANDLE_RADIUS_PX, 0, Math.PI * 2);
     ctx.fill();
   }
 

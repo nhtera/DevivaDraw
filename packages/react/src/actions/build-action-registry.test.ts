@@ -97,6 +97,53 @@ describe("buildActionRegistry", () => {
   });
 });
 
+describe("toggle-object-snap", () => {
+  /**
+   * Runs `run` with a `window.localStorage` in place, then restores. These tests run in Node, where
+   * there is no `window` at all — which is the very case the action's `typeof window` guard exists
+   * for, so the stub has to supply the whole thing rather than just the storage.
+   */
+  function withLocalStorage(stub: { getItem(key: string): string | null; setItem(key: string, value: string): void }, run: () => void): void {
+    const original = Object.getOwnPropertyDescriptor(globalThis, "window");
+    Object.defineProperty(globalThis, "window", { value: { localStorage: stub }, configurable: true, writable: true });
+    try {
+      run();
+    } finally {
+      if (original) Object.defineProperty(globalThis, "window", original);
+      else delete (globalThis as { window?: unknown }).window;
+    }
+  }
+
+  it("flips the live flag the select tool reads, and persists the new value", () => {
+    const runtime = buildTestRuntime(new Scene());
+    const written = new Map<string, string>();
+    withLocalStorage({ getItem: (key) => written.get(key) ?? null, setItem: (key, value) => void written.set(key, value) }, () => {
+      buildActionRegistry({}).run("toggle-object-snap", runtime);
+    });
+
+    expect(runtime.objectSnap.enabled).toBe(true);
+    expect(written.get("devivadraw:object-snap:v1")).toBe("on");
+  });
+
+  it("still flips when storage throws — a blocked-storage policy costs the memory, never the toggle", () => {
+    // Safari private mode and a blocked-cookies policy both make `setItem` throw outright.
+    const runtime = buildTestRuntime(new Scene());
+    withLocalStorage(
+      {
+        getItem: () => null,
+        setItem: () => {
+          throw new Error("QuotaExceededError");
+        },
+      },
+      () => {
+        expect(() => buildActionRegistry({}).run("toggle-object-snap", runtime)).not.toThrow();
+      },
+    );
+
+    expect(runtime.objectSnap.enabled).toBe(true);
+  });
+});
+
 function buildTestRuntime(scene: Scene): ActionRuntime {
   const selection = new SelectionState();
   const history = new HistoryStack<AnyElement[]>(scene.getElements());
@@ -112,6 +159,7 @@ function buildTestRuntime(scene: Scene): ActionRuntime {
     getCamera: () => ({ scrollX: 0, scrollY: 0, zoom: 1 }),
     getViewportSize: () => ({ width: 800, height: 600 }),
     grid: { enabled: false, size: 20 },
+    objectSnap: { enabled: false },
     ui: {
       getZenMode: () => false,
       setZenMode: vi.fn(),

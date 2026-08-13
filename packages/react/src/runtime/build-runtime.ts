@@ -83,6 +83,7 @@ export function buildRuntime(options: BuildRuntimeOptions): DevivaRuntime {
     getCamera,
     getViewportSize: () => ({ width: container.clientWidth, height: container.clientHeight }),
     grid: tools.grid,
+    objectSnap: tools.objectSnap,
     ui,
     theme: { get mode() { return getThemeMode(); }, toggleMode: toggleThemeMode },
     persistence,

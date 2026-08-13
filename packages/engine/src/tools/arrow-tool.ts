@@ -13,6 +13,7 @@ import { resolveBindingHighlights } from "../bindings/binding-highlight";
 import { findBindableShapeNear } from "../bindings/binding-scene-sync";
 import { maxBindingDistanceSceneUnits } from "../bindings/binding-thresholds";
 import { isBindingSuppressed, previewBoundEndpoint } from "../bindings/preview-bound-endpoint";
+import { CONNECTION_POINT_SNAP_PX } from "../bindings/shape-connection-points";
 import { createArrowElement } from "../elements/arrow-element";
 import type { ArrowElement, ArrowType } from "../elements/arrow-element";
 import { NoOpToolHandler } from "../input/tool-handler";
@@ -132,12 +133,18 @@ export class ArrowTool extends NoOpToolHandler {
   private snappedEnds(start: Point, moving: Point, modifiers: ModifierKeys): [Point, Point] {
     if (isBindingSuppressed(modifiers)) return [start, moving];
     const threshold = maxBindingDistanceSceneUnits(this.deps.getZoom());
+    const snapRadius = this.connectionSnapRadius();
     const startTarget = findBindableShapeNear(this.deps.scene, start, threshold);
     const endTarget = findBindableShapeNear(this.deps.scene, moving, threshold);
 
-    const snappedStart = startTarget ? (previewBoundEndpoint(startTarget, start, moving)?.point ?? start) : start;
-    const snappedEnd = endTarget ? (previewBoundEndpoint(endTarget, moving, snappedStart)?.point ?? moving) : moving;
+    const snappedStart = startTarget ? (previewBoundEndpoint(startTarget, start, moving, snapRadius)?.point ?? start) : start;
+    const snappedEnd = endTarget ? (previewBoundEndpoint(endTarget, moving, snappedStart, snapRadius)?.point ?? moving) : moving;
     return [snappedStart, snappedEnd];
+  }
+
+  /** The anchor-snap distance in scene units — a screen-space constant, so a dot is equally easy to hit at any zoom. */
+  private connectionSnapRadius(): number {
+    return CONNECTION_POINT_SNAP_PX / this.deps.getZoom();
   }
 
   override onGestureEnd(point: Point, modifiers: ModifierKeys): void {
@@ -217,7 +224,7 @@ export class ArrowTool extends NoOpToolHandler {
     // the next undo behaved unpredictably. Logged rather than swallowed: any such gap must stay
     // visible in the console, it just must not cost the user their arrow.
     try {
-      applyEndpointBindingsOnFinish(this.deps.scene, elementId, this.vertices, threshold);
+      applyEndpointBindingsOnFinish(this.deps.scene, elementId, this.vertices, threshold, this.connectionSnapRadius());
     } catch (error) {
       console.error(`arrow-tool: endpoint binding failed for "${elementId}" (arrow committed unbound):`, error);
     }

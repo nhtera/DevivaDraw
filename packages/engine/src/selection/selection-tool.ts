@@ -89,14 +89,16 @@ export class SelectionTool extends NoOpToolHandler {
     const selectedElements = [...this.deps.selection.getSelectedIds()]
       .map((id) => this.deps.scene.getElement(id))
       .filter((element): element is AnyElement => !!element);
-    // A lone selected arrow shows vertex handles instead of a resize frame, so its handles are
-    // hit-tested *first*: the frame's handles are not drawn in that case, and testing them anyway
-    // would leave invisible grab zones where they used to be.
+    // A lone selected arrow's vertex handles are hit-tested *first*, ahead of any resize handle. For
+    // a two-point arrow no frame is drawn at all, so testing the frame's handles would leave
+    // invisible grab zones where they used to be; for a bent arrow both are drawn, and dragging a
+    // point is both the likelier intent and the one the vertex circle visibly promises.
     const overlay = buildSelectionOverlay(selectedElements);
-    if (overlay?.kind === "linear") {
-      const layout = linearHandleLayout(overlay.arrow, zoom, this.hoverPoint);
+    const handleArrow = overlay?.arrow ?? null;
+    if (handleArrow) {
+      const layout = linearHandleLayout(handleArrow, zoom, this.hoverPoint);
       const target = hitLinearHandle(layout, point, zoom);
-      if (target && this.linearPoint.begin(overlay.arrow, target)) {
+      if (target && this.linearPoint.begin(handleArrow, target)) {
         this.mode = "linear-point";
         return;
       }

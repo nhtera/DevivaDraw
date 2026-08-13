@@ -5,9 +5,10 @@
  * grabbable somewhere nothing is drawn.
  *
  * A selected arrow is a polyline, not a box: it shows a hollow circle on each stored vertex, and a
- * soft dot at the middle of whichever segment the pointer is near (drag it to insert a bend). The
- * dot appears on hover rather than always, so a multi-point arrow stays legible — the same choice
- * Excalidraw makes.
+ * soft dot at the middle of a segment (drag it to insert a bend). A plain two-point arrow shows its
+ * one dot always — there is only ever one, and an affordance nobody knows to hover for is one nobody
+ * finds. A multi-point arrow instead offers the dot only on the segment the pointer is near, because
+ * showing every segment's dot at once turns the arrow into a row of markers. Both match Excalidraw.
  *
  * Handles ride the arrow's *stored* vertices. For an elbow arrow that is deliberately not the drawn
  * dogleg: the route is derived from the two endpoints, so those endpoints are the only things there
@@ -41,6 +42,8 @@ export interface MidpointHandle {
   /** Index of the segment this dot splits: the new vertex is inserted at `segmentIndex + 1`. */
   segmentIndex: number;
   point: Point;
+  /** Whether the pointer is near enough to grab it — the renderer swells the dot to confirm the aim. */
+  hovered: boolean;
 }
 
 export interface LinearHandleLayout {
@@ -57,8 +60,9 @@ function midpointOf(a: Point, b: Point): Point {
 }
 
 /**
- * Handle positions for `arrow` in scene coordinates. `hoverPoint` decides which segment (if any)
- * offers a midpoint dot; omit it — as the renderer does mid-drag — for vertices only.
+ * Handle positions for `arrow` in scene coordinates. `hoverPoint` decides which segment of a
+ * multi-point arrow offers a midpoint dot, and whether a two-point arrow's ever-present dot is drawn
+ * in its hovered state; omit it — as the renderer does mid-drag — for the resting appearance.
  *
  * Pixel thresholds are converted to scene units through `zoom`, so a handle stays the same size and
  * the same distance from the pointer on screen whatever the camera is doing.
@@ -66,7 +70,7 @@ function midpointOf(a: Point, b: Point): Point {
 export function linearHandleLayout(arrow: ArrowElement, zoom: number, hoverPoint?: Point | null): LinearHandleLayout {
   const points = absolutePoints({ x: arrow.x, y: arrow.y }, arrow.points);
   const vertices = points.map((point, index) => ({ index, point }));
-  if (!hoverPoint || points.length < 2) return { vertices, midpoint: null };
+  if (points.length < 2) return { vertices, midpoint: null };
   // An elbow arrow's route is derived from its two endpoints alone, so a third vertex would be a
   // control the model has nowhere to put: the renderer would ignore it, but it would still count
   // toward the element's bounding box, and it would spring into view as an unexplained bend if the
@@ -75,17 +79,26 @@ export function linearHandleLayout(arrow: ArrowElement, zoom: number, hoverPoint
 
   const hoverRadius = MIDPOINT_HOVER_PX / zoom;
   const minSegmentLength = MIN_SEGMENT_FOR_MIDPOINT_PX / zoom;
+  const isNear = (from: Point, to: Point): number => (hoverPoint ? distanceToSegment(hoverPoint, from, to) : Number.POSITIVE_INFINITY);
+  const isLongEnough = (from: Point, to: Point): boolean => Math.hypot(to.x - from.x, to.y - from.y) >= minSegmentLength;
+
+  if (points.length === 2) {
+    const [from, to] = [points[0]!, points[1]!];
+    if (!isLongEnough(from, to)) return { vertices, midpoint: null };
+    return { vertices, midpoint: { segmentIndex: 0, point: midpointOf(from, to), hovered: isNear(from, to) <= hoverRadius } };
+  }
+
+  if (!hoverPoint) return { vertices, midpoint: null };
   let nearest: MidpointHandle | null = null;
   let nearestDistance = Number.POSITIVE_INFINITY;
-
   for (let index = 0; index < points.length - 1; index += 1) {
     const from = points[index]!;
     const to = points[index + 1]!;
-    if (Math.hypot(to.x - from.x, to.y - from.y) < minSegmentLength) continue;
-    const distance = distanceToSegment(hoverPoint, from, to);
+    if (!isLongEnough(from, to)) continue;
+    const distance = isNear(from, to);
     if (distance <= hoverRadius && distance < nearestDistance) {
       nearestDistance = distance;
-      nearest = { segmentIndex: index, point: midpointOf(from, to) };
+      nearest = { segmentIndex: index, point: midpointOf(from, to), hovered: true };
     }
   }
   return { vertices, midpoint: nearest };

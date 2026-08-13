@@ -177,6 +177,52 @@ describe("ArrowTool — endpoint binding on create", () => {
     expect(scene.getElement(shape.id)?.boundElements).toEqual([{ id: arrow.id, type: "arrow" }]); // deduped
   });
 
+  it("binds an end released deep inside a shape — aiming anywhere at a shape means that shape", () => {
+    // Verified against Excalidraw directly: an endpoint released at a box's dead centre attaches and
+    // then follows the box when it moves. Drawing *through* a shape attaches on the way past as a
+    // result; Ctrl is the way to place an end near a shape without connecting to it.
+    const scene = new Scene();
+    const shape = scene.addElement(createRectangleElement({ x: 200, y: 0, width: 400, height: 400 }));
+    const tool = new ArrowTool({ scene, styleState: new ShapeStyleState(), history: fakeHistory(), getZoom: () => 1 });
+
+    tool.onGestureStart({ x: -300, y: 200 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: 400, y: 200 }, NO_MODIFIERS); // the box's dead centre
+
+    expect(arrowOf(scene).endBinding?.elementId).toBe(shape.id);
+  });
+
+  it("snaps an end released near a connection anchor onto it, so the dots mean what they show", () => {
+    const scene = new Scene();
+    const shape = scene.addElement(createRectangleElement({ x: 200, y: 0, width: 200, height: 200 }));
+    const tool = new ArrowTool({ scene, styleState: new ShapeStyleState(), history: fakeHistory(), getZoom: () => 1 });
+
+    // Released a few units below the left-edge anchor at (200,100), well inside the snap radius.
+    tool.onGestureStart({ x: -100, y: 106 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: 197, y: 106 }, NO_MODIFIERS);
+
+    const arrow = arrowOf(scene);
+    expect(arrow.endBinding?.elementId).toBe(shape.id);
+    // The stored end sits on the anchor's row, pushed clear of the outline by the gap.
+    const endY = arrow.y + arrow.points.at(-1)!.y;
+    expect(endY).toBeCloseTo(100, 4);
+  });
+
+  it("leaves an end released between anchors exactly where it was put", () => {
+    const scene = new Scene();
+    scene.addElement(createRectangleElement({ x: 200, y: 0, width: 200, height: 200 }));
+    const tool = new ArrowTool({ scene, styleState: new ShapeStyleState(), history: fakeHistory(), getZoom: () => 1 });
+
+    tool.onGestureStart({ x: -100, y: 160 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: 197, y: 160 }, NO_MODIFIERS); // far from the (200,100) anchor
+
+    // Stays down where it was released rather than jumping up to the anchor. Not exactly 160: the
+    // gap pushes the tip outward along the shape's radius, which on a side edge has some vertical
+    // component. What matters is that it is nowhere near the anchor.
+    const arrow = arrowOf(scene);
+    const endY = arrow.y + arrow.points.at(-1)!.y;
+    expect(endY).toBeGreaterThan(150);
+  });
+
   it("dropping in empty space leaves both ends unbound", () => {
     const scene = new Scene();
     scene.addElement(createRectangleElement({ x: 0, y: 0, width: 40, height: 40 }));

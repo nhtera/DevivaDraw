@@ -12,7 +12,8 @@ import type { AnyElement } from "../elements/element-types";
 import type { ModifierKeys } from "../input/tool-handler";
 import type { Point } from "../render/camera";
 import { bindingGapFor } from "./binding-thresholds";
-import { computeFocusForBindingPoint, recomputeBindingPoint } from "./recompute-binding";
+import { computeFocusForBindingPoint, focusForConnectionPoint, recomputeBindingPoint } from "./recompute-binding";
+import { nearestConnectionPoint } from "./shape-connection-points";
 import { isBindableShapeGeometry } from "./shape-outline-geometry";
 
 /**
@@ -40,11 +41,24 @@ export interface BoundEndpointPreview {
  * Where binding this endpoint to `target` would put it. `desiredPoint` is where the user actually
  * has the endpoint; `referencePoint` is the arrow's other end, which sets the direction the binding
  * aims along. `null` when `target` has no outline to bind against.
+ *
+ * `snapRadiusSceneUnits` turns on anchor snapping: an endpoint dropped that near one of the target's
+ * connection points (`shape-connection-points.ts` — the dots the overlay draws while hovering) binds
+ * to that anchor exactly instead of to the pointer's own position. Pass `0` — the default — to bind
+ * wherever the endpoint actually is. Snapping silently declines when the anchor is unreachable from
+ * this direction; see `focusForConnectionPoint`.
  */
-export function previewBoundEndpoint(target: AnyElement, desiredPoint: Point, referencePoint: Point): BoundEndpointPreview | null {
+export function previewBoundEndpoint(
+  target: AnyElement,
+  desiredPoint: Point,
+  referencePoint: Point,
+  snapRadiusSceneUnits = 0,
+): BoundEndpointPreview | null {
   if (!isBindableShapeGeometry(target)) return null;
   const shapeType = target.type;
-  const focus = computeFocusForBindingPoint(shapeType, target, referencePoint, desiredPoint);
+  const anchor = nearestConnectionPoint(target, desiredPoint, snapRadiusSceneUnits);
+  const snappedFocus = anchor ? focusForConnectionPoint(shapeType, target, referencePoint, anchor) : null;
+  const focus = snappedFocus ?? computeFocusForBindingPoint(shapeType, target, referencePoint, desiredPoint);
   const gap = bindingGapFor(target);
   return { point: recomputeBindingPoint(shapeType, target, { focus, gap }, referencePoint), focus, gap };
 }
