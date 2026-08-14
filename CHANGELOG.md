@@ -6,6 +6,38 @@ All notable changes to Deviva Draw are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.6] — 2026-08-14
+
+### Added
+- **The connection dot you are aiming at lights up.** Bring an arrow endpoint near a
+  shape — while drawing a new arrow or dragging an existing one's end — and the anchor it
+  would snap to gains a blue ring with the dot filled in, the way Excalidraw marks it.
+  The ring's size is the snap zone itself: release anywhere inside it and the endpoint
+  lands exactly on the dot. The other three anchors stay grey, so "this shape" (the
+  halo), "these spots" (the dots) and "this exact one" (the ring) each read at a glance.
+- **Connecting arrows works by finger, not just by mouse.** On touch screens the grab
+  zone of an arrow's endpoint handles, the distance at which a shape offers itself for
+  connection, and the anchor snap zone are all twice as large — a fingertip covers far
+  more of the screen than a cursor does. Mouse and pen keep the tighter targets, so
+  precise work on desktop is unaffected.
+
+### Fixed
+- **Drawing can no longer silently stop working.** If a drawing gesture's release
+  happened where the canvas could not see it (the browser refuses pointer capture and
+  the pointer ends over the toolbar, or outside the window), every later stroke was
+  swallowed with no error until something happened to reset the canvas — the
+  intermittent "I draw but nothing appears" bug. A missed release is now caught at the
+  window, so the gesture always ends and the next stroke always starts.
+- **Touch: one stray finger no longer breaks the canvas for the rest of the session.**
+  A finger lifted off-canvas (easy to do mid-pinch) left the gesture tracker convinced
+  it was still down; from then on every one-finger drag wildly panned and zoomed the
+  canvas, and pinch-zoom stopped responding. The tracker now sees releases wherever
+  they happen and resets when the window loses focus.
+- **Touch: resting a second finger while drawing no longer drops a stray shape.**
+  Landing a palm or second finger mid-stroke cancelled the stroke correctly, but the
+  extra finger's own tap then planted a default shape under it. Extra fingers are now
+  consumed by the pan/pinch recognizer before the drawing pipeline can see them.
+
 ## [0.3.5] — 2026-08-14
 
 ### Added
@@ -236,6 +268,8 @@ Publishes `@deviva-draw/react` only; `@deviva-draw/engine` (0.3.1) and
 - Mobile style sheet centers via auto margins, so its entrance animation no longer shifts it.
 - Hamburger menu renders as a centered SVG glyph instead of the off-center Unicode `☰`.
 
+[0.3.6]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.6
+[0.3.5]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.5
 [0.3.4]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.4
 [0.3.3]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.3
 [0.3.2]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.2
