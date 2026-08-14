@@ -6,6 +6,19 @@ All notable changes to Deviva Draw are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.7] — 2026-08-14
+
+### Added
+- **Arrows connect to library items.** An imported library icon — a database cylinder, a
+  server, a cloud — is really a group of freehand strokes and lines, and until now arrows
+  simply refused to attach to it: no highlight, no snap, nothing. Aim an arrow at a
+  library item now and it lights up, offers its connection dots, and the arrow attaches
+  and follows the icon wherever it is moved — something stock Excalidraw cannot do with
+  these items either. Images and standalone text are connectable too. A lone freehand
+  scribble deliberately stays unconnectable, so annotating around a diagram never
+  creates accidental attachments — grouping strokes is what marks them as "a thing to
+  connect to".
+
 ## [0.3.6] — 2026-08-14
 
 ### Added
@@ -268,6 +281,7 @@ Publishes `@deviva-draw/react` only; `@deviva-draw/engine` (0.3.1) and
 - Mobile style sheet centers via auto margins, so its entrance animation no longer shifts it.
 - Hamburger menu renders as a centered SVG glyph instead of the off-center Unicode `☰`.
 
+[0.3.7]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.7
 [0.3.6]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.6
 [0.3.5]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.5
 [0.3.4]: https://github.com/nhtera/DevivaDraw/releases/tag/v0.3.4
