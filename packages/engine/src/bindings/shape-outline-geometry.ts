@@ -94,6 +94,44 @@ export function isBindableShapeGeometry(element: { type: string }): element is {
   return outlineKindFor(element.type) !== null;
 }
 
+/** Types that bind against their bounding box whether grouped or not — Excalidraw treats both as bindable. A text that is a bound label (`containerId` set) is excluded: its container is the real target. */
+const ALWAYS_BOX_BINDABLE_TYPES: ReadonlySet<string> = new Set(["image", "text"]);
+
+/** Open-geometry types that bind against their bounding box only as part of a group — see `boxFallbackKind`. */
+const GROUPED_BOX_BINDABLE_TYPES: ReadonlySet<string> = new Set(["freedraw", "line"]);
+
+/** The identity fields the bounding-box fallback reads off an element — all optional so a plain geometry fixture stays easy to write; a real `AnyElement` carries them structurally. */
+interface BoxFallbackFields {
+  type: string;
+  groupIds?: readonly string[];
+  containerId?: string | null;
+}
+
+/**
+ * The bounding-box fallback behind `outlineKindOf`: images and standalone texts always bind against
+ * their box (Excalidraw parity), and freedraw strokes / lines do so once they belong to a *group* —
+ * a library item is exactly a group of freedraw/line/text, and an arrow aimed at "the database icon"
+ * should connect to it even though no member is a closed shape. Solo strokes stay unbindable on
+ * purpose: freehand annotation is drawn *around* diagrams, and every scribble becoming a magnet
+ * would make arrows near annotations unusable.
+ */
+function boxFallbackKind(element: BoxFallbackFields): OutlineKind | null {
+  if (element.containerId) return null; // a bound label's container is the real target
+  if (ALWAYS_BOX_BINDABLE_TYPES.has(element.type)) return "rect";
+  if (GROUPED_BOX_BINDABLE_TYPES.has(element.type) && (element.groupIds?.length ?? 0) > 0) return "rect";
+  return null;
+}
+
+/** `element`'s outline family with the bounding-box fallback folded in — the element-aware companion to the type-only `outlineKindFor`. */
+export function outlineKindOf(element: BoxFallbackFields): OutlineKind | null {
+  return outlineKindFor(element.type) ?? boxFallbackKind(element);
+}
+
+/** Whether an arrow endpoint can bind to this *element* — `isBindableShapeGeometry` plus the bounding-box fallback (images, standalone texts, grouped freedraw/lines). */
+export function isBindableTarget(element: BoxFallbackFields): boolean {
+  return outlineKindOf(element) !== null;
+}
+
 /**
  * A bindable element's placement, in scene coordinates — everything outline geometry needs *except*
  * which outline to use. `scale` and `direction` are optional so a plain geometry fixture stays easy
@@ -109,6 +147,10 @@ export interface BorderRect {
   scale?: readonly [x: number, y: number];
   /** `block-arrow` only — which way its head points, which changes the outline rather than just rotating it. */
   direction?: BlockArrowDirection;
+  /** Group membership — read only by the bounding-box binding fallback (`outlineKindOf`); a real element carries it structurally. */
+  groupIds?: readonly string[];
+  /** Bound-label back-ref — read only by the bounding-box binding fallback; a labelled text binds via its container instead. */
+  containerId?: string | null;
 }
 
 /** A `BorderRect` plus the type that selects its outline. */
@@ -173,7 +215,7 @@ function intersectLocal(shape: OutlineShape, type: string, kind: OutlineKind, di
  * price of not checking is a harmless point, not an exception.
  */
 export function intersectShapeBorder(shapeType: string, shape: OutlineShape, targetScenePoint: Point): Point {
-  const kind = outlineKindFor(shapeType);
+  const kind = outlineKindOf({ ...shape, type: shapeType });
   const center = centerOf(shape);
   if (!kind) return center;
 
@@ -220,7 +262,7 @@ export function isNearOutlineBounds(shape: BorderRect, point: Point, threshold: 
  * the honest thing to draw: it is where the endpoint will actually land.
  */
 export function shapeOutlineScenePoints(shape: OutlineShape): Point[] | null {
-  const kind = outlineKindFor(shape.type);
+  const kind = outlineKindOf(shape);
   if (!kind || kind === "ellipse") return null;
 
   const halfWidth = shape.width / 2;
@@ -246,7 +288,7 @@ export function shapeOutlineScenePoints(shape: OutlineShape): Point[] | null {
  * rectangle either way.
  */
 export function isInsideShapeOutline(shape: OutlineShape, point: Point): boolean {
-  const kind = outlineKindFor(shape.type);
+  const kind = outlineKindOf(shape);
   if (!kind) return false;
 
   const local = toLocal(shape, point);
@@ -270,7 +312,7 @@ export function isInsideShapeOutline(shape: OutlineShape, point: Point): boolean
  * nearest-target comparison without needing its own branch at the call site.
  */
 export function distanceToShapeOutline(shape: OutlineShape, point: Point): number {
-  const kind = outlineKindFor(shape.type);
+  const kind = outlineKindOf(shape);
   if (!kind) return Number.POSITIVE_INFINITY;
 
   const local = toLocal(shape, point);

@@ -4,6 +4,7 @@ import {
   distanceToShapeOutline,
   intersectShapeBorder,
   isBindableShapeGeometry,
+  isBindableTarget,
   isInsideShapeOutline,
   isNearOutlineBounds,
   outlineKindFor,
@@ -52,6 +53,55 @@ describe("isBindableShapeGeometry", () => {
     for (const type of BINDABLE_CONTAINER_TYPES) {
       expect(isBindableShapeGeometry({ type })).toBe(true);
     }
+  });
+});
+
+describe("isBindableTarget — the bounding-box fallback", () => {
+  it("keeps every closed shape bindable, grouped or not", () => {
+    expect(isBindableTarget({ type: "rectangle" })).toBe(true);
+    expect(isBindableTarget({ type: "star", groupIds: ["g1"] })).toBe(true);
+  });
+
+  it("admits images and standalone texts unconditionally, matching Excalidraw", () => {
+    expect(isBindableTarget({ type: "image" })).toBe(true);
+    expect(isBindableTarget({ type: "text" })).toBe(true);
+  });
+
+  it("rejects a bound label — its container is the real target", () => {
+    expect(isBindableTarget({ type: "text", containerId: "shape-1" })).toBe(false);
+  });
+
+  it("admits freedraw strokes and lines only as group members — a library item connects, a stray scribble does not", () => {
+    expect(isBindableTarget({ type: "freedraw", groupIds: ["g1"] })).toBe(true);
+    expect(isBindableTarget({ type: "line", groupIds: ["g1"] })).toBe(true);
+    expect(isBindableTarget({ type: "freedraw" })).toBe(false);
+    expect(isBindableTarget({ type: "freedraw", groupIds: [] })).toBe(false);
+    expect(isBindableTarget({ type: "line" })).toBe(false);
+  });
+
+  it("never admits arrows or frames, grouped or not", () => {
+    expect(isBindableTarget({ type: "arrow", groupIds: ["g1"] })).toBe(false);
+    expect(isBindableTarget({ type: "frame", groupIds: ["g1"] })).toBe(false);
+  });
+
+  it("gives a grouped freedraw a rect outline, so distance/inside/border all solve against its box", () => {
+    const stroke: OutlineShape = { type: "freedraw", x: 0, y: 0, width: 100, height: 60, angle: 0, groupIds: ["g1"] };
+    expect(distanceToShapeOutline(stroke, { x: 110, y: 30 })).toBe(10);
+    expect(isInsideShapeOutline(stroke, { x: 50, y: 30 })).toBe(true);
+    expect(intersectShapeBorder("freedraw", stroke, { x: 200, y: 30 })).toEqual({ x: 100, y: 30 });
+    expect(shapeOutlineScenePoints(stroke)).toEqual([
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 60 },
+      { x: 0, y: 60 },
+    ]);
+  });
+
+  it("keeps a solo freedraw geometrically inert — infinite distance, no outline", () => {
+    const stroke: OutlineShape = { type: "freedraw", x: 0, y: 0, width: 100, height: 60, angle: 0 };
+    expect(distanceToShapeOutline(stroke, { x: 110, y: 30 })).toBe(Number.POSITIVE_INFINITY);
+    expect(isInsideShapeOutline(stroke, { x: 50, y: 30 })).toBe(false);
+    expect(shapeOutlineScenePoints(stroke)).toBeNull();
   });
 });
 

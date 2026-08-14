@@ -15,7 +15,7 @@ import { bindingGapFor } from "./binding-thresholds";
 import { computeFocusForBindingPoint, fixedPointBindingPosition, focusForConnectionPoint, recomputeBindingPoint } from "./recompute-binding";
 import type { FixedPoint } from "./shape-connection-points";
 import { nearestConnectionAnchor } from "./shape-connection-points";
-import { isBindableShapeGeometry } from "./shape-outline-geometry";
+import { isBindableTarget } from "./shape-outline-geometry";
 
 /**
  * Whether the user is holding the "leave this endpoint alone" modifier — Ctrl (Cmd on macOS), the
@@ -63,7 +63,7 @@ export function previewBoundEndpoint(
   referencePoint: Point,
   snapRadiusSceneUnits = 0,
 ): BoundEndpointPreview | null {
-  if (!isBindableShapeGeometry(target)) return null;
+  if (!isBindableTarget(target)) return null;
   const shapeType = target.type;
   const gap = bindingGapFor(target);
   const anchor = nearestConnectionAnchor(target, desiredPoint, snapRadiusSceneUnits);

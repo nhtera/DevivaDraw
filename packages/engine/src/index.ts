@@ -241,9 +241,11 @@ export {
   distanceToShapeOutline,
   intersectShapeBorder,
   isBindableShapeGeometry,
+  isBindableTarget,
   isInsideShapeOutline,
   isNearOutlineBounds,
   outlineKindFor,
+  outlineKindOf,
   shapeOutlineScenePoints,
 } from "./bindings/shape-outline-geometry";
 

@@ -26,7 +26,7 @@ import type { ArrowBinding } from "../elements/arrow-element";
 import type { Point } from "../render/camera";
 import type { FixedPoint } from "./shape-connection-points";
 import { fixedPointToScene } from "./shape-connection-points";
-import type { BindableShapeType, BorderRect, OutlineShape } from "./shape-outline-geometry";
+import type { BorderRect, OutlineShape } from "./shape-outline-geometry";
 import { intersectShapeBorder } from "./shape-outline-geometry";
 
 /** Floor for the perpendicular-offset normalizer so a hairline/zero-size shape never divides by ~0. */
@@ -37,7 +37,7 @@ function halfMinExtent(rect: Pick<BorderRect, "width" | "height">): number {
 }
 
 /** The binding's stored type is the authority on which outline to use, so it is what gets attached — never `shape`'s own `type` field, if it happens to have one. */
-function outlineShapeOf(shapeType: BindableShapeType, shape: BorderRect): OutlineShape {
+function outlineShapeOf(shapeType: string, shape: BorderRect): OutlineShape {
   return { ...shape, type: shapeType };
 }
 
@@ -75,7 +75,7 @@ function dot(a: Point, b: Point): number {
  * stored that way instead of as the `focus` that happens to reproduce it today.
  */
 export function recomputeBindingPoint(
-  shapeType: BindableShapeType,
+  shapeType: string,
   shape: BorderRect,
   binding: Pick<ArrowBinding, "focus" | "gap" | "fixedPoint">,
   referencePoint: Point,
@@ -115,7 +115,7 @@ export function fixedPointBindingPosition(shape: BorderRect, fixedPoint: FixedPo
  * resizes. The exact inverse of that function's perpendicular-nudge step.
  */
 export function computeFocusForBindingPoint(
-  shapeType: BindableShapeType,
+  shapeType: string,
   shape: BorderRect,
   referencePoint: Point,
   desiredPoint: Point,
@@ -163,7 +163,7 @@ const LANDING_TOLERANCE = 0.5;
  * one lands on it.
  */
 export function focusForConnectionPoint(
-  shapeType: BindableShapeType,
+  shapeType: string,
   shape: BorderRect,
   referencePoint: Point,
   connectionPoint: Point,

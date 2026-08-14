@@ -12,11 +12,11 @@
  */
 import type { AnyElement } from "../elements/element-types";
 import type { Point } from "../render/camera";
-import { distanceToShapeOutline, isBindableShapeGeometry, isInsideShapeOutline, isNearOutlineBounds } from "./shape-outline-geometry";
+import { distanceToShapeOutline, isBindableTarget, isInsideShapeOutline, isNearOutlineBounds } from "./shape-outline-geometry";
 
 /** Whether `point` would bind to `element` — the exact condition `findBindableShapeNear` applies, minus the z-order search. */
 function wouldBind(element: AnyElement, point: Point, thresholdSceneUnits: number): boolean {
-  if (element.isDeleted || element.locked || !isBindableShapeGeometry(element)) return false;
+  if (element.isDeleted || element.locked || !isBindableTarget(element)) return false;
   if (!isNearOutlineBounds(element, point, thresholdSceneUnits)) return false; // cheap reject before the exact outline distance
   if (distanceToShapeOutline(element, point) <= thresholdSceneUnits) return true;
   return isInsideShapeOutline(element, point);

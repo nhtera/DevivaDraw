@@ -8,11 +8,12 @@
  */
 import { describe, expect, it } from "vitest";
 import { createArrowElement } from "../elements/arrow-element";
+import { createFreedrawElement } from "../elements/freedraw-element";
 import { createRectangleElement } from "../elements/shape-elements";
 import { Scene } from "../scene/scene";
 import type { ElementUpdate } from "../scene/scene";
 import { bindArrowEndpoint, deleteArrowAndUnbind } from "./binding-model";
-import { registerArrowBindingHooks } from "./binding-scene-sync";
+import { findBindableShapeNear, registerArrowBindingHooks } from "./binding-scene-sync";
 
 function noDanglingRefs(scene: Scene): void {
   for (const element of scene.elementsUnsorted()) {
@@ -198,5 +199,34 @@ describe("Concurrent-ish edits: shape moved while the arrow is also directly upd
     const finalArrow = scene.getElement(arrow.id);
     if (finalArrow?.type === "arrow") expect(finalArrow.startBinding?.elementId).toBe(shape.id);
     noDanglingRefs(scene);
+  });
+});
+
+describe("Library items: a group of freedraw strokes is a binding target", () => {
+  it("finds a grouped stroke as a bind target, reroutes its arrow when it moves, and ignores a solo stroke", () => {
+    const scene = new Scene();
+    registerArrowBindingHooks(scene);
+    // A library-item stand-in: one freedraw stroke spanning the icon's box, grouped (imports always group items).
+    const icon = scene.addElement(
+      createFreedrawElement({ x: 200, y: 0, width: 100, height: 100, points: [[0, 0, 0.5], [100, 100, 0.5]], groupIds: ["lib-item-1"] }),
+    );
+    const arrow = scene.addElement(createArrowElement({ x: 0, y: 50, points: [{ x: 0, y: 0 }, { x: 195, y: 0 }] }));
+    const nearLeftEdge = { x: 195, y: 50 };
+    expect(findBindableShapeNear(scene, nearLeftEdge, 15)?.id).toBe(icon.id);
+
+    bindArrowEndpoint(scene, arrow.id, "end", icon.id, { focus: 0, gap: 4 });
+    // Moving the icon (as a group-drag would) reroutes the bound endpoint to follow its box.
+    scene.updateElement(icon.id, { x: 400, y: 200 });
+    const rerouted = scene.getElement(arrow.id);
+    if (rerouted?.type !== "arrow") throw new Error("expected arrow");
+    const endX = rerouted.x + rerouted.points.at(-1)!.x;
+    const endY = rerouted.y + rerouted.points.at(-1)!.y;
+    expect(endX).toBeGreaterThan(300); // followed the icon to its new position
+    expect(endY).toBeGreaterThan(100);
+    noDanglingRefs(scene);
+
+    // A solo stroke (no group) stays inert: freehand annotation must not become a magnet.
+    const scribble = scene.addElement(createFreedrawElement({ x: 700, y: 0, width: 100, height: 100, points: [[0, 0, 0.5], [100, 100, 0.5]] }));
+    expect(findBindableShapeNear(scene, { x: 695, y: 50 }, 15)?.id).not.toBe(scribble.id);
   });
 });

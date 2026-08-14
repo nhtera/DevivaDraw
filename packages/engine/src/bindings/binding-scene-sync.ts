@@ -23,8 +23,7 @@ import type { TextMeasurer } from "../text/text-measurement";
 import { recenterArrowLabelIfPresent } from "./arrow-label";
 import { boundArrowIds, unbindArrowsFromDeletedShape } from "./binding-model";
 import { recomputeBindingPoint } from "./recompute-binding";
-import { distanceToShapeOutline, isBindableShapeGeometry, isInsideShapeOutline, isNearOutlineBounds } from "./shape-outline-geometry";
-import type { BindableShapeType } from "./shape-outline-geometry";
+import { distanceToShapeOutline, isBindableTarget, isInsideShapeOutline, isNearOutlineBounds } from "./shape-outline-geometry";
 
 /**
  * The topmost (highest z-order) non-deleted bindable shape whose *outline* `point` is within
@@ -55,7 +54,7 @@ export function findBindableShapeNear(scene: Scene, point: Point, thresholdScene
   const elements = scene.getElements();
   for (let i = elements.length - 1; i >= 0; i -= 1) {
     const element = elements[i];
-    if (!element || element.isDeleted || element.locked || !isBindableShapeGeometry(element)) continue;
+    if (!element || element.isDeleted || element.locked || !isBindableTarget(element)) continue;
     if (!isNearOutlineBounds(element, point, thresholdSceneUnits)) continue;
     if (distanceToShapeOutline(element, point) <= thresholdSceneUnits) return element;
     if (isInsideShapeOutline(element, point)) return element;
@@ -107,8 +106,8 @@ export function rerouteArrowEndpoints(scene: Scene, arrowId: string, movedShape:
   // cannot solve simply does not reroute its arrows, rather than throwing from inside a `Scene`
   // update hook — a state the bind path no longer produces, but scenes arrive from files, share
   // links and collab peers too, so the read side does not assume the write side was ours.
-  if (!isBindableShapeGeometry(movedShape)) return;
-  const shapeType = movedShape.type as BindableShapeType;
+  if (!isBindableTarget(movedShape)) return;
+  const shapeType = movedShape.type;
 
   let arrow = scene.getElement(arrowId);
   if (!arrow || arrow.type !== "arrow" || arrow.isDeleted) return;
