@@ -75,11 +75,24 @@ export interface PipelineElementTarget {
   dispose(): void;
 }
 
-/** The DOM-facing surface the pipeline needs from the global scope (keyboard + focus loss). */
+/** The DOM-facing surface the pipeline needs from the global scope (keyboard + focus loss + pointer fallbacks). */
 export interface PipelineGlobalTarget {
   onKeyDown(handler: (event: KeyLikeEvent) => void): void;
   onKeyUp(handler: (event: KeyLikeEvent) => void): void;
   onBlur(handler: () => void): void;
+  /**
+   * Window-level pointer fallbacks, optional because older fakes/tests may not provide them.
+   * `setPointerCapture` is best-effort (it throws for an already-inactive pointer — see the
+   * pipeline's `handlePointerDown`); when capture is NOT in effect, a pointer released or moved
+   * outside the canvas element never reaches the element listeners. Without a global catch, that
+   * missed `pointerup` leaves the gesture's pointer id active forever and every later `pointerdown`
+   * is swallowed by the "gesture already active" guard — the canvas silently stops drawing until an
+   * Escape/blur happens to abort. These global listeners are the safety net that ends the gesture
+   * wherever the pointer is released.
+   */
+  onPointerUp?(handler: (event: PointerLikeEvent) => void): void;
+  onPointerMove?(handler: (event: PointerLikeEvent) => void): void;
+  onPointerCancel?(handler: (event: PointerLikeEvent) => void): void;
   dispose(): void;
 }
 

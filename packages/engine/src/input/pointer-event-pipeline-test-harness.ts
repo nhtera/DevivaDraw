@@ -96,8 +96,11 @@ export class FakeElementTarget implements PipelineElementTarget {
   firePointerDown(event: Partial<PointerLikeEvent> & { pointerId: number; clientX: number; clientY: number }): void {
     this.pointerDown?.({ button: 0, ...NO_MODS, ...event });
   }
-  firePointerMove(event: Partial<PointerLikeEvent> & { pointerId: number; clientX: number; clientY: number }): void {
-    this.pointerMove?.({ button: 0, ...NO_MODS, ...event });
+  /** Returns the built event so a test can replay the *same object* at the global target, simulating DOM bubbling (the pipeline dedupes bubbled moves by event identity). */
+  firePointerMove(event: Partial<PointerLikeEvent> & { pointerId: number; clientX: number; clientY: number }): PointerLikeEvent {
+    const built: PointerLikeEvent = { button: 0, ...NO_MODS, ...event };
+    this.pointerMove?.(built);
+    return built;
   }
   firePointerUp(event: Partial<PointerLikeEvent> & { pointerId: number; clientX: number; clientY: number }): void {
     this.pointerUp?.({ button: 0, ...NO_MODS, ...event });
@@ -122,6 +125,9 @@ export class FakeGlobalTarget implements PipelineGlobalTarget {
   private keyDown?: (event: KeyLikeEvent) => void;
   private keyUp?: (event: KeyLikeEvent) => void;
   private blur?: () => void;
+  private pointerUp?: (event: PointerLikeEvent) => void;
+  private pointerMove?: (event: PointerLikeEvent) => void;
+  private pointerCancel?: (event: PointerLikeEvent) => void;
   disposed = false;
 
   onKeyDown(handler: (event: KeyLikeEvent) => void): void {
@@ -133,8 +139,31 @@ export class FakeGlobalTarget implements PipelineGlobalTarget {
   onBlur(handler: () => void): void {
     this.blur = handler;
   }
+  onPointerUp(handler: (event: PointerLikeEvent) => void): void {
+    this.pointerUp = handler;
+  }
+  onPointerMove(handler: (event: PointerLikeEvent) => void): void {
+    this.pointerMove = handler;
+  }
+  onPointerCancel(handler: (event: PointerLikeEvent) => void): void {
+    this.pointerCancel = handler;
+  }
   dispose(): void {
     this.disposed = true;
+  }
+
+  firePointerUp(event: Partial<PointerLikeEvent> & { pointerId: number; clientX: number; clientY: number }): void {
+    this.pointerUp?.({ button: 0, ...NO_MODS, ...event });
+  }
+  firePointerMove(event: Partial<PointerLikeEvent> & { pointerId: number; clientX: number; clientY: number }): void {
+    this.pointerMove?.({ button: 0, ...NO_MODS, ...event });
+  }
+  /** Replays an *existing* event object unchanged — used to simulate the same element event bubbling on to the window (identity-based move dedupe). */
+  dispatchPointerMove(event: PointerLikeEvent): void {
+    this.pointerMove?.(event);
+  }
+  firePointerCancel(event: Partial<PointerLikeEvent> & { pointerId: number; clientX: number; clientY: number }): void {
+    this.pointerCancel?.({ button: 0, ...NO_MODS, ...event });
   }
 
   /** Returns the constructed event (with a `vi.fn()` `preventDefault`) so tests can assert on it. */

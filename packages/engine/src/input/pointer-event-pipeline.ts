@@ -75,6 +75,13 @@ export class PointerEventPipeline {
   private activePointerId: number | null = null;
   /** Camera snapshot taken at gesture start; see the module doc on why it must not be re-read live. */
   private gestureCamera: Camera | null = null;
+  /**
+   * The move event the element listener last processed. A captured/over-the-element move bubbles on
+   * to the window, where the global fallback sees the *same event object* — comparing identity here
+   * is what stops that one move being dispatched to the tool twice, while a move that only ever
+   * surfaced at the window (capture failed, pointer over other chrome) still gets through.
+   */
+  private lastElementMoveEvent: PointerLikeEvent | null = null;
   private panOverrideCause: "space" | "middle" | null = null;
   private toolBeforeOverride: string | null = null;
 
@@ -105,6 +112,16 @@ export class PointerEventPipeline {
     globalTarget.onKeyDown(this.wheelKeyboard.handleKeyDown);
     globalTarget.onKeyUp(this.wheelKeyboard.handleKeyUp);
     globalTarget.onBlur(this.handleBlur);
+    // Safety net for a gesture whose pointer events stop reaching the element: when
+    // `setPointerCapture` failed (inactive pointer — see `handlePointerDown`), an up/move over other
+    // chrome or outside the element only surfaces at the window. Without these, that missed pointerup
+    // leaves `activePointerId` set forever and the "gesture already active" guard swallows every
+    // later pointerdown — the canvas silently stops responding until an Escape or window blur.
+    // In the normal captured path the element handler runs first on the same bubbling event and
+    // clears/records state, making these no-ops — see each handler's guard.
+    globalTarget.onPointerUp?.(this.handlePointerUp);
+    globalTarget.onPointerMove?.(this.handleGlobalPointerMove);
+    globalTarget.onPointerCancel?.(this.handlePointerCancel);
   }
 
   detach(): void {
@@ -157,6 +174,20 @@ export class PointerEventPipeline {
       this.options.toolStateMachine.dispatchHover(this.toScenePoint(event.clientX, event.clientY, this.options.getCamera()), extractModifiers(event));
       return;
     }
+    this.lastElementMoveEvent = event;
+    const point = this.toScenePoint(event.clientX, event.clientY, this.gestureCamera);
+    const { pressure, pointerType } = extractPointerSample(event);
+    this.options.toolStateMachine.dispatchGestureMove(point, extractModifiers(event), pressure, pointerType);
+  };
+
+  /**
+   * Window-level move fallback: only feeds the active gesture, and only for a move the element
+   * listener never saw (identity check against `lastElementMoveEvent` — same bubbling event object).
+   * Deliberately no hover dispatch here: hover is an over-the-canvas concept and stays element-only.
+   */
+  private readonly handleGlobalPointerMove = (event: PointerLikeEvent): void => {
+    if (this.activePointerId !== event.pointerId || !this.gestureCamera) return;
+    if (event === this.lastElementMoveEvent) return;
     const point = this.toScenePoint(event.clientX, event.clientY, this.gestureCamera);
     const { pressure, pointerType } = extractPointerSample(event);
     this.options.toolStateMachine.dispatchGestureMove(point, extractModifiers(event), pressure, pointerType);
@@ -210,5 +241,6 @@ export class PointerEventPipeline {
     this.toolBeforeOverride = null;
     this.activePointerId = null;
     this.gestureCamera = null;
+    this.lastElementMoveEvent = null;
   }
 }

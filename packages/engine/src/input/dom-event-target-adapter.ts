@@ -51,6 +51,12 @@ export function createGlobalTarget(target: Window): PipelineGlobalTarget {
     onKeyDown: (handler) => bind("keydown", toListener(handler)),
     onKeyUp: (handler) => bind("keyup", toListener(handler)),
     onBlur: (handler) => bind("blur", () => handler()),
+    // Pointer fallbacks: catch a gesture's up/move/cancel that never reached the canvas element
+    // (capture failed and the pointer was released over other chrome / outside the element) — see
+    // `PipelineGlobalTarget`'s doc for why a missed pointerup must not go unobserved.
+    onPointerUp: (handler) => bind("pointerup", toListener(handler)),
+    onPointerMove: (handler) => bind("pointermove", toListener(handler)),
+    onPointerCancel: (handler) => bind("pointercancel", toListener(handler)),
     dispose: () => {
       for (const [type, handler] of bound) target.removeEventListener(type, handler);
       bound.length = 0;
