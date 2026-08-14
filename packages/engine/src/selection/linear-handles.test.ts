@@ -106,6 +106,13 @@ describe("hitLinearHandle", () => {
     expect(hitLinearHandle(layout(), justOutsideAtFullZoom, 1)).toBeNull();
     expect(hitLinearHandle(layout(), justOutsideAtFullZoom, 0.25)).toEqual({ kind: "vertex", index: 0 });
   });
+
+  it("widens the grab radius by the coarse-pointer multiplier — a touch miss for a mouse is still a grab", () => {
+    const fingertipOffCentre = { x: HANDLE_GRAB_PX * 2 - 1, y: 0 };
+    expect(hitLinearHandle(layout(), fingertipOffCentre, 1)).toBeNull(); // precise pointer: out of range
+    expect(hitLinearHandle(layout(), fingertipOffCentre, 1, 2)).toEqual({ kind: "vertex", index: 0 });
+    expect(hitLinearHandle(layout(), { x: HANDLE_GRAB_PX * 2 + 2, y: 0 }, 1, 2)).toBeNull(); // still bounded
+  });
 });
 
 describe("elbow arrows offer no bend to insert", () => {

@@ -5,6 +5,8 @@
  * rather than as `const`s scattered across the tool and the binding model.
  */
 
+import { pointerRadiusMultiplier } from "../input/pointer-precision";
+
 /** Scene-unit clearance between a bound endpoint and its target's outline, before stroke width is added. */
 export const BASE_BINDING_GAP = 5;
 
@@ -34,10 +36,17 @@ function clamp(value: number, min: number, max: number): number {
  * grabbiness stops being helpful. Zooming *in* holds at the 100% value rather than shrinking:
  * binding proximity is a property of the drawing's own scale, the same zoom-independent choice
  * Excalidraw makes.
+ *
+ * `pointerType` folds in the coarse-pointer allowance (`input/pointer-precision.ts`): a fingertip's
+ * landing spot is uncertain by far more than a cursor's, so a touch release "near" a shape misses a
+ * mouse-sized reach — the everyday symptom was an arrow endpoint dropped just outside a shape on a
+ * phone refusing to connect. The multiplier applies after the zoom clamp, deliberately: the touch
+ * allowance is about the finger, not the camera.
  */
-export function maxBindingDistanceSceneUnits(zoom: number): number {
+export function maxBindingDistanceSceneUnits(zoom: number, pointerType?: string): number {
   const zoomedOut = zoom < 1 ? zoom : 1;
-  return clamp(BASE_BINDING_DISTANCE / (zoomedOut * 1.5), BASE_BINDING_DISTANCE, BASE_BINDING_DISTANCE * MAX_ZOOM_OUT_MULTIPLIER);
+  const precise = clamp(BASE_BINDING_DISTANCE / (zoomedOut * 1.5), BASE_BINDING_DISTANCE, BASE_BINDING_DISTANCE * MAX_ZOOM_OUT_MULTIPLIER);
+  return precise * pointerRadiusMultiplier(pointerType);
 }
 
 /**

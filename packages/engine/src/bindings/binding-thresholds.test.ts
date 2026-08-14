@@ -51,4 +51,13 @@ describe("maxBindingDistanceSceneUnits", () => {
       expect(result).toBeGreaterThan(0);
     }
   });
+
+  it("doubles the reach for a touch pointer, and only for touch — a fingertip lands less precisely than a cursor", () => {
+    expect(maxBindingDistanceSceneUnits(1, "touch")).toBe(BASE_BINDING_DISTANCE * 2);
+    expect(maxBindingDistanceSceneUnits(1, "mouse")).toBe(BASE_BINDING_DISTANCE);
+    expect(maxBindingDistanceSceneUnits(1, "pen")).toBe(BASE_BINDING_DISTANCE);
+    expect(maxBindingDistanceSceneUnits(1)).toBe(BASE_BINDING_DISTANCE);
+    // The multiplier applies after the zoom-out clamp, on top of it.
+    expect(maxBindingDistanceSceneUnits(0.25, "touch")).toBe(BASE_BINDING_DISTANCE * 4);
+  });
 });

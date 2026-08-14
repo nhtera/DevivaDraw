@@ -18,6 +18,7 @@ export interface DevivaRuntime extends ActionRuntime {
   getLassoPath(): readonly Point[];
   /** Shapes the arrow tool (or a dragged arrow endpoint) is offering as bind targets right now (empty when idle) — the interactive layer haloes them each frame. */
   getBindingHighlightIds(): readonly string[];
+  getBindingAnchor(): Point | null;
   /** Latest pointer position (scene space), or `null` — decides which segment of a selected arrow offers its insert-a-bend dot. */
   getHoverPoint(): Point | null;
   /** Detaches the pointer pipeline, the double-click listener, and the binding/bound-text sync hooks — call from the owning effect's cleanup. */

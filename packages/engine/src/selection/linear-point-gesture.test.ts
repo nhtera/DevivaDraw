@@ -58,6 +58,44 @@ function dragEndTo(fixture: ReturnType<typeof setup>, to: { x: number; y: number
 }
 
 describe("LinearPointGesture — the binding matrix", () => {
+  it("arms the anchor ring while the dragged end is in snap range, and clears it on finish", () => {
+    const fixture = setup();
+    fixture.gesture.begin(arrowOf(fixture.scene, fixture.arrow.id), { kind: "vertex", index: 1 });
+
+    fixture.gesture.apply({ x: 403, y: 55 }, NO_MODIFIERS); // ~5.8 units from shape B's left anchor (400,50)
+    expect(fixture.gesture.getBindingAnchor()).toEqual({ x: 400, y: 50 });
+
+    fixture.gesture.apply({ x: 250, y: 300 }, NO_MODIFIERS); // empty space
+    expect(fixture.gesture.getBindingAnchor()).toBeNull();
+
+    fixture.gesture.apply({ x: 403, y: 55 }, NO_MODIFIERS);
+    fixture.gesture.finish({ x: 403, y: 55 }, NO_MODIFIERS);
+    expect(fixture.gesture.getBindingAnchor()).toBeNull(); // overlay goes dark once the drag ends
+  });
+
+  it("a touch drag snaps onto a connection anchor from a distance a mouse drag would not", () => {
+    // Shape B's left anchor sits at (400, 50). Dropping at (403, 68) is ~18 units from it — outside
+    // the 12px mouse snap radius, inside the doubled touch radius (see input/pointer-precision.ts).
+    const droppedAt = { x: 403, y: 68 };
+
+    const mouse = setup();
+    mouse.gesture.begin(arrowOf(mouse.scene, mouse.arrow.id), { kind: "vertex", index: 1 });
+    mouse.gesture.apply(droppedAt, NO_MODIFIERS);
+    mouse.gesture.finish(droppedAt, NO_MODIFIERS);
+    const mouseArrow = arrowOf(mouse.scene, mouse.arrow.id);
+    const mouseEndY = mouseArrow.y + mouseArrow.points.at(-1)!.y;
+    expect(mouseEndY).toBeGreaterThan(60); // left near the drop row, not pulled up to the anchor
+
+    const touch = setup();
+    touch.gesture.begin(arrowOf(touch.scene, touch.arrow.id), { kind: "vertex", index: 1 }, "touch");
+    touch.gesture.apply(droppedAt, NO_MODIFIERS);
+    touch.gesture.finish(droppedAt, NO_MODIFIERS);
+    const touchArrow = arrowOf(touch.scene, touch.arrow.id);
+    expect(touchArrow.endBinding?.elementId).toBe(touch.shapeB.id);
+    const touchEndY = touchArrow.y + touchArrow.points.at(-1)!.y;
+    expect(touchEndY).toBeCloseTo(50, 4); // snapped onto the anchor's row
+  });
+
   it("an unbound end dropped on a shape binds, snaps to the outline, and gains a back-ref", () => {
     const fixture = setup();
     dragEndTo(fixture, { x: 395, y: 50 });

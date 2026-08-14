@@ -13,11 +13,12 @@ import { resolveBindingHighlights } from "../bindings/binding-highlight";
 import { findBindableShapeNear } from "../bindings/binding-scene-sync";
 import { maxBindingDistanceSceneUnits } from "../bindings/binding-thresholds";
 import { isBindingSuppressed, previewBoundEndpoint } from "../bindings/preview-bound-endpoint";
-import { CONNECTION_POINT_SNAP_PX } from "../bindings/shape-connection-points";
+import { CONNECTION_POINT_SNAP_PX, nearestConnectionAnchor } from "../bindings/shape-connection-points";
 import { createArrowElement } from "../elements/arrow-element";
 import type { ArrowElement, ArrowType } from "../elements/arrow-element";
 import { NoOpToolHandler } from "../input/tool-handler";
 import type { ModifierKeys } from "../input/tool-handler";
+import { pointerRadiusMultiplier } from "../input/pointer-precision";
 import type { Point } from "../render/camera";
 import { rebaseArrowPoints } from "../render/arrow-geometry";
 import type { Scene } from "../scene/scene";
@@ -57,10 +58,26 @@ export class ArrowTool extends NoOpToolHandler {
   private lastClickPoint: Point | null = null;
   /** Shapes the overlay is currently haloing as "you can connect here" — see `getBindingHighlightIds`. */
   private bindingHighlightIds: readonly string[] = [];
+  /** `pointerType` of the arrow's gestures — widens the anchor-snap radius for touch; see `input/pointer-precision.ts`. */
+  private pointerType: string | undefined;
+  /** The one anchor the moving/hovered end would snap to right now (scene space), ringed by the overlay — see `getBindingAnchor`. */
+  private bindingAnchor: Point | null = null;
 
   constructor(deps: ArrowToolDeps) {
     super();
     this.deps = deps;
+  }
+
+  /** The active snap anchor for the overlay's ring, polled per frame like `getBindingHighlightIds`. Overlay state only — never written to `Scene`. */
+  getBindingAnchor(): Point | null {
+    return this.bindingAnchor;
+  }
+
+  /** The anchor `point` would snap to on the nearest bindable shape, or `null` when none is in range — feeds the overlay's "this exact dot" ring. */
+  private resolveBindingAnchor(point: Point, modifiers: ModifierKeys): Point | null {
+    if (isBindingSuppressed(modifiers)) return null;
+    const target = findBindableShapeNear(this.deps.scene, point, maxBindingDistanceSceneUnits(this.deps.getZoom(), this.pointerType));
+    return target ? (nearestConnectionAnchor(target, point, this.connectionSnapRadius())?.point ?? null) : null;
   }
 
   /**
@@ -80,6 +97,7 @@ export class ArrowTool extends NoOpToolHandler {
   /** Drops the halo — called when the arrow tool stops being the active tool, since a hover it never receives can no longer clear itself. */
   clearBindingHighlight(): void {
     this.bindingHighlightIds = [];
+    this.bindingAnchor = null;
   }
 
   private updateHighlight(points: readonly (Point | null)[], modifiers: ModifierKeys): void {
@@ -89,7 +107,7 @@ export class ArrowTool extends NoOpToolHandler {
       return;
     }
     const elements = this.deps.scene.getElements();
-    const threshold = maxBindingDistanceSceneUnits(this.deps.getZoom());
+    const threshold = maxBindingDistanceSceneUnits(this.deps.getZoom(), this.pointerType);
     this.bindingHighlightIds = resolveBindingHighlights(elements, points, threshold);
   }
 
@@ -100,10 +118,11 @@ export class ArrowTool extends NoOpToolHandler {
    */
   override onHover(point: Point, modifiers: ModifierKeys): void {
     this.updateHighlight([this.vertices[0] ?? null, point], modifiers);
+    this.bindingAnchor = this.resolveBindingAnchor(point, modifiers);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `modifiers` kept to match `ToolHandler`'s signature
-  override onGestureStart(point: Point, modifiers: ModifierKeys): void {
+  override onGestureStart(point: Point, modifiers: ModifierKeys, _pressure?: number, pointerType?: string): void {
+    this.pointerType = pointerType; // recorded before the continuation early-return so every click of a multi-point arrow updates it
     if (this.vertices.length > 0) return; // multi-point continuation: vertex only added at gesture end, mirrors LineTool
     this.deps.history.beginBatch();
     this.vertices = [point];
@@ -119,6 +138,7 @@ export class ArrowTool extends NoOpToolHandler {
     // Both ends, so a short arrow spanning two shapes reads as "connecting these two" rather than
     // only lighting up whichever one the pointer happens to be over.
     this.updateHighlight([start, moving], modifiers);
+    this.bindingAnchor = this.resolveBindingAnchor(moving, modifiers); // ring follows the end being dragged
     // Draw the endpoints where releasing would actually put them — clipped to their targets'
     // outlines — rather than under the pointer and then jumping on release.
     this.syncElement(this.snappedEnds(start, moving, modifiers));
@@ -132,7 +152,7 @@ export class ArrowTool extends NoOpToolHandler {
    */
   private snappedEnds(start: Point, moving: Point, modifiers: ModifierKeys): [Point, Point] {
     if (isBindingSuppressed(modifiers)) return [start, moving];
-    const threshold = maxBindingDistanceSceneUnits(this.deps.getZoom());
+    const threshold = maxBindingDistanceSceneUnits(this.deps.getZoom(), this.pointerType);
     const snapRadius = this.connectionSnapRadius();
     const startTarget = findBindableShapeNear(this.deps.scene, start, threshold);
     const endTarget = findBindableShapeNear(this.deps.scene, moving, threshold);
@@ -142,9 +162,9 @@ export class ArrowTool extends NoOpToolHandler {
     return [snappedStart, snappedEnd];
   }
 
-  /** The anchor-snap distance in scene units — a screen-space constant, so a dot is equally easy to hit at any zoom. */
+  /** The anchor-snap distance in scene units — a screen-space constant (widened for coarse pointers), so a dot is equally easy to hit at any zoom. */
   private connectionSnapRadius(): number {
-    return CONNECTION_POINT_SNAP_PX / this.deps.getZoom();
+    return (CONNECTION_POINT_SNAP_PX * pointerRadiusMultiplier(this.pointerType)) / this.deps.getZoom();
   }
 
   override onGestureEnd(point: Point, modifiers: ModifierKeys): void {
@@ -217,7 +237,7 @@ export class ArrowTool extends NoOpToolHandler {
     const arrowType: ArrowType = this.vertices.length === 2 ? "straight" : "curved";
     this.deps.scene.updateElement(elementId, { arrowType } as Partial<ArrowElement>);
 
-    const threshold = isBindingSuppressed(modifiers) ? 0 : maxBindingDistanceSceneUnits(this.deps.getZoom());
+    const threshold = isBindingSuppressed(modifiers) ? 0 : maxBindingDistanceSceneUnits(this.deps.getZoom(), this.pointerType);
     // Binding is a *bonus* on top of a committed arrow, never a precondition for one. A geometry gap
     // (a bindable-list / border-formula mismatch) used to throw from here, skipping `endBatch`,
     // `reset` and `onCreated` — leaving the tool wedged mid-gesture with an open history batch, so
@@ -249,5 +269,6 @@ export class ArrowTool extends NoOpToolHandler {
     this.lastClickAt = 0;
     this.lastClickPoint = null;
     this.bindingHighlightIds = [];
+    this.bindingAnchor = null;
   }
 }

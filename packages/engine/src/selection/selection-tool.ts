@@ -14,6 +14,7 @@
 import type { AnyElement } from "../elements/element-types";
 import { NoOpToolHandler } from "../input/tool-handler";
 import type { ModifierKeys } from "../input/tool-handler";
+import { pointerRadiusMultiplier } from "../input/pointer-precision";
 import type { Point } from "../render/camera";
 import type { SceneRect } from "../render/viewport-culling";
 import { topmostElementAt } from "./hit-test";
@@ -82,10 +83,12 @@ export class SelectionTool extends NoOpToolHandler {
     return this.dragActivated;
   }
 
-  override onGestureStart(point: Point, modifiers: ModifierKeys): void {
+  override onGestureStart(point: Point, modifiers: ModifierKeys, _pressure?: number, pointerType?: string): void {
     this.gestureStartPoint = point;
     this.dragActivated = false;
     const zoom = this.deps.getZoom();
+    // Coarse pointers get proportionally wider precision targets — see `input/pointer-precision.ts`.
+    const radiusMultiplier = pointerRadiusMultiplier(pointerType);
     const selectedElements = [...this.deps.selection.getSelectedIds()]
       .map((id) => this.deps.scene.getElement(id))
       .filter((element): element is AnyElement => !!element);
@@ -97,8 +100,8 @@ export class SelectionTool extends NoOpToolHandler {
     const handleArrow = overlay?.arrow ?? null;
     if (handleArrow) {
       const layout = linearHandleLayout(handleArrow, zoom, this.hoverPoint);
-      const target = hitLinearHandle(layout, point, zoom);
-      if (target && this.linearPoint.begin(handleArrow, target)) {
+      const target = hitLinearHandle(layout, point, zoom, radiusMultiplier);
+      if (target && this.linearPoint.begin(handleArrow, target, pointerType)) {
         this.mode = "linear-point";
         return;
       }
@@ -220,6 +223,10 @@ export class SelectionTool extends NoOpToolHandler {
   }
 
   /** Shapes the dragged arrow endpoint would attach to right now — the same halo the arrow tool shows while drawing. */
+  getBindingAnchor(): Point | null {
+    return this.mode === "linear-point" ? this.linearPoint.getBindingAnchor() : null;
+  }
+
   getBindingHighlightIds(): readonly string[] {
     return this.mode === "linear-point" ? this.linearPoint.getBindingHighlightIds() : [];
   }

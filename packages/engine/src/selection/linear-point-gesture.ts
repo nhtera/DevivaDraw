@@ -19,8 +19,9 @@ import { findBindableShapeNear } from "../bindings/binding-scene-sync";
 import { maxBindingDistanceSceneUnits } from "../bindings/binding-thresholds";
 import { resolveBindingHighlight } from "../bindings/binding-highlight";
 import { isBindingSuppressed, previewBoundEndpoint } from "../bindings/preview-bound-endpoint";
-import { CONNECTION_POINT_SNAP_PX } from "../bindings/shape-connection-points";
+import { CONNECTION_POINT_SNAP_PX, nearestConnectionAnchor } from "../bindings/shape-connection-points";
 import type { ModifierKeys } from "../input/tool-handler";
+import { pointerRadiusMultiplier } from "../input/pointer-precision";
 import { absolutePoints, rebaseArrowPoints } from "../render/arrow-geometry";
 import type { Point } from "../render/camera";
 import type { LinearHandleTarget } from "./linear-handles";
@@ -52,6 +53,10 @@ export class LinearPointGesture {
   /** Index of the vertex being dragged. For a midpoint grab this is the newly inserted vertex, resolved in `begin`. */
   private vertexIndex = 0;
   private highlightId: string | null = null;
+  /** `pointerType` of the gesture dragging this vertex — widens the anchor-snap radius for touch; see `input/pointer-precision.ts`. */
+  private pointerType: string | undefined;
+  /** The one anchor the dragged end would snap to right now (scene space), ringed by the overlay — see `getBindingAnchor`. */
+  private bindingAnchor: Point | null = null;
 
   constructor(deps: SelectionToolDeps) {
     this.deps = deps;
@@ -62,9 +67,10 @@ export class LinearPointGesture {
    * than on first move, so the very first `apply` already has a real vertex to drag and a cancel with
    * no movement still restores cleanly through the frozen snapshot.
    */
-  begin(arrow: ArrowElement, target: LinearHandleTarget): boolean {
+  begin(arrow: ArrowElement, target: LinearHandleTarget, pointerType?: string): boolean {
     const points = absolutePoints({ x: arrow.x, y: arrow.y }, arrow.points);
     this.arrowId = arrow.id;
+    this.pointerType = pointerType;
     this.frozen = {
       x: arrow.x,
       y: arrow.y,
@@ -144,6 +150,11 @@ export class LinearPointGesture {
     return this.highlightId ? [this.highlightId] : [];
   }
 
+  /** The active snap anchor for the overlay's ring — the same "this exact dot" affordance the arrow tool shows while drawing. */
+  getBindingAnchor(): Point | null {
+    return this.bindingAnchor;
+  }
+
   private currentArrow(): ArrowElement | null {
     if (!this.arrowId) return null;
     const element = this.deps.scene.getElement(this.arrowId);
@@ -153,21 +164,23 @@ export class LinearPointGesture {
   /** Where the dragged vertex actually goes: the raw pointer, or its snapped position when this end is over a bindable shape. */
   private resolveDraggedPoint(points: readonly Point[], point: Point, modifiers: ModifierKeys): Point {
     this.highlightId = null;
+    this.bindingAnchor = null;
     const end = endOfIndex(this.vertexIndex, points.length);
     if (!end || isBindingSuppressed(modifiers)) return point;
 
-    const threshold = maxBindingDistanceSceneUnits(this.deps.getZoom());
+    const threshold = maxBindingDistanceSceneUnits(this.deps.getZoom(), this.pointerType);
     this.highlightId = resolveBindingHighlight(this.deps.scene.getElements(), point, threshold);
     const target = findBindableShapeNear(this.deps.scene, point, threshold);
     if (!target || target.id === this.arrowId) return point;
+    this.bindingAnchor = nearestConnectionAnchor(target, point, this.connectionSnapRadius())?.point ?? null;
 
     const preview = previewBoundEndpoint(target, point, this.referencePointFor(points), this.connectionSnapRadius());
     return preview?.point ?? point;
   }
 
-  /** The anchor-snap distance in scene units — a screen-space constant, so a dot is equally easy to hit at any zoom. */
+  /** The anchor-snap distance in scene units — a screen-space constant (widened for coarse pointers), so a dot is equally easy to hit at any zoom. */
   private connectionSnapRadius(): number {
-    return CONNECTION_POINT_SNAP_PX / this.deps.getZoom();
+    return (CONNECTION_POINT_SNAP_PX * pointerRadiusMultiplier(this.pointerType)) / this.deps.getZoom();
   }
 
   /** The arrow's *other* end, which sets the direction a binding aims along. */
@@ -182,7 +195,7 @@ export class LinearPointGesture {
    */
   private commitBinding(arrowId: string, end: "start" | "end", points: readonly Point[], modifiers: ModifierKeys): void {
     const droppedAt = points[this.vertexIndex]!;
-    const threshold = isBindingSuppressed(modifiers) ? 0 : maxBindingDistanceSceneUnits(this.deps.getZoom());
+    const threshold = isBindingSuppressed(modifiers) ? 0 : maxBindingDistanceSceneUnits(this.deps.getZoom(), this.pointerType);
     const target = threshold > 0 ? findBindableShapeNear(this.deps.scene, droppedAt, threshold) : null;
 
     if (!target) {
@@ -223,5 +236,7 @@ export class LinearPointGesture {
     this.frozen = null;
     this.vertexIndex = 0;
     this.highlightId = null;
+    this.pointerType = undefined;
+    this.bindingAnchor = null;
   }
 }

@@ -207,6 +207,22 @@ describe("ArrowTool — endpoint binding on create", () => {
     expect(endY).toBeCloseTo(100, 4);
   });
 
+  it("a touch gesture snaps to an anchor from a distance a mouse release would not", () => {
+    // The left-edge anchor sits at (200, 100); releasing at (197, 118) is ~18 units away — outside
+    // the 12px mouse snap radius, inside the doubled touch radius (see input/pointer-precision.ts).
+    const scene = new Scene();
+    const shape = scene.addElement(createRectangleElement({ x: 200, y: 0, width: 200, height: 200 }));
+    const tool = new ArrowTool({ scene, styleState: new ShapeStyleState(), history: fakeHistory(), getZoom: () => 1 });
+
+    tool.onGestureStart({ x: -100, y: 118 }, NO_MODIFIERS, 0.6, "touch");
+    tool.onGestureEnd({ x: 197, y: 118 }, NO_MODIFIERS);
+
+    const arrow = arrowOf(scene);
+    expect(arrow.endBinding?.elementId).toBe(shape.id);
+    const endY = arrow.y + arrow.points.at(-1)!.y;
+    expect(endY).toBeCloseTo(100, 4); // pulled onto the anchor's row
+  });
+
   it("leaves an end released between anchors exactly where it was put", () => {
     const scene = new Scene();
     scene.addElement(createRectangleElement({ x: 200, y: 0, width: 200, height: 200 }));

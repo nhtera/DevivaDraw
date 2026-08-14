@@ -77,6 +77,8 @@ export interface OverlayState {
   lassoPath?: readonly Point[];
   /** Shapes to halo as "an arrow can connect here" — see `interactive-binding-highlight.ts`. Empty/omitted whenever the arrow tool is not offering a binding. */
   bindingHighlightElements?: readonly AnyElement[];
+  /** The one connection anchor (scene space) the endpoint would snap to right now, ringed by `interactive-binding-highlight.ts` — `null`/omitted when no anchor is in snap range. */
+  bindingAnchor?: Point | null;
   /** Resolved theme (never `"system"`), so overlay chrome that needs a light/dark colour can pick one. Defaults to light when the host does not supply it. */
   theme?: "light" | "dark";
   /** Latest pointer position (scene space), or `null`/omitted when the pointer is off-canvas — decides which of a selected arrow's segments offers its insert-a-bend dot. */
@@ -118,7 +120,7 @@ export class InteractiveLayer {
     this.drawSnapGuides(overlayState.snapGuides, camera);
     // Beneath the selection frame: a shape that is both highlighted and selected must still read as
     // selected, and the halo is the thicker of the two.
-    drawBindingHighlights(this.ctx, overlayState.bindingHighlightElements ?? [], camera, overlayState.theme ?? "light");
+    drawBindingHighlights(this.ctx, overlayState.bindingHighlightElements ?? [], camera, overlayState.theme ?? "light", overlayState.bindingAnchor);
 
     // A lone two-point arrow shows vertex handles instead of a resize frame; a bent one shows both,
     // handles last so they sit above the frame — see `buildSelectionOverlay`.

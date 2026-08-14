@@ -99,6 +99,7 @@ export function buildRuntime(options: BuildRuntimeOptions): DevivaRuntime {
     // Either tool can be offering a bind target: the arrow tool while drawing, the select tool while
     // dragging an existing endpoint. Only one is ever active, so concatenating needs no arbitration.
     getBindingHighlightIds: () => [...tools.arrowTool.getBindingHighlightIds(), ...tools.selectionTool.getBindingHighlightIds()],
+    getBindingAnchor: () => tools.arrowTool.getBindingAnchor() ?? tools.selectionTool.getBindingAnchor(),
     getHoverPoint: () => tools.selectionTool.getHoverPoint(),
     dispose: () => {
       /* replaced below */

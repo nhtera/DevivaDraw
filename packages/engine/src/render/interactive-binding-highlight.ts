@@ -8,10 +8,10 @@
  * A sibling of `interactive-layer.ts` rather than more methods on it: that file is already over the
  * house line-count guideline, and this is self-contained drawing with no state.
  */
-import { CONNECTION_POINT_RADIUS_PX, shapeConnectionPoints } from "../bindings/shape-connection-points";
+import { CONNECTION_POINT_RADIUS_PX, CONNECTION_POINT_SNAP_PX, shapeConnectionPoints } from "../bindings/shape-connection-points";
 import { shapeOutlineScenePoints } from "../bindings/shape-outline-geometry";
 import type { AnyElement } from "../elements/element-types";
-import type { Camera } from "./camera";
+import type { Camera, Point } from "./camera";
 import { sceneToScreen } from "./camera";
 import type { InteractiveLayerContext } from "./interactive-layer";
 
@@ -51,6 +51,7 @@ export function drawBindingHighlights(
   elements: readonly AnyElement[],
   camera: Camera,
   theme: "light" | "dark",
+  activeAnchor?: Point | null,
 ): void {
   if (elements.length === 0) return;
 
@@ -81,7 +82,31 @@ export function drawBindingHighlights(
   }
 
   drawConnectionDots(ctx, elements, camera, theme);
+  if (activeAnchor) drawActiveAnchorRing(ctx, activeAnchor, camera, theme);
   ctx.restore();
+}
+
+/** Screen-px width of the ring marking the anchor an endpoint would snap to. */
+const ACTIVE_ANCHOR_RING_WIDTH_PX = 2;
+
+/**
+ * The "this exact dot" affordance, matching Excalidraw's: once the pointer/endpoint is within snap
+ * range of one specific anchor, that anchor gets a halo-blue ring whose radius *is* the snap radius —
+ * the ring literally draws the zone releasing inside of which lands on the dot — plus a halo-blue
+ * refill of the dot itself so it reads as armed rather than one grey dot among four.
+ */
+function drawActiveAnchorRing(ctx: InteractiveLayerContext, anchor: Point, camera: Camera, theme: "light" | "dark"): void {
+  if (!ctx.arc) return; // same square-would-read-as-a-resize-handle rationale as the dots
+  const screen = sceneToScreen(anchor, camera);
+  ctx.strokeStyle = HIGHLIGHT_COLOR[theme];
+  ctx.lineWidth = ACTIVE_ANCHOR_RING_WIDTH_PX;
+  ctx.beginPath();
+  ctx.arc(screen.x, screen.y, CONNECTION_POINT_SNAP_PX, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = HIGHLIGHT_COLOR[theme];
+  ctx.beginPath();
+  ctx.arc(screen.x, screen.y, CONNECTION_POINT_RADIUS_PX + 1, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 /**

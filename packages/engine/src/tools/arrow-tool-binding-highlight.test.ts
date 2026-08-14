@@ -119,3 +119,35 @@ describe("ArrowTool — suggested-binding highlight", () => {
     expect(zoomedOut.tool.getBindingHighlightIds()).toEqual([rect.id]);
   });
 });
+
+describe("ArrowTool — active anchor ring", () => {
+  it("arms the anchor a hover is within snap range of, and clears when the hover moves between anchors", () => {
+    const { scene, tool } = setup();
+    scene.addElement(createRectangleElement({ x: 0, y: 0, width: 100, height: 100 }));
+
+    tool.onHover({ x: 104, y: 55 }, NO_MODIFIERS); // ~6.4 units from the right-edge anchor (100,50)
+    expect(tool.getBindingAnchor()).toEqual({ x: 100, y: 50 });
+
+    tool.onHover({ x: 98, y: 80 }, NO_MODIFIERS); // on the shape but between anchors
+    expect(tool.getBindingAnchor()).toBeNull();
+  });
+
+  it("follows the dragged end while drawing, and is gone once the arrow commits", () => {
+    const { scene, tool } = setup();
+    scene.addElement(createRectangleElement({ x: 200, y: 0, width: 100, height: 100 }));
+
+    tool.onGestureStart({ x: 0, y: 50 }, NO_MODIFIERS);
+    tool.onGestureMove({ x: 196, y: 54 }, NO_MODIFIERS); // near the left-edge anchor (200,50)
+    expect(tool.getBindingAnchor()).toEqual({ x: 200, y: 50 });
+
+    tool.onGestureEnd({ x: 196, y: 54 }, NO_MODIFIERS);
+    expect(tool.getBindingAnchor()).toBeNull();
+  });
+
+  it("stays dark while binding is suppressed, matching the halo", () => {
+    const { scene, tool } = setup();
+    scene.addElement(createRectangleElement({ x: 0, y: 0, width: 100, height: 100 }));
+    tool.onHover({ x: 104, y: 55 }, { ...NO_MODIFIERS, ctrl: true });
+    expect(tool.getBindingAnchor()).toBeNull();
+  });
+});

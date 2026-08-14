@@ -28,6 +28,8 @@ export interface RenderLoopDeps {
   getLassoPath(): readonly Point[];
   /** Ids of the shapes the arrow tool is offering as bind targets — haloed on the interactive layer each frame; empty when idle. Same getter contract as the others. */
   getBindingHighlightIds(): readonly string[];
+  /** The one connection anchor the moving endpoint would snap to (scene space), ringed on the interactive layer — `null` when none is in range. Same getter contract as the others. */
+  getBindingAnchor(): Point | null;
   /** The resolved theme (`"system"` already collapsed), so overlay chrome can pick a light/dark colour. Same getter contract as the others, so a theme flip repaints without rebuilding the loop. */
   getTheme(): "light" | "dark";
   /** Latest pointer position (scene space), or `null` — decides which segment of a selected arrow offers its insert-a-bend dot. Same getter contract as the others. */
@@ -38,7 +40,7 @@ export interface RenderLoopDeps {
 
 /** Starts the loop; returns a stop function for the owning effect's cleanup. */
 export function startRenderLoop(deps: RenderLoopDeps): () => void {
-  const { stage, scene, cameraStore, selection, getMarqueeRect, getSnapGuides, grid, getRemoteCursors, getTextDraft, getPendingEraseIds, getLaserTrail, getLassoPath, getColorAdapter, getBindingHighlightIds, getTheme, getHoverPoint } = deps;
+  const { stage, scene, cameraStore, selection, getMarqueeRect, getSnapGuides, grid, getRemoteCursors, getTextDraft, getPendingEraseIds, getLaserTrail, getLassoPath, getColorAdapter, getBindingHighlightIds, getBindingAnchor, getTheme, getHoverPoint } = deps;
   let frameHandle = requestAnimationFrame(function renderFrame() {
     const camera = cameraStore.getCamera();
     const textDraft = getTextDraft();
@@ -65,6 +67,7 @@ export function startRenderLoop(deps: RenderLoopDeps): () => void {
         laserTrail: getLaserTrail(),
         lassoPath: getLassoPath(),
         bindingHighlightElements,
+        bindingAnchor: getBindingAnchor(),
         theme: getTheme(),
         hoverPoint: getHoverPoint(),
       },

@@ -108,9 +108,10 @@ export function linearHandleLayout(arrow: ArrowElement, zoom: number, hoverPoint
  * Which handle in `layout` is under `point`, or `null`. Vertices win over the midpoint when both are
  * in range — dragging an existing endpoint is the more common intent, and the more destructive one to
  * get wrong (inserting an unwanted bend is a silent edit; failing to grab an endpoint is not).
+ * `radiusMultiplier` widens the grab radius for coarse pointers — see `input/pointer-precision.ts`.
  */
-export function hitLinearHandle(layout: LinearHandleLayout, point: Point, zoom: number): LinearHandleTarget | null {
-  const grabRadius = HANDLE_GRAB_PX / zoom;
+export function hitLinearHandle(layout: LinearHandleLayout, point: Point, zoom: number, radiusMultiplier = 1): LinearHandleTarget | null {
+  const grabRadius = (HANDLE_GRAB_PX * radiusMultiplier) / zoom;
 
   let closest: { index: number; distance: number } | null = null;
   for (const vertex of layout.vertices) {

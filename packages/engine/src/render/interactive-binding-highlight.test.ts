@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createEllipseElement, createRectangleElement, createTriangleElement } from "../elements/shape-elements";
 import { createNoteElement } from "../elements/note-element";
-import { CONNECTION_POINT_RADIUS_PX } from "../bindings/shape-connection-points";
+import { CONNECTION_POINT_RADIUS_PX, CONNECTION_POINT_SNAP_PX } from "../bindings/shape-connection-points";
 import { createCamera } from "./camera";
 import { drawBindingHighlights } from "./interactive-binding-highlight";
 import type { InteractiveLayerContext } from "./interactive-layer";
@@ -202,5 +202,32 @@ describe("drawBindingHighlights — connection anchors", () => {
     const { ctx, calls } = fakeContext();
     drawBindingHighlights(ctx, [createRectangleElement({ x: 0, y: 0, width: 100, height: 60 })], CAMERA, "light");
     expect(calls).not.toContain("fill");
+  });
+});
+
+describe("drawBindingHighlights — active anchor ring", () => {
+  const shape = () => createRectangleElement({ x: 0, y: 0, width: 100, height: 60 });
+
+  it("rings the active anchor at the snap radius and refills its dot, on top of the four grey dots", () => {
+    const { ctx, dots } = fakeContextWithArc();
+    drawBindingHighlights(ctx, [shape()], CAMERA, "light", { x: 100, y: 30 });
+
+    const atAnchor = dots.filter((dot) => dot.x === 100 && dot.y === 30);
+    expect(atAnchor.map((dot) => dot.radius)).toContain(CONNECTION_POINT_SNAP_PX); // the ring IS the snap zone
+    expect(atAnchor.map((dot) => dot.radius)).toContain(CONNECTION_POINT_RADIUS_PX + 1); // the armed dot refill
+    expect(dots).toHaveLength(6); // 4 grey dots + ring + refill
+  });
+
+  it("draws no ring when no anchor is active — four dots only, exactly as before", () => {
+    const { ctx, dots } = fakeContextWithArc();
+    drawBindingHighlights(ctx, [shape()], CAMERA, "light", null);
+    expect(dots).toHaveLength(4);
+  });
+
+  it("places the ring in screen space, following the camera like every other overlay", () => {
+    const { ctx, dots } = fakeContextWithArc();
+    drawBindingHighlights(ctx, [shape()], { ...CAMERA, zoom: 2 }, "light", { x: 100, y: 30 });
+    const ring = dots.find((dot) => dot.radius === CONNECTION_POINT_SNAP_PX);
+    expect([ring!.x, ring!.y]).toEqual([200, 60]); // scene (100,30) at 2x
   });
 });
