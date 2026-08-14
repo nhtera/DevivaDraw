@@ -52,18 +52,36 @@ export class TouchGestureAdapter {
     // the same gesture — `preventDefault` inside pointer handlers
     // alone is not reliably honored for touch-scroll suppression across browsers.
     element.style.touchAction = "none";
-    element.addEventListener("pointerdown", this.handlePointerDown);
+    // Capture phase, so this runs before the engine pipeline's bubble-phase `pointerdown` listener
+    // regardless of attach order — `handlePointerDown` swallows every 2nd+ finger's down
+    // (`stopImmediatePropagation`) before the single-pointer pipeline can see it. Without that, the
+    // ordering decides the outcome: adapter-first meant the synthetic `pointercancel` freed the
+    // pipeline's active pointer and the palm/second finger's own down then STARTED a fresh gesture —
+    // its tap dropped a default shape under the palm.
+    element.addEventListener("pointerdown", this.handlePointerDown, { capture: true });
     element.addEventListener("pointermove", this.handlePointerMove);
-    element.addEventListener("pointerup", this.handlePointerUpOrCancel);
-    element.addEventListener("pointercancel", this.handlePointerUpOrCancel);
+    // Up/cancel are tracked at the window, not the element: a finger lifted outside the canvas
+    // (over the toolbar is the everyday case — e.g. one finger of a pinch drifts off the element
+    // before lifting) never delivers its `pointerup` to the element, and a touch left behind in
+    // `touches` is poison — every later one-finger drag then counts as "two fingers" against the
+    // frozen stale point and pans/zooms the camera wildly, while a real pinch counts as 3+ touches
+    // and is ignored. Element up/cancel events bubble to the window, so this single pair of
+    // listeners covers both paths; the `pointerType` guard in the handler still ignores this
+    // adapter's own synthetic `pointercancel` handoffs (dispatched with no `pointerType`).
+    window.addEventListener("pointerup", this.handlePointerUpOrCancel);
+    window.addEventListener("pointercancel", this.handlePointerUpOrCancel);
+    // Focus loss mid-gesture (app switch, system dialog) can swallow up/cancel entirely — drop all
+    // tracked touches rather than risk the same stale-touch poisoning.
+    window.addEventListener("blur", this.handleWindowBlur);
   }
 
   detach(): void {
     const { element } = this.options;
-    element.removeEventListener("pointerdown", this.handlePointerDown);
+    element.removeEventListener("pointerdown", this.handlePointerDown, { capture: true });
     element.removeEventListener("pointermove", this.handlePointerMove);
-    element.removeEventListener("pointerup", this.handlePointerUpOrCancel);
-    element.removeEventListener("pointercancel", this.handlePointerUpOrCancel);
+    window.removeEventListener("pointerup", this.handlePointerUpOrCancel);
+    window.removeEventListener("pointercancel", this.handlePointerUpOrCancel);
+    window.removeEventListener("blur", this.handleWindowBlur);
     this.clearLongPressTimer();
     this.touches.clear();
     this.twoFingerLast = null;
@@ -105,6 +123,9 @@ export class TouchGestureAdapter {
       this.armLongPressTimer(event.pointerId, point);
       return;
     }
+    // A 2nd+ finger belongs to this adapter alone — stop it here (capture phase) so the
+    // single-pointer pipeline never starts a gesture with it; see `attach`'s ordering note.
+    event.stopImmediatePropagation();
     if (this.touches.size === 2) {
       this.clearLongPressTimer();
       const [firstPointerId] = [...this.touches.keys()];
@@ -115,7 +136,7 @@ export class TouchGestureAdapter {
       this.twoFingerLast = { centroid: touchCentroid(points), spread: touchSpread(points) };
       return;
     }
-    // 3+ simultaneous touches: out of scope (select/pinch/pan only).
+    // 3+ simultaneous touches: out of scope (select/pinch/pan only) — tracked for cleanup, nothing more.
   };
 
   private readonly handlePointerMove = (event: PointerEvent): void => {
@@ -145,5 +166,11 @@ export class TouchGestureAdapter {
     if (this.longPressPointerId === event.pointerId) this.clearLongPressTimer();
     this.touches.delete(event.pointerId);
     if (this.touches.size < 2) this.twoFingerLast = null;
+  };
+
+  private readonly handleWindowBlur = (): void => {
+    this.clearLongPressTimer();
+    this.touches.clear();
+    this.twoFingerLast = null;
   };
 }
