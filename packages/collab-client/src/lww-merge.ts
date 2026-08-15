@@ -33,6 +33,7 @@ export function isPlausibleRemoteElement(value: unknown): value is AnyElement {
     typeof el.versionNonce === "number" &&
     Number.isFinite(el.versionNonce) &&
     typeof el.index === "string" &&
+    (el.layerId === undefined || typeof el.layerId === "string") &&
     typeof el.isDeleted === "boolean" &&
     typeof el.updated === "number"
   );

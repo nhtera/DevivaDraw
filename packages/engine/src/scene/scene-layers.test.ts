@@ -183,3 +183,49 @@ describe("Scene layers — draw-to-shape layer carry", () => {
     expect(added.layerId).toBe(sketch.id);
   });
 });
+
+describe("Scene layers — remote manifest LWW with tombstones", () => {
+  it("a same-version concurrent edit can never resurrect a locally-deleted layer (the pages-tombstone rule)", () => {
+    const scene = new Scene();
+    const doomed = scene.addLayer("Doomed");
+    scene.removeLayer(doomed.id, scene.getDefaultLayerId());
+
+    const local = scene.getLayersManifest();
+    const remote = {
+      version: local.version,
+      versionNonce: local.versionNonce + 1, // wins the tie-break
+      layers: [...local.layers, { id: doomed.id, name: "Doomed (renamed)", visible: true, locked: false }],
+    };
+    expect(scene.applyRemoteLayersManifest(remote)).toBe(true); // adoption happens...
+    expect(scene.getLayers().some((layer) => layer.id === doomed.id)).toBe(false); // ...but the deletion sticks
+  });
+
+  it("a STRICTLY newer manifest may legitimately resurrect and clears the tombstone", () => {
+    const scene = new Scene();
+    const doomed = scene.addLayer("Doomed");
+    scene.removeLayer(doomed.id, scene.getDefaultLayerId());
+
+    const local = scene.getLayersManifest();
+    const newer = {
+      version: local.version + 1,
+      versionNonce: 1,
+      layers: [...local.layers, { id: doomed.id, name: "Back by consensus", visible: true, locked: false }],
+    };
+    expect(scene.applyRemoteLayersManifest(newer)).toBe(true);
+    expect(scene.getLayers().some((layer) => layer.id === doomed.id)).toBe(true);
+  });
+
+  it("adoption keeps the local active layer when it survives, and a stale manifest is rejected", () => {
+    const scene = new Scene();
+    const mine = scene.addLayer("Mine");
+    scene.setActiveLayer(mine.id);
+    const local = scene.getLayersManifest();
+
+    const stale = { version: local.version - 1, versionNonce: 999, layers: local.layers };
+    expect(scene.applyRemoteLayersManifest(stale)).toBe(false);
+
+    const newer = { version: local.version + 1, versionNonce: 1, layers: [...local.layers, { id: "extra", name: "Peer's", visible: true, locked: false }] };
+    expect(scene.applyRemoteLayersManifest(newer)).toBe(true);
+    expect(scene.getActiveLayerId()).toBe(mine.id); // local working state preserved
+  });
+});

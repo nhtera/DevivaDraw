@@ -81,7 +81,7 @@ export { freezeElement, randomVersionNonce, touch } from "./scene/scene-mutation
 export type { ElementUpdate, SceneListener, SceneUpdateHook, StoredFile } from "./scene/scene";
 export { Scene } from "./scene/scene";
 export { DEFAULT_LAYER_NAME, MAX_LAYERS } from "./scene/scene-layers";
-export type { SceneLayer } from "./scene/scene-layers";
+export type { LayersManifest, SceneLayer } from "./scene/scene-layers";
 
 export { findTextMatches } from "./scene/find-text-matches";
 

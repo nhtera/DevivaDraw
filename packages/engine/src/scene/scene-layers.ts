@@ -13,6 +13,13 @@
  */
 import { randomInt } from "../elements/element-factory-defaults";
 
+/** The LWW envelope the layer list syncs as — mirrors the pages manifest's version/nonce discipline (collab-client/pages-adapter.ts): local mutations bump+reroll, remote adoption sets both verbatim. */
+export interface LayersManifest {
+  version: number;
+  versionNonce: number;
+  layers: SceneLayer[];
+}
+
 export interface SceneLayer {
   id: string;
   name: string;
@@ -41,12 +48,23 @@ export class SceneLayersStore {
   /** id → position (bottom = 0), rebuilt on every mutation so per-element sort lookups stay O(1). */
   private positions = new Map<string, number>();
   /**
-   * Bumped on every list mutation (add/rename/flag/reorder/remove/replace) — a cheap O(1) "did any
-   * layer change?" signal for hot-path subscribers (the selection prune) that must NOT pay a scan
-   * on every ELEMENT notify: a drag mutates one element per selected item per frame, and any
-   * per-notify scan there goes quadratic in selection size.
+   * Bumped on every list change from ANY source (local ops and remote adoption alike) — a cheap
+   * O(1) "did any layer change?" signal for hot-path subscribers (the selection prune) that must
+   * NOT pay a scan on every ELEMENT notify. Deliberately separate from the LWW `manifestVersion`
+   * below: adoption SETS that one to the remote's value, which could numerically equal a prior
+   * local value and fool an equality-gated subscriber.
    */
   private version = 0;
+  /** LWW state for collab — the pages-manifest discipline: local mutations `bumpManifest()`, remote adoption sets both verbatim. Starts at 0 so a peer that never touched layers can never outrank one that did. */
+  private manifestVersion = 0;
+  private manifestNonce = randomInt();
+  /**
+   * Ids this store deleted locally — the pages-tombstone rule (page-store.ts): an EQUAL-version
+   * remote manifest can never resurrect them (the delete-vs-concurrent-edit race must not undelete
+   * on the deleting peer), while a STRICTLY newer manifest that contains the id wins legitimately
+   * and clears the tombstone ("the winning manifest says it exists").
+   */
+  private readonly tombstonedLayerIds = new Set<string>();
 
   constructor() {
     const initial: SceneLayer = { id: generateLayerId(), name: DEFAULT_LAYER_NAME, visible: true, locked: false };
@@ -109,7 +127,7 @@ export class SceneLayersStore {
     const layer: SceneLayer = { id: generateLayerId(), name: name ?? `Layer ${this.layers.length + 1}`, visible: true, locked: false };
     this.layers.push(layer);
     this.rebuildPositions();
-    this.version += 1;
+    this.bumpVersions();
     return { ...layer };
   }
 
@@ -118,7 +136,7 @@ export class SceneLayersStore {
     const trimmed = name.trim();
     if (!layer || trimmed === "" || layer.name === trimmed) return false;
     layer.name = trimmed;
-    this.version += 1;
+    this.bumpVersions();
     return true;
   }
 
@@ -126,7 +144,7 @@ export class SceneLayersStore {
     const layer = this.layers.find((entry) => entry.id === id);
     if (!layer || layer.visible === visible) return false;
     layer.visible = visible;
-    this.version += 1;
+    this.bumpVersions();
     return true;
   }
 
@@ -134,7 +152,7 @@ export class SceneLayersStore {
     const layer = this.layers.find((entry) => entry.id === id);
     if (!layer || layer.locked === locked) return false;
     layer.locked = locked;
-    this.version += 1;
+    this.bumpVersions();
     return true;
   }
 
@@ -147,7 +165,7 @@ export class SceneLayersStore {
     const [layer] = this.layers.splice(from, 1);
     this.layers.splice(to, 0, layer!);
     this.rebuildPositions();
-    this.version += 1;
+    this.bumpVersions();
     return true;
   }
 
@@ -161,10 +179,11 @@ export class SceneLayersStore {
     const position = this.positions.get(id);
     if (position === undefined) return false;
     this.layers.splice(position, 1);
+    this.tombstonedLayerIds.add(id);
     this.rebuildPositions();
     if (this.defaultId === id) this.defaultId = this.layers[0]!.id;
     if (this.activeId === id) this.activeId = this.layers[Math.min(position, this.layers.length - 1)]!.id;
-    this.version += 1;
+    this.bumpVersions();
     return true;
   }
 
@@ -180,13 +199,62 @@ export class SceneLayersStore {
     this.rebuildPositions();
     this.defaultId = this.layers[0]!.id;
     this.activeId = activeLayerId !== undefined && this.positions.has(activeLayerId) ? activeLayerId : this.defaultId;
+    this.bumpVersions();
+    return true;
+  }
+
+  /** Monotonic counter of list mutations from any source — see the field doc. */
+  getVersion(): number {
+    return this.version;
+  }
+
+  /** The LWW envelope a collab snapshot carries for this page's layers. */
+  getManifest(): LayersManifest {
+    return { version: this.manifestVersion, versionNonce: this.manifestNonce, layers: this.getLayers() };
+  }
+
+  /**
+   * Wholesale LWW adoption of a remote layers manifest — higher version wins outright, an equal
+   * version falls to the deterministic nonce comparison (the shared element/pages rule). Wholesale
+   * replacement (no union) is a DELIBERATE divergence from the pages manifest: union-merging is what
+   * forces tombstone bookkeeping to keep deletions dead, and layers don't need the pages' "two fresh
+   * boards combine" semantics — deterministic convergence with last-writer semantics suffices.
+   * Rejects (returning `false`, state untouched) a losing, empty, or oversized manifest.
+   */
+  applyRemoteManifest(manifest: LayersManifest): boolean {
+    if (manifest.layers.length === 0 || manifest.layers.length > MAX_LAYERS) return false;
+    const strictlyNewer = manifest.version > this.manifestVersion;
+    const wins = manifest.version !== this.manifestVersion ? strictlyNewer : String(manifest.versionNonce) > String(this.manifestNonce);
+    if (!wins) return false;
+
+    // Tombstone discipline mirrors the pages manifest: a strictly newer winner clears tombstones
+    // for the ids it carries (a legitimate later state may resurrect a layer), while an equal-version
+    // winner has locally-deleted ids filtered from what it installs — the delete-vs-concurrent-edit
+    // race must never undelete on the deleting peer.
+    let adopted = manifest.layers;
+    if (strictlyNewer) {
+      for (const layer of manifest.layers) this.tombstonedLayerIds.delete(layer.id);
+    } else {
+      adopted = manifest.layers.filter((layer) => !this.tombstonedLayerIds.has(layer.id));
+      if (adopted.length === 0) return false; // every entry was locally deleted — nothing to install
+    }
+
+    const previousActive = this.activeId;
+    this.layers = adopted.map((layer) => ({ ...layer }));
+    this.rebuildPositions();
+    this.defaultId = this.layers[0]!.id;
+    // The active layer is local working state — keep it when it survived the adoption.
+    this.activeId = this.positions.has(previousActive) ? previousActive : this.defaultId;
+    this.manifestVersion = manifest.version;
+    this.manifestNonce = manifest.versionNonce;
     this.version += 1;
     return true;
   }
 
-  /** Monotonic counter of list mutations — see the field doc. */
-  getVersion(): number {
-    return this.version;
+  private bumpVersions(): void {
+    this.version += 1;
+    this.manifestVersion += 1;
+    this.manifestNonce = randomInt();
   }
 
   /** True when the list is indistinguishable from a fresh store: one default-named, visible, unlocked layer. Serialization omits trivial lists so untouched scenes stay byte-identical to pre-layers output. */

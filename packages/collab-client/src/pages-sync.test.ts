@@ -27,6 +27,12 @@ function makePagesAdapter(initial: Array<{ id: string; name: string }>) {
       return scenes.get(pageId)!;
     },
     listPageIds: () => manifest.pages.map((page) => page.id),
+    // Delegates straight to the engine scene — the react adapter does the same.
+    getLayersManifest: (pageId) => {
+      const layers = scenes.get(pageId)?.getLayersManifest() ?? null;
+      return layers !== null && layers.version > 0 ? layers : null;
+    },
+    applyRemoteLayersManifest: (pageId, layersManifest) => void scenes.get(pageId)?.applyRemoteLayersManifest(layersManifest),
     subscribe: () => () => {},
     tombstone: (id) => void tombstoned.add(id),
     manifest: () => manifest,

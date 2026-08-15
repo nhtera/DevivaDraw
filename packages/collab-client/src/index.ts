@@ -20,6 +20,8 @@ export type { OutboundSyncDeps } from "./outbound-sync";
 export { flushElementDeltas, sendDocumentSnapshot, sendFullSnapshot, sendPresenceUpdate } from "./outbound-sync";
 
 export type { CollabPagesAdapter, PagesManifest, PagesManifestEntry } from "./pages-adapter";
+export { isPlausibleLayersManifest } from "./layers-adapter";
+export type { LayersManifest } from "./layers-adapter";
 export { isPlausibleManifest, remoteManifestWins } from "./pages-adapter";
 
 export type { InboundMessageDeps } from "./inbound-message-handler";

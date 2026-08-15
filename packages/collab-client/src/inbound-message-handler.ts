@@ -10,6 +10,7 @@ import { decryptEnvelope } from "./message-codec";
 import type { RoomEnvelope } from "./message-codec";
 import { mergeRemoteElement } from "./lww-merge";
 import { isPlausibleManifest } from "./pages-adapter";
+import { isPlausibleLayersManifest } from "./layers-adapter";
 import type { CollabPagesAdapter } from "./pages-adapter";
 import type { Scene } from "@deviva-draw/engine";
 import type { PresenceStore } from "./presence-state";
@@ -76,7 +77,12 @@ async function applySnapshotPayload(payload: unknown, deps: InboundMessageDeps):
     for (const entry of payload.pages) {
       if (!isRecord(entry) || typeof entry.id !== "string" || !Array.isArray(entry.elements)) continue;
       const target = deps.pages.ensureScene(entry.id);
-      if (target) mergeElementsInto(target, entry.elements, deps, entry.id);
+      if (!target) continue;
+      // Layers before elements: membership then resolves against the adopted list immediately (and
+      // a just-materialized remote page trades its constructor default for the real layer state —
+      // the read-time orphan rule reunites any elements that arrived first).
+      if (isPlausibleLayersManifest(entry.layers)) deps.pages.applyRemoteLayersManifest(entry.id, entry.layers);
+      mergeElementsInto(target, entry.elements, deps, entry.id);
     }
     return;
   }

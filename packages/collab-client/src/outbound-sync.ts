@@ -71,7 +71,17 @@ export async function sendDocumentSnapshot(deps: Omit<OutboundSyncDeps, "scene" 
   const manifest = pages.getManifest();
   const payload = {
     manifest,
-    pages: manifest.pages.map((entry) => ({ id: entry.id, name: entry.name, elements: [...(pages.getScene(entry.id)?.elementsUnsorted() ?? [])] })),
+    pages: manifest.pages.map((entry) => {
+      const layers = pages.getLayersManifest(entry.id);
+      return {
+        id: entry.id,
+        name: entry.name,
+        elements: [...(pages.getScene(entry.id)?.elementsUnsorted() ?? [])],
+        // Attached inside the per-page entry (never a new wire type) — pre-layers peers ignore the
+        // unknown key; `null` (never-mutated) pages send nothing so they can't outrank real state.
+        ...(layers !== null ? { layers } : {}),
+      };
+    }),
   };
   const envelope = await encryptEnvelope(deps.roomKey, "snapshot", payload);
   deps.send(JSON.stringify(envelope));

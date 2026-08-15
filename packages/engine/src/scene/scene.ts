@@ -15,7 +15,7 @@ import { compareIndexedItems, indexBetween } from "./fractional-index";
 import { liveFileIds, SceneFilesStore } from "./scene-files-store";
 import type { StoredFile } from "./scene-files-store";
 import { SceneLayersStore } from "./scene-layers";
-import type { SceneLayer } from "./scene-layers";
+import type { LayersManifest, SceneLayer } from "./scene-layers";
 import { freezeElement, touch } from "./scene-mutations";
 
 export type { StoredFile } from "./scene-files-store";
@@ -343,6 +343,18 @@ export class Scene {
   /** O(1) monotonic layer-mutation counter — lets hot-path subscribers skip work on the (vastly more frequent) element-only notifies. */
   getLayersVersion(): number {
     return this.layersStore.getVersion();
+  }
+
+  /** The LWW envelope collab snapshots carry for this scene's layers — version 0 means "never locally mutated" (senders may omit it). */
+  getLayersManifest(): LayersManifest {
+    return this.layersStore.getManifest();
+  }
+
+  /** Wholesale LWW adoption of a peer's layers manifest — see `SceneLayersStore.applyRemoteManifest` for the win rule and the deliberate no-union divergence from pages. Notifies on adoption (which also re-runs the selection prune and repaints). */
+  applyRemoteLayersManifest(manifest: LayersManifest): boolean {
+    const adopted = this.layersStore.applyRemoteManifest(manifest);
+    if (adopted) this.notify();
+    return adopted;
   }
 
   /** Serializes this scene to the versioned JSON document shape — see `persistence/serialize-scene.ts`'s module doc for the export-vs-autosave `includeDeleted` distinction. */

@@ -11,7 +11,7 @@
  * stays untouched); a page operation triggers a prompt snapshot, so renames don't wait for the
  * periodic timer. Element *content* stays per-element LWW, routed by the `pageId` each delta carries.
  */
-import type { Scene } from "@deviva-draw/engine";
+import type { LayersManifest, Scene } from "@deviva-draw/engine";
 
 export interface PagesManifestEntry {
   id: string;
@@ -43,6 +43,14 @@ export interface CollabPagesAdapter {
   ensureScene(pageId: string): Scene | null;
   /** Every current page id, in order — the outbound scan walks these. */
   listPageIds(): string[];
+  /**
+   * The page's layers manifest for outbound snapshots, or `null` to omit it (unknown page, or a
+   * never-mutated version-0 list — a peer that never touched layers has nothing to say and must
+   * never outrank one that did).
+   */
+  getLayersManifest(pageId: string): LayersManifest | null;
+  /** LWW-applies a remote page's layers manifest (already shape-validated by `isPlausibleLayersManifest`) — the engine's wholesale-adoption rule decides the winner. Unknown page ids no-op. */
+  applyRemoteLayersManifest(pageId: string, manifest: LayersManifest): void;
   /** Fires on page add/remove/rename/replace — NOT on element edits or on which page is locally active (active page is a local concern and never syncs). */
   subscribe(listener: () => void): () => void;
 }
