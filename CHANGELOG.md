@@ -6,6 +6,52 @@ All notable changes to Deviva Draw are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-08-15
+
+### Added
+- **Multi-page documents.** One file can now hold many boards: a quiet bottom-left
+  switcher names the current page and opens the full list — click to switch,
+  double-click to rename, ✕ to delete, + to add. Each page keeps its own camera, the
+  whole document autosaves and reloads as one, share links carry every page, and an old
+  single-page save opens as page one with nothing lost. Long page lists scroll inside
+  the panel instead of growing past the window.
+- **Multi-page collaboration.** Pages sync live between collaborators — adding,
+  renaming, deleting, and drawing on any page propagates, presence cursors are scoped
+  to the page each person is on, and two people starting cold merge their page lists
+  instead of one overwriting the other. All of it rides the existing end-to-end
+  encrypted relay: the server never learns pages exist.
+- **Text to diagram.** Describe a flow in plain words in the diagram dialog and get
+  back real, editable shapes — powered by your own Anthropic API key, stored only in
+  this browser and sent nowhere else.
+- **Image cropping.** Double-click an image to open a crop editor: the full original
+  ghosts behind the current window, eight handles (or dragging inside the frame)
+  reshape it, Enter commits, Escape puts everything back. The visible pixels never move
+  on canvas, and exports honor the crop.
+- **Keyboard flowcharts.** With a shape selected, Alt+Arrow spawns a connected copy in
+  that direction — arrow attached at the facing edges — and selects it, so a whole
+  flowchart grows without touching the mouse.
+- **An editable stats panel.** The stats readout now takes input: type exact X/Y,
+  width/height, or rotation for the selected element and it moves precisely there.
+- **Export extras.** Export in dark mode, export only the selection, and re-open a
+  Deviva-exported PNG or SVG by dropping it back onto the canvas — the file carries its
+  scene and returns as editable shapes, not a flattened picture.
+- **The cursor tells you what a click will do.** Hovering anything grabbable shows the
+  move cursor, the resize handles show direction-correct arrows (even on rotated
+  shapes), the rotate handle offers a grab, the hand tool grabs, drawing tools show a
+  crosshair, and holding Space previews the pan grab.
+- **Cut, copy styles, and font-size shortcuts.** Cmd+X cuts, styles copy/paste between
+  shapes, and Cmd+Shift+< / > steps the selected text through the four font sizes.
+- **Links you can actually click.** An element with a link shows a small badge at its
+  corner that opens in a new tab — no more digging through a dialog to follow it.
+
+### Fixed
+- **Resizing the window no longer flickers the canvas.** The board repaints in the same
+  instant its backing store resizes, so not a single blank frame is ever shown.
+- **A corrupted autosave is salvaged, not wiped.** Whatever still parses is restored,
+  and the damaged original is kept in a recovery slot instead of being overwritten.
+- **Scrollbars across the chrome are thin, rounded, and stay out of the way** — panels
+  scroll like the rest of the app's quiet chrome instead of showing fat system bars.
+
 ## [0.3.7] — 2026-08-14
 
 ### Added

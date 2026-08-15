@@ -1,6 +1,6 @@
 {
   "name": "@deviva-draw/engine",
-  "version": "0.3.5",
+  "version": "0.4.0",
   "description": "Framework-agnostic whiteboard core: element model, scene store, history, renderer, geometry, tools",
   "type": "module",
   "license": "MIT",
