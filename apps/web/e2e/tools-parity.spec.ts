@@ -263,14 +263,29 @@ test("the lasso selects every element a traced loop encloses", async ({ page }) 
   await expect(page.locator('[data-testid^="layer-action-"]').first()).toBeVisible();
 });
 
-test("the sticky-note tool sits on the main toolbar and drops a note", async ({ page }) => {
+test("the sticky-note tool drops a note and opens its label editor immediately", async ({ page }) => {
   await expect(page.getByTestId("toolbar-note-tool")).toBeVisible();
   await page.getByTestId("toolbar-note-tool").click();
   await page.mouse.click(500, 400); // click-to-place a default note
 
+  // The label editor is already open — type without any double-click, then Escape commits.
+  const editor = page.locator("textarea");
+  await expect(editor).toBeVisible();
+  await editor.type("todo");
+  await page.keyboard.press("Escape");
+  await expect(editor).toHaveCount(0);
+
   await expect(page.getByTestId("top-bar-undo")).toBeEnabled();
   await expect(page.getByTestId("toolbar-select-tool")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator('[data-testid^="layer-action-"]').first()).toBeVisible();
+
+  // The typed label really landed on the note as bound text.
+  await page.waitForTimeout(1300);
+  const label = await page.evaluate(() => {
+    const scene = JSON.parse(localStorage.getItem("devivadraw:autosave:v1")!) as { elements: Array<{ type: string; text?: string; containerId?: string | null }> };
+    return scene.elements.find((element) => element.type === "text" && element.containerId)?.text;
+  });
+  expect(label).toBe("todo");
 });
 
 test("a shape created from the More menu can be resized by its handles (regression: they used to ignore resize)", async ({ page }) => {

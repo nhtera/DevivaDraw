@@ -34,6 +34,7 @@ import {
   SelectionTool,
   ShapeStyleState,
   StarTool,
+  startBoundTextEdit,
   TextEditSession,
   TextTool,
   ToolStateMachine,
@@ -147,6 +148,12 @@ export function buildTools(
   let handleCreated: (elementId: string, options?: { select?: boolean }) => void = () => {};
   const onShapeCreated = (elementId: string) => handleCreated(elementId, { select: true });
   const onTextPlaced = (elementId: string) => handleCreated(elementId, { select: false });
+  // A placed sticky note opens its label editor immediately — a note exists to hold words, so the
+  // extra double-click every other shape requires would just be friction here. Deferred assignment
+  // for the same reason as `handleCreated`: the edit session doesn't exist yet at tool-construction
+  // time, but can't be needed until a gesture commits.
+  let handleNoteCreated: (elementId: string) => void = () => {};
+  const onNoteCreated = (elementId: string) => handleNoteCreated(elementId);
 
   const shapeToolDeps = { scene, styleState, history: historyStack, onCreated: onShapeCreated };
   const rectangleTool = new RectangleTool(shapeToolDeps);
@@ -159,7 +166,7 @@ export function buildTools(
   const heartTool = new HeartTool(shapeToolDeps);
   const xBoxTool = new XBoxTool(shapeToolDeps);
   const checkBoxTool = new CheckBoxTool(shapeToolDeps);
-  const noteTool = new NoteTool(shapeToolDeps);
+  const noteTool = new NoteTool({ ...shapeToolDeps, onCreated: onNoteCreated });
   const blockArrowRightTool = new BlockArrowTool(shapeToolDeps, "right");
   const blockArrowLeftTool = new BlockArrowTool(shapeToolDeps, "left");
   const blockArrowUpTool = new BlockArrowTool(shapeToolDeps, "up");
@@ -262,6 +269,12 @@ export function buildTools(
     if (getToolLocked()) return;
     if (options?.select !== false) selectionState.selectOnly([elementId]);
     toolStateMachine.setTool(SELECT_TOOL_NAME);
+  };
+  handleNoteCreated = (elementId: string) => {
+    handleCreated(elementId, { select: true });
+    // With the tool lock on, the note stays unselected and the note tool stays armed (that's the
+    // lock's contract) — but the label editor still opens, so a locked run is "place, type, place".
+    startBoundTextEdit(scene, editSession, elementId, textMeasurer);
   };
 
   return {

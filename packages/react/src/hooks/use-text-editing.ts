@@ -142,6 +142,11 @@ export function useTextEditing(options: UseTextEditingOptions): TextEditingOverl
       const isComposing = event.nativeEvent.isComposing || event.keyCode === 229;
       if (event.key === "Escape" && !isComposing) {
         event.preventDefault();
+        // Stop the keystroke here: `commit()` ends the edit session synchronously, so if this same
+        // event bubbled on to the window the select tool would see "not editing" and treat it as
+        // Escape-clears-selection — deselecting the element the user just finished labelling. One
+        // Escape exits the editor; a second, separate Escape deselects.
+        event.stopPropagation();
         session.commit();
         return;
       }
