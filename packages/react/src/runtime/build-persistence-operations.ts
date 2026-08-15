@@ -69,9 +69,9 @@ export function buildPersistenceOperations(deps: BuildPersistenceOperationsDeps)
     // Deliberately not `.catch(reportError)`-wrapped like every operation above — see
     // `PersistenceOperations.shareScene`'s doc: the caller (`actions/share-actions.ts`) needs the
     // thrown error to populate `ShareDialogState`'s "error" branch, not just a console log.
-    shareScene: () => {
+    shareScene: (options) => {
       if (!shareApiBaseUrl) return Promise.reject(new Error("deviva-draw: share link service is not configured (missing shareApiBaseUrl)"));
-      return createShareLink({ apiBaseUrl: shareApiBaseUrl, origin: window.location.origin, document: pages ? pages.getDocument() : getScene().toJSON() });
+      return createShareLink({ apiBaseUrl: shareApiBaseUrl, origin: window.location.origin, document: pages ? pages.getDocument() : getScene().toJSON(), expiresAt: options?.expiresAt });
     },
   };
 }

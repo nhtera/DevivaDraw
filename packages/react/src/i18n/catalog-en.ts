@@ -272,6 +272,12 @@ export const catalogEn = {
   "share.dialog.revokeFailedNotRevocable": "This link can't be revoked.",
   "share.dialog.revokeFailedNetwork": "Couldn't revoke — check your connection and try again.",
   "share.dialog.historyOtherBrowsers": "Links created in other browsers or devices won't appear here.",
+  "share.dialog.historyExpires": "expires {date}",
+  "share.dialog.expiryLabel": "New link expires:",
+  "share.dialog.expiryNever": "Never",
+  "share.dialog.expiry7d": "In 7 days",
+  "share.dialog.expiry30d": "In 30 days",
+  "share.dialog.regenerate": "Generate new link",
   "share.viewer.editCopy": "Edit a copy",
   "share.viewer.unsavedCopy": "Unsaved copy — save the file to keep your changes",
 

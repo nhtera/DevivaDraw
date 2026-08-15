@@ -280,3 +280,45 @@ describe("handleDeleteBlob (revocable share links)", () => {
     expect(store.data.has(VALID_BLOB_ID)).toBe(false);
   });
 });
+
+describe("blob expiry (lazy enforcement on GET)", () => {
+  const deps = (store: ReturnType<typeof fakeStore>) => ({ store, limiter: unlimitedLimiter(), clientIp: "1.2.3.4" });
+
+  const putWithExpiry = (store: ReturnType<typeof fakeStore>, expiresAt: string) =>
+    handlePutBlob(putRequest(new Uint8Array([1, 2]), { "content-type": "application/octet-stream", "x-deviva-expires-at": expiresAt }), VALID_BLOB_ID, deps(store));
+
+  it("stores a valid future expiry and serves the blob until then", async () => {
+    const store = fakeStore();
+    const inAWeek = new Date(Date.now() + 7 * 86_400_000).toISOString();
+    expect((await putWithExpiry(store, inAWeek)).status).toBe(204);
+    expect(store.metadata.get(VALID_BLOB_ID)?.expiresAt).toBe(inAWeek);
+    expect((await handleGetBlob(VALID_BLOB_ID, deps(store))).status).toBe(200);
+  });
+
+  it("an expired blob 404s and is deleted on that first hit", async () => {
+    const store = fakeStore();
+    await handlePutBlob(putRequest(new Uint8Array([1, 2])), VALID_BLOB_ID, deps(store));
+    // Simulate an already-elapsed lifetime by writing the metadata directly — the PUT validator
+    // rightly refuses to create one this stale.
+    store.metadata.set(VALID_BLOB_ID, { expiresAt: new Date(Date.now() - 1000).toISOString() });
+
+    expect((await handleGetBlob(VALID_BLOB_ID, deps(store))).status).toBe(404);
+    expect(store.data.has(VALID_BLOB_ID)).toBe(false); // storage self-cleaned
+  });
+
+  it("rejects garbage, far-past, and over-horizon expiries with 400", async () => {
+    const store = fakeStore();
+    expect((await putWithExpiry(store, "not-a-date")).status).toBe(400);
+    expect((await putWithExpiry(store, new Date(Date.now() - 3_600_000).toISOString())).status).toBe(400);
+    expect((await putWithExpiry(store, new Date(Date.now() + 400 * 86_400_000).toISOString())).status).toBe(400);
+    expect(store.data.has(VALID_BLOB_ID)).toBe(false);
+  });
+
+  it("clamps a slightly-past expiry (clock skew) forward to a minimum lifetime instead of rejecting", async () => {
+    const store = fakeStore();
+    const skewed = new Date(Date.now() - 60_000).toISOString(); // one minute in the past — a wrong clock, not a wrong request
+    expect((await putWithExpiry(store, skewed)).status).toBe(204);
+    const stored = Date.parse(store.metadata.get(VALID_BLOB_ID)!.expiresAt!);
+    expect(stored).toBeGreaterThan(Date.now());
+  });
+});

@@ -99,6 +99,7 @@ describe("worker fetch — /blobs/{id} dispatch", () => {
     expect(response.headers.get("access-control-allow-methods")).toContain("DELETE");
     expect(response.headers.get("access-control-allow-headers")).toContain("x-deviva-delete-token-hash");
     expect(response.headers.get("access-control-allow-headers")).toContain("x-deviva-delete-token");
+    expect(response.headers.get("access-control-allow-headers")).toContain("x-deviva-expires-at");
   });
 
   it("falls back to a shared 'local-dev' rate-limit bucket when cf-connecting-ip is absent", async () => {

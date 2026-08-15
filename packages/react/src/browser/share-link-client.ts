@@ -32,6 +32,8 @@ export interface CreateShareLinkOptions {
   /** The app's own origin (`window.location.origin`) — becomes the share URL's `{origin}` (see `buildShareUrl`); injected rather than read internally so this stays testable without `window`. */
   origin: string;
   document: SceneDocumentV1 | MultiPageDocumentV1;
+  /** ISO-8601 expiry rider — sent as a header for the server to validate/enforce; omitted = never expires. */
+  expiresAt?: string;
 }
 
 /**
@@ -43,14 +45,18 @@ export interface CreateShareLinkOptions {
  * `ShareDialogState`; a second result-type layer here would just be redundant error-handling.
  */
 export async function createShareLink(options: CreateShareLinkOptions): Promise<ShareLinkResult> {
-  const { apiBaseUrl, origin, document } = options;
+  const { apiBaseUrl, origin, document, expiresAt } = options;
   const { ciphertext, ivBase64Url, keyBase64Url } = await encryptSceneDocument(document);
   const blobId = crypto.randomUUID();
   const { token, tokenHashBase64Url } = await mintDeleteToken();
 
   const response = await fetch(blobUrl(apiBaseUrl, blobId), {
     method: "PUT",
-    headers: { "content-type": "application/octet-stream", "x-deviva-delete-token-hash": tokenHashBase64Url },
+    headers: {
+      "content-type": "application/octet-stream",
+      "x-deviva-delete-token-hash": tokenHashBase64Url,
+      ...(expiresAt !== undefined ? { "x-deviva-expires-at": expiresAt } : {}),
+    },
     // `BodyInit` requires an `ArrayBuffer`-backed view; `encryptSceneDocument`'s `ciphertext` is
     // always exactly that (it comes from `SubtleCrypto.encrypt`'s output), but `Uint8Array`'s type is
     // generic over the wider `ArrayBufferLike` — see `@deviva-draw/engine`'s `gzip-codec.ts` for the
@@ -64,6 +70,7 @@ export async function createShareLink(options: CreateShareLinkOptions): Promise<
     blobId,
     deleteToken: token,
     pageCount: document.type === MULTI_PAGE_DOCUMENT_TYPE ? document.pages.length : 1,
+    ...(expiresAt !== undefined ? { expiresAt } : {}),
   };
 }
 

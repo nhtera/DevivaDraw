@@ -21,18 +21,34 @@ export interface ShareDialogProps {
   onStartCollab?(): void;
   /** The collab-server base URL — needed for revocation DELETEs; absent (unconfigured host) hides the history section entirely, since none of its rows could act. */
   apiBaseUrl?: string;
+  /** Re-runs the share flow with an optional ISO expiry — the first auto-generated link is always never-expiring; a bounded lifetime is a deliberate second step. */
+  onRegenerate?(expiresAt?: string): void;
 }
 
+/** The offered lifetimes — never (default) plus two fixed windows; a free-form date would add a picker for a decision users make coarsely. */
+const EXPIRY_CHOICES = [
+  { value: "never", days: null, labelKey: "share.dialog.expiryNever" },
+  { value: "7d", days: 7, labelKey: "share.dialog.expiry7d" },
+  { value: "30d", days: 30, labelKey: "share.dialog.expiry30d" },
+] as const;
+
 export function ShareDialog(props: ShareDialogProps) {
-  const { state, onClose, onStartCollab, apiBaseUrl } = props;
+  const { state, onClose, onStartCollab, apiBaseUrl, onRegenerate } = props;
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
+  const [expiryChoice, setExpiryChoice] = useState<(typeof EXPIRY_CHOICES)[number]["value"]>("never");
   // Re-read whenever a link lands: the dialog mounts at "generating", BEFORE the share action
   // appends the new entry, so the mount-time read alone would always miss the freshest link. Rows
   // disappear as revokes succeed. Only ids/tokens/metadata live here; urls with keys never persist.
   const [history, setHistory] = useState<ShareLinkHistoryEntry[]>(() => (typeof window !== "undefined" ? readShareLinkHistory(window.localStorage) : []));
   useEffect(() => {
-    if (state.status === "ready" && typeof window !== "undefined") setHistory(readShareLinkHistory(window.localStorage));
+    if (state.status !== "ready") return;
+    if (typeof window !== "undefined") setHistory(readShareLinkHistory(window.localStorage));
+    // A fresh link just landed (first generation or a regenerate) — stale per-link flags from the
+    // previous link must not leak onto it: `currentRevoked` would hide the NEW link behind the
+    // "revoked" notice, and `copied` would claim it was already copied.
+    setCurrentRevoked(false);
+    setCopied(false);
   }, [state.status]);
   const [revokeErrors, setRevokeErrors] = useState<Record<string, string>>({});
   const [revoking, setRevoking] = useState<string | null>(null);
@@ -111,6 +127,34 @@ export function ShareDialog(props: ShareDialogProps) {
             )}
           </>
         )}
+        {state.status === "ready" && onRegenerate && (
+          // Deliberately OUTSIDE the revoked/not-revoked fork: after revoking the displayed link,
+          // generating a replacement is the most likely next step — hiding this row would dead-end
+          // the dialog.
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, fontSize: 12 }}>
+            <label htmlFor="share-expiry-select" style={{ color: "var(--dd-text-secondary)" }}>
+              {t("share.dialog.expiryLabel")}
+            </label>
+            <select id="share-expiry-select" data-testid="share-dialog-expiry" value={expiryChoice} onChange={(event) => setExpiryChoice(event.target.value as typeof expiryChoice)} style={{ ...inputStyle, width: "auto", padding: "3px 6px", fontSize: 12 }}>
+              {EXPIRY_CHOICES.map((choice) => (
+                <option key={choice.value} value={choice.value}>
+                  {t(choice.labelKey)}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              data-testid="share-dialog-regenerate"
+              style={{ ...buttonStyle(false), padding: "4px 8px", fontSize: 12 }}
+              onClick={() => {
+                const days = EXPIRY_CHOICES.find((choice) => choice.value === expiryChoice)?.days ?? null;
+                onRegenerate(days === null ? undefined : new Date(Date.now() + days * 86_400_000).toISOString());
+              }}
+            >
+              {t("share.dialog.regenerate")}
+            </button>
+          </div>
+        )}
         {apiBaseUrl && history.length > 0 && state.status !== "generating" && (
           <div data-testid="share-dialog-history" style={{ marginTop: 14, borderTop: "1px solid var(--dd-chrome-border)", paddingTop: 10 }}>
             <strong style={{ fontSize: 12 }}>{t("share.dialog.historyTitle")}</strong>
@@ -119,6 +163,7 @@ export function ShareDialog(props: ShareDialogProps) {
                 <div key={entry.blobId} data-testid={`share-history-${entry.blobId}`} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
                   <span style={{ flex: 1, color: "var(--dd-text-secondary)" }}>
                     {t("share.dialog.historyMeta", { date: new Date(entry.createdAt).toLocaleDateString(), pages: entry.pageCount })}
+                    {entry.expiresAt !== undefined && ` · ${t("share.dialog.historyExpires", { date: new Date(entry.expiresAt).toLocaleDateString() })}`}
                   </span>
                   {revokeErrors[entry.blobId] && (
                     <span role="alert" style={{ color: "var(--dd-text-secondary)", fontSize: 11 }}>

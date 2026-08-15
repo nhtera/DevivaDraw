@@ -66,6 +66,14 @@ test("a shared link can be revoked from the dialog's history, after which the li
   await expect(page.getByTestId("share-dialog-current-revoked")).toBeVisible();
   await expect(page.getByTestId("share-dialog-link")).toHaveCount(0);
 
+  // ...but not dead-end: generating a replacement link works right from the revoked state, and the
+  // stale "revoked" notice never leaks onto the fresh link.
+  await page.getByTestId("share-dialog-regenerate").click();
+  await expect(page.getByTestId("share-dialog-link")).toBeVisible();
+  await expect(page.getByTestId("share-dialog-current-revoked")).toHaveCount(0);
+  const replacementUrl = await page.getByTestId("share-dialog-link").inputValue();
+  expect(replacementUrl).not.toBe(shareUrl);
+
   // A recipient with the old link now gets the not-found notice, not the board.
   await page.goto(shareUrl);
   await expect(page.getByTestId("shared-scene-viewer-notice")).toBeVisible();
@@ -94,4 +102,42 @@ test("history survives a reload and never persists the share url or key material
   await page.getByTestId("top-bar-menu").click();
   await page.getByTestId("main-menu-share").click(); // generates a new link — history should show both
   await expect(page.locator('[data-testid^="share-history-revoke-"]')).toHaveCount(2);
+});
+
+test("a new link can be generated with an expiry, which rides the upload and shows in history", async ({ page }) => {
+  let lastExpiryHeader: string | null = null;
+  const blobs = new Map<string, Buffer>();
+  await page.route("**/blobs/**", async (route) => {
+    const request = route.request();
+    const blobId = new URL(request.url()).pathname.split("/").pop()!;
+    if (request.method() === "PUT") {
+      lastExpiryHeader = (await request.allHeaders())["x-deviva-expires-at"] ?? null;
+      blobs.set(blobId, request.postDataBuffer()!);
+      await route.fulfill({ status: 204 });
+      return;
+    }
+    await route.fulfill({ status: 404 });
+  });
+
+  await page.getByTestId("toolbar-rectangle-tool").click();
+  await page.mouse.move(300, 300);
+  await page.mouse.down();
+  await page.mouse.move(400, 380);
+  await page.mouse.up();
+  await page.getByTestId("top-bar-menu").click();
+  await page.getByTestId("main-menu-share").click();
+  const firstUrl = await page.getByTestId("share-dialog-link").inputValue();
+  expect(lastExpiryHeader).toBeNull(); // the default link never expires
+
+  await page.getByTestId("share-dialog-expiry").selectOption("7d");
+  await page.getByTestId("share-dialog-regenerate").click();
+  await expect(page.getByTestId("share-dialog-link")).not.toHaveValue(firstUrl);
+  expect(lastExpiryHeader).not.toBeNull();
+  const expiresAtMs = Date.parse(lastExpiryHeader!);
+  expect(expiresAtMs).toBeGreaterThan(Date.now() + 6 * 86_400_000);
+  expect(expiresAtMs).toBeLessThan(Date.now() + 8 * 86_400_000);
+
+  // Two links now, the newer one labeled with its expiry date.
+  await expect(page.locator('[data-testid^="share-history-revoke-"]')).toHaveCount(2);
+  await expect(page.getByTestId("share-dialog-history")).toContainText("expires");
 });

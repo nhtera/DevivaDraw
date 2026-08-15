@@ -69,6 +69,27 @@ function isValidBlobId(id: string): boolean {
 export const DELETE_TOKEN_HASH_HEADER = "x-deviva-delete-token-hash";
 export const DELETE_TOKEN_HEADER = "x-deviva-delete-token";
 const DELETE_TOKEN_HASH_METADATA_KEY = "deleteTokenHash";
+
+/** Optional per-blob lifetime, chosen at share time and enforced lazily on GET — no scheduled sweeper needed. */
+export const EXPIRES_AT_HEADER = "x-deviva-expires-at";
+const EXPIRES_AT_METADATA_KEY = "expiresAt";
+/** Upper bound on a requested lifetime — expiry is a bounded-lifetime feature, not a scheduling system. */
+const MAX_EXPIRY_HORIZON_MS = 366 * 24 * 60 * 60 * 1000;
+/** A slightly-past expiry (a client with a skewed clock) is clamped forward to this instead of rejected — beyond it, the request is honestly wrong, not skewed. */
+const CLOCK_SKEW_GRACE_MS = 5 * 60 * 1000;
+const CLAMPED_MINIMUM_LIFETIME_MS = 60 * 1000;
+
+type ExpiryValidation = { ok: true; expiresAtIso: string | null } | { ok: false };
+
+/** Parses/validates the expiry header: absent → no expiry; parseable, within `[now - grace, now + horizon]` → the (possibly forward-clamped) ISO instant; anything else → reject. */
+function validateExpiryHeader(raw: string | null, now: number): ExpiryValidation {
+  if (raw === null) return { ok: true, expiresAtIso: null };
+  const parsed = Date.parse(raw);
+  if (Number.isNaN(parsed)) return { ok: false };
+  if (parsed > now + MAX_EXPIRY_HORIZON_MS) return { ok: false };
+  if (parsed < now - CLOCK_SKEW_GRACE_MS) return { ok: false };
+  return { ok: true, expiresAtIso: new Date(Math.max(parsed, now + CLAMPED_MINIMUM_LIFETIME_MS)).toISOString() };
+}
 /** Both the raw token and its hash are exactly 32 bytes base64url-encoded: 43 chars, no padding. */
 const BASE64URL_32_BYTES_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
@@ -157,6 +178,9 @@ export async function handlePutBlob(request: Request, blobId: string, deps: Blob
     return new Response("malformed delete token hash", { status: 400 });
   }
 
+  const expiry = validateExpiryHeader(request.headers.get(EXPIRES_AT_HEADER), Date.now());
+  if (!expiry.ok) return new Response("invalid expiry", { status: 400 });
+
   const bodyResult = await readBoundedBody(request, maxBodyBytes);
   if (!bodyResult.ok) return new Response("payload too large", { status: 413 });
   if (bodyResult.bytes.byteLength === 0) return new Response("empty payload", { status: 400 });
@@ -170,9 +194,13 @@ export async function handlePutBlob(request: Request, blobId: string, deps: Blob
   // metadata (whose revocation hash controls the blob) silently wins. Ids are client-minted
   // `crypto.randomUUID()`s, so landing inside that window on someone else's id requires guessing a
   // random UUID mid-flight; conditional-write machinery isn't worth that odds profile.
+  const customMetadata: Record<string, string> = {
+    ...(deleteTokenHash !== null ? { [DELETE_TOKEN_HASH_METADATA_KEY]: deleteTokenHash } : {}),
+    ...(expiry.expiresAtIso !== null ? { [EXPIRES_AT_METADATA_KEY]: expiry.expiresAtIso } : {}),
+  };
   await deps.store.put(blobId, bodyResult.bytes.buffer as ArrayBuffer, {
     httpMetadata: { contentType: "application/octet-stream" },
-    ...(deleteTokenHash !== null ? { customMetadata: { [DELETE_TOKEN_HASH_METADATA_KEY]: deleteTokenHash } } : {}),
+    ...(Object.keys(customMetadata).length > 0 ? { customMetadata } : {}),
   });
   return new Response(null, { status: 204 });
 }
@@ -214,6 +242,18 @@ export async function handleGetBlob(blobId: string, deps: BlobRouteDeps): Promis
 
   const object = await deps.store.get(blobId);
   if (!object) return new Response("not found", { status: 404 });
+
+  // Lazy expiry: past its instant, an expired blob is indistinguishable from a deleted one (404 —
+  // the promise to the sharer is "gone"), and the first such hit also reclaims the storage. A
+  // concurrent GET racing the delete already answered 404 from this same branch — benign.
+  const expiresAt = object.customMetadata?.[EXPIRES_AT_METADATA_KEY];
+  if (expiresAt !== undefined) {
+    const parsed = Date.parse(expiresAt);
+    if (!Number.isNaN(parsed) && parsed < Date.now()) {
+      await deps.store.delete(blobId);
+      return new Response("not found", { status: 404 });
+    }
+  }
 
   const bytes = await object.arrayBuffer();
   return new Response(bytes, { status: 200, headers: { "content-type": "application/octet-stream" } });

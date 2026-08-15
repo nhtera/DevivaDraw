@@ -75,7 +75,12 @@ export interface PersistenceOperations {
    * `ShareDialogState`, and a silent failure would leave the share dialog stuck on "generating"
    * forever with no explanation.
    */
-  shareScene(): Promise<ShareLinkResult>;
+  shareScene(options?: ShareSceneOptions): Promise<ShareLinkResult>;
+}
+
+export interface ShareSceneOptions {
+  /** ISO-8601 instant the link should stop working — omitted for a never-expiring link (the default). The server validates and enforces; the client only chooses. */
+  expiresAt?: string;
 }
 
 /**
@@ -89,6 +94,8 @@ export interface ShareLinkResult {
   blobId: string;
   deleteToken: string;
   pageCount: number;
+  /** Echo of the expiry the link was created with, when one was chosen — rides into history for display. */
+  expiresAt?: string;
 }
 
 /**

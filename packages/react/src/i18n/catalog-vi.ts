@@ -272,6 +272,12 @@ export const catalogVi: Record<TranslationKey, string> = {
   "share.dialog.revokeFailedNotRevocable": "Không thể thu hồi liên kết này.",
   "share.dialog.revokeFailedNetwork": "Không thể thu hồi — hãy kiểm tra kết nối và thử lại.",
   "share.dialog.historyOtherBrowsers": "Liên kết tạo trên trình duyệt hoặc thiết bị khác sẽ không xuất hiện ở đây.",
+  "share.dialog.historyExpires": "hết hạn {date}",
+  "share.dialog.expiryLabel": "Liên kết mới hết hạn:",
+  "share.dialog.expiryNever": "Không bao giờ",
+  "share.dialog.expiry7d": "Sau 7 ngày",
+  "share.dialog.expiry30d": "Sau 30 ngày",
+  "share.dialog.regenerate": "Tạo liên kết mới",
   "share.viewer.editCopy": "Chỉnh sửa bản sao",
   "share.viewer.unsavedCopy": "Bản sao chưa được lưu — hãy lưu tệp để giữ thay đổi của bạn",
 

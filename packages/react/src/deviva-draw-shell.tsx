@@ -40,6 +40,7 @@ import { StatsPanel } from "./components/stats-panel";
 import { PagesPanel } from "./components/pages-panel";
 import { MainMenu } from "./components/main-menu";
 import { ShareDialog } from "./components/share-dialog";
+import { runShareScene } from "./actions/share-actions";
 import { ShareViewerBadge } from "./components/share-viewer-badge";
 import { CollabDialog } from "./components/collab-dialog";
 import { ShortcutsDialog } from "./components/shortcuts-dialog";
@@ -423,6 +424,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
         <ShareDialog
           state={shareDialog.value}
           apiBaseUrl={shareApiBaseUrl}
+          onRegenerate={(expiresAt) => void runShareScene(runtime, expiresAt)}
           onClose={() => shareDialog.set({ status: "closed" })}
           onStartCollab={() => {
             shareDialog.set({ status: "closed" });

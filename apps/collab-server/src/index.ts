@@ -8,7 +8,7 @@
  * decision (validation, size limits, rate limiting, relay logic) lives in those modules, which is why
  * they stay unit-testable without a Workers runtime at all.
  */
-import { DELETE_TOKEN_HASH_HEADER, DELETE_TOKEN_HEADER, handleDeleteBlob, handleGetBlob, handlePutBlob } from "./blob-routes";
+import { DELETE_TOKEN_HASH_HEADER, DELETE_TOKEN_HEADER, EXPIRES_AT_HEADER, handleDeleteBlob, handleGetBlob, handlePutBlob } from "./blob-routes";
 import type { BlobStore } from "./blob-routes";
 import { RateLimiter } from "./rate-limit";
 import { handleRoomUpgrade, matchRoomPath } from "./room-routes";
@@ -52,7 +52,7 @@ function corsHeaders(origin: string | null): HeadersInit {
   return {
     "access-control-allow-origin": origin,
     "access-control-allow-methods": "GET, PUT, DELETE, OPTIONS",
-    "access-control-allow-headers": `content-type, ${DELETE_TOKEN_HASH_HEADER}, ${DELETE_TOKEN_HEADER}`,
+    "access-control-allow-headers": `content-type, ${DELETE_TOKEN_HASH_HEADER}, ${DELETE_TOKEN_HEADER}, ${EXPIRES_AT_HEADER}`,
     vary: "origin",
   };
 }
