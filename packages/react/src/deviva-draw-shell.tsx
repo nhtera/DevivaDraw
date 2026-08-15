@@ -57,7 +57,6 @@ import { CommandPalette } from "./components/command-palette";
 import { BottomToolbar } from "./components/mobile/bottom-toolbar";
 import { MobilePropertiesBar } from "./components/mobile/mobile-properties-bar";
 import { useIsNarrowViewport } from "./components/responsive-layout";
-import { useTranslation } from "./i18n/use-translation";
 import { useTheme } from "./theme/theme-provider";
 import { decodeNaturalSize } from "./browser/browser-image-decode";
 import { createCameraStore } from "./runtime/camera-store";
@@ -94,7 +93,6 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     }
   }
   const pageStore = pageStoreRef.current;
-  const { t } = useTranslation();
   const { mode, cssVariables, toggleMode } = useTheme();
   const isNarrow = useIsNarrowViewport();
 
