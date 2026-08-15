@@ -198,11 +198,11 @@ box's dead centre attaches there and then follows the box. Drawing
 *through* a shape therefore attaches on the way past; Ctrl
 (`isBindingSuppressed`) is the way out.
 
-## Persistence format: SceneDocumentV1
+## Persistence format: SceneDocumentV1 and the multi-page envelope
 
-`persistence/scene-schema.ts` defines the versioned wire envelope shared by
-localStorage autosave, saved `.devivadraw` files, and (by design) future
-encrypted share payloads and collab snapshots:
+`persistence/scene-schema.ts` defines the versioned wire envelope for a single
+scene — the stable unit collab element sync, embedded export payloads, and test
+seeds all speak:
 
 ```ts
 interface SceneDocumentV1 {
@@ -220,6 +220,18 @@ so an old saved document never becomes unreadable after the app evolves.
 `Scene.fromJSON()` is a `static` factory (not an instance method) — a
 malformed load can never partially clobber a scene already on screen; it
 returns a `DeserializeSceneResult`, never throws.
+
+Multi-page documents (`persistence/multi-page-document.ts`) compose that
+scene format rather than replacing it: a `"devivadraw/document"` envelope
+holds an ordered list of named pages, each page's content a complete
+`SceneDocumentV1`. Autosave, saved files, and share links carry the whole
+document; every reader also accepts a bare scene document as a one-page
+document, so pre-pages saves load with no migration. The react layer's
+`PageStore` owns the live page list (one engine `Scene` per page — a `Scene`
+is independent of any mounted runtime, which is also what lets collab apply
+remote edits to a page that isn't on screen). In collaboration, element
+deltas carry their `pageId` inside the encrypted payload and the page list
+syncs as an LWW manifest riding on snapshots — the relay never changed.
 
 ## Diagram: mutation → render flow
 
