@@ -102,3 +102,28 @@ test("a legacy single-scene autosave loads as one page, nothing lost", async ({ 
   expect(migrated.type).toBe("devivadraw/document");
   expect(migrated.pages[0]!.scene.elements.length).toBeGreaterThan(1);
 });
+
+test("a long page list scrolls inside the popover instead of overflowing the viewport", async ({ page }) => {
+  // 30 additions through the pinned + row — the popover stays open across them.
+  await page.getByTestId("pages-toggle").click();
+  for (let index = 0; index < 30; index += 1) await page.getByTestId("page-add").click();
+  await expect(page.getByTestId("pages-active-name")).toHaveText("Page 31");
+
+  // The popover is capped inside the viewport and the page rows scroll internally.
+  const viewport = page.viewportSize()!;
+  const list = (await page.getByTestId("pages-list").boundingBox())!;
+  expect(list.y).toBeGreaterThan(0);
+  expect(list.height).toBeLessThan(viewport.height);
+  const overflow = await page.getByTestId("pages-scroll").evaluate((scroller) => scroller.scrollHeight - scroller.clientHeight);
+  expect(overflow).toBeGreaterThan(0);
+
+  // The active (last) page was auto-scrolled into view, and the pinned + row is still clickable space.
+  const active = (await page.locator('[aria-checked="true"]').boundingBox())!;
+  expect(active.y + active.height).toBeLessThanOrEqual(list.y + list.height + 1);
+  await expect(page.getByTestId("page-add")).toBeVisible();
+
+  // Scrolling to the top reaches Page 1 and clicking it still switches.
+  await page.getByTestId("pages-scroll").evaluate((scroller) => scroller.scrollTo({ top: 0 }));
+  await page.locator('[data-testid^="page-item-"]').first().click();
+  await expect(page.getByTestId("pages-active-name")).toHaveText("Page 1");
+});

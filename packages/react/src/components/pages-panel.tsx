@@ -28,6 +28,7 @@ export function PagesPanel(props: PagesPanelProps) {
   const [open, setOpen] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   // Re-render on any page-list change (rename/add/delete/switch) — same pattern as `useSceneVersion`.
   const [, bump] = useReducer((count: number) => count + 1, 0);
   useEffect(() => pageStore.subscribe(() => bump()), [pageStore]);
@@ -43,6 +44,14 @@ export function PagesPanel(props: PagesPanelProps) {
 
   const pages = pageStore.getPages();
   const activeId = pageStore.getActivePageId();
+
+  // Keep the active page inside the scroller's view — on open (the page you're on is the anchor you
+  // navigate from) and whenever the active page changes while the list is up (adding appends the new,
+  // now-active page below the fold of a long list).
+  useEffect(() => {
+    if (!open) return;
+    scrollRef.current?.querySelector('[aria-checked="true"]')?.scrollIntoView({ block: "nearest" });
+  }, [open, activeId]);
   const activeName = pages.find((page) => page.id === activeId)?.name ?? "";
 
   const commitRename = (id: string, name: string) => {
@@ -53,8 +62,16 @@ export function PagesPanel(props: PagesPanelProps) {
   return (
     <div ref={rootRef} style={{ position: "absolute", bottom: PANEL_INSET, left: PANEL_INSET, zIndex: Z_LAYER.menu }}>
       {open && (
-        <div data-testid="pages-list" className="dd-animate-in" style={{ ...panelStyle, position: "absolute", bottom: "calc(100% + 6px)", left: 0, minWidth: 180, padding: 4, display: "flex", flexDirection: "column" }}>
-          {pages.map((page) => (
+        <div
+          data-testid="pages-list"
+          className="dd-animate-in"
+          // Capped to the viewport (minus the top toolbar band and this panel's own bottom anchor) so a
+          // long page list scrolls inside the popover instead of growing up past the window edge; the
+          // "+ Add page" row stays pinned below the scroller so it never scrolls out of reach.
+          style={{ ...panelStyle, position: "absolute", bottom: "calc(100% + 6px)", left: 0, minWidth: 180, maxHeight: "calc(100vh - 140px)", padding: 4, display: "flex", flexDirection: "column" }}
+        >
+          <div ref={scrollRef} data-testid="pages-scroll" style={{ overflowY: "auto", minHeight: 0, display: "flex", flexDirection: "column" }}>
+            {pages.map((page) => (
             <div key={page.id} style={{ display: "flex", alignItems: "center", gap: 4 }}>
               {renamingId === page.id ? (
                 <input
@@ -100,7 +117,8 @@ export function PagesPanel(props: PagesPanelProps) {
                 </button>
               )}
             </div>
-          ))}
+            ))}
+          </div>
           {!readOnly && (
             <>
               <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
