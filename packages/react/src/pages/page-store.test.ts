@@ -69,6 +69,43 @@ describe("PageStore", () => {
     expect(document.pages.map((page) => page.name)).toEqual(["Page 1", "Second"]);
     expect(document.activePageId).toBe(store.getActivePageId());
   });
+
+  it("seeds parked cameras from incoming pages in the constructor and replaceAll", () => {
+    const camera = { scrollX: -50, scrollY: 75, zoom: 1.5 };
+    const store = new PageStore([{ id: "a", name: "A", scene: new Scene(), camera }], "a");
+    expect(store.cameraFor("a")).toEqual(camera);
+
+    store.replaceAll(
+      [
+        { id: "b", name: "B", scene: new Scene(), camera: { scrollX: 1, scrollY: 2, zoom: 3 } },
+        { id: "c", name: "C", scene: new Scene() },
+      ],
+      "b",
+    );
+    expect(store.cameraFor("b")).toEqual({ scrollX: 1, scrollY: 2, zoom: 3 });
+    expect(store.cameraFor("c")).toBeNull();
+  });
+
+  it("toDocument parks the provided live camera on the active page and serializes every parked camera", () => {
+    const store = new PageStore(
+      [
+        { id: "a", name: "A", scene: new Scene(), camera: { scrollX: 9, scrollY: 9, zoom: 1 } },
+        { id: "b", name: "B", scene: new Scene() },
+      ],
+      "b",
+    );
+    const live = { scrollX: 400, scrollY: -300, zoom: 0.5 };
+    const document = store.toDocument(false, live);
+
+    expect(document.pages[0]!.scene.appState).toMatchObject({ scrollX: 9, scrollY: 9, zoom: 1 });
+    expect(document.pages[1]!.scene.appState).toMatchObject({ scrollX: 400, scrollY: -300, zoom: 0.5 });
+    // The live camera was parked, not just serialized — the store reads it back afterward.
+    expect(store.cameraFor("b")).toEqual(live);
+
+    // Without a live camera the never-visited page stays camera-less in the output.
+    const fresh = new PageStore([{ id: "x", name: "X", scene: new Scene() }], "x");
+    expect(fresh.toDocument(false).pages[0]!.scene.appState).toBeUndefined();
+  });
 });
 
 describe("PageStore collab manifest", () => {

@@ -23,7 +23,7 @@ import {
   startAutosave,
   writeAutosaveDocument,
 } from "@deviva-draw/engine";
-import type { AnyElement, AutosaveController, ElementColorAdapter, ExcalidrawSceneImport, ExportScale, MultiPageDocumentV1, ScenePage } from "@deviva-draw/engine";
+import type { AnyElement, AutosaveController, Camera, ElementColorAdapter, ExcalidrawSceneImport, ExportScale, MultiPageDocumentV1, ScenePage } from "@deviva-draw/engine";
 import { adaptBackgroundColorForTheme, adaptStrokeColorForTheme } from "../theme/canvas-color-inversion";
 import { createBrowserExportRenderTarget, createRoughSvgGenerator, pickAndReadFile, saveFile, triggerDownload } from "./persistence-adapters";
 
@@ -183,9 +183,14 @@ const DOCUMENT_AUTOSAVE_DEBOUNCE_MS = 1000;
  * active scene; `dispose()` on unmount/page-switch and re-start against the new active scene.
  */
 export function startBrowserDocumentAutosave(
-  document: { toDocument(includeDeleted: boolean): MultiPageDocumentV1; subscribe(listener: () => void): () => void },
+  document: { toDocument(includeDeleted: boolean, activeCamera?: Camera): MultiPageDocumentV1; subscribe(listener: () => void): () => void },
   activeScene: Scene,
   storageKey?: string,
+  // The live viewport rides every autosave so a reload reopens where the user was looking — which
+  // requires both capturing it at write time AND scheduling on camera changes: a session that only
+  // pans/zooms mutates no scene and would otherwise never write at all. The shared debounce
+  // coalesces pan streams into the same one-write-per-quiet-period the scene subscription gets.
+  camera?: { getCamera(): Camera; subscribe(listener: () => void): () => void },
 ): AutosaveController {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const clearPending = () => {
@@ -193,7 +198,7 @@ export function startBrowserDocumentAutosave(
     timer = null;
   };
   const write = () =>
-    writeAutosaveDocument(window.localStorage, document.toDocument(true), {
+    writeAutosaveDocument(window.localStorage, document.toDocument(true, camera?.getCamera()), {
       storageKey,
       onQuotaExceeded: (error) => console.warn("deviva-draw: autosave skipped a write — localStorage quota exceeded", error),
       onError: (error) => console.error("deviva-draw: autosave write failed", error),
@@ -207,6 +212,7 @@ export function startBrowserDocumentAutosave(
   };
   const unsubscribeScene = activeScene.subscribe(schedule);
   const unsubscribeDocument = document.subscribe(schedule);
+  const unsubscribeCamera = camera?.subscribe(schedule);
   return {
     flush() {
       clearPending();
@@ -215,6 +221,7 @@ export function startBrowserDocumentAutosave(
     dispose() {
       unsubscribeScene();
       unsubscribeDocument();
+      unsubscribeCamera?.();
       clearPending();
     },
   };

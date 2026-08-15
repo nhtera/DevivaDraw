@@ -132,3 +132,54 @@ describe("document autosave", () => {
     expect(storage.getItem("devivadraw:autosave:v1:recovery")).toBe(raw);
   });
 });
+
+describe("per-page camera round-trip", () => {
+  it("round-trips each page's camera through serialize → JSON → deserialize (both strictness levels)", () => {
+    const document = serializeMultiPageDocument(
+      [
+        { id: "p1", name: "Flow", scene: sceneWithRect(10), camera: { scrollX: -120.5, scrollY: 300, zoom: 2.5 } },
+        { id: "p2", name: "Notes", scene: sceneWithRect(99), camera: null },
+      ],
+      { activePageId: "p1" },
+    );
+    const raw = JSON.parse(JSON.stringify(document));
+
+    const strict = deserializeMultiPageDocument(raw);
+    if (!strict.ok) throw new Error(strict.error);
+    expect(strict.pages[0]!.camera).toEqual({ scrollX: -120.5, scrollY: 300, zoom: 2.5 });
+    expect(strict.pages[1]!.camera).toBeNull();
+
+    const lenient = deserializeMultiPageDocumentLenient(raw);
+    if (!lenient.ok) throw new Error(lenient.error);
+    expect(lenient.pages[0]!.camera).toEqual({ scrollX: -120.5, scrollY: 300, zoom: 2.5 });
+  });
+
+  it("reads a legacy single-scene document's appState camera onto its one page", () => {
+    const scene = serializeScene(sceneWithRect(), { appState: { scrollX: 5, scrollY: -7, zoom: 0.5 } });
+    const result = deserializeMultiPageDocument(JSON.parse(JSON.stringify(scene)));
+    if (!result.ok) throw new Error(result.error);
+    expect(result.pages[0]!.camera).toEqual({ scrollX: 5, scrollY: -7, zoom: 0.5 });
+  });
+
+  it("yields a null camera for documents without one and refuses partial or unusable cameras", () => {
+    const noCamera = serializeMultiPageDocument([{ id: "p1", name: "Flow", scene: sceneWithRect() }]);
+    const plain = deserializeMultiPageDocument(JSON.parse(JSON.stringify(noCamera)));
+    if (!plain.ok) throw new Error(plain.error);
+    expect(plain.pages[0]!.camera).toBeNull();
+
+    // A hand-edited file with only some fields, or a zoom that can't render, restores nothing
+    // rather than guessing at a viewport.
+    const partial = JSON.parse(JSON.stringify(noCamera)) as { pages: { scene: { appState?: unknown } }[] };
+    partial.pages[0]!.scene.appState = { scrollX: 1, scrollY: 2 };
+    const partialResult = deserializeMultiPageDocument(partial);
+    if (!partialResult.ok) throw new Error(partialResult.error);
+    expect(partialResult.pages[0]!.camera).toBeNull();
+  });
+
+  it("clamps an out-of-range zoom to the product limits instead of restoring it verbatim", () => {
+    const wild = serializeMultiPageDocument([{ id: "p1", name: "Flow", scene: sceneWithRect(), camera: { scrollX: 0, scrollY: 0, zoom: 9999 } }]);
+    const result = deserializeMultiPageDocument(JSON.parse(JSON.stringify(wild)));
+    if (!result.ok) throw new Error(result.error);
+    expect(result.pages[0]!.camera!.zoom).toBe(30);
+  });
+});

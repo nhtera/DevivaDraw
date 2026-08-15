@@ -145,7 +145,11 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
     });
 
     const usingHostManagedData = Boolean(initialData);
-    const autosave = usingHostManagedData ? null : pageStore ? startBrowserDocumentAutosave(pageStore, scene, persistenceKey) : startBrowserAutosave(scene, persistenceKey);
+    const autosave = usingHostManagedData
+      ? null
+      : pageStore
+        ? startBrowserDocumentAutosave(pageStore, scene, persistenceKey, { getCamera: cameraStore.getCamera, subscribe: cameraStore.subscribe })
+        : startBrowserAutosave(scene, persistenceKey);
 
     // Autosave only writes in response to a scene *change*, and a scene that was just opened from a
     // file has none — so without this, opening a document and reloading restored the document from
@@ -180,7 +184,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
           onSceneReplaced,
           pages: pageStore
             ? {
-                getDocument: () => pageStore.toDocument(false),
+                getDocument: () => pageStore.toDocument(false, cameraStore.getCamera()),
                 replaceDocument: (document) => pageStore.replaceAll(document.pages, document.activePageId),
               }
             : undefined,

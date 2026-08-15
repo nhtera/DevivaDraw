@@ -104,7 +104,10 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   // `CameraStore` to feed its `TouchGestureAdapter` — can be constructed *before* the runtime exists;
   // see `use-deviva-runtime.ts`'s `cameraStore` option doc.
   const cameraStoreRef = useRef<ReturnType<typeof createCameraStore> | null>(null);
-  cameraStoreRef.current ??= createCameraStore(createCamera());
+  // Seeded from the active page's parked camera (a restored autosave/file/share document carries one
+  // per page) so the very first paint already shows the saved viewport. The page-*switch* restore
+  // below can't cover this: it only fires when the active id changes, and on mount it hasn't.
+  cameraStoreRef.current ??= createCameraStore(pageStore.cameraFor(pageStore.getActivePageId()) ?? createCamera());
   const cameraStore = cameraStoreRef.current;
 
   const zenMode = useToggleState(false);

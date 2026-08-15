@@ -43,7 +43,9 @@ export class PageStore {
 
   constructor(pages: readonly ScenePage[], activePageId: string | null) {
     if (pages.length === 0) throw new Error("PageStore requires at least one page");
-    this.pages = pages.map((page) => ({ id: page.id, name: page.name, scene: page.scene, camera: null }));
+    // Seed parked cameras from the deserialized document (when it carried them) so the first visit
+    // to any page — including the very first paint — lands on the viewport the writer saved.
+    this.pages = pages.map((page) => ({ id: page.id, name: page.name, scene: page.scene, camera: page.camera ?? null }));
     this.activeId = activePageId !== null && this.pages.some((page) => page.id === activePageId) ? activePageId : this.pages[0]!.id;
   }
 
@@ -121,19 +123,25 @@ export class PageStore {
     return this.entry(id)?.camera ?? null;
   }
 
-  /** Replaces the whole document (file open, "new scene", share-link load). */
+  /** Replaces the whole document (file open, "new scene", share-link load). Seeds parked cameras from the incoming pages — same reason as the constructor. */
   replaceAll(pages: readonly ScenePage[], activePageId: string | null): void {
     if (pages.length === 0) return;
-    this.pages = pages.map((page) => ({ id: page.id, name: page.name, scene: page.scene, camera: null }));
+    this.pages = pages.map((page) => ({ id: page.id, name: page.name, scene: page.scene, camera: page.camera ?? null }));
     this.activeId = activePageId !== null && this.pages.some((page) => page.id === activePageId) ? activePageId : this.pages[0]!.id;
     this.bumpManifest();
     this.notify();
   }
 
-  /** The serialized document — `includeDeleted: true` for autosave (undo across reload), `false` for exports/files. */
-  toDocument(includeDeleted: boolean): MultiPageDocumentV1 {
+  /**
+   * The serialized document — `includeDeleted: true` for autosave (undo across reload), `false` for
+   * exports/files. `activeCamera` is the live viewport of the page currently on screen: the store
+   * only holds cameras *parked* on leaving a page, so without it the active page would serialize
+   * with a stale (or missing) viewport. Parked here first so the write sees a consistent set.
+   */
+  toDocument(includeDeleted: boolean, activeCamera?: Camera): MultiPageDocumentV1 {
+    if (activeCamera) this.saveCameraFor(this.activeId, activeCamera);
     return serializeMultiPageDocument(
-      this.pages.map((page) => ({ id: page.id, name: page.name, scene: page.scene })),
+      this.pages.map((page) => ({ id: page.id, name: page.name, scene: page.scene, camera: page.camera })),
       { activePageId: this.activeId, includeDeleted },
     );
   }

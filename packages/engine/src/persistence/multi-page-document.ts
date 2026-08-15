@@ -11,6 +11,8 @@
  * one-page document, so autosaves and files written before pages existed load without a migration.
  */
 import { Scene } from "../scene/scene";
+import { clampZoom } from "../render/camera";
+import type { Camera } from "../render/camera";
 import { randomInt } from "../elements/element-factory-defaults";
 import { deserializeScene, deserializeSceneLenient, serializeScene } from "./serialize-scene";
 import type { SceneDocumentV1 } from "./scene-schema";
@@ -40,6 +42,12 @@ export interface ScenePage {
   id: string;
   name: string;
   scene: Scene;
+  /**
+   * The viewport last looked at on this page, riding the page scene's `appState` on disk — so a
+   * share link or reopened file lands the reader exactly where the writer was, per page. Optional
+   * and nullable: documents written before cameras were persisted simply have none.
+   */
+  camera?: Camera | null;
 }
 
 /** Unique-enough page id, same generation strategy as element ids (`element-factory-defaults.ts`). */
@@ -58,10 +66,36 @@ export function serializeMultiPageDocument(pages: readonly ScenePage[], options:
   const document: MultiPageDocumentV1 = {
     type: MULTI_PAGE_DOCUMENT_TYPE,
     schemaVersion: CURRENT_DOCUMENT_SCHEMA_VERSION,
-    pages: pages.map((page) => ({ id: page.id, name: page.name, scene: serializeScene(page.scene, { includeDeleted: options.includeDeleted }) })),
+    pages: pages.map((page) => ({
+      id: page.id,
+      name: page.name,
+      scene: serializeScene(page.scene, {
+        includeDeleted: options.includeDeleted,
+        appState: page.camera ? { scrollX: page.camera.scrollX, scrollY: page.camera.scrollY, zoom: page.camera.zoom } : undefined,
+      }),
+    })),
   };
   if (options.activePageId !== undefined) document.activePageId = options.activePageId;
   return document;
+}
+
+/**
+ * The parked camera a raw page scene carries in its `appState`, or `null` when absent/unusable.
+ * Reads the *raw* document rather than the deserialized `Scene` because scene deserialization
+ * validates `appState` and then drops it (a `Scene` holds content, not a viewport). All three
+ * fields must be present and finite to count — a partial camera restores nothing rather than
+ * guessing — and zoom is clamped to the product range so a hand-edited file can't wedge the
+ * viewport at zoom 0.
+ */
+function readPageCamera(rawScene: unknown): Camera | null {
+  if (typeof rawScene !== "object" || rawScene === null) return null;
+  const appState = (rawScene as Record<string, unknown>).appState;
+  if (typeof appState !== "object" || appState === null) return null;
+  const { scrollX, scrollY, zoom } = appState as Record<string, unknown>;
+  if (typeof scrollX !== "number" || !Number.isFinite(scrollX)) return null;
+  if (typeof scrollY !== "number" || !Number.isFinite(scrollY)) return null;
+  if (typeof zoom !== "number" || !Number.isFinite(zoom) || zoom <= 0) return null;
+  return { scrollX, scrollY, zoom: clampZoom(zoom) };
 }
 
 export type DeserializeMultiPageResult = { ok: true; pages: ScenePage[]; activePageId: string | null } | { ok: false; error: string };
@@ -83,7 +117,7 @@ export function deserializeMultiPageDocument(raw: unknown): DeserializeMultiPage
   if (shaped.kind === "scene") {
     const result = deserializeScene(raw);
     if (!result.ok) return { ok: false, error: result.error };
-    return { ok: true, pages: [{ id: generatePageId(), name: LEGACY_PAGE_NAME, scene: result.scene }], activePageId: null };
+    return { ok: true, pages: [{ id: generatePageId(), name: LEGACY_PAGE_NAME, scene: result.scene, camera: readPageCamera(raw) }], activePageId: null };
   }
 
   const pages: ScenePage[] = [];
@@ -93,7 +127,7 @@ export function deserializeMultiPageDocument(raw: unknown): DeserializeMultiPage
     const result = deserializeScene(page.scene);
     if (!result.ok) return { ok: false, error: `page "${page.name}": ${result.error}` };
     if (pages.some((existing) => existing.id === page.id)) return { ok: false, error: `duplicate page id "${page.id}"` };
-    pages.push({ id: page.id, name: page.name, scene: result.scene });
+    pages.push({ id: page.id, name: page.name, scene: result.scene, camera: readPageCamera(page.scene) });
   }
   if (pages.length === 0) return { ok: false, error: "document has no pages" };
   return { ok: true, pages, activePageId: resolveActivePageId(shaped.activePageId, pages) };
@@ -111,7 +145,7 @@ export function deserializeMultiPageDocumentLenient(raw: unknown): DeserializeMu
   if (shaped.kind === "scene") {
     const result = deserializeSceneLenient(raw);
     if (!result.ok) return { ok: false, error: result.error };
-    return { ok: true, pages: [{ id: generatePageId(), name: LEGACY_PAGE_NAME, scene: result.scene }], activePageId: null, droppedErrors: result.droppedErrors };
+    return { ok: true, pages: [{ id: generatePageId(), name: LEGACY_PAGE_NAME, scene: result.scene, camera: readPageCamera(raw) }], activePageId: null, droppedErrors: result.droppedErrors };
   }
 
   const pages: ScenePage[] = [];
@@ -132,7 +166,7 @@ export function deserializeMultiPageDocumentLenient(raw: unknown): DeserializeMu
       continue;
     }
     droppedErrors.push(...result.droppedErrors.map((message) => `page "${page.name}": ${message}`));
-    pages.push({ id: page.id, name: page.name, scene: result.scene });
+    pages.push({ id: page.id, name: page.name, scene: result.scene, camera: readPageCamera(page.scene) });
   }
   if (pages.length === 0) return { ok: false, error: "document has no readable pages" };
   return { ok: true, pages, activePageId: resolveActivePageId(shaped.activePageId, pages), droppedErrors };
