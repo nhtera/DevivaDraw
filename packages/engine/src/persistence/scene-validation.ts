@@ -203,7 +203,8 @@ function validateAppState(raw: unknown): ValidationResult<SerializedAppState | u
  * than throwing, so a caller (`serialize-scene.ts`'s `deserializeScene`) can report *why* a load was
  * rejected instead of just "something went wrong".
  */
-export function validateSceneDocument(raw: unknown): ValidationResult<SceneDocumentV1> {
+/** The envelope shape both validators require before looking at any entry: a plain object tagged with the document type, at the current (post-migration) schema version, with `elements`/`files` containers of the right kind. Shared so a future envelope change can't drift between the strict and lenient paths. */
+function validateEnvelope(raw: unknown): ValidationResult<{ elements: unknown[]; files: Record<string, unknown>; appState: unknown }> {
   if (!isPlainObject(raw)) return fail("scene document must be a JSON object");
   if (raw.type !== SCENE_DOCUMENT_TYPE) return fail(`scene document "type" must be "${SCENE_DOCUMENT_TYPE}"`);
   if (raw.schemaVersion !== CURRENT_SCHEMA_VERSION) {
@@ -211,22 +212,28 @@ export function validateSceneDocument(raw: unknown): ValidationResult<SceneDocum
   }
   if (!Array.isArray(raw.elements)) return fail('scene document "elements" must be an array');
   if (!isPlainObject(raw.files)) return fail('scene document "files" must be an object');
+  return ok({ elements: raw.elements, files: raw.files, appState: raw.appState });
+}
+
+export function validateSceneDocument(raw: unknown): ValidationResult<SceneDocumentV1> {
+  const envelope = validateEnvelope(raw);
+  if (!envelope.ok) return fail(envelope.error);
 
   const elements: AnyElement[] = [];
-  for (const [index, rawElement] of raw.elements.entries()) {
+  for (const [index, rawElement] of envelope.value.elements.entries()) {
     const result = validateElement(rawElement, index);
     if (!result.ok) return fail(result.error);
     elements.push(result.value);
   }
 
   const files: Record<string, SerializedStoredFile> = {};
-  for (const [fileId, rawFile] of Object.entries(raw.files)) {
+  for (const [fileId, rawFile] of Object.entries(envelope.value.files)) {
     const result = validateFile(rawFile, fileId);
     if (!result.ok) return fail(result.error);
     files[fileId] = result.value;
   }
 
-  const appStateResult = validateAppState(raw.appState);
+  const appStateResult = validateAppState(envelope.value.appState);
   if (!appStateResult.ok) return fail(appStateResult.error);
 
   const document: SceneDocumentV1 = { type: SCENE_DOCUMENT_TYPE, schemaVersion: CURRENT_SCHEMA_VERSION, elements, files };
@@ -251,25 +258,20 @@ export interface LenientSceneValidation {
  * `deserializeScene`'s `repairDanglingReferences` pass, same as any other inconsistent input.
  */
 export function validateSceneDocumentLenient(raw: unknown): ValidationResult<LenientSceneValidation> {
-  if (!isPlainObject(raw)) return fail("scene document must be a JSON object");
-  if (raw.type !== SCENE_DOCUMENT_TYPE) return fail(`scene document "type" must be "${SCENE_DOCUMENT_TYPE}"`);
-  if (raw.schemaVersion !== CURRENT_SCHEMA_VERSION) {
-    return fail(`scene document "schemaVersion" must be ${CURRENT_SCHEMA_VERSION} after migration (got ${String(raw.schemaVersion)})`);
-  }
-  if (!Array.isArray(raw.elements)) return fail('scene document "elements" must be an array');
-  if (!isPlainObject(raw.files)) return fail('scene document "files" must be an object');
+  const envelope = validateEnvelope(raw);
+  if (!envelope.ok) return fail(envelope.error);
 
   const droppedErrors: string[] = [];
 
   const elements: AnyElement[] = [];
-  for (const [index, rawElement] of raw.elements.entries()) {
+  for (const [index, rawElement] of envelope.value.elements.entries()) {
     const result = validateElement(rawElement, index);
     if (result.ok) elements.push(result.value);
     else droppedErrors.push(result.error);
   }
 
   const files: Record<string, SerializedStoredFile> = {};
-  for (const [fileId, rawFile] of Object.entries(raw.files)) {
+  for (const [fileId, rawFile] of Object.entries(envelope.value.files)) {
     const result = validateFile(rawFile, fileId);
     if (result.ok) files[fileId] = result.value;
     else droppedErrors.push(result.error);
@@ -277,7 +279,7 @@ export function validateSceneDocumentLenient(raw: unknown): ValidationResult<Len
 
   const document: SceneDocumentV1 = { type: SCENE_DOCUMENT_TYPE, schemaVersion: CURRENT_SCHEMA_VERSION, elements, files };
   // appState is pure view state (scroll/zoom/background) — losing it is cosmetic, so a bad one is dropped like a bad element rather than failing the load.
-  const appStateResult = validateAppState(raw.appState);
+  const appStateResult = validateAppState(envelope.value.appState);
   if (appStateResult.ok) {
     if (appStateResult.value) document.appState = appStateResult.value;
   } else {

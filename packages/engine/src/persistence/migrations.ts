@@ -8,7 +8,15 @@
  */
 import { CURRENT_SCHEMA_VERSION } from "./scene-schema";
 
-/** Upgrades a raw (already-parsed, not yet validated) document one schema version forward — from the version this function is keyed under in `migrations`, to that version + 1. Operates on loosely-typed `Record<string, unknown>` since a document mid-migration chain doesn't yet match any single version's strict type. */
+/**
+ * Upgrades a raw (already-parsed, not yet validated) document one schema version forward — from the
+ * version this function is keyed under in `migrations`, to that version + 1. Operates on loosely-typed
+ * `Record<string, unknown>` since a document mid-migration chain doesn't yet match any single
+ * version's strict type. A migration MUST NOT mutate its input — return a new object (spread + patch)
+ * instead: callers may hold the pre-migration document for a retry/salvage pass (see
+ * `local-storage-autosave.ts`), and an in-place mutation would corrupt that retry with
+ * half-migrated data.
+ */
 export type SceneMigration = (document: Record<string, unknown>) => Record<string, unknown>;
 
 /**

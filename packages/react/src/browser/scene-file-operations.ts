@@ -46,9 +46,11 @@ export function startBrowserAutosave(scene: Scene, storageKey?: string): Autosav
  */
 export function restoreBrowserAutosave(storageKey?: string): Scene | null {
   return restoreAutosave(window.localStorage, storageKey, {
-    onSalvage: ({ droppedErrors }) =>
+    onSalvage: ({ droppedErrors, backedUp }) =>
       console.warn(
-        "deviva-draw: the autosaved scene did not restore cleanly — the original payload was backed up to the \":recovery\" localStorage key",
+        backedUp
+          ? 'deviva-draw: the autosaved scene did not restore cleanly — the original payload was backed up to the ":recovery" localStorage key'
+          : 'deviva-draw: the autosaved scene did not restore cleanly — and backing the payload up to the ":recovery" localStorage key failed or was skipped to protect an earlier backup',
         droppedErrors,
       ),
   });

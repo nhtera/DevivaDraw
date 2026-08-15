@@ -300,6 +300,80 @@ describe("restoreAutosave — salvage and recovery backup", () => {
     expect(onSalvage).not.toHaveBeenCalled();
   });
 
+  it("never clobbers a different payload already parked in the recovery slot, and reports backedUp: false", () => {
+    const raw = savedDocumentWith((document) => {
+      document.elements[0]!.width = "corrupted";
+    });
+    const olderBackup = '{"type":"devivadraw/scene","from":"an earlier corruption event"}';
+    const storage = fakeStorage({ [AUTOSAVE_STORAGE_KEY]: raw, [RECOVERY_KEY]: olderBackup });
+    const onSalvage = vi.fn();
+
+    const restored = restoreAutosave(storage, AUTOSAVE_STORAGE_KEY, { onSalvage });
+
+    expect(restored).not.toBeNull();
+    expect(storage.getItem(RECOVERY_KEY)).toBe(olderBackup);
+    expect(onSalvage.mock.calls[0]![0].backedUp).toBe(false);
+  });
+
+  it("re-writing the recovery slot with the SAME payload (a repeat boot) still counts as backed up", () => {
+    const raw = savedDocumentWith((document) => {
+      document.elements[0]!.width = "corrupted";
+    });
+    const storage = fakeStorage({ [AUTOSAVE_STORAGE_KEY]: raw, [RECOVERY_KEY]: raw });
+    const onSalvage = vi.fn();
+
+    expect(restoreAutosave(storage, AUTOSAVE_STORAGE_KEY, { onSalvage })).not.toBeNull();
+    expect(onSalvage.mock.calls[0]![0].backedUp).toBe(true);
+  });
+
+  it("restores an empty (not null) scene when every element is corrupted but the envelope is intact", () => {
+    const raw = savedDocumentWith((document) => {
+      for (const element of document.elements) element.width = "corrupted";
+    });
+    const storage = fakeStorage({ [AUTOSAVE_STORAGE_KEY]: raw });
+    const onSalvage = vi.fn();
+
+    const restored = restoreAutosave(storage, AUTOSAVE_STORAGE_KEY, { onSalvage });
+
+    expect(restored).not.toBeNull();
+    expect(restored!.getElements()).toHaveLength(0);
+    expect(onSalvage.mock.calls[0]![0].droppedErrors).toHaveLength(2);
+  });
+
+  it("drops a corrupted appState (view state only) while keeping every element", () => {
+    const raw = savedDocumentWith((document) => {
+      (document as Record<string, unknown>).appState = { zoom: "corrupted" };
+    });
+    const storage = fakeStorage({ [AUTOSAVE_STORAGE_KEY]: raw });
+    const onSalvage = vi.fn();
+
+    const restored = restoreAutosave(storage, AUTOSAVE_STORAGE_KEY, { onSalvage });
+
+    expect(restored!.getElements()).toHaveLength(2);
+    expect(onSalvage.mock.calls[0]![0].droppedErrors).toEqual([expect.stringContaining("appState.zoom")]);
+  });
+
+  it("keeps an image element whose corrupted file entry was dropped (renders as a missing-file placeholder, not a crash)", () => {
+    const raw = savedDocumentWith((document) => {
+      document.elements.push({
+        ...structuredClone(document.elements[0]!),
+        id: "image-1",
+        type: "image",
+        fileId: "file-1",
+        naturalWidth: 100,
+        naturalHeight: 100,
+      });
+      (document as Record<string, unknown>).files = { "file-1": { mimeType: "image/png" } }; // missing dataURL/createdAt → dropped
+    });
+    const storage = fakeStorage({ [AUTOSAVE_STORAGE_KEY]: raw });
+
+    const restored = restoreAutosave(storage);
+
+    expect(restored).not.toBeNull();
+    expect(restored!.getElement("image-1")).toBeDefined();
+    expect(restored!.getFile("file-1")).toBeUndefined();
+  });
+
   it("still salvages when the recovery-key backup write itself fails (quota)", () => {
     const raw = savedDocumentWith((document) => {
       document.elements[0]!.width = "corrupted";

@@ -7,7 +7,7 @@
  * delete across a page reload, unlike an export, which strips them.
  */
 import type { Scene } from "../scene/scene";
-import { deserializeScene, deserializeSceneLenient, serializeScene } from "./serialize-scene";
+import { deserializeSceneLenient, serializeScene } from "./serialize-scene";
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -101,12 +101,13 @@ export const AUTOSAVE_RECOVERY_KEY_SUFFIX = ":recovery";
 
 export interface RestoreAutosaveOptions {
   /**
-   * Called when the saved document did not restore cleanly: `scene` came back but `droppedErrors`
-   * lists entries that had to be dropped, or the whole document was unrecoverable (the restore
-   * returned `null` despite a stored value existing). Either way the original payload has just been
-   * copied to the recovery slot; the caller decides how loudly to tell the user.
+   * Called on any restore that was less than clean — BOTH a partial salvage (a scene came back but
+   * `droppedErrors` lists entries that had to be dropped) and a total failure (the restore returned
+   * `null` despite a stored value existing). `backedUp` says whether the original payload actually
+   * made it into the recovery slot (false when the write failed, e.g. quota, or was skipped to
+   * protect an older backup already there); the caller decides how loudly to tell the user.
    */
-  onSalvage?: (info: { droppedErrors: string[] }) => void;
+  onSalvage?: (info: { droppedErrors: string[]; backedUp: boolean }) => void;
 }
 
 /**
@@ -114,23 +115,34 @@ export interface RestoreAutosaveOptions {
  * the stored value is beyond recovery — restore-on-boot must never throw and must never crash the app
  * into a broken editor over a corrupted/foreign localStorage value.
  *
- * A document that fails strict validation is *salvaged*, not discarded: invalid elements/files are
- * dropped and the rest of the board loads (`deserializeSceneLenient`) — because unlike a rejected file
- * open, a rejected autosave is destroyed by the very next debounced write. Whenever anything less than
- * a clean full restore happens, the original raw payload is first copied to `storageKey + ":recovery"`
- * so no byte of user data is lost to the overwrite, and `onSalvage` reports what was dropped.
+ * A document that fails validation is *salvaged*, not discarded: invalid elements/files are dropped
+ * and the rest of the board loads (`deserializeSceneLenient`) — because unlike a rejected file open, a
+ * rejected autosave is destroyed by the very next debounced write. Whenever anything less than a clean
+ * full restore happens, the original raw payload is first copied to `storageKey + ":recovery"` (unless
+ * that slot already holds a different, older backup — see `backupAndReport`) so no byte of user data
+ * is lost to the overwrite, and `onSalvage` reports what was dropped.
  */
 export function restoreAutosave(storage: StorageLike, storageKey: string = AUTOSAVE_STORAGE_KEY, options: RestoreAutosaveOptions = {}): Scene | null {
   const raw = storage.getItem(storageKey);
   if (raw === null) return null;
 
   const backupAndReport = (droppedErrors: string[]): void => {
+    const recoveryKey = storageKey + AUTOSAVE_RECOVERY_KEY_SUFFIX;
+    let backedUp = false;
     try {
-      storage.setItem(storageKey + AUTOSAVE_RECOVERY_KEY_SUFFIX, raw);
+      // Never clobber a *different* payload already parked in the recovery slot — a second corruption
+      // event must not silently destroy the first event's backup (the same silent-loss failure mode
+      // this whole path exists to close). A repeat of the same payload (every boot until the user
+      // edits) is a harmless no-op rewrite.
+      const existing = storage.getItem(recoveryKey);
+      if (existing === null || existing === raw) {
+        storage.setItem(recoveryKey, raw);
+        backedUp = true;
+      }
     } catch {
       // Best-effort (quota) — salvage still proceeds; losing the backup must not also lose the restore.
     }
-    options.onSalvage?.({ droppedErrors });
+    options.onSalvage?.({ droppedErrors, backedUp });
   };
 
   let parsed: unknown;
@@ -141,14 +153,14 @@ export function restoreAutosave(storage: StorageLike, storageKey: string = AUTOS
     return null;
   }
 
-  const strict = deserializeScene(parsed);
-  if (strict.ok) return strict.scene;
-
-  const lenient = deserializeSceneLenient(parsed);
-  if (!lenient.ok) {
-    backupAndReport([lenient.error]);
+  // One lenient pass covers the clean case too (zero drops ≡ a strict success) — deliberately NOT a
+  // strict-then-lenient retry, which would run `applyMigrations` twice over the same parsed object
+  // and break the moment a migration is less than perfectly pure/idempotent.
+  const result = deserializeSceneLenient(parsed);
+  if (!result.ok) {
+    backupAndReport([result.error]);
     return null;
   }
-  backupAndReport(lenient.droppedErrors.length > 0 ? lenient.droppedErrors : [strict.error]);
-  return lenient.scene;
+  if (result.droppedErrors.length > 0) backupAndReport(result.droppedErrors);
+  return result.scene;
 }
