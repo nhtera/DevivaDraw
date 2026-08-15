@@ -54,7 +54,9 @@ export function findBindableShapeNear(scene: Scene, point: Point, thresholdScene
   const elements = scene.getElements();
   for (let i = elements.length - 1; i >= 0; i -= 1) {
     const element = elements[i];
-    if (!element || element.isDeleted || element.locked || !isBindableTarget(element)) continue;
+    // `effectiveLocked` extends the element-lock rule to layer locks: a layer-locked shape draws no
+    // halo, so it must accept no attachment either; hidden shapes are invisible targets outright.
+    if (!element || element.isDeleted || scene.effectiveLocked(element) || scene.isElementHidden(element) || !isBindableTarget(element)) continue;
     if (!isNearOutlineBounds(element, point, thresholdSceneUnits)) continue;
     if (distanceToShapeOutline(element, point) <= thresholdSceneUnits) return element;
     if (isInsideShapeOutline(element, point)) return element;

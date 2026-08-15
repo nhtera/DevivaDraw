@@ -90,7 +90,7 @@ export async function exportToPng(options: ExportToPngOptions): Promise<Blob> {
     createRenderTarget,
     textMeasurer,
     imageDecodeCache,
-    elements = scene.getElements().filter((element) => !element.isDeleted),
+    elements = scene.getElements().filter((element) => !element.isDeleted && !scene.isElementHidden(element)),
     scale = 1,
     padding,
     backgroundColor = null,
@@ -114,7 +114,9 @@ export async function exportToPng(options: ExportToPngOptions): Promise<Blob> {
   const blob = await target.toBlob();
   if (!embedSceneData) return blob;
 
-  const sceneJson = JSON.stringify(serializeScene(scene));
+  // Visible-only, matching the pixels: an export's embedded re-open payload must never leak a
+  // hidden layer's content through file metadata. Full fidelity lives in .devivadraw/share formats.
+  const sceneJson = JSON.stringify(serializeScene(scene, { excludeHidden: true }));
   const pngBytes = await blobToBytes(blob);
   const embedded = writeTextChunk(pngBytes, SCENE_DATA_PNG_KEYWORD, toBase64Utf8(sceneJson));
   // `Blob`'s constructor type only accepts an `ArrayBuffer`-backed view, while `Uint8Array` is

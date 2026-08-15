@@ -53,7 +53,7 @@ function runBatched(deps: SelectionKeyboardDeps, mutate: () => void): void {
 function selectAll(deps: SelectionKeyboardDeps): void {
   const ids = deps.scene
     .getElements()
-    .filter((element) => !element.isDeleted && !element.locked && !(element.type === "text" && element.containerId !== null))
+    .filter((element) => !element.isDeleted && !deps.scene.effectiveLocked(element) && !deps.scene.isElementHidden(element) && !(element.type === "text" && element.containerId !== null))
     .map((element) => element.id);
   deps.selection.selectOnly(ids);
 }

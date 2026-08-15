@@ -41,7 +41,7 @@ export class MarqueeGesture {
     const mode: MarqueeMode = point.x < this.startPoint.x ? "contain" : "intersect";
 
     const expanded = new Set<string>();
-    for (const hit of elementsInMarquee(this.deps.scene.getElements(), rect, mode)) {
+    for (const hit of elementsInMarquee(this.deps.scene.selectableElements(), rect, mode)) {
       for (const id of expandToGroupMembers(this.deps.scene, [hit.id])) expanded.add(id);
     }
     if (modifiers.shift) this.deps.selection.add(expanded);

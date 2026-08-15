@@ -262,6 +262,26 @@ export class Scene {
     return this.layersStore.resolve(element.layerId);
   }
 
+  /** True when the element's layer is hidden — the single source every render/hit/export/search surface consults. Hidden is a VIEW state: the element's own data (incl. `isDeleted`) is untouched. */
+  isElementHidden(element: Pick<AnyElement, "layerId">): boolean {
+    return !this.layersStore.resolve(element.layerId).visible;
+  }
+
+  /** Element-level `locked` OR its layer's lock — layer-locked elements must behave exactly like individually-locked ones on every interaction surface. */
+  effectiveLocked(element: Pick<AnyElement, "layerId" | "locked">): boolean {
+    return element.locked || this.layersStore.resolve(element.layerId).locked;
+  }
+
+  /**
+   * The sorted elements a pointer interaction may target: hidden-layer and effectively-locked
+   * elements are out (soft-deleted ones are left for each consumer's existing filter, which every
+   * hit/marquee/lasso path already has). The one list click-hit, marquee, and lasso all start from,
+   * so a gating rule can never drift between them.
+   */
+  selectableElements(): AnyElement[] {
+    return this.getElements().filter((element) => !this.isElementHidden(element) && !this.effectiveLocked(element));
+  }
+
   setActiveLayer(id: string): void {
     if (this.layersStore.setActiveLayer(id)) this.notify();
   }
@@ -318,6 +338,11 @@ export class Scene {
   /** True when the layer list is indistinguishable from a fresh scene's — serialization omits it then, keeping untouched scenes byte-identical to pre-layers output. */
   hasNonTrivialLayers(): boolean {
     return !this.layersStore.isTrivial();
+  }
+
+  /** O(1) monotonic layer-mutation counter — lets hot-path subscribers skip work on the (vastly more frequent) element-only notifies. */
+  getLayersVersion(): number {
+    return this.layersStore.getVersion();
   }
 
   /** Serializes this scene to the versioned JSON document shape — see `persistence/serialize-scene.ts`'s module doc for the export-vs-autosave `includeDeleted` distinction. */

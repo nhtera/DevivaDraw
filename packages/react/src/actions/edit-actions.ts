@@ -52,11 +52,11 @@ function stepFontSize(runtime: ActionRuntime, direction: 1 | -1): void {
   runtime.history.endBatch(runtime.scene.getElements());
 }
 
-/** Same "selectable" predicate `selection-tool-keyboard.ts`'s local `selectAll` uses: skip deleted, locked, and bound-text elements (bound text is never independently selectable — see `hit-test.ts`'s doc). */
+/** Same "selectable" predicate `selection-tool-keyboard.ts`'s local `selectAll` uses: skip deleted, effectively-locked (element OR layer), hidden-layer, and bound-text elements (bound text is never independently selectable — see `hit-test.ts`'s doc). */
 function selectAllIds(runtime: ActionRuntime): string[] {
   return runtime.scene
     .getElements()
-    .filter((element) => !element.isDeleted && !element.locked && !(element.type === "text" && element.containerId !== null))
+    .filter((element) => !element.isDeleted && !runtime.scene.effectiveLocked(element) && !runtime.scene.isElementHidden(element) && !(element.type === "text" && element.containerId !== null))
     .map((element) => element.id);
 }
 

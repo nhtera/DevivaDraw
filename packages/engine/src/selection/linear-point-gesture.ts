@@ -169,7 +169,7 @@ export class LinearPointGesture {
     if (!end || isBindingSuppressed(modifiers)) return point;
 
     const threshold = maxBindingDistanceSceneUnits(this.deps.getZoom(), this.pointerType);
-    this.highlightId = resolveBindingHighlight(this.deps.scene.getElements(), point, threshold);
+    this.highlightId = resolveBindingHighlight(this.deps.scene.selectableElements(), point, threshold);
     const target = findBindableShapeNear(this.deps.scene, point, threshold);
     if (!target || target.id === this.arrowId) return point;
     this.bindingAnchor = nearestConnectionAnchor(target, point, this.connectionSnapRadius())?.point ?? null;

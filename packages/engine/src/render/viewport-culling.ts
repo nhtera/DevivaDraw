@@ -71,5 +71,9 @@ export function filterVisibleElements(
  * in the same z-order `Scene.getElements()` returns them — the draw dispatch relies on that order.
  */
 export function getVisibleElements(scene: Scene, camera: Camera, viewportSize: ViewportSize): AnyElement[] {
-  return filterVisibleElements(scene.getElements(), camera, viewportSize);
+  return filterVisibleElements(
+    scene.getElements().filter((element) => !scene.isElementHidden(element)),
+    camera,
+    viewportSize,
+  );
 }

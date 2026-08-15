@@ -106,7 +106,7 @@ export class ArrowTool extends NoOpToolHandler {
       this.bindingHighlightIds = [];
       return;
     }
-    const elements = this.deps.scene.getElements();
+    const elements = this.deps.scene.selectableElements();
     const threshold = maxBindingDistanceSceneUnits(this.deps.getZoom(), this.pointerType);
     this.bindingHighlightIds = resolveBindingHighlights(elements, points, threshold);
   }

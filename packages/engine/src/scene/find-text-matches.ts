@@ -12,7 +12,7 @@ export function findTextMatches(scene: Scene, query: string): string[] {
   if (needle.length === 0) return [];
   const matches: string[] = [];
   for (const element of scene.getElements()) {
-    if (element.isDeleted || element.type !== "text") continue;
+    if (element.isDeleted || element.type !== "text" || scene.isElementHidden(element)) continue;
     if (element.text.toLowerCase().includes(needle)) matches.push(element.id);
   }
   return matches;

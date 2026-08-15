@@ -30,6 +30,7 @@ export function frameContainedElementIds(scene: Scene, frameId: string): string[
     .getElements()
     .filter((element) => {
       if (element.isDeleted || element.id === frameId || element.type === "frame") return false;
+      if (scene.isElementHidden(element)) return false; // an invisible element must never be dragged along by a frame it happens to overlap
       if (element.type === "text" && element.containerId !== null) return false;
       const center = centerOf(element);
       return center.x >= left && center.x <= right && center.y >= top && center.y <= bottom;

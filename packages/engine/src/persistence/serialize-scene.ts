@@ -25,6 +25,13 @@ export interface SerializeSceneOptions {
    */
   includeDeleted?: boolean;
   appState?: SerializedAppState;
+  /**
+   * Drops hidden-layer elements from the output. A CALL-SITE decision for export-embedded payloads
+   * only (a PNG's re-open chunk / an SVG's metadata block must never carry content the pixels
+   * exclude — hiding controls what's shown AND what an export file contains); save/autosave/share
+   * paths must never set this — those are the full-fidelity document formats.
+   */
+  excludeHidden?: boolean;
 }
 
 /**
@@ -34,8 +41,8 @@ export interface SerializeSceneOptions {
  * since-deleted image never bloats the output.
  */
 export function serializeScene(scene: Scene, options: SerializeSceneOptions = {}): SceneDocumentV1 {
-  const { includeDeleted = false, appState } = options;
-  const elements = scene.getElements().filter((element) => includeDeleted || !element.isDeleted);
+  const { includeDeleted = false, appState, excludeHidden = false } = options;
+  const elements = scene.getElements().filter((element) => (includeDeleted || !element.isDeleted) && !(excludeHidden && scene.isElementHidden(element)));
 
   const referencedFileIds = new Set<string>();
   for (const element of elements) {

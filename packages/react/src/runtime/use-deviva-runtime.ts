@@ -197,6 +197,28 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
       isChromeOverlayOpen,
     });
 
+    // Layer-gating selection prune: when a layer becomes hidden or locked (locally OR via a remote
+    // peer's mutation — both arrive through the same notify), its elements fall out of the live
+    // selection, so keyboard nudges/deletes can never mutate content the user can't see or grab.
+    // Individually-locked elements deliberately stay selected — the existing lock-then-unlock
+    // selection flow depends on that; only the LAYER flags prune here. The layers-version gate is
+    // load-bearing for performance: a drag fires one notify per selected element per frame, and an
+    // unconditional scan here would go quadratic in selection size on exactly the drag-all stress
+    // path — so the scan runs only when a LAYER actually changed, an O(1) check otherwise.
+    let prunedAtLayersVersion = scene.getLayersVersion();
+    const unsubscribeSelectionPrune = scene.subscribe(() => {
+      const layersVersion = scene.getLayersVersion();
+      if (layersVersion === prunedAtLayersVersion) return;
+      prunedAtLayersVersion = layersVersion;
+      const selected = builtRuntime.selection.getSelectedIds();
+      if (selected.size === 0) return;
+      const kept = [...selected].filter((id) => {
+        const element = scene.getElement(id);
+        return element !== undefined && !scene.isElementHidden(element) && !(scene.effectiveLocked(element) && !element.locked);
+      });
+      if (kept.length !== selected.size) builtRuntime.selection.selectOnly(kept);
+    });
+
     setRuntime(builtRuntime);
     setEditSession(builtRuntime.editSession);
     setHandle(
@@ -262,6 +284,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
       if (debounceTimer !== null) clearTimeout(debounceTimer);
       unsubscribeOnChange();
       unsubscribeInvalidate();
+      unsubscribeSelectionPrune();
       autosave?.dispose();
       builtRuntime.dispose();
       stage.unmount();

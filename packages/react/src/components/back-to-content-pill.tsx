@@ -37,7 +37,8 @@ export function BackToContentPill(props: BackToContentPillProps) {
       // A zero-sized viewport means the host hasn't laid out yet — treat it as "not lost" rather than
       // flashing the pill on first paint, when nothing can be visible by definition.
       if (viewport.width === 0 || viewport.height === 0) return setLost(false);
-      const elements = runtime.scene.getElements().filter((element) => !element.isDeleted);
+      // Hidden-layer elements can't be "brought back on screen" by scrolling — they must not count.
+      const elements = runtime.scene.getElements().filter((element) => !element.isDeleted && !runtime.scene.isElementHidden(element));
       if (elements.length === 0) return setLost(false);
       setLost(filterVisibleElements(elements, cameraStore.getCamera(), viewport).length === 0);
     };

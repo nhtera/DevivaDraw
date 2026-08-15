@@ -49,7 +49,7 @@ export class LassoTool extends NoOpToolHandler {
     this.points.push(point);
 
     const expanded = new Set<string>();
-    for (const hit of elementsInLasso(this.deps.scene.getElements(), this.points)) {
+    for (const hit of elementsInLasso(this.deps.scene.selectableElements(), this.points)) {
       for (const id of expandToGroupMembers(this.deps.scene, [hit.id])) expanded.add(id);
     }
     if (modifiers.shift) this.deps.selection.add(expanded);

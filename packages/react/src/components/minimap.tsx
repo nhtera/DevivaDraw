@@ -77,7 +77,7 @@ export function Minimap(props: MinimapProps) {
   // `sceneVersion` is the dependency that matters: `runtime.scene` is a stable instance mutated in
   // place, so its identity never changes and only the version counter signals new contents.
   const { elements, bounds } = useMemo(() => {
-    const live = runtime.scene.getElements().filter((element) => !element.isDeleted);
+    const live = runtime.scene.getElements().filter((element) => !element.isDeleted && !runtime.scene.isElementHidden(element));
     return { elements: live, bounds: computeElementsBounds(live) };
   }, [runtime.scene, sceneVersion]);
   // Redraw whenever scene/camera/bg/size change. Camera changes come via the subscription below.

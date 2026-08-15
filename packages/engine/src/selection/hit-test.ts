@@ -194,7 +194,10 @@ export function hitTestElement(element: AnyElement, point: Point, tolerance: num
  * narrower single-type queries, generalized here across every element type.
  */
 export function topmostElementAt(scene: Scene, point: Point, tolerance: number, options?: HitTestOptions): AnyElement | null {
-  const elements = scene.getElements();
+  // `selectableElements` gates hidden-layer and layer-locked elements for every consumer of this
+  // choke point (select-click, eraser, bucket fill, cursor affordances) in one place;
+  // `hitTestElement` keeps its own element-level `locked`/`isDeleted` checks for direct callers.
+  const elements = scene.selectableElements();
   for (let i = elements.length - 1; i >= 0; i -= 1) {
     const element = elements[i];
     if (element && hitTestElement(element, point, tolerance, options)) return element;

@@ -40,6 +40,13 @@ export class SceneLayersStore {
   private activeId: string;
   /** id → position (bottom = 0), rebuilt on every mutation so per-element sort lookups stay O(1). */
   private positions = new Map<string, number>();
+  /**
+   * Bumped on every list mutation (add/rename/flag/reorder/remove/replace) — a cheap O(1) "did any
+   * layer change?" signal for hot-path subscribers (the selection prune) that must NOT pay a scan
+   * on every ELEMENT notify: a drag mutates one element per selected item per frame, and any
+   * per-notify scan there goes quadratic in selection size.
+   */
+  private version = 0;
 
   constructor() {
     const initial: SceneLayer = { id: generateLayerId(), name: DEFAULT_LAYER_NAME, visible: true, locked: false };
@@ -102,6 +109,7 @@ export class SceneLayersStore {
     const layer: SceneLayer = { id: generateLayerId(), name: name ?? `Layer ${this.layers.length + 1}`, visible: true, locked: false };
     this.layers.push(layer);
     this.rebuildPositions();
+    this.version += 1;
     return { ...layer };
   }
 
@@ -110,6 +118,7 @@ export class SceneLayersStore {
     const trimmed = name.trim();
     if (!layer || trimmed === "" || layer.name === trimmed) return false;
     layer.name = trimmed;
+    this.version += 1;
     return true;
   }
 
@@ -117,6 +126,7 @@ export class SceneLayersStore {
     const layer = this.layers.find((entry) => entry.id === id);
     if (!layer || layer.visible === visible) return false;
     layer.visible = visible;
+    this.version += 1;
     return true;
   }
 
@@ -124,6 +134,7 @@ export class SceneLayersStore {
     const layer = this.layers.find((entry) => entry.id === id);
     if (!layer || layer.locked === locked) return false;
     layer.locked = locked;
+    this.version += 1;
     return true;
   }
 
@@ -136,6 +147,7 @@ export class SceneLayersStore {
     const [layer] = this.layers.splice(from, 1);
     this.layers.splice(to, 0, layer!);
     this.rebuildPositions();
+    this.version += 1;
     return true;
   }
 
@@ -152,6 +164,7 @@ export class SceneLayersStore {
     this.rebuildPositions();
     if (this.defaultId === id) this.defaultId = this.layers[0]!.id;
     if (this.activeId === id) this.activeId = this.layers[Math.min(position, this.layers.length - 1)]!.id;
+    this.version += 1;
     return true;
   }
 
@@ -167,7 +180,13 @@ export class SceneLayersStore {
     this.rebuildPositions();
     this.defaultId = this.layers[0]!.id;
     this.activeId = activeLayerId !== undefined && this.positions.has(activeLayerId) ? activeLayerId : this.defaultId;
+    this.version += 1;
     return true;
+  }
+
+  /** Monotonic counter of list mutations — see the field doc. */
+  getVersion(): number {
+    return this.version;
   }
 
   /** True when the list is indistinguishable from a fresh store: one default-named, visible, unlocked layer. Serialization omits trivial lists so untouched scenes stay byte-identical to pre-layers output. */

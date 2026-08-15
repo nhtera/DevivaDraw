@@ -102,7 +102,9 @@ const ERASE_PREVIEW_OPACITY_FACTOR = 0.35;
 export function renderSceneToCanvas(ctx: RenderSceneContext2D, scene: Scene, camera: Camera, viewportSize: ViewportSize, options: RenderSceneOptions): void {
   const { width, height } = viewportSize;
   const { roughCanvas, textMeasurer, imageDecodeCache, drawableCache, arrowDrawableCache, freedrawOutlineCache, grid, background, textDraft, pendingEraseIds, adaptColors } = options;
-  const elements = options.elements ?? scene.getElements();
+  // Hidden-layer elements never paint, whichever way the element list arrived — a caller-supplied
+  // (already-culled) list is filtered the same as the scene's own, so no path can leak them.
+  const elements = (options.elements ?? scene.getElements()).filter((element) => !scene.isElementHidden(element));
   /** Dims an element (via its own opacity) when the eraser is about to remove it — see `pendingEraseIds`. */
   const withErasePreview = <T extends AnyElement>(element: T): T =>
     pendingEraseIds?.has(element.id) ? { ...element, opacity: element.opacity * ERASE_PREVIEW_OPACITY_FACTOR } : element;
