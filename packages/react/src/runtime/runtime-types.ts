@@ -21,6 +21,8 @@ export interface DevivaRuntime extends ActionRuntime {
   getBindingAnchor(): Point | null;
   /** Latest pointer position (scene space), or `null` — decides which segment of a selected arrow offers its insert-a-bend dot. */
   getHoverPoint(): Point | null;
+  /** The pointer cursor the canvas should show right now for the active tool (move/resize/rotate feedback from the select tool, grab for the hand tool, crosshair for creation tools) — the render loop applies it each frame. */
+  getCursor(): string;
   /** Detaches the pointer pipeline, the double-click listener, and the binding/bound-text sync hooks — call from the owning effect's cleanup. */
   dispose(): void;
 }

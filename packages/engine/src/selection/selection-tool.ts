@@ -20,6 +20,7 @@ import type { SceneRect } from "../render/viewport-culling";
 import { topmostElementAt } from "./hit-test";
 import { hitLinearHandle, linearHandleLayout } from "./linear-handles";
 import { LinearPointGesture } from "./linear-point-gesture";
+import { CLICK_HIT_PX, HANDLE_HIT_PX, ROTATE_HANDLE_OFFSET_PX, resizeCursorForHandle, selectionHoverCursor } from "./selection-cursor";
 import { hitTestHandles, inflateSelectionBounds } from "./resize-handles";
 import { rotatePointAroundCenter } from "./selection-geometry";
 import { MarqueeGesture } from "./selection-marquee-gesture";
@@ -35,9 +36,6 @@ export type { SelectionToolDeps } from "./selection-tool-deps";
 
 type Mode = "idle" | "marquee" | "move" | "resize" | "rotate" | "linear-point";
 
-const HANDLE_HIT_PX = 8;
-const ROTATE_HANDLE_OFFSET_PX = 28;
-const CLICK_HIT_PX = 5;
 /**
  * A pointer must travel at least this far (screen px, so divided by zoom in scene space) before a
  * resize/rotate/move gesture actually transforms anything. Resize and rotate map the pointer position
@@ -62,6 +60,9 @@ export class SelectionTool extends NoOpToolHandler {
   /** Pointer-down point of the in-flight gesture + whether it has crossed `DRAG_ACTIVATE_PX` yet — the "was this a real drag or just a click" gate for move/resize/rotate (see that constant's doc). Marquee is exempt: a zero-size marquee just selects nothing, no spurious transform. */
   private gestureStartPoint: Point | null = null;
   private dragActivated = false;
+  /** What the pointer telegraphs (see `selection-cursor.ts`): recomputed per hover while idle, pinned per gesture otherwise. */
+  private hoverCursor = "default";
+  private gestureCursor = "default";
 
   constructor(deps: SelectionToolDeps) {
     super();
@@ -103,6 +104,7 @@ export class SelectionTool extends NoOpToolHandler {
       const target = hitLinearHandle(layout, point, zoom, radiusMultiplier);
       if (target && this.linearPoint.begin(handleArrow, target, pointerType)) {
         this.mode = "linear-point";
+        this.gestureCursor = "move";
         return;
       }
     }
@@ -122,11 +124,13 @@ export class SelectionTool extends NoOpToolHandler {
         const handle = hitTestHandles(inflateSelectionBounds(frame.bounds, zoom), localPoint, HANDLE_HIT_PX / zoom, ROTATE_HANDLE_OFFSET_PX / zoom);
         if (handle === "rotate") {
           this.mode = "rotate";
+          this.gestureCursor = "grabbing";
           this.rotate.begin(point, frame);
           return;
         }
         if (handle) {
           this.mode = "resize";
+          this.gestureCursor = resizeCursorForHandle(handle, frame.angle);
           this.resize.begin(frame, handle, point);
           return;
         }
@@ -138,6 +142,7 @@ export class SelectionTool extends NoOpToolHandler {
     const hit = topmostElementAt(this.deps.scene, point, CLICK_HIT_PX / zoom);
     if (hit) {
       this.mode = this.move.begin(point, hit.id, modifiers) ? "move" : "idle";
+      this.gestureCursor = "move";
       return;
     }
 
@@ -151,10 +156,12 @@ export class SelectionTool extends NoOpToolHandler {
     if (insideSelectionBounds && selectedElements.length > 0) {
       const anchorId = selectedElements[0]!.id;
       this.mode = this.move.begin(point, anchorId, { ...modifiers, shift: false }) ? "move" : "idle";
+      this.gestureCursor = "move";
       return;
     }
 
     this.mode = "marquee";
+    this.gestureCursor = "default";
     this.marquee.begin(point, modifiers);
   }
 
@@ -211,10 +218,19 @@ export class SelectionTool extends NoOpToolHandler {
     handleSelectionKeyDown(this.deps, key, modifiers);
   }
 
-  /** Tracks the pointer between gestures so a selected arrow can offer the insert-a-bend dot on the segment nearest it. */
+  /** Tracks the pointer between gestures so a selected arrow can offer the insert-a-bend dot on the segment nearest it, and refreshes the cursor telegraphing what a pointer-down here would do. */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `modifiers` kept to match `ToolHandler`'s signature
   override onHover(point: Point, modifiers: ModifierKeys): void {
     this.hoverPoint = point;
+    const selectedElements = [...this.deps.selection.getSelectedIds()]
+      .map((id) => this.deps.scene.getElement(id))
+      .filter((element): element is AnyElement => !!element);
+    this.hoverCursor = selectionHoverCursor(this.deps.scene, selectedElements, point, this.deps.getZoom());
+  }
+
+  /** The pointer cursor the canvas should show right now: the hover feedback while idle, the in-flight gesture's own cursor otherwise. */
+  getCursor(): string {
+    return this.mode === "idle" ? this.hoverCursor : this.gestureCursor;
   }
 
   /** Latest pointer position for the overlay, or `null` before the pointer has been anywhere. */

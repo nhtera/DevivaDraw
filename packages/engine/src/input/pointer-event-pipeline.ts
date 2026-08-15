@@ -129,6 +129,11 @@ export class PointerEventPipeline {
     this.options.globalTarget.dispose();
   }
 
+  /** `true` while the spacebar pan override is primed (space held, drag not necessarily started) — lets the host show a grab cursor before the pan drag begins. */
+  isSpacePanPrimed(): boolean {
+    return this.wheelKeyboard.isSpaceHeld();
+  }
+
   private toScenePoint(clientX: number, clientY: number, camera: Camera): Point {
     const rect = this.options.element.getBoundingClientRect();
     return screenToScene({ x: clientX - rect.left, y: clientY - rect.top }, camera);

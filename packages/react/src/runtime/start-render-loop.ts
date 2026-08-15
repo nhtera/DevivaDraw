@@ -36,12 +36,14 @@ export interface RenderLoopDeps {
   getHoverPoint(): Point | null;
   /** The active theme's render-time color adapter (default-palette colors → legible-on-this-canvas), or `null` for authored colors. Same getter contract as the others, so a theme change is picked up without rebuilding the loop. */
   getColorAdapter(): (ElementColorAdapter & { key: string }) | null;
+  /** The pointer cursor the active tool wants shown — applied to the stage's container each frame (a skipped-when-unchanged DOM write). Same getter contract as the others. */
+  getCursor(): string;
 }
 
 /** Starts the loop; returns a stop function for the owning effect's cleanup. */
 export function startRenderLoop(deps: RenderLoopDeps): () => void {
-  const { stage, scene, cameraStore, selection, getMarqueeRect, getSnapGuides, grid, getRemoteCursors, getTextDraft, getPendingEraseIds, getLaserTrail, getLassoPath, getColorAdapter, getBindingHighlightIds, getBindingAnchor, getTheme, getHoverPoint } = deps;
-  let frameHandle = requestAnimationFrame(function renderFrame() {
+  const { stage, scene, cameraStore, selection, getMarqueeRect, getSnapGuides, grid, getRemoteCursors, getTextDraft, getPendingEraseIds, getLaserTrail, getLassoPath, getColorAdapter, getBindingHighlightIds, getBindingAnchor, getTheme, getHoverPoint, getCursor } = deps;
+  const renderNow = () => {
     const camera = cameraStore.getCamera();
     const textDraft = getTextDraft();
     const pendingEraseIds = getPendingEraseIds();
@@ -73,7 +75,17 @@ export function startRenderLoop(deps: RenderLoopDeps): () => void {
       },
       camera,
     );
+    stage.setCursor(getCursor());
+  };
+  let frameHandle = requestAnimationFrame(function renderFrame() {
+    renderNow();
     frameHandle = requestAnimationFrame(renderFrame);
   });
-  return () => cancelAnimationFrame(frameHandle);
+  // Repaint synchronously whenever the stage resizes its (content-wiping) backing stores, so a live
+  // window resize never flashes an empty canvas between the wipe and the next animation frame.
+  stage.onResize(renderNow);
+  return () => {
+    stage.onResize(null);
+    cancelAnimationFrame(frameHandle);
+  };
 }

@@ -29,6 +29,7 @@ export class CanvasStage {
   private readonly interactiveCanvas: HTMLCanvasElement;
   private container: HTMLElement | null = null;
   private resizeObserver: ResizeObserver | null = null;
+  private resizeCallback: (() => void) | null = null;
 
   constructor() {
     this.staticCanvas = createLayerCanvas();
@@ -66,9 +67,25 @@ export class CanvasStage {
   unmount(): void {
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
+    this.resizeCallback = null;
     this.staticCanvas.remove();
     this.interactiveCanvas.remove();
     this.container = null;
+  }
+
+  /**
+   * Registers a callback run synchronously right after a container resize re-sizes the backing
+   * stores. Reassigning `canvas.width` wipes the pixels, so waiting for the next animation frame to
+   * repaint shows a blank flash on every live window-resize tick — the render loop registers its
+   * frame body here so the repaint lands in the same task as the wipe and nothing ever flashes.
+   */
+  onResize(callback: (() => void) | null): void {
+    this.resizeCallback = callback;
+  }
+
+  /** Sets the pointer cursor on the mounted container (skips the DOM write when unchanged). The render loop calls this each frame with whatever the active tool wants to telegraph. */
+  setCursor(cursor: string): void {
+    if (this.container && this.container.style.cursor !== cursor) this.container.style.cursor = cursor;
   }
 
   /**
@@ -94,5 +111,6 @@ export class CanvasStage {
     }
 
     this.staticLayer.invalidate();
+    this.resizeCallback?.();
   }
 }

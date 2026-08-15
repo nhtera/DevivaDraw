@@ -19,7 +19,7 @@ import { buildTools } from "./build-tools";
 import type { BuiltTools } from "./build-tools";
 import { attachDoubleClickToEditListener } from "./double-click-edit";
 import { shouldSuppressGlobalShortcuts } from "./should-suppress-global-shortcuts";
-import { SELECT_TOOL_NAME } from "./tool-names";
+import { PAN_TOOL_NAME, SELECT_TOOL_NAME, TEXT_TOOL_NAME } from "./tool-names";
 import type { DevivaRuntime } from "./runtime-types";
 
 export interface BuildRuntimeOptions {
@@ -101,6 +101,18 @@ export function buildRuntime(options: BuildRuntimeOptions): DevivaRuntime {
     getBindingHighlightIds: () => [...tools.arrowTool.getBindingHighlightIds(), ...tools.selectionTool.getBindingHighlightIds()],
     getBindingAnchor: () => tools.arrowTool.getBindingAnchor() ?? tools.selectionTool.getBindingAnchor(),
     getHoverPoint: () => tools.selectionTool.getHoverPoint(),
+    // Space-held is checked first so the grab preview shows the moment the key goes down, before any
+    // drag re-routes through the pan tool. Every creation tool gets the crosshair — precise placement
+    // is the shared affordance — and the select tool computes its own move/resize/rotate feedback.
+    getCursor: () => {
+      const machine = tools.toolStateMachine;
+      const active = machine.getActiveToolName();
+      if (active !== PAN_TOOL_NAME && runtime.pipeline?.isSpacePanPrimed()) return "grab";
+      if (active === PAN_TOOL_NAME) return machine.isGestureInProgress() ? "grabbing" : "grab";
+      if (active === SELECT_TOOL_NAME) return tools.selectionTool.getCursor();
+      if (active === TEXT_TOOL_NAME) return "text";
+      return "crosshair";
+    },
     dispose: () => {
       /* replaced below */
     },

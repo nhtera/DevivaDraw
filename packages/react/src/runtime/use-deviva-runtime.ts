@@ -227,6 +227,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
       getBindingHighlightIds: builtRuntime.getBindingHighlightIds,
       getBindingAnchor: builtRuntime.getBindingAnchor,
       getHoverPoint: builtRuntime.getHoverPoint,
+      getCursor: builtRuntime.getCursor,
       // The same resolved-theme source `getColorAdapter` keys on, rather than a second derivation —
       // `getThemeMode()` has already collapsed "system" to a concrete light/dark.
       getTheme: getThemeMode,
