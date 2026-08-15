@@ -15,6 +15,7 @@ import type { MermaidErrorCode } from "@deviva-draw/engine";
 import { useEffect, useMemo, useState } from "react";
 import { buttonStyle, dialogOverlayStyle, dialogStyle, disabledButtonStyle, inputStyle, labelStyle } from "./chrome-styles";
 import { Icon } from "./icon";
+import { MermaidAiSection } from "./mermaid-ai-section";
 import { MermaidPreview } from "./mermaid-preview";
 import { decodeNaturalSize } from "../browser/browser-image-decode";
 import { renderUnsupportedToImage } from "../runtime/mermaid-image-fallback";
@@ -139,6 +140,14 @@ export function MermaidDialog(props: { runtime: DevivaRuntime; cameraStore: Came
             <Icon name="close" />
           </button>
         </div>
+        {/* Generated Mermaid lands in the source editor below, so the preview/insert flow (and the
+            unsupported-type image fallback) work identically for typed and generated diagrams. */}
+        <MermaidAiSection
+          onGenerated={(generated) => {
+            setSource(generated);
+            setDebounced(generated);
+          }}
+        />
         <span style={labelStyle}>{t("mermaid.description")}</span>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 6 }}>
           <textarea
