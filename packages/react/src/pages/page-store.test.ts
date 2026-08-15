@@ -70,3 +70,65 @@ describe("PageStore", () => {
     expect(document.activePageId).toBe(store.getActivePageId());
   });
 });
+
+describe("PageStore collab manifest", () => {
+  it("bumps the manifest on page operations but not on switching or camera parking", () => {
+    const store = PageStore.fresh();
+    const initial = store.getManifest().version;
+    store.addPage();
+    store.renamePage(store.getActivePageId(), "Renamed");
+    expect(store.getManifest().version).toBe(initial + 2);
+
+    const afterOps = store.getManifest().version;
+    store.setActivePage(store.getPages()[0]!.id);
+    store.saveCameraFor(store.getActivePageId(), { scrollX: 1, scrollY: 2, zoom: 1 });
+    expect(store.getManifest().version).toBe(afterOps);
+  });
+
+  it("adopts a strictly-newer remote manifest wholesale: adds, renames, removes, repoints the active page", () => {
+    const store = PageStore.fresh();
+    const localId = store.getActivePageId();
+    const won = store.applyRemoteManifest({
+      version: store.getManifest().version + 1,
+      versionNonce: 9,
+      pages: [
+        { id: "r1", name: "Remote 1" },
+        { id: "r2", name: "Remote 2" },
+      ],
+    });
+    expect(won).toBe(true);
+    expect(store.getPages().map((page) => page.id)).toEqual(["r1", "r2"]);
+    expect(store.getActivePageId()).toBe("r1"); // the local page vanished, so the first survivor takes over
+    expect(store.ensureRemotePage(localId)).toBeNull(); // removed by the manifest → tombstoned
+  });
+
+  it("unions an equal-version remote manifest — two fresh peers converge to both boards side by side", () => {
+    const store = PageStore.fresh();
+    const localId = store.getActivePageId();
+    const changed = store.applyRemoteManifest({ version: store.getManifest().version, versionNonce: 999, pages: [{ id: "peer-page", name: "Theirs" }] });
+    expect(changed).toBe(true);
+    expect(store.getPages().map((page) => page.id)).toEqual([localId, "peer-page"]);
+    expect(store.getActivePageId()).toBe(localId); // nothing was removed, nothing repointed
+  });
+
+  it("refuses a stale or empty remote manifest", () => {
+    const store = PageStore.fresh();
+    const before = store.getPages();
+    expect(store.applyRemoteManifest({ version: 0, versionNonce: 0, pages: [{ id: "x", name: "X" }] })).toBe(false);
+    expect(store.applyRemoteManifest({ version: 99, versionNonce: 0, pages: [] })).toBe(false);
+    expect(store.getPages()).toEqual(before);
+  });
+
+  it("ensureRemotePage materializes an unknown page without bumping the manifest, and refuses tombstoned ids", () => {
+    const store = PageStore.fresh();
+    const version = store.getManifest().version;
+    const scene = store.ensureRemotePage("from-peer");
+    expect(scene).not.toBeNull();
+    expect(store.getPages()).toHaveLength(2);
+    expect(store.getManifest().version).toBe(version);
+
+    const second = store.addPage();
+    store.removePage(second);
+    expect(store.ensureRemotePage(second)).toBeNull();
+  });
+});

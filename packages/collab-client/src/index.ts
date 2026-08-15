@@ -17,7 +17,10 @@ export { decryptEnvelope, encryptEnvelope, generateRoomKey, importRoomKey } from
 export { isPlausibleRemoteElement, mergeRemoteElement, remoteElementWins } from "./lww-merge";
 
 export type { OutboundSyncDeps } from "./outbound-sync";
-export { flushElementDeltas, sendFullSnapshot, sendPresenceUpdate } from "./outbound-sync";
+export { flushElementDeltas, sendDocumentSnapshot, sendFullSnapshot, sendPresenceUpdate } from "./outbound-sync";
+
+export type { CollabPagesAdapter, PagesManifest, PagesManifestEntry } from "./pages-adapter";
+export { isPlausibleManifest, remoteManifestWins } from "./pages-adapter";
 
 export type { InboundMessageDeps } from "./inbound-message-handler";
 export { handleInboundMessage } from "./inbound-message-handler";

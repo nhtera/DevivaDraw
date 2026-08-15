@@ -11,6 +11,7 @@
  */
 import { generatePageId, Scene, serializeMultiPageDocument } from "@deviva-draw/engine";
 import type { Camera, MultiPageDocumentV1, ScenePage } from "@deviva-draw/engine";
+import type { PagesManifest } from "@deviva-draw/collab-client";
 
 export interface PageListEntry {
   id: string;
@@ -32,6 +33,13 @@ export class PageStore {
   private pages: PageEntry[];
   private activeId: string;
   private readonly listeners = new Set<PageStoreListener>();
+  // Page-list LWW state for collab (see `@deviva-draw/collab-client`'s `pages-adapter.ts`): every
+  // local page operation bumps the version and re-rolls the nonce; a remote manifest replaces the
+  // list only when it wins the same comparison elements use. Deleted page ids are tombstoned so an
+  // in-flight remote delta can't resurrect a page a peer just watched disappear.
+  private manifestVersion = 1;
+  private manifestNonce = rollNonce();
+  private readonly tombstonedPageIds = new Set<string>();
 
   constructor(pages: readonly ScenePage[], activePageId: string | null) {
     if (pages.length === 0) throw new Error("PageStore requires at least one page");
@@ -76,6 +84,7 @@ export class PageStore {
     const id = generatePageId();
     this.pages.push({ id, name: name ?? `Page ${this.pages.length + 1}`, scene: new Scene(), camera: null });
     this.activeId = id;
+    this.bumpManifest();
     this.notify();
     return id;
   }
@@ -85,6 +94,7 @@ export class PageStore {
     const trimmed = name.trim();
     if (!page || trimmed === "" || page.name === trimmed) return;
     page.name = trimmed;
+    this.bumpManifest();
     this.notify();
   }
 
@@ -94,7 +104,9 @@ export class PageStore {
     const index = this.pages.findIndex((page) => page.id === id);
     if (index === -1) return false;
     this.pages.splice(index, 1);
+    this.tombstonedPageIds.add(id);
     if (this.activeId === id) this.activeId = this.pages[Math.min(index, this.pages.length - 1)]!.id;
+    this.bumpManifest();
     this.notify();
     return true;
   }
@@ -114,6 +126,7 @@ export class PageStore {
     if (pages.length === 0) return;
     this.pages = pages.map((page) => ({ id: page.id, name: page.name, scene: page.scene, camera: null }));
     this.activeId = activePageId !== null && this.pages.some((page) => page.id === activePageId) ? activePageId : this.pages[0]!.id;
+    this.bumpManifest();
     this.notify();
   }
 
@@ -125,6 +138,80 @@ export class PageStore {
     );
   }
 
+  /** The LWW page-list manifest collab publishes — see the field doc above. */
+  getManifest(): PagesManifest {
+    return { version: this.manifestVersion, versionNonce: this.manifestNonce, pages: this.getPages() };
+  }
+
+  /**
+   * Scene for a remote page id, creating an empty page when the id is new — how a page born on a
+   * peer materializes locally before its manifest arrives. Deliberately no manifest bump: the
+   * *creating* peer's manifest already announces this page, and bumping here would start a nonce war
+   * between receivers. Returns `null` for a tombstoned (deleted) page.
+   */
+  ensureRemotePage(pageId: string): Scene | null {
+    if (this.tombstonedPageIds.has(pageId)) return null;
+    const existing = this.entry(pageId);
+    if (existing) return existing.scene;
+    const scene = new Scene();
+    this.pages.push({ id: pageId, name: `Page ${this.pages.length + 1}`, scene, camera: null });
+    this.notify();
+    return scene;
+  }
+
+  /**
+   * Applies a remote page-list manifest. A strictly *newer* version is adopted wholesale (pages
+   * added/renamed/reordered/removed, tombstones updated) — that's how deletes and renames propagate.
+   * An *equal* version is resolved by commutative UNION: every remote page this side doesn't know
+   * (and hasn't tombstoned) is appended, nothing is removed, and a shared page's name falls to a
+   * deterministic string comparison — so two peers that each started their own v1 document converge
+   * on "both boards, side by side" instead of one silently clobbering the other, mirroring what
+   * joining a room has always meant for elements. A strictly older version is refused outright.
+   * Returns `true` when anything local changed.
+   */
+  applyRemoteManifest(remote: PagesManifest): boolean {
+    if (remote.pages.length === 0) return false; // a document always has a page; a hostile peer must not empty it
+    if (remote.version < this.manifestVersion) return false;
+
+    if (remote.version > this.manifestVersion) {
+      const nextPages = remote.pages.map((entry) => {
+        this.tombstonedPageIds.delete(entry.id); // the winning manifest says it exists
+        const existing = this.entry(entry.id);
+        return existing ? { ...existing, name: entry.name } : { id: entry.id, name: entry.name, scene: new Scene(), camera: null };
+      });
+      for (const page of this.pages) {
+        if (!remote.pages.some((entry) => entry.id === page.id)) this.tombstonedPageIds.add(page.id);
+      }
+      this.pages = nextPages;
+      if (!this.pages.some((page) => page.id === this.activeId)) this.activeId = this.pages[0]!.id;
+      this.manifestVersion = remote.version;
+      this.manifestNonce = remote.versionNonce;
+      this.notify();
+      return true;
+    }
+
+    let changed = false;
+    for (const entry of remote.pages) {
+      const existing = this.entry(entry.id);
+      if (existing) {
+        if (existing.name !== entry.name && entry.name > existing.name) {
+          existing.name = entry.name;
+          changed = true;
+        }
+      } else if (!this.tombstonedPageIds.has(entry.id)) {
+        this.pages.push({ id: entry.id, name: entry.name, scene: new Scene(), camera: null });
+        changed = true;
+      }
+    }
+    if (changed) this.notify();
+    return changed;
+  }
+
+  private bumpManifest(): void {
+    this.manifestVersion += 1;
+    this.manifestNonce = rollNonce();
+  }
+
   private entry(id: string): PageEntry | undefined {
     return this.pages.find((page) => page.id === id);
   }
@@ -132,4 +219,9 @@ export class PageStore {
   private notify(): void {
     for (const listener of this.listeners) listener();
   }
+}
+
+/** Collision-resistant enough for LWW tiebreaks — same "unlikely, not secure" bar as element nonces. */
+function rollNonce(): number {
+  return Math.floor(Math.random() * 2 ** 31);
 }

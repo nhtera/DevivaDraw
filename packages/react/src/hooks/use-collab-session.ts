@@ -15,12 +15,20 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CollabSession } from "@deviva-draw/collab-client";
-import type { CollabConnectionStatus, RemotePeerPresence } from "@deviva-draw/collab-client";
+import type { CollabConnectionStatus, CollabPagesAdapter, RemotePeerPresence } from "@deviva-draw/collab-client";
 import type { Scene } from "@deviva-draw/engine";
 import { randomGuestColor, randomGuestName } from "./random-collab-identity";
+import type { PageStore } from "../pages/page-store";
 
 export interface UseCollabSessionOptions {
   scene: Scene | null;
+  /**
+   * Multi-page host: the session anchors to this stable store instead of the (per-page) `scene`, so a
+   * page switch never tears a live session down; element sync spans every page and the page list
+   * itself syncs (see `@deviva-draw/collab-client`'s `pages-adapter.ts`). The local user's active
+   * page also rides with presence, keeping their cursor off other pages' canvases.
+   */
+  pageStore?: PageStore | null;
   /** The collab-server's base URL — omitted makes `startSession`/`joinSession` reject immediately rather than attempting a request to nowhere, mirroring `PersistenceOperations.shareScene`'s `shareApiBaseUrl` contract. */
   apiBaseUrl?: string;
 }
@@ -41,8 +49,11 @@ export interface UseCollabSessionResult {
 }
 
 export function useCollabSession(options: UseCollabSessionOptions): UseCollabSessionResult {
-  const { scene, apiBaseUrl } = options;
+  const { scene, pageStore, apiBaseUrl } = options;
   const sessionRef = useRef<CollabSession | null>(null);
+  // The session lives as long as its anchor: the stable page store when present (a page switch swaps
+  // `scene` but must not drop a live session), the scene itself otherwise.
+  const sessionAnchor = pageStore ?? scene;
   const identityRef = useRef<{ name: string; color: string } | null>(null);
   identityRef.current ??= { name: randomGuestName(), color: randomGuestColor() };
 
@@ -52,21 +63,69 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
   const [error, setError] = useState<CollabErrorReason>(null);
 
   useEffect(() => {
-    if (!scene) return;
+    if (!sessionAnchor) return;
     const identity = identityRef.current!;
-    const session = new CollabSession({ scene, userName: identity.name, userColor: identity.color, onStatusChange: setStatus });
+    const pages: CollabPagesAdapter | undefined = pageStore
+      ? {
+          getManifest: () => pageStore.getManifest(),
+          applyRemoteManifest: (manifest) => pageStore.applyRemoteManifest(manifest),
+          getScene: (pageId) => pageStore.getSceneById(pageId),
+          ensureScene: (pageId) => pageStore.ensureRemotePage(pageId),
+          listPageIds: () => pageStore.getPages().map((page) => page.id),
+          // Filtered to *page-list* changes (the manifest key covers add/rename/remove/reorder and
+          // the silent remote-page materialization): an active-page switch or camera park must not
+          // read as "the document changed" and trigger a snapshot broadcast.
+          subscribe: (listener) => {
+            const manifestKey = () => {
+              const manifest = pageStore.getManifest();
+              return `${manifest.version}:${manifest.versionNonce}:${manifest.pages.map((page) => page.id + page.name).join(",")}`;
+            };
+            let last = manifestKey();
+            return pageStore.subscribe(() => {
+              const key = manifestKey();
+              if (key === last) return;
+              last = key;
+              listener();
+            });
+          },
+        }
+      : undefined;
+    const session = new CollabSession({
+      scene: pageStore ? pageStore.getActiveScene() : scene!,
+      pages,
+      userName: identity.name,
+      userColor: identity.color,
+      onStatusChange: setStatus,
+    });
     sessionRef.current = session;
     const unsubscribePresence = session.presence.subscribe(() => setPeers(session.presence.list()));
 
+    // The local user's page rides with presence — set now and on every active-page change.
+    let unsubscribeActivePage: (() => void) | null = null;
+    if (pageStore) {
+      session.setLocalPage(pageStore.getActivePageId());
+      let lastActive = pageStore.getActivePageId();
+      unsubscribeActivePage = pageStore.subscribe(() => {
+        const active = pageStore.getActivePageId();
+        if (active === lastActive) return;
+        lastActive = active;
+        session.setLocalPage(active);
+      });
+    }
+
     return () => {
       unsubscribePresence();
+      unsubscribeActivePage?.();
       session.disconnect();
       sessionRef.current = null;
       setStatus("disconnected");
       setRoomUrl(null);
       setPeers([]);
     };
-  }, [scene]);
+    // Keyed on the anchor ALONE, deliberately: with a page store, `scene` changes on every page
+    // switch and must not re-create (i.e. disconnect) the session; without one, the anchor IS the
+    // scene, so the dependency is still honest.
+  }, [sessionAnchor]);
 
   const startSession = useCallback(async () => {
     const session = sessionRef.current;

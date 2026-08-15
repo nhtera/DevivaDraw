@@ -21,7 +21,8 @@ import { generateRoomKey, importRoomKey } from "./message-codec";
 import { ConnectionManager } from "./connection-manager";
 import type { WebSocketLike } from "./connection-manager";
 import { handleInboundMessage } from "./inbound-message-handler";
-import { flushElementDeltas, sendFullSnapshot } from "./outbound-sync";
+import { flushElementDeltas, sendDocumentSnapshot, sendFullSnapshot } from "./outbound-sync";
+import type { CollabPagesAdapter } from "./pages-adapter";
 import { PresenceBroadcaster } from "./presence-broadcaster";
 import { PresenceStore } from "./presence-state";
 import type { PresenceViewport } from "./presence-state";
@@ -32,6 +33,8 @@ export type CollabConnectionStatus = "disconnected" | "connecting" | "connected"
 
 export interface CollabSessionOptions {
   scene: Scene;
+  /** Multi-page host: element sync spans every page (deltas tagged with their `pageId`), the page list itself syncs as an LWW manifest riding on snapshots, and `scene` becomes only the landing spot for legacy un-tagged traffic. See `pages-adapter.ts`. */
+  pages?: CollabPagesAdapter;
   userName: string;
   userColor: string;
   /** Overrides the WebSocket factory (`connection-manager.ts`) — tests only. */
@@ -52,6 +55,7 @@ export class CollabSession {
   readonly presence = new PresenceStore();
 
   private readonly scene: Scene;
+  private readonly pages?: CollabPagesAdapter;
   private readonly createSocket?: (url: string) => WebSocketLike;
   private readonly onStatusChange?: (status: CollabConnectionStatus) => void;
   private readonly initialBackoffMs?: number;
@@ -67,12 +71,16 @@ export class CollabSession {
   private readonly syncedVersions = new Map<string, number>();
   private outboundTimer: ReturnType<typeof setTimeout> | null = null;
   private unsubscribeScene: (() => void) | null = null;
+  private unsubscribePages: (() => void) | null = null;
+  private readonly pageSceneUnsubs = new Map<string, () => void>();
+  private manifestDirty = false;
   private disposeIdleTicking: (() => void) | null = null;
   private snapshotTimer: ReturnType<typeof setInterval> | null = null;
   private followedPeerId: string | null = null;
 
   constructor(options: CollabSessionOptions) {
     this.scene = options.scene;
+    this.pages = options.pages;
     this.createSocket = options.createSocket;
     this.onStatusChange = options.onStatusChange;
     this.initialBackoffMs = options.initialBackoffMs;
@@ -131,6 +139,11 @@ export class CollabSession {
     this.connection = null;
     this.unsubscribeScene?.();
     this.unsubscribeScene = null;
+    this.unsubscribePages?.();
+    this.unsubscribePages = null;
+    for (const unsubscribe of this.pageSceneUnsubs.values()) unsubscribe();
+    this.pageSceneUnsubs.clear();
+    this.manifestDirty = false;
     this.disposeIdleTicking?.();
     this.disposeIdleTicking = null;
     if (this.outboundTimer !== null) clearTimeout(this.outboundTimer);
@@ -202,7 +215,19 @@ export class CollabSession {
     });
     this.connection.connect();
 
-    this.unsubscribeScene = this.scene.subscribe(() => this.scheduleOutboundSync());
+    if (this.pages) {
+      // One subscription per page's scene (kept current as pages come and go) plus the page-list
+      // itself: any page operation dirties the manifest, which the next outbound flush publishes as
+      // a prompt snapshot — so a rename/add/delete reaches peers in ~one debounce, not the 30s timer.
+      this.refreshPageSubscriptions();
+      this.unsubscribePages = this.pages.subscribe(() => {
+        this.manifestDirty = true;
+        this.refreshPageSubscriptions();
+        this.scheduleOutboundSync();
+      });
+    } else {
+      this.unsubscribeScene = this.scene.subscribe(() => this.scheduleOutboundSync());
+    }
     this.disposeIdleTicking = this.presence.startIdleTicking(PRESENCE_IDLE_TICK_MS);
     this.snapshotTimer = setInterval(() => void this.sendSnapshot(), SNAPSHOT_INTERVAL_MS);
   }
@@ -210,10 +235,13 @@ export class CollabSession {
   private dispatchInbound(raw: string): Promise<void> {
     if (!this.roomKey) return Promise.resolve();
     return handleInboundMessage(raw, {
-      scene: this.scene,
+      // In a pages session, legacy un-tagged traffic lands on the current first page (not a scene
+      // captured at connect time, which a page deletion could orphan).
+      scene: this.defaultScene(),
+      pages: this.pages,
       presence: this.presence,
       roomKey: this.roomKey,
-      markSynced: (id, version) => this.syncedVersions.set(id, version),
+      markSynced: (id, version, pageId) => this.syncedVersions.set(pageId === undefined ? id : `${pageId}/${id}`, version),
       onPeerLeft: (peerId) => this.presence.removePeer(peerId),
       onSnapshotRequested: () => void this.sendSnapshot(),
     });
@@ -230,13 +258,63 @@ export class CollabSession {
     this.outboundTimer = setTimeout(() => {
       this.outboundTimer = null;
       const live = this.liveConnection();
-      if (live) void flushElementDeltas({ scene: this.scene, roomKey: live.roomKey, send: (data) => live.connection.send(data) }, this.syncedVersions);
+      if (!live) return;
+      const send = (data: string) => live.connection.send(data);
+      if (this.pages) {
+        for (const pageId of this.pages.listPageIds()) {
+          const scene = this.pages.getScene(pageId);
+          if (scene) void flushElementDeltas({ scene, pageId, roomKey: live.roomKey, send }, this.syncedVersions);
+        }
+        if (this.manifestDirty) {
+          this.manifestDirty = false;
+          void this.sendSnapshot();
+        }
+        return;
+      }
+      void flushElementDeltas({ scene: this.scene, roomKey: live.roomKey, send }, this.syncedVersions);
     }, OUTBOUND_SYNC_DEBOUNCE_MS);
+  }
+
+  /** The scene legacy (un-tagged) inbound traffic applies to — the live first page in a pages session, the fixed scene otherwise. */
+  private defaultScene(): Scene {
+    if (this.pages) {
+      const firstId = this.pages.getManifest().pages[0]?.id;
+      const first = firstId !== undefined ? this.pages.getScene(firstId) : null;
+      if (first) return first;
+    }
+    return this.scene;
+  }
+
+  /** Reconciles the per-page scene subscriptions with the adapter's current page list. */
+  private refreshPageSubscriptions(): void {
+    if (!this.pages) return;
+    const currentIds = new Set(this.pages.listPageIds());
+    for (const [pageId, unsubscribe] of this.pageSceneUnsubs) {
+      if (!currentIds.has(pageId)) {
+        unsubscribe();
+        this.pageSceneUnsubs.delete(pageId);
+      }
+    }
+    for (const pageId of currentIds) {
+      if (this.pageSceneUnsubs.has(pageId)) continue;
+      const scene = this.pages.getScene(pageId);
+      if (scene) this.pageSceneUnsubs.set(pageId, scene.subscribe(() => this.scheduleOutboundSync()));
+    }
+  }
+
+  /** Which page the local user is viewing — rides with presence so peers keep foreign-page cursors off their canvas. */
+  setLocalPage(pageId: string | null): void {
+    this.presenceBroadcaster.setLocalPage(pageId);
   }
 
   private async sendSnapshot(): Promise<void> {
     const live = this.liveConnection();
     if (!live || !live.connection.isOpen) return;
-    await sendFullSnapshot({ scene: this.scene, roomKey: live.roomKey, send: (data) => live.connection.send(data) });
+    const send = (data: string) => live.connection.send(data);
+    if (this.pages) {
+      await sendDocumentSnapshot({ roomKey: live.roomKey, send }, this.pages);
+      return;
+    }
+    await sendFullSnapshot({ scene: this.scene, roomKey: live.roomKey, send });
   }
 }

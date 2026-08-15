@@ -28,6 +28,7 @@ export class PresenceBroadcaster {
   private lastPoint: { x: number; y: number } | null = null;
   private lastSelectedElementIds: string[] = [];
   private lastViewport: PresenceViewport | null = null;
+  private lastPageId: string | null = null;
   private readonly throttledSend: (point: { x: number; y: number } | null) => void;
 
   constructor(private readonly options: PresenceBroadcasterOptions) {
@@ -51,6 +52,14 @@ export class PresenceBroadcaster {
     this.lastViewport = viewport;
   }
 
+  /** Which page the local user is looking at — rides with the next broadcast so peers can keep foreign-page cursors off their canvas. `null` in single-scene sessions (the field is simply absent on the wire). */
+  setLocalPage(pageId: string | null): void {
+    if (this.lastPageId === pageId) return;
+    this.lastPageId = pageId;
+    // A page switch should be visible promptly (the peer's cursor must vanish from the old page), so it republishes rather than waiting for the next pointer move.
+    void this.send(this.lastPoint);
+  }
+
   /** Resends whatever presence state was last known, bypassing the throttle — called after a reconnect (see `collab-session.ts`'s `onReconnect` wiring) so other peers see this client's current cursor/selection/viewport immediately instead of waiting for the next `updateCursor` call. */
   republish(): void {
     void this.send(this.lastPoint);
@@ -61,6 +70,7 @@ export class PresenceBroadcaster {
     this.lastPoint = null;
     this.lastSelectedElementIds = [];
     this.lastViewport = null;
+    this.lastPageId = null;
   }
 
   private async send(point: { x: number; y: number } | null): Promise<void> {
@@ -72,6 +82,7 @@ export class PresenceBroadcaster {
       point,
       selectedElementIds: this.lastSelectedElementIds,
       viewport: this.lastViewport,
+      ...(this.lastPageId !== null ? { pageId: this.lastPageId } : {}),
     };
     await sendPresenceUpdate(sendDeps, payload);
   }

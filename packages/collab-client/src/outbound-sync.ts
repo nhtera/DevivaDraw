@@ -6,6 +6,7 @@
  * the caller has already decided *what* changed).
  */
 import { encryptEnvelope } from "./message-codec";
+import type { CollabPagesAdapter } from "./pages-adapter";
 import type { PresencePayload } from "./presence-state";
 import type { Scene } from "@deviva-draw/engine";
 
@@ -13,6 +14,8 @@ export interface OutboundSyncDeps {
   scene: Scene;
   roomKey: CryptoKey;
   send(data: string): boolean;
+  /** Which page `scene` is, in a multi-page session — tagged onto every delta so receivers route it; absent in single-scene sessions (the wire shape stays exactly what pre-pages peers expect). Also namespaces the `syncedVersions` keys, since the same map spans every page. */
+  pageId?: string;
   /**
    * Encrypts one payload — injectable so tests can control exactly when the `await` gap resolves (used
    * to deterministically simulate a scene mutation racing the encrypt window, see
@@ -39,14 +42,15 @@ export interface OutboundSyncDeps {
 export async function flushElementDeltas(deps: OutboundSyncDeps, syncedVersions: Map<string, number>): Promise<void> {
   const encrypt = deps.encryptEnvelope ?? encryptEnvelope;
   for (const element of deps.scene.elementsUnsorted()) {
-    if (syncedVersions.get(element.id) === element.version) continue;
+    const syncKey = deps.pageId === undefined ? element.id : `${deps.pageId}/${element.id}`;
+    if (syncedVersions.get(syncKey) === element.version) continue;
     const versionAtScanTime = element.version;
-    const envelope = await encrypt(deps.roomKey, "element-delta", { element });
+    const envelope = await encrypt(deps.roomKey, "element-delta", deps.pageId === undefined ? { element } : { element, pageId: deps.pageId });
 
     const current = deps.scene.getElement(element.id);
     if (!current || current.version !== versionAtScanTime) continue; // stale — superseded during the encrypt window
 
-    syncedVersions.set(element.id, versionAtScanTime);
+    syncedVersions.set(syncKey, versionAtScanTime);
     deps.send(JSON.stringify(envelope));
   }
 }
@@ -55,6 +59,21 @@ export async function flushElementDeltas(deps: OutboundSyncDeps, syncedVersions:
 export async function sendFullSnapshot(deps: OutboundSyncDeps): Promise<void> {
   const elements = [...deps.scene.elementsUnsorted()];
   const envelope = await encryptEnvelope(deps.roomKey, "snapshot", { elements });
+  deps.send(JSON.stringify(envelope));
+}
+
+/**
+ * The multi-page snapshot: every page's elements plus the page-list manifest, in one message —
+ * the same wire `type` as the single-scene snapshot (the relay's whitelist never changes), told
+ * apart by shape on the receiving side (`inbound-message-handler.ts`).
+ */
+export async function sendDocumentSnapshot(deps: Omit<OutboundSyncDeps, "scene" | "pageId">, pages: CollabPagesAdapter): Promise<void> {
+  const manifest = pages.getManifest();
+  const payload = {
+    manifest,
+    pages: manifest.pages.map((entry) => ({ id: entry.id, name: entry.name, elements: [...(pages.getScene(entry.id)?.elementsUnsorted() ?? [])] })),
+  };
+  const envelope = await encryptEnvelope(deps.roomKey, "snapshot", payload);
   deps.send(JSON.stringify(envelope));
 }
 

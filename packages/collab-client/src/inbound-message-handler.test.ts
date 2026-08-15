@@ -24,7 +24,7 @@ describe("handleInboundMessage — element-delta", () => {
     await handleInboundMessage(JSON.stringify(envelope), deps);
 
     expect(deps.scene.getElement(element.id)).toEqual(element);
-    expect(deps.markSynced).toHaveBeenCalledWith(element.id, element.version);
+    expect(deps.markSynced).toHaveBeenCalledWith(element.id, element.version, undefined);
   });
 
   it("does not mark synced when the remote element loses the LWW comparison", async () => {

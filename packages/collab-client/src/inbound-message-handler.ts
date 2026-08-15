@@ -9,6 +9,8 @@
 import { decryptEnvelope } from "./message-codec";
 import type { RoomEnvelope } from "./message-codec";
 import { mergeRemoteElement } from "./lww-merge";
+import { isPlausibleManifest } from "./pages-adapter";
+import type { CollabPagesAdapter } from "./pages-adapter";
 import type { Scene } from "@deviva-draw/engine";
 import type { PresenceStore } from "./presence-state";
 
@@ -16,8 +18,10 @@ export interface InboundMessageDeps {
   scene: Scene;
   presence: PresenceStore;
   roomKey: CryptoKey;
-  /** Records that element `id` is now synced at `version` — prevents the next outbound scan from redundantly re-sending an element this session just received. */
-  markSynced(id: string, version: number): void;
+  /** Multi-page routing: a delta's `pageId` resolves through this adapter (creating unknown pages, refusing deleted ones); absent ⇒ everything applies to `scene`. */
+  pages?: CollabPagesAdapter;
+  /** Records that element `id` is now synced at `version` — prevents the next outbound scan from redundantly re-sending an element this session just received. `pageId` mirrors the delta's tag so the caller can namespace its record the same way the outbound scan does. */
+  markSynced(id: string, version: number, pageId?: string): void;
   onPeerLeft(peerId: string): void;
   /**
    * Fires when the *relay* forwards a `snapshot-request` to this peer — meaning the Durable Object had
@@ -34,24 +38,52 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+/** The scene a tagged payload lands in: an untagged one goes to the default `scene` (a pre-pages peer, or a session with no adapter); a tagged one resolves — and may refuse (`null`, deleted page) — through the adapter. */
+function resolveTargetScene(pageId: unknown, deps: InboundMessageDeps): Scene | null {
+  if (typeof pageId !== "string" || !deps.pages) return deps.scene;
+  return deps.pages.ensureScene(pageId);
+}
+
 async function applyElementPayload(payload: unknown, deps: InboundMessageDeps): Promise<void> {
   if (!isRecord(payload)) return;
+  const target = resolveTargetScene(payload.pageId, deps);
+  if (!target) return; // a delta racing the deletion of its page must not resurrect it
   const element = payload.element;
-  if (mergeRemoteElement(deps.scene, element)) {
+  if (mergeRemoteElement(target, element)) {
     // Safe: `mergeRemoteElement` only returns `true` after its own runtime structural validation.
     const applied = element as { id: string; version: number };
-    deps.markSynced(applied.id, applied.version);
+    deps.markSynced(applied.id, applied.version, typeof payload.pageId === "string" ? payload.pageId : undefined);
+  }
+}
+
+function mergeElementsInto(target: Scene, elements: unknown[], deps: InboundMessageDeps, pageId?: string): void {
+  for (const element of elements) {
+    if (mergeRemoteElement(target, element)) {
+      const applied = element as { id: string; version: number };
+      deps.markSynced(applied.id, applied.version, pageId);
+    }
   }
 }
 
 async function applySnapshotPayload(payload: unknown, deps: InboundMessageDeps): Promise<void> {
-  if (!isRecord(payload) || !Array.isArray(payload.elements)) return;
-  for (const element of payload.elements) {
-    if (mergeRemoteElement(deps.scene, element)) {
-      const applied = element as { id: string; version: number };
-      deps.markSynced(applied.id, applied.version);
+  if (!isRecord(payload)) return;
+
+  // Multi-page snapshot: apply the page-list manifest first (LWW — see `pages-adapter.ts`), then
+  // merge each page's elements into whichever page list survived that decision. Element merges run
+  // regardless of whether the manifest won: elements are their own per-element LWW.
+  if (Array.isArray(payload.pages) && deps.pages) {
+    if (isPlausibleManifest(payload.manifest)) deps.pages.applyRemoteManifest(payload.manifest);
+    for (const entry of payload.pages) {
+      if (!isRecord(entry) || typeof entry.id !== "string" || !Array.isArray(entry.elements)) continue;
+      const target = deps.pages.ensureScene(entry.id);
+      if (target) mergeElementsInto(target, entry.elements, deps, entry.id);
     }
+    return;
   }
+
+  // Legacy single-scene snapshot (a pre-pages peer): everything lands in the default scene.
+  if (!Array.isArray(payload.elements)) return;
+  mergeElementsInto(deps.scene, payload.elements, deps);
 }
 
 /** Entry point: parse `raw`, route by `type`, decrypt+apply. Never throws — every failure path is a silent no-op by design (see module doc). */

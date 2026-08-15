@@ -21,6 +21,8 @@ export interface PresencePayload {
   point: { x: number; y: number } | null;
   selectedElementIds: string[];
   viewport: PresenceViewport | null;
+  /** Which page the peer is on (multi-page sessions) — absent/`undefined` from single-scene peers, which renderers treat as "every page". */
+  pageId?: string;
 }
 
 /** A peer's presence as the local UI renders it — `idle` is computed fresh on every `list()` call, not stored. */
@@ -41,6 +43,7 @@ export function isPlausiblePresencePayload(value: unknown): value is PresencePay
   if (!Array.isArray(p.selectedElementIds) || !p.selectedElementIds.every((id) => typeof id === "string")) return false;
   if (p.point !== null && !isPoint(p.point)) return false;
   if (p.viewport !== null && !isViewport(p.viewport)) return false;
+  if (p.pageId !== undefined && typeof p.pageId !== "string") return false;
   return true;
 }
 

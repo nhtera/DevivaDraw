@@ -296,12 +296,18 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   // requires (`shareApiBaseUrl` — both are that Worker's endpoints, see `use-collab-session.ts`'s
   // `apiBaseUrl` doc) rather than introducing a second, near-identical prop.
   const canvasBackground = useCanvasBackground(runtime?.scene ?? null);
-  const collab = useCollabSession({ scene: runtime?.scene ?? null, apiBaseUrl: shareApiBaseUrl });
+  const collab = useCollabSession({ scene: runtime?.scene ?? null, pageStore, apiBaseUrl: shareApiBaseUrl });
   useEffect(() => {
+    // Only cursors on the locally-active page reach the canvas — a peer's `pageId` is `undefined`
+    // when they run a pre-pages build, which renders everywhere rather than nowhere.
+    const activePageId = pageStore.getActivePageId();
     remoteCursorsRef.current = collab.peers
+      .filter((peer) => peer.pageId === undefined || peer.pageId === activePageId)
       .filter((peer): peer is typeof peer & { point: { x: number; y: number } } => peer.point !== null)
       .map((peer) => ({ id: peer.peerId, name: peer.name, color: peer.color, point: peer.point }));
-  }, [collab.peers]);
+    // `runtime` stands in for "the active page changed" — the runtime rebuilds on every page switch,
+    // so this refilter runs then too, not only when the peer list itself changes.
+  }, [collab.peers, pageStore, runtime]);
   useCollabCursorTracking({ containerRef: canvasHostRef, getCamera, onCursorMove: collab.updateCursor, active: collab.status === "connected" });
 
   // Auto-join a room link exactly once, after the runtime (and thus the scene the session syncs into)
