@@ -40,6 +40,7 @@ import { StatsPanel } from "./components/stats-panel";
 import { PagesPanel } from "./components/pages-panel";
 import { MainMenu } from "./components/main-menu";
 import { ShareDialog } from "./components/share-dialog";
+import { ShareViewerBadge } from "./components/share-viewer-badge";
 import { CollabDialog } from "./components/collab-dialog";
 import { ShortcutsDialog } from "./components/shortcuts-dialog";
 import { FindPanel } from "./components/find-panel";
@@ -208,6 +209,22 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     action();
   };
 
+  // View-only must mean "can view, not edit" at the input level, not just hidden chrome: the action
+  // registry blocks every scene-mutating action (see `Action.viewOnlyAllowed`), and this effect
+  // pins the active tool to pan so raw canvas gestures can only navigate. The pan pin re-applies on
+  // every runtime rebuild while view-only (rebuilds reset the tool to the select default), but the
+  // hand-back-to-select runs ONLY on the actual view-only exit edge — an unconditional reset here
+  // would clobber the user's tool (locked or not) on every ordinary page switch, since `runtime`'s
+  // identity changes with each rebuild.
+  const wasViewOnlyRef = useRef(viewOnly.value);
+  useEffect(() => {
+    const wasViewOnly = wasViewOnlyRef.current;
+    wasViewOnlyRef.current = viewOnly.value;
+    if (!runtime) return;
+    if (viewOnly.value) runtime.actionRegistry.run("pan-tool", runtime);
+    else if (wasViewOnly) runtime.actionRegistry.run("select-tool", runtime);
+  }, [runtime, viewOnly.value]);
+
   useImperativeHandle(ref, () => handle ?? NOOP_HANDLE, [handle]);
   runtimeForContextMenuRef.current = runtime;
   useAdaptNextShapeStyle(runtime, mode);
@@ -219,7 +236,8 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   );
   usePasteAndDrop({
     containerRef: canvasHostRef,
-    scene: runtime?.scene ?? null,
+    // `null` scene in view-only detaches the listeners entirely — paste/drop are scene mutations.
+    scene: viewOnly.value ? null : (runtime?.scene ?? null),
     getCamera,
     getViewportSize,
     decodeNaturalSize,
@@ -233,20 +251,22 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   });
   // Shares the canvas host's drop target with `usePasteAndDrop` above — that one handles files dragged
   // in from outside, this one an in-document drag from the library sidebar. Each ignores the other's.
-  useLibraryDrop({ containerRef: canvasHostRef, runtime, getCamera });
+  useLibraryDrop({ containerRef: canvasHostRef, runtime: viewOnly.value ? null : runtime, getCamera });
   // The third drop listener on that target: scene/library *documents* dragged in from the desktop.
   // A dropped library opens the sidebar, so its items are somewhere the user can see rather than
   // silently added to a shelf that is currently closed.
   useDocumentFileDrop({
     containerRef: canvasHostRef,
-    runtime,
+    runtime: viewOnly.value ? null : runtime,
     pageStore,
     onLibraryImported: useCallback(() => libraryOpen.set(true), [libraryOpen]),
   });
   const { openImagePicker, pendingPlacement } = useImageFilePicker({
-    scene: runtime?.scene ?? null,
-    history: runtime?.history ?? null,
-    selection: runtime?.selection ?? null,
+    // Nulled in view-only like the paste/drop hooks above — the "9" shortcut and placement click
+    // dispatch straight to the scene, not through the action registry's view-only gate.
+    scene: viewOnly.value ? null : (runtime?.scene ?? null),
+    history: viewOnly.value ? null : (runtime?.history ?? null),
+    selection: viewOnly.value ? null : (runtime?.selection ?? null),
     containerRef: canvasHostRef,
     getCamera,
     getViewportSize,
@@ -342,7 +362,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
           <TextEditorOverlay session={editSession} scene={runtime.scene} getCamera={getCamera} subscribeCamera={cameraStore.subscribe} />
         )}
       </div>
-      {runtime && !zenMode.value && (isNarrow ? <BottomToolbar runtime={runtime} onInsertImage={openImagePicker} /> : <Toolbar runtime={runtime} toolLocked={toolLock.value} onToggleLock={() => toolLock.set(!toolLock.value)} onInsertImage={openImagePicker} />)}
+      {runtime && !zenMode.value && !viewOnly.value && (isNarrow ? <BottomToolbar runtime={runtime} onInsertImage={openImagePicker} /> : <Toolbar runtime={runtime} toolLocked={toolLock.value} onToggleLock={() => toolLock.set(!toolLock.value)} onInsertImage={openImagePicker} />)}
       {runtime && !zenMode.value && !isNarrow && <CanvasHint runtime={runtime} editSession={editSession} />}
       {runtime && !zenMode.value && <EmptyStateOverlay runtime={runtime} editSession={editSession} />}
       {runtime && !zenMode.value && (
@@ -399,7 +419,19 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       )}
       {runtime && shortcutsDialogOpen.value && <ShortcutsDialog runtime={runtime} onClose={() => shortcutsDialogOpen.set(false)} />}
       {runtime && findOpen.value && <FindPanel runtime={runtime} onClose={() => findOpen.set(false)} />}
-      {runtime && shareDialog.value.status !== "closed" && <ShareDialog state={shareDialog.value} onClose={() => shareDialog.set({ status: "closed" })} />}
+      {runtime && shareDialog.value.status !== "closed" && (
+        <ShareDialog
+          state={shareDialog.value}
+          onClose={() => shareDialog.set({ status: "closed" })}
+          onStartCollab={() => {
+            shareDialog.set({ status: "closed" });
+            collabDialogOpen.set(true);
+          }}
+        />
+      )}
+      {runtime && initialViewOnly && !zenMode.value && (
+        <ShareViewerBadge viewOnly={viewOnly.value} onEditCopy={() => void runtime.actionRegistry.run("toggle-view-only", runtime)} />
+      )}
       {runtime && collabDialogOpen.value && <CollabDialog collab={collab} onClose={() => collabDialogOpen.set(false)} />}
       {runtime && commandPaletteOpen.value && <CommandPalette runtime={runtime} onClose={() => commandPaletteOpen.set(false)} />}
       {pendingPlacement && <ImagePlacementOverlay placement={pendingPlacement} getCamera={getCamera} />}
@@ -408,7 +440,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {runtime && contextMenuTriggers.point && !viewOnly.value && (
         <ContextMenu runtime={runtime} screenPoint={contextMenuTriggers.point} variant={contextMenuTriggers.variant} onClose={contextMenuTriggers.close} />
       )}
-      {statsPanel.value && runtime && <StatsPanel runtime={runtime} cameraStore={cameraStore} />}
+      {statsPanel.value && runtime && !viewOnly.value && <StatsPanel runtime={runtime} cameraStore={cameraStore} />}
     </div>
   );
 });

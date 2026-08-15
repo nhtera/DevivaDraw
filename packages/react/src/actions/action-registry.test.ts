@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { ActionRegistry } from "./action-registry";
 import type { Action, ActionRuntime } from "./action-types";
 
-const FAKE_RUNTIME = {} as ActionRuntime;
+const FAKE_RUNTIME = { ui: { getViewOnly: () => false } } as unknown as ActionRuntime;
+const VIEW_ONLY_RUNTIME = { ui: { getViewOnly: () => true } } as unknown as ActionRuntime;
 
 function makeAction(overrides: Partial<Action> = {}): Action {
   return { id: "test-action", labelKey: "action.undo", icon: "undo", run: vi.fn(), ...overrides };
@@ -102,5 +103,32 @@ describe("ActionRegistry.run", () => {
     registry.run("constructor", FAKE_RUNTIME);
 
     expect(run).not.toHaveBeenCalled();
+  });
+});
+
+describe("ActionRegistry view-only gate", () => {
+  it("blocks run and reports disabled for a non-allowed action while view-only", () => {
+    const registry = new ActionRegistry();
+    const run = vi.fn();
+    registry.register(makeAction({ id: "mutating-action", run }));
+
+    expect(registry.isEnabled("mutating-action", VIEW_ONLY_RUNTIME)).toBe(false);
+    registry.run("mutating-action", VIEW_ONLY_RUNTIME);
+    expect(run).not.toHaveBeenCalled();
+
+    // The same action works normally outside view-only.
+    expect(registry.isEnabled("mutating-action", FAKE_RUNTIME)).toBe(true);
+    registry.run("mutating-action", FAKE_RUNTIME);
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets a viewOnlyAllowed action through the gate", () => {
+    const registry = new ActionRegistry();
+    const run = vi.fn();
+    registry.register(makeAction({ id: "safe-view-action", viewOnlyAllowed: true, run }));
+
+    expect(registry.isEnabled("safe-view-action", VIEW_ONLY_RUNTIME)).toBe(true);
+    registry.run("safe-view-action", VIEW_ONLY_RUNTIME);
+    expect(run).toHaveBeenCalledTimes(1);
   });
 });

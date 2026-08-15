@@ -119,4 +119,12 @@ export interface Action {
   run(runtime: ActionRuntime): void | Promise<void>;
   /** Defaults to always-enabled when omitted. */
   isEnabled?(runtime: ActionRuntime): boolean;
+  /**
+   * Whether this action stays available while the shell is in view-only mode (the shared-scene
+   * viewer, or the main-menu toggle). Defaults to `false` — view-only is a promise ("can view, not
+   * edit"), so an action must opt IN by being provably scene-preserving: navigation, view
+   * preferences, exports/copies, sharing, and the view-only toggle itself. Every action that
+   * mutates the scene, the page list, or the active tool stays blocked by the registry.
+   */
+  viewOnlyAllowed?: boolean;
 }

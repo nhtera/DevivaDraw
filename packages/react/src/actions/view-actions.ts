@@ -17,9 +17,9 @@ function selectedBounds(runtime: ActionRuntime) {
 
 export function buildViewActions(): Action[] {
   return [
-    { id: "zoom-in", labelKey: "action.zoomIn", icon: "zoom-in", shortcut: "meta+=", run: (runtime) => runtime.panZoomTool.zoomStep(1) },
-    { id: "zoom-out", labelKey: "action.zoomOut", icon: "zoom-out", shortcut: "meta+-", run: (runtime) => runtime.panZoomTool.zoomStep(-1) },
-    { id: "zoom-to-fit", labelKey: "action.zoomToFit", icon: "zoom-fit", shortcut: "shift+1", run: (runtime) => runtime.panZoomTool.zoomToFit() },
+    { id: "zoom-in", labelKey: "action.zoomIn", icon: "zoom-in", shortcut: "meta+=", run: (runtime) => runtime.panZoomTool.zoomStep(1), viewOnlyAllowed: true },
+    { id: "zoom-out", labelKey: "action.zoomOut", icon: "zoom-out", shortcut: "meta+-", run: (runtime) => runtime.panZoomTool.zoomStep(-1), viewOnlyAllowed: true },
+    { id: "zoom-to-fit", labelKey: "action.zoomToFit", icon: "zoom-fit", shortcut: "shift+1", run: (runtime) => runtime.panZoomTool.zoomToFit(), viewOnlyAllowed: true },
     {
       id: "zoom-to-selection",
       labelKey: "action.zoomToSelection",
@@ -28,9 +28,10 @@ export function buildViewActions(): Action[] {
       isEnabled: (runtime) => runtime.selection.getSelectedIds().size > 0,
       run: (runtime) => runtime.panZoomTool.zoomToBounds(selectedBounds(runtime)),
     },
-    { id: "zoom-reset", labelKey: "action.zoomReset", icon: "zoom-in", shortcut: "shift+0", run: (runtime) => runtime.panZoomTool.resetZoom() },
+    { id: "zoom-reset", labelKey: "action.zoomReset", icon: "zoom-in", shortcut: "shift+0", run: (runtime) => runtime.panZoomTool.resetZoom(), viewOnlyAllowed: true },
     {
       id: "toggle-grid",
+      viewOnlyAllowed: true,
       labelKey: "action.toggleGrid",
       icon: "grid",
       shortcut: "meta+'",
@@ -58,9 +59,10 @@ export function buildViewActions(): Action[] {
         }
       },
     },
-    { id: "toggle-theme", labelKey: "action.toggleTheme", icon: "theme", run: (runtime) => runtime.theme.toggleMode() },
+    { id: "toggle-theme", labelKey: "action.toggleTheme", icon: "theme", run: (runtime) => runtime.theme.toggleMode(), viewOnlyAllowed: true },
     {
       id: "open-command-palette",
+      viewOnlyAllowed: true,
       labelKey: "action.openCommandPalette",
       icon: "command",
       shortcut: "meta+k",
@@ -68,23 +70,27 @@ export function buildViewActions(): Action[] {
     },
     {
       id: "toggle-zen-mode",
+      viewOnlyAllowed: true,
       labelKey: "action.toggleZenMode",
       icon: "zen",
       run: (runtime) => runtime.ui.setZenMode(!runtime.ui.getZenMode()),
     },
     {
       id: "toggle-view-only",
+      viewOnlyAllowed: true,
       labelKey: "action.toggleViewOnly",
       icon: "view-only",
       run: (runtime) => runtime.ui.setViewOnly(!runtime.ui.getViewOnly()),
     },
     {
       id: "toggle-minimap",
+      viewOnlyAllowed: true,
       labelKey: "action.toggleMinimap",
       icon: "minimap",
       run: (runtime) => runtime.ui.setMinimapVisible(!runtime.ui.getMinimapVisible()),
     },
     {
+      // Not view-only-allowed: the stats panel's editable fields write straight to the scene.
       id: "toggle-stats",
       labelKey: "action.toggleStats",
       icon: "stats",

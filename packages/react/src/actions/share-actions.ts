@@ -14,6 +14,7 @@ export function buildShareActions(): Action[] {
       id: "share-scene",
       labelKey: "action.share",
       icon: "share",
+      viewOnlyAllowed: true,
       run: async (runtime) => {
         runtime.ui.setShareDialogState({ status: "generating" });
         try {

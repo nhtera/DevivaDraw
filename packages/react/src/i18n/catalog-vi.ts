@@ -263,6 +263,10 @@ export const catalogVi: Record<TranslationKey, string> = {
   "share.dialog.copy": "Sao chép liên kết",
   "share.dialog.copied": "Đã sao chép!",
   "share.dialog.error": "Không thể tạo liên kết chia sẻ. Vui lòng thử lại.",
+  "share.dialog.snapshotNote": "Liên kết là ảnh chụp tại thời điểm này — các chỉnh sửa sau đó sẽ không xuất hiện trong đó.",
+  "share.dialog.startCollab": "Cần chỉnh sửa trực tiếp cùng nhau? Bắt đầu phiên cộng tác",
+  "share.viewer.editCopy": "Chỉnh sửa bản sao",
+  "share.viewer.unsavedCopy": "Bản sao chưa được lưu — hãy lưu tệp để giữ thay đổi của bạn",
 
   "share.loading": "Đang tải bản vẽ được chia sẻ…",
   "share.error.invalidLink": "Liên kết chia sẻ này không hợp lệ hoặc chưa đầy đủ.",

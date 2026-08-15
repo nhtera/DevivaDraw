@@ -34,10 +34,14 @@ export class ActionRegistry {
     return [...this.actions.values()];
   }
 
-  /** `true` when `id` is registered and its `isEnabled` predicate (if any) passes for `runtime`. */
+  /** `true` when `id` is registered, permitted in the current view-only state, and its `isEnabled` predicate (if any) passes for `runtime`. */
   isEnabled(id: string, runtime: ActionRuntime): boolean {
     const action = this.actions.get(id);
     if (!action) return false;
+    // View-only gate — enforced here (every UI surface reads enablement from this one method) AND
+    // in `run` below (keyboard shortcuts dispatch straight to `run`), so a blocked action neither
+    // renders enabled nor executes. See `Action.viewOnlyAllowed`'s doc for the opt-in contract.
+    if (runtime.ui.getViewOnly() && !action.viewOnlyAllowed) return false;
     return action.isEnabled ? action.isEnabled(runtime) : true;
   }
 
@@ -53,6 +57,7 @@ export class ActionRegistry {
       console.warn(`action-registry: no action registered as "${id}"`);
       return;
     }
+    if (runtime.ui.getViewOnly() && !action.viewOnlyAllowed) return;
     if (action.isEnabled && !action.isEnabled(runtime)) return;
     return action.run(runtime);
   }

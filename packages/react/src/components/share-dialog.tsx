@@ -14,10 +14,12 @@ import type { ShareDialogState } from "../actions/action-types";
 export interface ShareDialogProps {
   state: ShareDialogState;
   onClose(): void;
+  /** Opens the live-collaboration dialog — offered next to the link because a snapshot link and a live session answer different needs, and users routinely reach for the wrong one. */
+  onStartCollab?(): void;
 }
 
 export function ShareDialog(props: ShareDialogProps) {
-  const { state, onClose } = props;
+  const { state, onClose, onStartCollab } = props;
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
@@ -62,6 +64,14 @@ export function ShareDialog(props: ShareDialogProps) {
             <button type="button" style={{ marginTop: 8 }} onClick={() => copyLink(state.url)} data-testid="share-dialog-copy">
               {copied ? t("share.dialog.copied") : t("share.dialog.copy")}
             </button>
+            <p data-testid="share-dialog-snapshot-note" style={{ marginTop: 10, fontSize: 12, color: "var(--dd-text-secondary)" }}>
+              {t("share.dialog.snapshotNote")}
+            </p>
+            {onStartCollab && (
+              <button type="button" data-testid="share-dialog-start-collab" style={{ marginTop: 4 }} onClick={onStartCollab}>
+                {t("share.dialog.startCollab")}
+              </button>
+            )}
           </>
         )}
       </div>

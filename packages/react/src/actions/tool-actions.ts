@@ -42,7 +42,8 @@ function toolAction(id: string, labelKey: Action["labelKey"], icon: string, tool
 export function buildToolActions(): Action[] {
   return [
     toolAction("select-tool", "tool.select", "cursor", SELECT_TOOL_NAME, "1"),
-    toolAction("pan-tool", "tool.pan", "hand", PAN_TOOL_NAME, "h"),
+    // The one tool that stays reachable in view-only: panning reads the scene, never writes it.
+    { ...toolAction("pan-tool", "tool.pan", "hand", PAN_TOOL_NAME, "h"), viewOnlyAllowed: true },
     toolAction("rectangle-tool", "tool.rectangle", "rectangle", RECTANGLE_TOOL_NAME, "r"),
     toolAction("ellipse-tool", "tool.ellipse", "ellipse", ELLIPSE_TOOL_NAME, "o"),
     toolAction("diamond-tool", "tool.diamond", "diamond", DIAMOND_TOOL_NAME, "d"),

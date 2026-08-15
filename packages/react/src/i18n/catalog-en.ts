@@ -263,6 +263,10 @@ export const catalogEn = {
   "share.dialog.copy": "Copy link",
   "share.dialog.copied": "Copied!",
   "share.dialog.error": "Couldn't create the share link. Please try again.",
+  "share.dialog.snapshotNote": "The link is a snapshot frozen at this moment — edits you make later won't appear in it.",
+  "share.dialog.startCollab": "Need to edit together live? Start a collaboration",
+  "share.viewer.editCopy": "Edit a copy",
+  "share.viewer.unsavedCopy": "Unsaved copy — save the file to keep your changes",
 
   "share.loading": "Loading shared scene…",
   "share.error.invalidLink": "This share link is invalid or incomplete.",
