@@ -38,6 +38,7 @@ async function liveElements(page: Page): Promise<Array<Record<string, unknown>>>
 test("the stats panel edits a selected element's position exactly", async ({ page }) => {
   await drawRect(page); // auto-selected
   await page.getByTestId("top-bar-menu").click();
+  await page.getByTestId("main-menu-preferences").click();
   await page.getByTestId("main-menu-toggle-stats").click();
 
   await expect(page.getByTestId("stats-element-count")).toHaveText("1");

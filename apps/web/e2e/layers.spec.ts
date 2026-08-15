@@ -15,6 +15,7 @@ test.beforeEach(async ({ page }) => {
 
 async function openLayersPanel(page: Page): Promise<void> {
   await page.getByTestId("top-bar-menu").click();
+  await page.getByTestId("main-menu-preferences").click();
   await page.getByTestId("main-menu-toggle-layers").click();
   await page.keyboard.press("Escape"); // close the menu; the panel stays
   await expect(page.getByTestId("layers-panel")).toBeVisible();
@@ -140,6 +141,7 @@ test("layers ride reload, and the panel is absent in the share viewer", async ({
   await expect(page.getByTestId("layers-panel")).toHaveCount(0);
   // The menu toggle is registry-gated in view-only: clicking it must NOT summon the panel.
   await page.getByTestId("top-bar-menu").click();
+  await page.getByTestId("main-menu-preferences").click();
   await page.getByTestId("main-menu-toggle-layers").click();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("layers-panel")).toHaveCount(0);

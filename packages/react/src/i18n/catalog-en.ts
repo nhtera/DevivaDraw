@@ -107,6 +107,7 @@ export const catalogEn = {
   "menu.title": "Menu",
   "menu.github": "GitHub",
   "menu.deviva": "Deviva",
+  "menu.preferences": "Preferences",
   "menu.theme": "Theme",
   "menu.language": "Language",
   "menu.help": "Keyboard shortcuts",

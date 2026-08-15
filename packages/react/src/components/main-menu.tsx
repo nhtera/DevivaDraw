@@ -6,11 +6,13 @@
  * no confirm baked in, so a future keyboard/palette trigger of the same action stays un-prompted by
  * design; only this explicit, easy-to-mis-click menu item guards itself).
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Z_LAYER, buttonStyle, inputStyle, panelStyle } from "./chrome-styles";
 import { CanvasBackgroundRow } from "./canvas-background-row";
-import { isInsidePopover } from "./popover-portal-host";
+import { isInsidePopover, popoverMarkerProps, popoverPortalHost } from "./popover-portal-host";
 import { Icon } from "./icon";
+import { detectIsMac, formatShortcut } from "../actions/format-shortcut";
 import type { Locale } from "../i18n/locale-storage";
 import { useTranslation } from "../i18n/use-translation";
 import { useTheme } from "../theme/theme-provider";
@@ -34,19 +36,36 @@ const LOCALES: Locale[] = ["en", "vi"];
 /** External links surfaced in the menu — the source repo and the parent product this canvas ships inside. */
 const GITHUB_URL = "https://github.com/nhtera/DevivaDraw";
 const DEVIVA_URL = "https://deviva.app";
-/** The theme picker's three choices, each with its glyph — a light sun, a dark moon, a system monitor (matching Excalidraw's icon toggle). */
+/** The theme picker's three choices, each with its glyph — a light sun, a dark moon, a system monitor. */
 const THEME_OPTIONS: readonly { value: ThemePreference; icon: string }[] = [
   { value: "light", icon: "theme-light" },
   { value: "dark", icon: "theme-dark" },
   { value: "system", icon: "theme-system" },
 ];
+/** The preference-flyout toggle rows — one table, so the flyout and any future surface agree on order and state reads. */
+const PREFERENCE_TOGGLES: readonly {
+  actionId: string;
+  testId: string;
+  icon: string;
+  labelKey: Parameters<ReturnType<typeof useTranslation>["t"]>[0];
+  isChecked: (runtime: DevivaRuntime) => boolean;
+}[] = [
+  { actionId: "toggle-grid", testId: "main-menu-toggle-grid", icon: "grid", labelKey: "action.toggleGrid", isChecked: (runtime) => runtime.grid.enabled },
+  { actionId: "toggle-object-snap", testId: "main-menu-toggle-object-snap", icon: "snap", labelKey: "action.toggleObjectSnap", isChecked: (runtime) => runtime.objectSnap.enabled },
+  { actionId: "toggle-zen-mode", testId: "main-menu-toggle-zen-mode", icon: "zen", labelKey: "action.toggleZenMode", isChecked: (runtime) => runtime.ui.getZenMode() },
+  { actionId: "toggle-view-only", testId: "main-menu-toggle-view-only", icon: "view-only", labelKey: "action.toggleViewOnly", isChecked: (runtime) => runtime.ui.getViewOnly() },
+  { actionId: "toggle-layers", testId: "main-menu-toggle-layers", icon: "layers", labelKey: "action.toggleLayers", isChecked: (runtime) => runtime.ui.getLayersPanelVisible() },
+  { actionId: "toggle-minimap", testId: "main-menu-toggle-minimap", icon: "minimap", labelKey: "action.toggleMinimap", isChecked: (runtime) => runtime.ui.getMinimapVisible() },
+  { actionId: "toggle-stats", testId: "main-menu-toggle-stats", icon: "stats", labelKey: "action.toggleStats", isChecked: (runtime) => runtime.ui.getStatsPanelVisible() },
+];
+
 /** Shared style for the small uppercase-ish section headers (Theme / Language). */
 const sectionLabelStyle = { padding: "6px 8px 2px", fontSize: 11, color: "var(--dd-text-secondary)" } as const;
 
-function MenuButton(props: { onClick: () => void; icon: string; children: string; testId: string; checked?: boolean }) {
+function MenuButton(props: { onClick: () => void; icon: string; children: string; testId: string; checked?: boolean; shortcutHint?: string }) {
   // `checked` distinguishes a toggle row (zen mode, minimap, …) from a plain command row: toggles are
   // `menuitemcheckbox`es and draw a trailing ✓ when on — the row itself stays unhighlighted so the
-  // eye scans one column of marks, the way Excalidraw's preferences submenu shows active toggles.
+  // eye scans one column of marks.
   const isToggle = props.checked !== undefined;
   return (
     <button
@@ -59,8 +78,9 @@ function MenuButton(props: { onClick: () => void; icon: string; children: string
     >
       <Icon name={props.icon} />
       {props.children}
+      {props.shortcutHint && <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--dd-text-secondary)" }}>{props.shortcutHint}</span>}
       {props.checked && (
-        <span style={{ marginLeft: "auto", display: "inline-flex", color: "var(--dd-accent)" }}>
+        <span style={{ marginLeft: props.shortcutHint ? 6 : "auto", display: "inline-flex", color: "var(--dd-accent)" }}>
           <Icon name="check" size={14} />
         </span>
       )}
@@ -90,6 +110,36 @@ export function MainMenu(props: MainMenuProps) {
   const { t, locale, setLocale } = useTranslation();
   const { preference, setPreference } = useTheme();
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const [prefsOpen, setPrefsOpen] = useState(false);
+  const prefsRowRef = useRef<HTMLButtonElement | null>(null);
+  // Portalled flyout position (viewport coords) — the menu is a scroll container, so an absolutely
+  // positioned child would be clipped by its own parent; `null` until measured keeps the first
+  // paint hidden (the color-picker popover's exact pattern).
+  const [flyoutPos, setFlyoutPos] = useState<{ top: number; left: number } | null>(null);
+  // Flyout toggles keep the menu open, so their check marks need a re-render trigger of their own.
+  const [, bump] = useReducer((count: number) => count + 1, 0);
+  const isMac = detectIsMac(typeof navigator !== "undefined" ? navigator.platform : undefined);
+  const shortcutHintFor = (actionId: string): string | undefined => {
+    const combo = runtime.actionRegistry.get(actionId)?.shortcut;
+    return combo ? formatShortcut(combo, isMac) : undefined;
+  };
+
+  useLayoutEffect(() => {
+    if (!prefsOpen) {
+      setFlyoutPos(null);
+      return;
+    }
+    const measure = () => {
+      const row = prefsRowRef.current;
+      if (!row) return;
+      const rect = row.getBoundingClientRect();
+      const top = Math.max(8, Math.min(rect.top - 4, window.innerHeight - 8 - 7 * 34 - 8));
+      setFlyoutPos({ top, left: rect.right + 6 });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [prefsOpen]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -98,8 +148,22 @@ export function MainMenu(props: MainMenuProps) {
       if (isInsidePopover(event.target)) return;
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) onClose();
     };
+    // Escape steps back one level: flyout first, then the menu — now that flyout toggles keep the
+    // menu open, the keyboard needs an explicit way out.
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setPrefsOpen((open) => {
+        if (open) return false;
+        onClose();
+        return open;
+      });
+    };
     window.addEventListener("pointerdown", handlePointerDown);
-    return () => window.removeEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, [onClose]);
 
   const run = (actionId: string) => {
@@ -234,29 +298,52 @@ export function MainMenu(props: MainMenuProps) {
         <CanvasBackgroundRow scene={runtime.scene} />
       </div>
       <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
-      {/* Toggle rows read their state directly at render: the menu closes on every click (`run` calls
-          `onClose`), so it reopens with fresh state and never needs a live subscription while open. */}
-      <MenuButton testId="main-menu-toggle-grid" icon="grid" checked={runtime.grid.enabled} onClick={() => run("toggle-grid")}>
-        {t("action.toggleGrid")}
-      </MenuButton>
-      <MenuButton testId="main-menu-toggle-object-snap" icon="snap" checked={runtime.objectSnap.enabled} onClick={() => run("toggle-object-snap")}>
-        {t("action.toggleObjectSnap")}
-      </MenuButton>
-      <MenuButton testId="main-menu-toggle-zen-mode" icon="zen" checked={runtime.ui.getZenMode()} onClick={() => run("toggle-zen-mode")}>
-        {t("action.toggleZenMode")}
-      </MenuButton>
-      <MenuButton testId="main-menu-toggle-view-only" icon="view-only" checked={runtime.ui.getViewOnly()} onClick={() => run("toggle-view-only")}>
-        {t("action.toggleViewOnly")}
-      </MenuButton>
-      <MenuButton testId="main-menu-toggle-layers" icon="layers" checked={runtime.ui.getLayersPanelVisible()} onClick={() => run("toggle-layers")}>
-        {t("action.toggleLayers")}
-      </MenuButton>
-      <MenuButton testId="main-menu-toggle-minimap" icon="minimap" checked={runtime.ui.getMinimapVisible()} onClick={() => run("toggle-minimap")}>
-        {t("action.toggleMinimap")}
-      </MenuButton>
-      <MenuButton testId="main-menu-toggle-stats" icon="stats" checked={runtime.ui.getStatsPanelVisible()} onClick={() => run("toggle-stats")}>
-        {t("action.toggleStats")}
-      </MenuButton>
+      {/* The seven view/preference toggles live in a flyout submenu, keeping the main list short as
+          settings accumulate. Unlike every other row, a flyout toggle does NOT close the menu —
+          flipping several preferences in one visit is the whole point — so these rows re-render via
+          the local `bump` instead of relying on the close-and-reopen freshness the plain rows use. */}
+      <button
+        ref={prefsRowRef}
+        type="button"
+        data-testid="main-menu-preferences"
+        aria-haspopup="menu"
+        aria-expanded={prefsOpen}
+        style={{ ...buttonStyle(prefsOpen), justifyContent: "flex-start", width: "100%" }}
+        onClick={() => setPrefsOpen((open) => !open)}
+      >
+        <Icon name="settings" />
+        {t("menu.preferences")}
+        <span style={{ marginLeft: "auto", display: "inline-flex", color: "var(--dd-text-secondary)" }}>
+          <Icon name="chevron-right" size={14} />
+        </span>
+      </button>
+      {prefsOpen &&
+        createPortal(
+          <div
+            role="menu"
+            {...popoverMarkerProps}
+            data-testid="main-menu-preferences-flyout"
+            className="dd-animate-in"
+            style={{ ...panelStyle, position: "fixed", top: flyoutPos?.top ?? 0, left: flyoutPos?.left ?? 0, visibility: flyoutPos ? "visible" : "hidden", width: 230, padding: 4, zIndex: Z_LAYER.popover }}
+          >
+            {PREFERENCE_TOGGLES.map(({ actionId, testId, icon, labelKey, isChecked }) => (
+              <MenuButton
+                key={actionId}
+                testId={testId}
+                icon={icon}
+                checked={isChecked(runtime)}
+                shortcutHint={shortcutHintFor(actionId)}
+                onClick={() => {
+                  runtime.actionRegistry.run(actionId, runtime);
+                  bump();
+                }}
+              >
+                {t(labelKey)}
+              </MenuButton>
+            ))}
+          </div>,
+          popoverPortalHost(prefsRowRef.current),
+        )}
       <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
       <MenuButton
         testId="main-menu-shortcuts"

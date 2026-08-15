@@ -79,6 +79,7 @@ test("grid toggles from the canvas menu, from Cmd+', and persists across reload"
   await page.keyboard.press("Meta+'");
   await expect.poll(() => gridInk(page)).toBe(0);
   await page.getByTestId("top-bar-menu").click();
+  await page.getByTestId("main-menu-preferences").click();
   await expect(page.getByTestId("main-menu-toggle-grid")).toHaveAttribute("aria-checked", "false");
 });
 

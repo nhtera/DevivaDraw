@@ -49,6 +49,8 @@ const GLYPHS: Record<string, string> = {
   lock: "🔒",
   unlock: "🔓",
   layers: "≣",
+  settings: "⚙",
+  "chevron-right": "›",
   eye: "👁",
   "eye-off": "⊘",
   "zoom-in": "+",

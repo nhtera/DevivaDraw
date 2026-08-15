@@ -73,6 +73,7 @@ test("the shared viewer blocks editing until 'Edit a copy', which unlocks a loca
   await page.waitForTimeout(300);
   expect(imagePickerOpened).toBe(false);
   await page.getByTestId("top-bar-menu").click();
+  await page.getByTestId("main-menu-preferences").click();
   await page.getByTestId("main-menu-toggle-stats").click();
   await expect(page.getByTestId("stats-panel")).toHaveCount(0);
   await page.keyboard.press("Escape"); // close the menu if it's still up
@@ -107,11 +108,13 @@ test("toggling view-only in the editor round-trips: pan while on, select and edi
   await page.keyboard.press("Escape");
 
   await page.getByTestId("top-bar-menu").click();
+  await page.getByTestId("main-menu-preferences").click();
   await page.getByTestId("main-menu-toggle-view-only").click();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("toolbar-rectangle-tool")).toHaveCount(0); // toolbar gone, pan pinned
 
   await page.getByTestId("top-bar-menu").click();
+  await page.getByTestId("main-menu-preferences").click();
   await page.getByTestId("main-menu-toggle-view-only").click();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("toolbar-select-tool")).toHaveAttribute("aria-pressed", "true"); // select handed back on the exit edge

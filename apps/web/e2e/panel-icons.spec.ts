@@ -38,3 +38,26 @@ test("stroke-width controls are icon buttons that keep their label and still tog
   await expect(bold).toHaveAttribute("aria-pressed", "true");
   await expect(thin).toHaveAttribute("aria-pressed", "false");
 });
+
+test("the preferences flyout keeps the menu open for multiple toggles and Escape steps back one level", async ({ page }) => {
+  await page.getByTestId("top-bar-menu").click();
+  await page.getByTestId("main-menu-preferences").click();
+  await expect(page.getByTestId("main-menu-preferences-flyout")).toBeVisible();
+
+  // Flipping a toggle updates its check WITHOUT closing menu or flyout — several in one visit.
+  await page.getByTestId("main-menu-toggle-grid").click();
+  await expect(page.getByTestId("main-menu-toggle-grid")).toHaveAttribute("aria-checked", "true");
+  await page.getByTestId("main-menu-toggle-minimap").click();
+  await expect(page.getByTestId("main-menu-toggle-minimap")).toHaveAttribute("aria-checked", "false");
+  await expect(page.getByTestId("main-menu")).toBeVisible();
+
+  // Escape closes the flyout first, then the menu.
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("main-menu-preferences-flyout")).toHaveCount(0);
+  await expect(page.getByTestId("main-menu")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("main-menu")).toHaveCount(0);
+
+  // The choices stuck: grid on, minimap off.
+  await expect(page.getByTestId("minimap")).toHaveCount(0);
+});

@@ -67,6 +67,7 @@ test("by default a drag lands exactly where it was dragged, not on a neighbour's
 test("the menu toggle turns snapping on, and then the same drag does align", async ({ page }) => {
   await setUpTwoBoxes(page);
   await page.getByTestId("top-bar-menu").click();
+  await page.getByTestId("main-menu-preferences").click();
   await page.getByTestId("main-menu-toggle-object-snap").click();
   await page.keyboard.press("Escape");
 
@@ -101,6 +102,7 @@ test("with snapping on, a drag ignores elements that are scrolled off screen", a
   await drawBox(page, MOVER);
   await page.keyboard.press("Escape");
   await page.getByTestId("top-bar-menu").click();
+  await page.getByTestId("main-menu-preferences").click();
   await page.getByTestId("main-menu-toggle-object-snap").click();
   await page.keyboard.press("Escape");
 

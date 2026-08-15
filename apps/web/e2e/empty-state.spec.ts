@@ -65,6 +65,7 @@ test("steps aside while the first text element is being typed", async ({ page })
 test("zen mode hides it along with the rest of the chrome", async ({ page }) => {
   await expect(page.getByTestId("empty-state")).toBeVisible();
   await page.getByTestId("top-bar-menu").click();
+  await page.getByTestId("main-menu-preferences").click();
   await page.getByTestId("main-menu-toggle-zen-mode").click();
   await expect(page.getByTestId("empty-state")).toHaveCount(0);
 });

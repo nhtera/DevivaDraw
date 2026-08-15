@@ -96,10 +96,12 @@ test("the minimap can be hidden from the main menu and the panel reclaims its sp
   await expect(page.getByTestId("minimap")).toBeVisible();
 
   await page.getByTestId("top-bar-menu").click();
+  await page.getByTestId("main-menu-preferences").click();
   await page.getByTestId("main-menu-toggle-minimap").click();
   await expect(page.getByTestId("minimap")).toHaveCount(0);
 
   await page.getByTestId("top-bar-menu").click();
+  await page.getByTestId("main-menu-preferences").click();
   await page.getByTestId("main-menu-toggle-minimap").click();
   await expect(page.getByTestId("minimap")).toBeVisible();
 });
