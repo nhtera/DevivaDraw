@@ -21,6 +21,14 @@ test.beforeEach(async ({ page }) => {
 async function insertImage(page: Page): Promise<void> {
   const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("toolbar-image").click()]);
   await chooser.setFiles({ name: "swatch.png", mimeType: "image/png", buffer: Buffer.from(RED_BLUE_PNG, "base64") });
+  // Choosing arms a click-to-place ghost; drop at the viewport centre, where the instant insert used to land.
+  const viewport = page.viewportSize()!;
+  await expect(async () => {
+    await page.mouse.move(viewport.width / 2 - 1, viewport.height / 2);
+    await page.mouse.move(viewport.width / 2, viewport.height / 2);
+    await expect(page.getByTestId("image-placement-ghost")).toBeVisible({ timeout: 200 });
+  }).toPass();
+  await page.mouse.click(viewport.width / 2, viewport.height / 2);
   await expect.poll(async () => (await imageElement(page))?.type).toBe("image");
 }
 

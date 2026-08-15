@@ -83,9 +83,48 @@ test("the image toolbar button inserts an image via the file picker and selects 
   const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("toolbar-image").click()]);
   await chooser.setFiles({ name: "pixel.png", mimeType: "image/png", buffer: png });
 
+  // Choosing arms a placement: a ghost follows the cursor, and the drop happens on the next canvas
+  // click. The ghost first paints on the pointermove *after* the async decode arms it, so nudge the
+  // mouse until it shows rather than racing the decode with a single move.
+  await expect(async () => {
+    await page.mouse.move(599, 400);
+    await page.mouse.move(600, 400);
+    await expect(page.getByTestId("image-placement-ghost")).toBeVisible({ timeout: 200 });
+  }).toPass();
+  await page.mouse.click(600, 400);
+  await expect(page.getByTestId("image-placement-ghost")).toHaveCount(0);
+
   // The image was inserted (undoable) and auto-selected — the layer actions only render for a selection.
   await expect(page.getByTestId("top-bar-undo")).toBeEnabled();
   await expect(page.locator('[data-testid^="layer-action-"]').first()).toBeVisible();
+
+  // ...and it landed centered on the click, not at the viewport centre.
+  await page.waitForTimeout(1300);
+  const inserted = await page.evaluate(() => {
+    const scene = JSON.parse(localStorage.getItem("devivadraw:autosave:v1")!) as { elements: Array<Record<string, number | string>> };
+    const image = scene.elements.find((element) => element.type === "image")!;
+    return { cx: (image.x as number) + (image.width as number) / 2, cy: (image.y as number) + (image.height as number) / 2 };
+  });
+  expect(inserted.cx).toBeCloseTo(600, 0);
+  expect(inserted.cy).toBeCloseTo(400, 0);
+});
+
+test("Escape abandons an armed image placement without inserting", async ({ page }) => {
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("toolbar-image").click()]);
+  await chooser.setFiles({ name: "pixel.png", mimeType: "image/png", buffer: png });
+  await expect(async () => {
+    await page.mouse.move(599, 400);
+    await page.mouse.move(600, 400);
+    await expect(page.getByTestId("image-placement-ghost")).toBeVisible({ timeout: 200 });
+  }).toPass();
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("image-placement-ghost")).toHaveCount(0);
+  await expect(page.getByTestId("top-bar-undo")).toBeDisabled(); // nothing was inserted
 });
 
 test("the laser pointer draws a fading red trail and leaves nothing on the canvas", async ({ page }) => {

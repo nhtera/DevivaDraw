@@ -31,6 +31,7 @@ import { Toolbar } from "./components/toolbar";
 import { TopBar } from "./components/top-bar";
 import { PropertiesPanel } from "./components/properties-panel";
 import { ContextMenu } from "./components/context-menu";
+import { ImagePlacementOverlay } from "./components/image-placement-overlay";
 import { MainMenu } from "./components/main-menu";
 import { ShareDialog } from "./components/share-dialog";
 import { CollabDialog } from "./components/collab-dialog";
@@ -189,10 +190,11 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     runtime,
     onLibraryImported: useCallback(() => libraryOpen.set(true), [libraryOpen]),
   });
-  const { openImagePicker } = useImageFilePicker({
+  const { openImagePicker, pendingPlacement } = useImageFilePicker({
     scene: runtime?.scene ?? null,
     history: runtime?.history ?? null,
     selection: runtime?.selection ?? null,
+    containerRef: canvasHostRef,
     getCamera,
     getViewportSize,
     decodeNaturalSize,
@@ -338,6 +340,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {runtime && shareDialog.value.status !== "closed" && <ShareDialog state={shareDialog.value} onClose={() => shareDialog.set({ status: "closed" })} />}
       {runtime && collabDialogOpen.value && <CollabDialog collab={collab} onClose={() => collabDialogOpen.set(false)} />}
       {runtime && commandPaletteOpen.value && <CommandPalette runtime={runtime} onClose={() => commandPaletteOpen.set(false)} />}
+      {pendingPlacement && <ImagePlacementOverlay placement={pendingPlacement} getCamera={getCamera} />}
       {runtime && contextMenuTriggers.point && !viewOnly.value && (
         <ContextMenu runtime={runtime} screenPoint={contextMenuTriggers.point} variant={contextMenuTriggers.variant} onClose={contextMenuTriggers.close} />
       )}
