@@ -38,6 +38,7 @@ async function shareARectangle(page: Page): Promise<string> {
 
   await page.getByTestId("top-bar-menu").click();
   await page.getByTestId("main-menu-share").click();
+  await page.getByTestId("share-dialog-regenerate").click(); // opening no longer auto-mints — creating a link is explicit
   const url = await page.getByTestId("share-dialog-link").inputValue();
   await page.getByTestId("share-dialog-overlay").click({ position: { x: 5, y: 5 } });
   return url;
@@ -130,6 +131,7 @@ test("the share dialog states snapshot semantics and cross-links live collaborat
 
   await page.getByTestId("top-bar-menu").click();
   await page.getByTestId("main-menu-share").click();
+  await page.getByTestId("share-dialog-regenerate").click(); // opening no longer auto-mints — creating a link is explicit
   await expect(page.getByTestId("share-dialog-snapshot-note")).toBeVisible();
 
   await page.getByTestId("share-dialog-start-collab").click();

@@ -50,6 +50,7 @@ test("a shared link can be revoked from the dialog's history, after which the li
 
   await page.getByTestId("top-bar-menu").click();
   await page.getByTestId("main-menu-share").click();
+  await page.getByTestId("share-dialog-regenerate").click(); // opening no longer auto-mints — creating a link is explicit
   const shareUrl = await page.getByTestId("share-dialog-link").inputValue();
   expect(putHashHeader).toMatch(/^[A-Za-z0-9_-]{43}$/); // the revocation hash rode the upload
 
@@ -89,6 +90,7 @@ test("history survives a reload and never persists the share url or key material
   await page.mouse.up();
   await page.getByTestId("top-bar-menu").click();
   await page.getByTestId("main-menu-share").click();
+  await page.getByTestId("share-dialog-regenerate").click(); // opening no longer auto-mints — creating a link is explicit
   const shareUrl = await page.getByTestId("share-dialog-link").inputValue();
   const keyFragment = new URL(shareUrl).hash;
 
@@ -100,7 +102,11 @@ test("history survives a reload and never persists the share url or key material
   await page.reload();
   await expect(page.getByTestId("deviva-draw-root")).toBeVisible();
   await page.getByTestId("top-bar-menu").click();
-  await page.getByTestId("main-menu-share").click(); // generates a new link — history should show both
+  await page.getByTestId("main-menu-share").click();
+  // Reopening alone must NOT mint a link — the dialog opens idle showing only the surviving history.
+  await expect(page.getByTestId("share-dialog-idle")).toBeVisible();
+  await expect(page.locator('[data-testid^="share-history-revoke-"]')).toHaveCount(1);
+  await page.getByTestId("share-dialog-regenerate").click();
   await expect(page.locator('[data-testid^="share-history-revoke-"]')).toHaveCount(2);
 });
 
@@ -126,6 +132,7 @@ test("a new link can be generated with an expiry, which rides the upload and sho
   await page.mouse.up();
   await page.getByTestId("top-bar-menu").click();
   await page.getByTestId("main-menu-share").click();
+  await page.getByTestId("share-dialog-regenerate").click(); // opening no longer auto-mints — creating a link is explicit
   const firstUrl = await page.getByTestId("share-dialog-link").inputValue();
   expect(lastExpiryHeader).toBeNull(); // the default link never expires
 

@@ -44,7 +44,9 @@ export function buildShareActions(): Action[] {
       labelKey: "action.share",
       icon: "share",
       viewOnlyAllowed: true,
-      run: (runtime) => runShareScene(runtime),
+      // Opens the dialog idle — generation happens on the dialog's explicit "Create link" (which
+      // calls `runShareScene` above). See `ShareDialogState`'s doc for why opening must not mint.
+      run: (runtime) => runtime.ui.setShareDialogState({ status: "idle" }),
     },
   ];
 }

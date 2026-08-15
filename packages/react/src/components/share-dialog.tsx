@@ -67,9 +67,17 @@ export function ShareDialog(props: ShareDialogProps) {
       if (state.status === "ready" && state.url.includes(`/s/${entry.blobId}`)) setCurrentRevoked(true);
       return;
     }
-    // A 403 means the blob is still live — the row must stay so the failure is undeniable.
-    setRevokeErrors((errors) => ({ ...errors, [entry.blobId]: t(result.reason === "not-revocable" ? "share.dialog.revokeFailedNotRevocable" : "share.dialog.revokeFailedNetwork") }));
+    // A 403 means the blob is still live — the row must stay so the failure is undeniable. Each
+    // reason gets its own guidance: telling a rate-limited user to "check your connection" sends
+    // them debugging the wrong thing.
+    const messageKey =
+      result.reason === "not-revocable" ? "share.dialog.revokeFailedNotRevocable" : result.reason === "rate-limited" ? "share.dialog.revokeFailedRateLimited" : "share.dialog.revokeFailedNetwork";
+    setRevokeErrors((errors) => ({ ...errors, [entry.blobId]: t(messageKey) }));
   };
+
+  // Date AND time: dialog opens routinely mint several same-day links, and date-only rows would be
+  // indistinguishable from each other — the one list where "which link is this?" must have an answer.
+  const formatInstant = (epochOrIso: number | string) => new Date(epochOrIso).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
 
   const copyLink = async (url: string) => {
     try {
@@ -92,6 +100,11 @@ export function ShareDialog(props: ShareDialogProps) {
             <Icon name="close" />
           </button>
         </div>
+        {state.status === "idle" && (
+          <p data-testid="share-dialog-idle" style={{ fontSize: 13, color: "var(--dd-text-secondary)" }}>
+            {t("share.dialog.idleHint")}
+          </p>
+        )}
         {state.status === "generating" && <p data-testid="share-dialog-generating">{t("share.dialog.generating")}</p>}
         {state.status === "error" && (
           <p role="alert" data-testid="share-dialog-error">
@@ -127,7 +140,10 @@ export function ShareDialog(props: ShareDialogProps) {
             )}
           </>
         )}
-        {state.status === "ready" && onRegenerate && (
+        {state.status !== "generating" && state.status !== "closed" && onRegenerate && (
+          // One control for every settled state: the idle dialog's explicit "Create link" (opening
+          // the dialog never mints — see `ShareDialogState`), the ready state's "Generate new link",
+          // and the error state's retry (without it, a failed generation dead-ends the dialog).
           // Deliberately OUTSIDE the revoked/not-revoked fork: after revoking the displayed link,
           // generating a replacement is the most likely next step — hiding this row would dead-end
           // the dialog.
@@ -145,13 +161,13 @@ export function ShareDialog(props: ShareDialogProps) {
             <button
               type="button"
               data-testid="share-dialog-regenerate"
-              style={{ ...buttonStyle(false), padding: "4px 8px", fontSize: 12 }}
+              style={{ ...buttonStyle(false), padding: "4px 8px", fontSize: 12, fontWeight: state.status !== "ready" ? 600 : undefined }}
               onClick={() => {
                 const days = EXPIRY_CHOICES.find((choice) => choice.value === expiryChoice)?.days ?? null;
                 onRegenerate(days === null ? undefined : new Date(Date.now() + days * 86_400_000).toISOString());
               }}
             >
-              {t("share.dialog.regenerate")}
+              {t(state.status === "ready" ? "share.dialog.regenerate" : "share.dialog.generate")}
             </button>
           </div>
         )}
@@ -162,8 +178,8 @@ export function ShareDialog(props: ShareDialogProps) {
               {history.map((entry) => (
                 <div key={entry.blobId} data-testid={`share-history-${entry.blobId}`} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
                   <span style={{ flex: 1, color: "var(--dd-text-secondary)" }}>
-                    {t("share.dialog.historyMeta", { date: new Date(entry.createdAt).toLocaleDateString(), pages: entry.pageCount })}
-                    {entry.expiresAt !== undefined && ` · ${t("share.dialog.historyExpires", { date: new Date(entry.expiresAt).toLocaleDateString() })}`}
+                    {t("share.dialog.historyMeta", { date: formatInstant(entry.createdAt), pages: entry.pageCount })}
+                    {entry.expiresAt !== undefined && ` · ${t("share.dialog.historyExpires", { date: formatInstant(entry.expiresAt) })}`}
                   </span>
                   {revokeErrors[entry.blobId] && (
                     <span role="alert" style={{ color: "var(--dd-text-secondary)", fontSize: 11 }}>
@@ -175,9 +191,10 @@ export function ShareDialog(props: ShareDialogProps) {
                     data-testid={`share-history-revoke-${entry.blobId}`}
                     style={{ ...buttonStyle(false), padding: "3px 8px", fontSize: 11 }}
                     disabled={revoking !== null}
+                    aria-busy={revoking === entry.blobId}
                     onClick={() => void revoke(entry)}
                   >
-                    {t("share.dialog.revoke")}
+                    {revoking === entry.blobId ? "…" : t("share.dialog.revoke")}
                   </button>
                 </div>
               ))}

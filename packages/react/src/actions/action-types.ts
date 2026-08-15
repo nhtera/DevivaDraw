@@ -108,7 +108,12 @@ export interface ShareLinkResult {
  * `console.error`-logged by `actions/share-actions.ts` for debugging — carrying it here too would just
  * be a second, unread copy of the same information.
  */
-export type ShareDialogState = { status: "closed" } | { status: "generating" } | { status: "ready"; url: string } | { status: "error" };
+/**
+ * "idle" is the dialog freshly opened, no link minted yet: creating a link is an explicit click,
+ * never a side effect of opening — every generated link is a live, fetchable copy of the board, so
+ * a user opening the dialog just to REVOKE one must not silently create another.
+ */
+export type ShareDialogState = { status: "closed" } | { status: "idle" } | { status: "generating" } | { status: "ready"; url: string } | { status: "error" };
 
 /** Every live object an `Action.run`/`isEnabled` may need. Built once per mounted `<DevivaDraw/>` by `runtime/build-runtime.ts`. */
 export interface ActionRuntime {

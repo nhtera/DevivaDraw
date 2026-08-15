@@ -65,6 +65,7 @@ test("a share link opens at the sharer's exact viewport", async ({ page }) => {
 
   await page.getByTestId("top-bar-menu").click();
   await page.getByTestId("main-menu-share").click();
+  await page.getByTestId("share-dialog-regenerate").click(); // opening no longer auto-mints — creating a link is explicit
   const shareUrl = await page.getByTestId("share-dialog-link").inputValue();
 
   await page.goto(shareUrl);

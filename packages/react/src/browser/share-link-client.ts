@@ -74,8 +74,8 @@ export async function createShareLink(options: CreateShareLinkOptions): Promise<
   };
 }
 
-/** Machine-checkable revoke failure — "not-revocable" maps the server's 403 (wrong token, or a legacy blob that never stored a hash). */
-export type RevokeShareLinkErrorReason = "not-revocable" | "network-error" | "http-error";
+/** Machine-checkable revoke failure — "not-revocable" maps the server's 403 (wrong token, or a legacy blob that never stored a hash); "rate-limited" its 429, which deserves "wait a minute" guidance rather than a connectivity scare. */
+export type RevokeShareLinkErrorReason = "not-revocable" | "rate-limited" | "network-error" | "http-error";
 
 export type RevokeShareLinkResult = { ok: true } | { ok: false; reason: RevokeShareLinkErrorReason };
 
@@ -95,6 +95,7 @@ export async function revokeShareLink(options: { apiBaseUrl: string; blobId: str
   }
   if (response.status === 204 || response.status === 404) return { ok: true };
   if (response.status === 403) return { ok: false, reason: "not-revocable" };
+  if (response.status === 429) return { ok: false, reason: "rate-limited" };
   return { ok: false, reason: "http-error" };
 }
 

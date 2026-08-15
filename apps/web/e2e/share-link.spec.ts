@@ -30,6 +30,7 @@ test("the share flow never sends the plaintext decryption key/iv to the server",
 
   await page.getByTestId("top-bar-menu").click();
   await page.getByTestId("main-menu-share").click();
+  await page.getByTestId("share-dialog-regenerate").click(); // opening no longer auto-mints — creating a link is explicit
 
   const linkInput = page.getByTestId("share-dialog-link");
   await expect(linkInput).toBeVisible();
@@ -107,6 +108,7 @@ test("a multi-page document round-trips through a share link, read-only with pag
 
   await page.getByTestId("top-bar-menu").click();
   await page.getByTestId("main-menu-share").click();
+  await page.getByTestId("share-dialog-regenerate").click(); // opening no longer auto-mints — creating a link is explicit
   const shareUrl = await page.getByTestId("share-dialog-link").inputValue();
 
   // Open the link: both pages arrive, switching works, editing affordances don't exist.
