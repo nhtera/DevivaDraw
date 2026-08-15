@@ -53,6 +53,12 @@ export function serializeScene(scene: Scene, options: SerializeSceneOptions = {}
   const background = scene.getBackground();
   const mergedAppState = { ...appState, ...(background !== null ? { background } : {}) };
   if (Object.keys(mergedAppState).length > 0) document.appState = mergedAppState;
+  // Layers ride every save path too, but ONLY when non-trivial — an untouched scene's output stays
+  // byte-identical to a pre-layers build (the additive-schema compatibility contract).
+  if (scene.hasNonTrivialLayers()) {
+    document.layers = scene.getLayers();
+    document.activeLayerId = scene.getActiveLayerId();
+  }
   return document;
 }
 
@@ -167,6 +173,10 @@ function migrateRawDocument(raw: unknown): { ok: true; document: unknown } | { o
 /** Shared `Scene` construction from an already-validated document — restore paths only (see `deserializeScene`'s doc for why `restoreElement`/`restoreFile`, not `addElement`/`addFile`). */
 function buildSceneFromDocument(document: SceneDocumentV1): Scene {
   const scene = new Scene();
+  // Layers first, so element membership resolves against the real list from the first read; an
+  // absent/empty list keeps the constructor's default layer (`replaceLayers` refuses empties — the
+  // hostile-input guard). `activeLayerId` is a soft default only (see the schema doc).
+  if (document.layers !== undefined) scene.replaceLayers(document.layers, document.activeLayerId);
   for (const [fileId, file] of Object.entries(document.files)) scene.restoreFile(fileId, file);
   for (const element of document.elements) scene.restoreElement(element);
   if (document.appState?.background !== undefined) scene.setBackground(document.appState.background);

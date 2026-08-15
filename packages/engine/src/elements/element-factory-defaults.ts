@@ -68,6 +68,9 @@ export function createElementBase(input: ElementCreationInput): Omit<BaseElement
     frameId: input.frameId ?? null,
     boundElements: input.boundElements ?? null,
     ...(input.scale ? { scale: input.scale } : {}),
+    // Present only when the creator has a specific layer in mind (a replace-flow carrying its
+    // source's membership); absent otherwise, so `Scene.addElement`'s active-layer stamping decides.
+    ...(input.layerId !== undefined ? { layerId: input.layerId } : {}),
     link: input.link ?? null,
     locked: input.locked ?? false,
     index: "",

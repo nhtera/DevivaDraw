@@ -42,6 +42,14 @@ export interface SerializedAppState {
   background?: string;
 }
 
+/** Plain-data mirror of `scene/scene-layers.ts`'s `SceneLayer` — same zero-import-dependency reasoning as `SerializedStoredFile`. */
+export interface SerializedLayer {
+  id: string;
+  name: string;
+  visible: boolean;
+  locked: boolean;
+}
+
 export interface SceneDocumentV1 {
   type: typeof SCENE_DOCUMENT_TYPE;
   schemaVersion: 1;
@@ -50,6 +58,16 @@ export interface SceneDocumentV1 {
   /** Keyed by `fileId` (content hash) — only files still referenced by `elements` are written; see `serialize-scene.ts`. */
   files: Record<string, SerializedStoredFile>;
   appState?: SerializedAppState;
+  /**
+   * Ordered bottom→top layer list — ADDITIVE and written only when non-trivial (anything beyond
+   * one default layer), so pre-layers builds and untouched scenes keep their exact historical
+   * shape. Absent ⇒ one default layer owning every element. Old builds drop this field on resave
+   * (their validators rebuild the envelope) while preserving per-element `layerId`s — the reader
+   * degrades that to "everything on the default layer", never to lost elements.
+   */
+  layers?: SerializedLayer[];
+  /** The layer new elements land on — a soft default seeded on load, never authoritative for collab peers. */
+  activeLayerId?: string;
 }
 
 /**

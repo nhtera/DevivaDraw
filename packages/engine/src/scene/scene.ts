@@ -14,9 +14,12 @@ import type { SceneDocumentV1 } from "../persistence/scene-schema";
 import { compareIndexedItems, indexBetween } from "./fractional-index";
 import { liveFileIds, SceneFilesStore } from "./scene-files-store";
 import type { StoredFile } from "./scene-files-store";
+import { SceneLayersStore } from "./scene-layers";
+import type { SceneLayer } from "./scene-layers";
 import { freezeElement, touch } from "./scene-mutations";
 
 export type { StoredFile } from "./scene-files-store";
+export type { SceneLayer } from "./scene-layers";
 
 export type SceneListener = () => void;
 
@@ -39,6 +42,8 @@ export class Scene {
   private readonly elements = new Map<string, AnyElement>();
   /** Binary files (images) referenced by `ImageElement.fileId` — stored separately from `elements` on purpose, see `images/files-map.ts`'s module doc. Composed unit, see `scene-files-store.ts`. */
   private readonly filesStore = new SceneFilesStore();
+  /** Ordered layer list, self-initialized with one default layer — see `scene-layers.ts`'s module doc for the hard zero-arg-constructor invariant every `new Scene()` site relies on. */
+  private readonly layersStore = new SceneLayersStore();
   private readonly listeners = new Set<SceneListener>();
   /** Domain-specific post-mutation middleware — see `registerUpdateHook`. Empty by default: `Scene` itself knows nothing about bindings, bound text, or any other cross-element relationship. */
   private readonly updateHooks = new Set<SceneUpdateHook>();
@@ -54,12 +59,17 @@ export class Scene {
   private background: string | null = null;
 
   /**
-   * All elements (including soft-deleted ones), sorted by z-order (`index`, ascending, `id` as a
-   * deterministic tiebreak for equal indices — see `fractional-index.ts`'s `compareIndexedItems` doc
-   * for why two elements can legitimately share an index string after a remote merge).
+   * All elements (including soft-deleted ones), sorted by z-order: layer position first (bottom
+   * layer paints first), then the fractional `index` within a layer (ascending, `id` as a
+   * deterministic tiebreak — see `fractional-index.ts`'s `compareIndexedItems` doc). A scene whose
+   * elements all live on one layer sorts identically to the pre-layers comparator, which is what
+   * keeps every legacy document's draw order bit-stable.
    */
   getElements(): AnyElement[] {
-    return [...this.elements.values()].sort(compareIndexedItems);
+    return [...this.elements.values()].sort((a, b) => {
+      const layerDelta = this.layersStore.positionOf(a.layerId) - this.layersStore.positionOf(b.layerId);
+      return layerDelta !== 0 ? layerDelta : compareIndexedItems(a, b);
+    });
   }
 
   /**
@@ -94,7 +104,13 @@ export class Scene {
       throw new Error(`scene: element with id "${element.id}" already exists; use updateElement to modify it`);
     }
     const index = element.index || indexBetween(this.lastIndex(), null);
-    const stored = touch(element, { index });
+    // Stamp membership only when the active layer isn't the default one — default-layer elements
+    // stay unstamped by convention (see `scene-layers.ts`), keeping untouched scenes wire-identical
+    // to pre-layers builds. An element arriving with its own layerId (a cross-layer paste, the
+    // draw-to-shape replacement carrying its stroke's layer) keeps it.
+    const activeId = this.layersStore.getActiveLayerId();
+    const stampLayer = element.layerId === undefined && activeId !== this.layersStore.getDefaultLayerId();
+    const stored = touch(element, stampLayer ? { index, layerId: activeId } : { index });
     this.elements.set(stored.id, stored);
     this.notify();
     return stored;
@@ -216,6 +232,92 @@ export class Scene {
     if (this.background === color) return;
     this.background = color;
     this.notify();
+  }
+
+  // ---- Layers ----------------------------------------------------------------------------------
+  // Thin, notifying facades over `SceneLayersStore` (which never notifies itself — the Scene owns
+  // the change signal, same as for files). Layer-LIST mutations are deliberately NOT part of undo
+  // history (the canvas-background precedent); element MEMBERSHIP (`layerId`) is an ordinary
+  // element field and rides history snapshots like any other.
+
+  /** Bottom→top layer list (copies). Always ≥1. */
+  getLayers(): SceneLayer[] {
+    return this.layersStore.getLayers();
+  }
+
+  getLayer(id: string): SceneLayer | undefined {
+    return this.layersStore.getLayer(id);
+  }
+
+  getDefaultLayerId(): string {
+    return this.layersStore.getDefaultLayerId();
+  }
+
+  getActiveLayerId(): string {
+    return this.layersStore.getActiveLayerId();
+  }
+
+  /** Where `element` effectively lives — `undefined`/orphaned membership resolves to the default layer at read time, never by rewriting the element. */
+  resolveLayer(element: Pick<AnyElement, "layerId">): SceneLayer {
+    return this.layersStore.resolve(element.layerId);
+  }
+
+  setActiveLayer(id: string): void {
+    if (this.layersStore.setActiveLayer(id)) this.notify();
+  }
+
+  /** Appends a new layer on top and returns it (not activated — that's the caller's choice). */
+  addLayer(name?: string): SceneLayer {
+    const layer = this.layersStore.addLayer(name);
+    this.notify();
+    return layer;
+  }
+
+  renameLayer(id: string, name: string): void {
+    if (this.layersStore.renameLayer(id, name)) this.notify();
+  }
+
+  setLayerVisible(id: string, visible: boolean): void {
+    if (this.layersStore.setLayerVisible(id, visible)) this.notify();
+  }
+
+  setLayerLocked(id: string, locked: boolean): void {
+    if (this.layersStore.setLayerLocked(id, locked)) this.notify();
+  }
+
+  /** One step toward the top (+1) or bottom (-1). */
+  moveLayer(id: string, direction: 1 | -1): void {
+    if (this.layersStore.moveLayer(id, direction)) this.notify();
+  }
+
+  /**
+   * Deletes a layer, re-homing its elements (including soft-deleted ones, so a later undo doesn't
+   * resurrect membership pointing at a layer that never comes back) onto `destinationLayerId`
+   * FIRST — the re-homes are ordinary `updateElement` mutations, so they bump versions and land in
+   * whatever history batch the caller opened; the list-entry removal itself is not undoable.
+   * Refused for the last remaining layer or an unknown destination.
+   */
+  removeLayer(id: string, destinationLayerId: string): boolean {
+    if (this.layersStore.layerCount() <= 1 || id === destinationLayerId) return false;
+    if (!this.layersStore.getLayer(id) || !this.layersStore.getLayer(destinationLayerId)) return false;
+    const destination = destinationLayerId === this.layersStore.getDefaultLayerId() ? undefined : destinationLayerId;
+    for (const element of [...this.elements.values()]) {
+      if (this.layersStore.resolve(element.layerId).id === id) this.updateElement(element.id, { layerId: destination });
+    }
+    if (this.layersStore.removeLayer(id)) this.notify();
+    return true;
+  }
+
+  /** Replaces the whole layer list from a deserialized document or a winning remote manifest — refused (returning `false`, scene untouched) for an empty or oversized list, the hostile-input guard. */
+  replaceLayers(layers: readonly SceneLayer[], activeLayerId?: string): boolean {
+    const changed = this.layersStore.replaceAll(layers, activeLayerId);
+    if (changed) this.notify();
+    return changed;
+  }
+
+  /** True when the layer list is indistinguishable from a fresh scene's — serialization omits it then, keeping untouched scenes byte-identical to pre-layers output. */
+  hasNonTrivialLayers(): boolean {
+    return !this.layersStore.isTrivial();
   }
 
   /** Serializes this scene to the versioned JSON document shape — see `persistence/serialize-scene.ts`'s module doc for the export-vs-autosave `includeDeleted` distinction. */

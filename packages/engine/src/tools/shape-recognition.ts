@@ -138,6 +138,9 @@ export function recognizeFreedrawShape(element: FreedrawElement): AnyElement | n
     groupIds: [...element.groupIds],
     frameId: element.frameId,
     locked: element.locked,
+    // The replacement shape stays on the stroke's layer — without this, recognizing after switching
+    // the active layer would silently re-home the result via addElement's stamping.
+    ...(element.layerId !== undefined ? { layerId: element.layerId } : {}),
     link: element.link,
   };
   const x = element.x + b.minX;

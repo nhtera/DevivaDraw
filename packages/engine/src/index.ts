@@ -80,6 +80,8 @@ export { compareIndexedItems, indexBetween, moveBackward, moveForward, moveToBac
 export { freezeElement, randomVersionNonce, touch } from "./scene/scene-mutations";
 export type { ElementUpdate, SceneListener, SceneUpdateHook, StoredFile } from "./scene/scene";
 export { Scene } from "./scene/scene";
+export { DEFAULT_LAYER_NAME, MAX_LAYERS } from "./scene/scene-layers";
+export type { SceneLayer } from "./scene/scene-layers";
 
 export { findTextMatches } from "./scene/find-text-matches";
 
@@ -420,7 +422,7 @@ export { SelectionTool } from "./selection/selection-tool";
 
 // --- Persistence & export ---
 
-export type { SceneDocument, SceneDocumentV1, SerializedAppState, SerializedStoredFile } from "./persistence/scene-schema";
+export type { SceneDocument, SceneDocumentV1, SerializedAppState, SerializedLayer, SerializedStoredFile } from "./persistence/scene-schema";
 export { CURRENT_SCHEMA_VERSION, SCENE_DOCUMENT_TYPE } from "./persistence/scene-schema";
 
 export type { SceneMigration } from "./persistence/migrations";

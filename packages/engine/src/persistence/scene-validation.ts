@@ -9,7 +9,7 @@
  */
 import type { AnyElement } from "../elements/element-types";
 import { CURRENT_SCHEMA_VERSION, SCENE_DOCUMENT_TYPE } from "./scene-schema";
-import type { SceneDocumentV1, SerializedAppState, SerializedStoredFile } from "./scene-schema";
+import type { SceneDocumentV1, SerializedAppState, SerializedLayer, SerializedStoredFile } from "./scene-schema";
 
 export type ValidationResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -72,6 +72,8 @@ function validateBaseFields(raw: Record<string, unknown>, index: number): string
   if (!(raw.link === null || isString(raw.link))) return `${label}.link must be a string or null`;
   if (!isBoolean(raw.locked)) return `${label}.locked must be a boolean`;
   if (!isString(raw.index)) return `${label}.index must be a string`;
+  // Absent on every default-layer element and every pre-layers document — both must load.
+  if (raw.layerId !== undefined && !isString(raw.layerId)) return `${label}.layerId must be a string when present`;
   if (!isBoolean(raw.isDeleted)) return `${label}.isDeleted must be a boolean`;
   return null;
 }
@@ -212,8 +214,8 @@ function validateAppState(raw: unknown): ValidationResult<SerializedAppState | u
  * than throwing, so a caller (`serialize-scene.ts`'s `deserializeScene`) can report *why* a load was
  * rejected instead of just "something went wrong".
  */
-/** The envelope shape both validators require before looking at any entry: a plain object tagged with the document type, at the current (post-migration) schema version, with `elements`/`files` containers of the right kind. Shared so a future envelope change can't drift between the strict and lenient paths. */
-function validateEnvelope(raw: unknown): ValidationResult<{ elements: unknown[]; files: Record<string, unknown>; appState: unknown }> {
+/** The envelope shape both validators require before looking at any entry: a plain object tagged with the document type, at the current (post-migration) schema version, with `elements`/`files` containers of the right kind. Shared so a future envelope change can't drift between the strict and lenient paths — both reconstruction sites below MUST carry every field this picks, or an addition silently drops on one path (the layers field's original design-review risk). */
+function validateEnvelope(raw: unknown): ValidationResult<{ elements: unknown[]; files: Record<string, unknown>; appState: unknown; layers: unknown; activeLayerId: unknown }> {
   if (!isPlainObject(raw)) return fail("scene document must be a JSON object");
   if (raw.type !== SCENE_DOCUMENT_TYPE) return fail(`scene document "type" must be "${SCENE_DOCUMENT_TYPE}"`);
   if (raw.schemaVersion !== CURRENT_SCHEMA_VERSION) {
@@ -221,7 +223,46 @@ function validateEnvelope(raw: unknown): ValidationResult<{ elements: unknown[];
   }
   if (!Array.isArray(raw.elements)) return fail('scene document "elements" must be an array');
   if (!isPlainObject(raw.files)) return fail('scene document "files" must be an object');
-  return ok({ elements: raw.elements, files: raw.files, appState: raw.appState });
+  return ok({ elements: raw.elements, files: raw.files, appState: raw.appState, layers: raw.layers, activeLayerId: raw.activeLayerId });
+}
+
+/** Hostile-input ceiling for a persisted layer list — mirrors `scene-layers.ts`'s `MAX_LAYERS`; duplicated as a literal so this module keeps zero scene-implementation imports. */
+const MAX_LAYER_ENTRIES = 256;
+
+/**
+ * Validates the optional `layers` list with the same per-field rigor elements and files get:
+ * id/name must be strings (id non-empty), visible/locked booleans, duplicate ids dropped keep-first,
+ * the whole list capped. Returns `undefined` for an absent field, and treats a non-array or
+ * over-cap value as absent-with-error rather than failing the document — layers are organizational
+ * metadata; a corrupt list must degrade to "one default layer", never destroy the board. Dropped
+ * entries/reasons land in `errors` for the lenient path's report.
+ */
+function validateLayersList(raw: unknown): { layers: SerializedLayer[] | undefined; errors: string[] } {
+  if (raw === undefined) return { layers: undefined, errors: [] };
+  if (!Array.isArray(raw)) return { layers: undefined, errors: ['scene document "layers" must be an array when present'] };
+  if (raw.length > MAX_LAYER_ENTRIES) return { layers: undefined, errors: [`scene document "layers" exceeds the ${MAX_LAYER_ENTRIES}-entry cap`] };
+
+  const errors: string[] = [];
+  const seen = new Set<string>();
+  const layers: SerializedLayer[] = [];
+  for (const [index, entry] of raw.entries()) {
+    if (!isPlainObject(entry)) {
+      errors.push(`layers[${index}] must be an object`);
+      continue;
+    }
+    if (!isString(entry.id) || entry.id.length === 0 || !isString(entry.name) || !isBoolean(entry.visible) || !isBoolean(entry.locked)) {
+      errors.push(`layers[${index}] must have string id/name and boolean visible/locked`);
+      continue;
+    }
+    if (seen.has(entry.id)) {
+      errors.push(`layers[${index}] duplicates id "${entry.id}" (kept the first)`);
+      continue;
+    }
+    seen.add(entry.id);
+    layers.push({ id: entry.id, name: entry.name, visible: entry.visible, locked: entry.locked });
+  }
+  // Every entry invalid ⇒ same degradation as an absent list: the scene's constructor default layer.
+  return { layers: layers.length > 0 ? layers : undefined, errors };
 }
 
 export function validateSceneDocument(raw: unknown): ValidationResult<SceneDocumentV1> {
@@ -247,6 +288,15 @@ export function validateSceneDocument(raw: unknown): ValidationResult<SceneDocum
 
   const document: SceneDocumentV1 = { type: SCENE_DOCUMENT_TYPE, schemaVersion: CURRENT_SCHEMA_VERSION, elements, files };
   if (appStateResult.value) document.appState = appStateResult.value;
+  // Layers stay lenient even on the strict path (a corrupt list degrades, never rejects the board —
+  // organizational metadata, see `validateLayersList`); only entry-level problems are reported, and
+  // on this path a problem list is a hard failure to match the strict contract.
+  const layersResult = validateLayersList(envelope.value.layers);
+  if (layersResult.errors.length > 0) return fail(layersResult.errors[0]!);
+  if (layersResult.layers) {
+    document.layers = layersResult.layers;
+    if (isString(envelope.value.activeLayerId)) document.activeLayerId = envelope.value.activeLayerId;
+  }
   return ok(document);
 }
 
@@ -293,6 +343,13 @@ export function validateSceneDocumentLenient(raw: unknown): ValidationResult<Len
     if (appStateResult.value) document.appState = appStateResult.value;
   } else {
     droppedErrors.push(appStateResult.error);
+  }
+  // Layers salvage entry-by-entry like elements do — a bad entry drops with a reason, the survivors load.
+  const layersResult = validateLayersList(envelope.value.layers);
+  droppedErrors.push(...layersResult.errors);
+  if (layersResult.layers) {
+    document.layers = layersResult.layers;
+    if (isString(envelope.value.activeLayerId)) document.activeLayerId = envelope.value.activeLayerId;
   }
   return ok({ document, droppedErrors });
 }

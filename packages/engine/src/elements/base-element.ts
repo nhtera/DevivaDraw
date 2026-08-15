@@ -62,6 +62,13 @@ export interface BaseElement {
   locked: boolean;
   /** Fractional sort key controlling draw order; see `scene/fractional-index.ts`. */
   index: string;
+  /**
+   * Layer membership — absent means the scene's DEFAULT layer (see `scene/scene-layers.ts`'s
+   * convention doc): only non-default membership is ever stamped, so pre-layers documents and
+   * untouched scenes stay byte-identical on the wire. An id no current layer knows resolves to the
+   * default layer at read time without this field being rewritten.
+   */
+  layerId?: string;
   /** Monotonically increasing per-element edit counter; bumped on every mutation. */
   version: number;
   /** Random tie-breaker regenerated on every mutation, used to order concurrent edits of equal `version`. */
