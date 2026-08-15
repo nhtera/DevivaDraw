@@ -14,7 +14,7 @@
  * `canvasHostRef` descendants avoids this entirely rather than special-casing it per component.
  */
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from "react";
-import { createCamera, Scene } from "@deviva-draw/engine";
+import { createCamera, deserializeMultiPageDocument } from "@deviva-draw/engine";
 import type { RemoteCursorOverlay } from "@deviva-draw/engine";
 import { restoreBrowserAutosaveDocument } from "./browser/scene-file-operations";
 import { PageStore } from "./pages/page-store";
@@ -80,9 +80,11 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const pageStoreRef = useRef<PageStore | null>(null);
   if (pageStoreRef.current === null) {
     if (initialData) {
-      const result = Scene.fromJSON(initialData);
+      // Accepts both envelopes — a host's single-scene snapshot loads as one page, a multi-page
+      // document (e.g. the share viewer's) loads whole.
+      const result = deserializeMultiPageDocument(initialData);
       if (!result.ok) console.warn("deviva-draw: initialData failed validation, starting with an empty scene");
-      pageStoreRef.current = PageStore.fresh(result.ok ? result.scene : undefined);
+      pageStoreRef.current = result.ok ? new PageStore(result.pages, result.activePageId) : PageStore.fresh();
     } else {
       const restored = restoreBrowserAutosaveDocument(persistenceKey);
       pageStoreRef.current = restored ? new PageStore(restored.pages, restored.activePageId) : PageStore.fresh();
@@ -331,7 +333,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
         <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} />
       )}
       {runtime && !zenMode.value && !isNarrow && (
-        <PagesPanel pageStore={pageStore} onSwitchPage={(id) => parkCameraThen(() => pageStore.setActivePage(id))} onAddPage={() => parkCameraThen(() => pageStore.addPage())} />
+        <PagesPanel pageStore={pageStore} readOnly={viewOnly.value} onSwitchPage={(id) => parkCameraThen(() => pageStore.setActivePage(id))} onAddPage={() => parkCameraThen(() => pageStore.addPage())} />
       )}
       {runtime && !zenMode.value && <LibraryToggle open={libraryOpen.value} onToggle={() => libraryOpen.set(!libraryOpen.value)} />}
       {runtime && !zenMode.value && !viewOnly.value && (isNarrow ? <MobilePropertiesBar runtime={runtime} /> : <PropertiesPanel runtime={runtime} />)}

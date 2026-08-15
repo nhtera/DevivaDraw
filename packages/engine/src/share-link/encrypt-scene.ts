@@ -5,6 +5,7 @@
  * never transmit to any server. A fresh random key and IV are generated on every call: link A's key
  * must never help decrypt link B's ciphertext, even for the same scene shared twice.
  */
+import type { MultiPageDocumentV1 } from "../persistence/multi-page-document";
 import type { SceneDocumentV1 } from "../persistence/scene-schema";
 import { bytesToBase64Url } from "./base64url-bytes";
 import { gzipCompress } from "./gzip-codec";
@@ -53,7 +54,7 @@ export interface EncryptedSharePayload {
  * it (see `decrypt-scene.ts`). Compression happens on the plaintext JSON, before encryption — see
  * `gzip-codec.ts`'s module doc for why the order matters.
  */
-export async function encryptSceneDocument(document: SceneDocumentV1, options: EncryptSceneOptions = {}): Promise<EncryptedSharePayload> {
+export async function encryptSceneDocument(document: SceneDocumentV1 | MultiPageDocumentV1, options: EncryptSceneOptions = {}): Promise<EncryptedSharePayload> {
   const maxPayloadBytes = options.maxPayloadBytes ?? MAX_SHARE_PAYLOAD_BYTES;
 
   const json = JSON.stringify(document);

@@ -1,5 +1,5 @@
 /** Public `<DevivaDraw/>` prop surface — split into its own file so both `deviva-draw-app.tsx` (the provider wrapper) and `deviva-draw-shell.tsx` (the composed chrome, which needs the same shape minus `theme`/`locale`, already consumed by the providers) can reference it without a circular value import. */
-import type { AnyElement, SceneDocument } from "@deviva-draw/engine";
+import type { AnyElement, MultiPageDocumentV1, SceneDocument } from "@deviva-draw/engine";
 import type { CSSProperties } from "react";
 import type { Locale } from "./i18n/locale-storage";
 import type { ThemeMode } from "./theme/theme-tokens";
@@ -11,8 +11,8 @@ export interface DevivaDrawStoredFile {
 }
 
 export interface DevivaDrawProps {
-  /** A previously-saved scene document (e.g. `handle.getSceneElements()`'s host-persisted counterpart via `Scene.toJSON()`) to load on mount — omit to restore from localStorage autosave instead (the standalone-app default). */
-  initialData?: SceneDocument | null;
+  /** A previously-saved document to load on mount — a single-scene document (`Scene.toJSON()`) or a multi-page one (`serializeMultiPageDocument`); omit to restore from localStorage autosave instead (the standalone-app default). */
+  initialData?: SceneDocument | MultiPageDocumentV1 | null;
   /** Scopes the built-in localStorage autosave to this key instead of the package-wide default (`AUTOSAVE_STORAGE_KEY`) — lets an embedding host mount several independent instances (e.g. one per interview session) without one overwriting another's saved scene. Ignored when `initialData` is supplied: an embedder passing its own snapshot is managing persistence itself, and this component must never write to `window.localStorage` under it (see `initialData`'s doc). */
   persistenceKey?: string;
   /** Fired (debounced) after any user-authored scene change — the embedding-host integration point. */

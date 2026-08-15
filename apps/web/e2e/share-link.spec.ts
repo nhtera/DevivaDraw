@@ -77,3 +77,46 @@ test("a share link with a corrupted key fails to decrypt gracefully instead of c
   // Never crashes into a blank/broken page — some human-readable notice is always shown.
   await expect(page.getByTestId("shared-scene-viewer-notice")).not.toHaveText("");
 });
+
+test("a multi-page document round-trips through a share link, read-only with page navigation", async ({ page }) => {
+  // Intercept the collab-server: capture the PUT ciphertext, replay it on GET — the real crypto runs
+  // in the browser on both legs.
+  let storedBlob: Buffer | null = null;
+  await page.route("**/blobs/**", async (route) => {
+    if (route.request().method() === "PUT") {
+      storedBlob = route.request().postDataBuffer();
+      await route.fulfill({ status: 204 });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/octet-stream", body: storedBlob! });
+  });
+
+  // Two pages with content, then share.
+  await page.getByTestId("toolbar-rectangle-tool").click();
+  await page.mouse.move(200, 200);
+  await page.mouse.down();
+  await page.mouse.move(320, 300);
+  await page.mouse.up();
+  await page.getByTestId("pages-toggle").click();
+  await page.getByTestId("page-add").click();
+  await page.getByTestId("toolbar-ellipse-tool").click();
+  await page.mouse.move(400, 300);
+  await page.mouse.down();
+  await page.mouse.move(500, 380);
+  await page.mouse.up();
+
+  await page.getByTestId("top-bar-menu").click();
+  await page.getByTestId("main-menu-share").click();
+  const shareUrl = await page.getByTestId("share-dialog-link").inputValue();
+
+  // Open the link: both pages arrive, switching works, editing affordances don't exist.
+  await page.goto(shareUrl);
+  await expect(page.getByTestId("pages-toggle")).toBeVisible();
+  await expect(page.getByTestId("pages-active-name")).toHaveText("Page 2");
+  await page.getByTestId("pages-toggle").click();
+  await expect(page.locator('[data-testid^="page-item-"]')).toHaveCount(2);
+  await expect(page.getByTestId("page-add")).toHaveCount(0);
+  await expect(page.locator('[data-testid^="page-delete-"]')).toHaveCount(0);
+  await page.locator('[data-testid^="page-item-"]').first().click();
+  await expect(page.getByTestId("pages-active-name")).toHaveText("Page 1");
+});

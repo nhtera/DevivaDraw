@@ -7,7 +7,7 @@
  * stubbed global `fetch` instead of needing a real browser.
  */
 import { buildShareUrl, decryptSceneCiphertext, encryptSceneDocument } from "@deviva-draw/engine";
-import type { DecryptSceneErrorReason, SceneDocumentV1 } from "@deviva-draw/engine";
+import type { DecryptSceneErrorReason, MultiPageDocumentV1, SceneDocumentV1 } from "@deviva-draw/engine";
 
 function blobUrl(apiBaseUrl: string, blobId: string): string {
   return `${apiBaseUrl.replace(/\/+$/, "")}/blobs/${encodeURIComponent(blobId)}`;
@@ -18,7 +18,7 @@ export interface CreateShareLinkOptions {
   apiBaseUrl: string;
   /** The app's own origin (`window.location.origin`) — becomes the share URL's `{origin}` (see `buildShareUrl`); injected rather than read internally so this stays testable without `window`. */
   origin: string;
-  document: SceneDocumentV1;
+  document: SceneDocumentV1 | MultiPageDocumentV1;
 }
 
 /**

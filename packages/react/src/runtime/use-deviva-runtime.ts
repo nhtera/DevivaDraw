@@ -27,7 +27,7 @@ import {
   loadTextFonts,
   Scene,
 } from "@deviva-draw/engine";
-import type { AnyElement, RemoteCursorOverlay, SceneDocument, TextEditSession } from "@deviva-draw/engine";
+import type { AnyElement, MultiPageDocumentV1, RemoteCursorOverlay, SceneDocument, TextEditSession } from "@deviva-draw/engine";
 import { buildPersistenceOperations } from "./build-persistence-operations";
 import { buildRuntime } from "./build-runtime";
 import type { DevivaDrawHandle } from "./imperative-handle";
@@ -57,7 +57,8 @@ export interface UseDevivaRuntimeOptions {
    * so the shell creates it once and hands it in here rather than reading it back out.
    */
   cameraStore: CameraStore;
-  initialData?: SceneDocument | null;
+  /** Multi-page documents require `pageStore` (the shell always provides one); without it only the single-scene shape is loaded — see `buildInitialScene`. */
+  initialData?: SceneDocument | MultiPageDocumentV1 | null;
   /** Scopes localStorage autosave to this key — see `DevivaDrawProps.persistenceKey`'s doc. Ignored whenever `initialData` is supplied (host-managed persistence, autosave stays off). */
   persistenceKey?: string;
   onChange?(elements: AnyElement[], files: Record<string, LiveStoredFile>): void;
@@ -87,7 +88,7 @@ export interface UseDevivaRuntimeResult {
   handle: DevivaDrawHandle | null;
 }
 
-function buildInitialScene(initialData: SceneDocument | null | undefined, persistenceKey: string | undefined): Scene {
+function buildInitialScene(initialData: SceneDocument | MultiPageDocumentV1 | null | undefined, persistenceKey: string | undefined): Scene {
   if (initialData) {
     const result = Scene.fromJSON(initialData);
     if (result.ok) return result.scene;

@@ -11,8 +11,8 @@
  */
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
-import { deserializeScene, parseShareUrl } from "@deviva-draw/engine";
-import type { SceneDocument } from "@deviva-draw/engine";
+import { deserializeMultiPageDocument, parseShareUrl, serializeMultiPageDocument } from "@deviva-draw/engine";
+import type { MultiPageDocumentV1 } from "@deviva-draw/engine";
 import { fetchAndDecryptSharedScene } from "../browser/share-link-client";
 import type { FetchSharedSceneErrorReason } from "../browser/share-link-client";
 import { DevivaDrawShell } from "../deviva-draw-shell";
@@ -31,7 +31,7 @@ export interface SharedSceneViewerProps {
   style?: CSSProperties;
 }
 
-type LoadState = { status: "loading" } | { status: "ready"; document: SceneDocument } | { status: "error"; messageKey: TranslationKey };
+type LoadState = { status: "loading" } | { status: "ready"; document: MultiPageDocumentV1 } | { status: "error"; messageKey: TranslationKey };
 
 /** Maps a fetch/decrypt failure code to its i18n key — kept as a lookup table (not embedded prose) so the network/crypto layer stays free of any user-facing copy. */
 const FETCH_ERROR_MESSAGE_KEYS: Record<FetchSharedSceneErrorReason, TranslationKey> = {
@@ -84,10 +84,12 @@ function SharedSceneViewerBody(props: { apiBaseUrl: string; className?: string; 
       const fetched = await fetchAndDecryptSharedScene({ apiBaseUrl, blobId: parsed.value.blobId, keyBase64Url: parsed.value.keyBase64Url, ivBase64Url: parsed.value.ivBase64Url });
       if (!fetched.ok) return finish({ status: "error", messageKey: FETCH_ERROR_MESSAGE_KEYS[fetched.reason] });
 
-      const validated = deserializeScene(fetched.value);
+      // Accepts a multi-page share and a legacy single-scene one alike; re-serialized from the
+      // validated pages (not the raw payload) so the shell only ever receives a document that passed.
+      const validated = deserializeMultiPageDocument(fetched.value);
       if (!validated.ok) return finish({ status: "error", messageKey: "share.error.invalidScene" });
 
-      finish({ status: "ready", document: validated.scene.toJSON() });
+      finish({ status: "ready", document: serializeMultiPageDocument(validated.pages, { activePageId: validated.activePageId ?? undefined }) });
     }
 
     void load();

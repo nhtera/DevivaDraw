@@ -18,10 +18,12 @@ export interface PagesPanelProps {
   onSwitchPage(id: string): void;
   /** Parks the current camera, then appends + activates a fresh page — camera parking has to happen before `addPage` switches, which is why this isn't just `onSwitchPage(addPage())`. */
   onAddPage(): void;
+  /** View-only hosts (the shared-scene viewer): switching stays available — a multi-page share needs navigating — but add/rename/delete disappear. */
+  readOnly?: boolean;
 }
 
 export function PagesPanel(props: PagesPanelProps) {
-  const { pageStore, onSwitchPage, onAddPage } = props;
+  const { pageStore, onSwitchPage, onAddPage, readOnly = false } = props;
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -78,13 +80,15 @@ export function PagesPanel(props: PagesPanelProps) {
                   onClick={() => {
                     if (page.id !== activeId) onSwitchPage(page.id);
                   }}
-                  onDoubleClick={() => setRenamingId(page.id)}
-                  title={t("pages.renameHint")}
+                  onDoubleClick={() => {
+                    if (!readOnly) setRenamingId(page.id);
+                  }}
+                  title={readOnly ? undefined : t("pages.renameHint")}
                 >
                   {page.name}
                 </button>
               )}
-              {pages.length > 1 && (
+              {!readOnly && pages.length > 1 && (
                 <button
                   type="button"
                   data-testid={`page-delete-${page.id}`}
@@ -97,11 +101,15 @@ export function PagesPanel(props: PagesPanelProps) {
               )}
             </div>
           ))}
-          <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
-          <button type="button" data-testid="page-add" style={{ ...buttonStyle(false), justifyContent: "flex-start", gap: 8 }} onClick={onAddPage}>
-            <span aria-hidden style={{ fontSize: 13, lineHeight: 1 }}>+</span>
-            {t("pages.add")}
-          </button>
+          {!readOnly && (
+            <>
+              <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
+              <button type="button" data-testid="page-add" style={{ ...buttonStyle(false), justifyContent: "flex-start", gap: 8 }} onClick={onAddPage}>
+                <span aria-hidden style={{ fontSize: 13, lineHeight: 1 }}>+</span>
+                {t("pages.add")}
+              </button>
+            </>
+          )}
         </div>
       )}
       <button
