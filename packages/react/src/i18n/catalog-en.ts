@@ -89,6 +89,8 @@ export const catalogEn = {
   "action.exportSvg": "Export as SVG",
   "action.exportImage": "Export image…",
   "action.copyAsImage": "Copy as image",
+  "action.copyAsSvg": "Copy as SVG",
+  "action.unlockAll": "Unlock all elements",
   "action.copyStyles": "Copy styles",
   "action.pasteStyles": "Paste styles",
   "action.drawToShape": "Draw to shape",

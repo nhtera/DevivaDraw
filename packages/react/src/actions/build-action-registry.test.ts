@@ -185,6 +185,7 @@ function buildTestRuntime(scene: Scene): ActionRuntime {
       exportPng: vi.fn(),
       exportSvg: vi.fn(),
       copyAsImage: vi.fn(),
+      copyAsSvg: vi.fn(),
       shareScene: vi.fn(async () => "https://draw.deviva.app/s/test#key=k&iv=i"),
     },
   };

@@ -82,6 +82,36 @@ test("grid toggles from the canvas menu, from Cmd+', and persists across reload"
   await expect(page.getByTestId("main-menu-toggle-grid")).toHaveAttribute("aria-checked", "false");
 });
 
+test("unlock all frees a locked element that clicks can no longer reach", async ({ page }) => {
+  await drawRect(page); // auto-selected
+  await page.mouse.click(RECT.left, RECT.top + 40, { button: "right" });
+  await page.getByTestId("context-menu-toggle-lock").click();
+
+  // Deselect, then right-click the locked element's stroke: locked elements no longer hit-test, so
+  // the click falls through to the canvas menu, where the escape hatch lives.
+  await page.mouse.click(700, 520);
+  await page.mouse.click(RECT.left, RECT.top + 40, { button: "right" });
+  const unlockAll = page.getByTestId("context-menu-unlock-all");
+  await expect(unlockAll).toBeEnabled();
+  await unlockAll.click();
+
+  // Unlocked and selected again — and with nothing locked left, the action goes disabled.
+  await expect(page.locator('[data-testid^="layer-action-"]').first()).toBeVisible();
+  await page.mouse.click(700, 520);
+  await page.mouse.click(700, 520, { button: "right" });
+  await expect(page.getByTestId("context-menu-unlock-all")).toBeDisabled();
+});
+
+test("copy as SVG puts the scene's SVG markup on the clipboard", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await drawRect(page);
+  await page.keyboard.press("Escape");
+
+  await page.mouse.click(700, 520, { button: "right" });
+  await page.getByTestId("context-menu-copy-as-svg").click();
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain("<svg");
+});
+
 test("? opens the keyboard-shortcuts dialog, but not while typing", async ({ page }) => {
   await page.keyboard.press("Shift+?");
   await expect(page.getByTestId("shortcuts-dialog")).toBeVisible();

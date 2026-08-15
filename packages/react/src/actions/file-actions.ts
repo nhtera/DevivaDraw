@@ -9,5 +9,6 @@ export function buildFileActions(): Action[] {
     { id: "export-png", labelKey: "action.exportPng", icon: "export-png", run: (runtime) => runtime.persistence.exportPng() },
     { id: "export-svg", labelKey: "action.exportSvg", icon: "export-svg", run: (runtime) => runtime.persistence.exportSvg() },
     { id: "copy-as-image", labelKey: "action.copyAsImage", icon: "copy-image", run: (runtime) => runtime.persistence.copyAsImage() },
+    { id: "copy-as-svg", labelKey: "action.copyAsSvg", icon: "export-svg", run: (runtime) => runtime.persistence.copyAsSvg() },
   ];
 }

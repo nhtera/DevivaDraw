@@ -126,5 +126,24 @@ export function buildArrangeActions(): Action[] {
         runtime.history.endBatch(runtime.scene.getElements());
       },
     },
+    {
+      // Locked elements ignore clicks by design, so they can't be selected and unlocked one by one —
+      // this canvas-level escape hatch frees every locked element at once and selects them, making
+      // the result visible (and immediately re-lockable if the release was a mistake).
+      id: "unlock-all",
+      labelKey: "action.unlockAll",
+      icon: "lock",
+      isEnabled: (runtime) => runtime.scene.getElements().some((element) => !element.isDeleted && element.locked),
+      run: (runtime) => {
+        const ids = runtime.scene
+          .getElements()
+          .filter((element) => !element.isDeleted && element.locked)
+          .map((element) => element.id);
+        runtime.history.beginBatch();
+        unlockSelection(runtime.scene, ids);
+        runtime.history.endBatch(runtime.scene.getElements());
+        runtime.selection.selectOnly(ids);
+      },
+    },
   ];
 }

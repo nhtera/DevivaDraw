@@ -64,6 +64,8 @@ export interface PersistenceOperations {
   exportPng(): Promise<void>;
   exportSvg(): Promise<void>;
   copyAsImage(): Promise<void>;
+  /** SVG markup to the clipboard as text — see `browser/scene-file-operations.ts`'s `copySceneSvgToClipboard`. */
+  copyAsSvg(): Promise<void>;
   /**
    * Encrypts the live scene client-side and uploads only ciphertext to the collab-server, resolving
    * the shareable URL (or rejecting on failure) — see `browser/share-link-client.ts` and

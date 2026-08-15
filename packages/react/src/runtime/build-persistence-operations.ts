@@ -7,7 +7,7 @@
  */
 import type { AnyElement, HistoryStack, Scene, SelectionState } from "@deviva-draw/engine";
 import type { PersistenceOperations } from "../actions/action-types";
-import { exportSceneToPngFile, exportSceneToSvgFile, openSceneFromFile, saveSceneToFile, copySceneImageToClipboard } from "../browser/scene-file-operations";
+import { exportSceneToPngFile, exportSceneToSvgFile, openSceneFromFile, saveSceneToFile, copySceneImageToClipboard, copySceneSvgToClipboard } from "../browser/scene-file-operations";
 import { createShareLink } from "../browser/share-link-client";
 import { resetScene } from "./reset-scene";
 
@@ -43,6 +43,7 @@ export function buildPersistenceOperations(deps: BuildPersistenceOperationsDeps)
     exportPng: () => exportSceneToPngFile(getScene(), EXPORT_PNG_DEFAULT_SCALE).catch(reportError),
     exportSvg: () => exportSceneToSvgFile(getScene()).catch(reportError),
     copyAsImage: () => copySceneImageToClipboard(getScene()).catch(reportError),
+    copyAsSvg: () => copySceneSvgToClipboard(getScene()).catch(reportError),
     // Deliberately not `.catch(reportError)`-wrapped like every operation above — see
     // `PersistenceOperations.shareScene`'s doc: the caller (`actions/share-actions.ts`) needs the
     // thrown error to populate `ShareDialogState`'s "error" branch, not just a console log.

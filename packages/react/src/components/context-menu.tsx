@@ -31,7 +31,7 @@ const ELEMENT_ACTION_GROUPS: readonly (readonly string[])[] = [
  */
 const CANVAS_ACTION_GROUPS: readonly (readonly string[])[] = [
   ["paste"],
-  ["copy-as-image", "select-all"],
+  ["copy-as-image", "copy-as-svg", "select-all", "unlock-all"],
   ["toggle-grid", "toggle-object-snap", "toggle-zen-mode", "toggle-view-only", "toggle-stats"],
 ];
 

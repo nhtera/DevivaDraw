@@ -89,6 +89,8 @@ export const catalogVi: Record<TranslationKey, string> = {
   "action.exportSvg": "Xuất SVG",
   "action.exportImage": "Xuất hình ảnh…",
   "action.copyAsImage": "Sao chép dưới dạng ảnh",
+  "action.copyAsSvg": "Sao chép dưới dạng SVG",
+  "action.unlockAll": "Mở khóa tất cả",
   "action.copyStyles": "Sao chép kiểu",
   "action.pasteStyles": "Dán kiểu",
   "action.drawToShape": "Chuyển thành hình",

@@ -163,6 +163,22 @@ export async function exportSceneToSvgFile(scene: Scene, background: string | nu
   triggerDownload("scene.svg", svg, "image/svg+xml");
 }
 
+/**
+ * Serializes the live scene to SVG markup and writes it to the clipboard as plain text — pasteable
+ * into design tools, editors, and HTML alike, which is why text beats a binary clipboard item here
+ * (`image/svg+xml` `ClipboardItem`s also have patchy browser support).
+ */
+export async function copySceneSvgToClipboard(scene: Scene, background: string | null = scene.getBackground()): Promise<void> {
+  const svg = exportToSvg({
+    scene,
+    roughGenerator: createRoughSvgGenerator(),
+    padding: DEFAULT_EXPORT_PADDING,
+    backgroundColor: background,
+    textMeasurer: freshExportDeps().textMeasurer,
+  });
+  await navigator.clipboard.writeText(svg);
+}
+
 /** Renders the live scene to PNG and writes it to the system clipboard instead of downloading. */
 export async function copySceneImageToClipboard(scene: Scene, background: string | null = scene.getBackground()): Promise<void> {
   await copyAsImage({
