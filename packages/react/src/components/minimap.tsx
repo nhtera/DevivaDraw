@@ -16,6 +16,7 @@ import { panelStyle } from "./chrome-styles";
 import { adaptBackgroundColorForTheme, adaptStrokeColorForTheme } from "../theme/canvas-color-inversion";
 import { useCanvasBackground, useSceneVersion } from "../runtime/use-live-version";
 import { useStableCallback } from "../runtime/use-stable-ref";
+import { useTheme } from "../theme/theme-provider";
 import type { ThemeMode } from "../theme/theme-tokens";
 import type { CameraStore } from "../runtime/camera-store";
 import type { DevivaRuntime } from "../runtime/runtime-types";
@@ -62,7 +63,12 @@ export function Minimap(props: MinimapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneVersion = useSceneVersion(runtime.scene);
   const canvasBackground = useCanvasBackground(runtime.scene);
-  const themeMode = runtime.theme.mode;
+  // Read the mode from the theme CONTEXT, not `runtime.theme.mode`: the runtime getter is backed by
+  // the shell's `useStableGetter` box, which only updates in a parent effect that runs AFTER this
+  // component has already re-rendered — so on a theme toggle this render would still see the old
+  // mode, the draw effect's deps wouldn't change, and the overview would keep the stale colors until
+  // the next scene edit. The context value updates in the same render pass as the toggle.
+  const { mode: themeMode } = useTheme();
   const draggingRef = useRef(false);
 
   // Memoized on the scene version: both of these are fresh arrays/objects on every render, and they are
