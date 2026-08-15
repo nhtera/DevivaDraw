@@ -61,6 +61,7 @@ import { useToggleState } from "./runtime/use-toggle-state";
 import { useValueState } from "./runtime/use-value-state";
 import { NOOP_HANDLE } from "./runtime/noop-handle";
 import type { DevivaDrawHandle } from "./runtime/imperative-handle";
+import type { DevivaRuntime } from "./runtime/runtime-types";
 import type { ShareDialogState } from "./actions/action-types";
 import type { DevivaDrawProps } from "./deviva-draw-app-types";
 
@@ -98,7 +99,10 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const mainMenuOpen = useToggleState(false);
   const shareDialog = useValueState<ShareDialogState>({ status: "closed" });
   const collabDialogOpen = useToggleState(false);
-  const contextMenuTriggers = useContextMenuTriggers(canvasHostRef, cameraStore);
+  // Mirror of `runtime` (declared below) for the context-menu trigger hook, which must attach its
+  // listeners before the runtime exists but hit-tests the scene only at right-click time.
+  const runtimeForContextMenuRef = useRef<DevivaRuntime | null>(null);
+  const contextMenuTriggers = useContextMenuTriggers(canvasHostRef, cameraStore, runtimeForContextMenuRef);
 
   // `use-deviva-runtime.ts`'s mount effect only re-runs on an explicit scene swap ("Open"), so it
   // freezes whatever `getThemeMode`/`toggleThemeMode`/`isChromeOverlayOpen` it received at that
@@ -158,6 +162,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   });
 
   useImperativeHandle(ref, () => handle ?? NOOP_HANDLE, [handle]);
+  runtimeForContextMenuRef.current = runtime;
   useAdaptNextShapeStyle(runtime, mode);
 
   const getCamera = useCallback(() => cameraStore.getCamera(), [cameraStore]);
@@ -211,8 +216,8 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [editSession, isChromeOverlayOpen, openImagePicker]);
 
-  // Cmd/Ctrl+F opens "find on canvas" (Excalidraw parity), overriding the browser's own find. Handled
-  // here (not via the engine ShortcutRegistry) because it toggles a React overlay, not an engine tool.
+  // Cmd/Ctrl+F opens "find on canvas", overriding the browser's own find. Handled here (not via the
+  // engine ShortcutRegistry) because it toggles a React overlay, not an engine tool.
   const openFind = findOpen.set;
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -223,6 +228,24 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [openFind]);
+
+  // "?" opens the keyboard-shortcuts dialog — the key every editor reserves for its help overlay.
+  // Same React-overlay reasoning as Cmd+F above, and the same typing guards as the "9" image shortcut:
+  // never fire while a text edit or chrome overlay owns the keyboard, or while an input is focused.
+  const openShortcutsDialog = shortcutsDialogOpen.set;
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "?" || event.metaKey || event.ctrlKey || event.altKey) return;
+      const isEditingText = editSession?.getState().status === "editing";
+      if (shouldSuppressGlobalShortcuts(Boolean(isEditingText), isChromeOverlayOpen())) return;
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) return;
+      event.preventDefault();
+      openShortcutsDialog(true);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editSession, isChromeOverlayOpen, openShortcutsDialog]);
 
   // Collaboration is opt-in and reuses the same collab-server base URL the "Share" action already
   // requires (`shareApiBaseUrl` — both are that Worker's endpoints, see `use-collab-session.ts`'s
@@ -316,7 +339,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {runtime && collabDialogOpen.value && <CollabDialog collab={collab} onClose={() => collabDialogOpen.set(false)} />}
       {runtime && commandPaletteOpen.value && <CommandPalette runtime={runtime} onClose={() => commandPaletteOpen.set(false)} />}
       {runtime && contextMenuTriggers.point && !viewOnly.value && (
-        <ContextMenu runtime={runtime} screenPoint={contextMenuTriggers.point} onClose={contextMenuTriggers.close} />
+        <ContextMenu runtime={runtime} screenPoint={contextMenuTriggers.point} variant={contextMenuTriggers.variant} onClose={contextMenuTriggers.close} />
       )}
       {statsPanel.value && runtime && (
         <div data-testid="stats-panel" style={{ position: "absolute", bottom: 146, right: 8, fontSize: 11, color: "var(--dd-text-secondary)" }}>

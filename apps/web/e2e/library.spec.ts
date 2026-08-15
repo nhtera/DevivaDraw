@@ -188,9 +188,10 @@ test("a save from the context menu reaches an already-open sidebar", async ({ pa
   await expect(page.getByTestId("library-item")).toHaveCount(1);
 });
 
-test("add-to-library is offered but disabled with nothing selected", async ({ page }) => {
+test("add-to-library is not offered on the empty-canvas menu", async ({ page }) => {
   await page.mouse.click(300, 560, { button: "right" });
-  await expect(page.getByTestId("context-menu-add-to-library")).toBeDisabled();
+  await expect(page.getByTestId("context-menu")).toBeVisible();
+  await expect(page.getByTestId("context-menu-add-to-library")).toHaveCount(0);
 });
 
 test("a right-click near the bottom edge keeps the whole menu on screen", async ({ page }) => {
@@ -215,7 +216,15 @@ test.describe("on a viewport shorter than the context menu", () => {
 
   test("the context menu is capped to the viewport and scrolls rather than overflowing", async ({ page }) => {
     const viewport = page.viewportSize()!;
-    await page.mouse.click(viewport.width - 40, viewport.height - 30, { button: "right" });
+    // The tall menu is the element one (the empty-canvas menu fits a 400px viewport comfortably), so
+    // draw a shape and right-click its stroke. Tool picked by shortcut: this 400px-short viewport is
+    // in the mobile layout, which has no desktop toolbar.
+    await page.keyboard.press("r");
+    await page.mouse.move(viewport.width - 240, 120);
+    await page.mouse.down();
+    await page.mouse.move(viewport.width - 60, viewport.height - 120);
+    await page.mouse.up();
+    await page.mouse.click(viewport.width - 240, 180, { button: "right" });
     const menu = page.getByTestId("context-menu");
     await expect(menu).toBeVisible();
     // The pop-in opens from scale(0.97); measuring through it reports a box smaller than the menu settles at.

@@ -75,15 +75,16 @@ test("Shift+V mirrors a line's own geometry, not just its position", async ({ pa
   expect(after.points![after.points!.length - 1]!.y).toBeCloseTo(firstY, 0);
 });
 
-test("the context menu offers both flips, disabled with nothing selected", async ({ page }) => {
+test("the context menu offers both flips for a selected element, and neither on empty canvas", async ({ page }) => {
   await drawRect(page, 300, 300, 400, 400);
   await page.getByTestId("toolbar-select-tool").click();
 
-  // Nothing selected: offered but unavailable, rather than missing.
+  // Nothing selected on empty canvas: the canvas menu opens instead, which has no element actions.
   await page.mouse.click(700, 500);
   await page.mouse.click(700, 500, { button: "right" });
-  await expect(page.getByTestId("context-menu-flip-horizontal")).toBeDisabled();
-  await expect(page.getByTestId("context-menu-flip-vertical")).toBeDisabled();
+  await expect(page.getByTestId("context-menu")).toBeVisible();
+  await expect(page.getByTestId("context-menu-flip-horizontal")).toHaveCount(0);
+  await expect(page.getByTestId("context-menu-flip-vertical")).toHaveCount(0);
   await page.keyboard.press("Escape");
 
   // With a single shape selected — flipping one element is the common case, so one is enough. The

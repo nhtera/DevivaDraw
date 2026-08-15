@@ -15,7 +15,7 @@ import type { DevivaRuntime } from "../runtime/runtime-types";
  * Menu contents as groups, rendered with a separator between each — a flat 13-item list gave the eye
  * nothing to anchor on.
  */
-const MENU_ACTION_GROUPS: readonly (readonly string[])[] = [
+const ELEMENT_ACTION_GROUPS: readonly (readonly string[])[] = [
   ["copy", "paste", "copy-styles", "paste-styles"],
   ["duplicate", "delete"],
   ["bring-to-front", "bring-forward", "send-backward", "send-to-back"],
@@ -24,17 +24,44 @@ const MENU_ACTION_GROUPS: readonly (readonly string[])[] = [
   ["add-to-library"],
 ];
 
+/**
+ * What a right-click on *empty canvas* offers: clipboard/selection actions that need no target
+ * element, then the canvas-preference toggles — which makes this menu the discoverable home for
+ * grid/zen/view-only, the spot whiteboard users habitually look for them.
+ */
+const CANVAS_ACTION_GROUPS: readonly (readonly string[])[] = [
+  ["paste"],
+  ["copy-as-image", "select-all"],
+  ["toggle-grid", "toggle-object-snap", "toggle-zen-mode", "toggle-view-only", "toggle-stats"],
+];
+
+/**
+ * Live state readers for the toggle rows, so the canvas menu can draw the same trailing ✓ the main
+ * menu's `MenuButton` does. Read-at-render is safe for the same reason it is there: the menu closes
+ * after every action, so it always reopens with fresh state.
+ */
+const TOGGLE_STATE_READERS: Record<string, (runtime: DevivaRuntime) => boolean> = {
+  "toggle-grid": (runtime) => runtime.grid.enabled,
+  "toggle-object-snap": (runtime) => runtime.objectSnap.enabled,
+  "toggle-zen-mode": (runtime) => runtime.ui.getZenMode(),
+  "toggle-view-only": (runtime) => runtime.ui.getViewOnly(),
+  "toggle-stats": (runtime) => runtime.ui.getStatsPanelVisible(),
+};
+
 /** Keeps the menu clear of the viewport edges when a right-click lands close to one. */
 const EDGE_MARGIN = 8;
 
 export interface ContextMenuProps {
   runtime: DevivaRuntime;
   screenPoint: { x: number; y: number };
+  /** Which menu to show — `"element"` for a click on/inside a selection, `"canvas"` for empty canvas (see `use-context-menu-triggers.ts`'s `resolveVariant`). */
+  variant: "element" | "canvas";
   onClose(): void;
 }
 
 export function ContextMenu(props: ContextMenuProps) {
-  const { runtime, screenPoint, onClose } = props;
+  const { runtime, screenPoint, variant, onClose } = props;
+  const groups = variant === "canvas" ? CANVAS_ACTION_GROUPS : ELEMENT_ACTION_GROUPS;
   const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement | null>(null);
   const isMac = detectIsMac(typeof navigator !== "undefined" ? navigator.platform : undefined);
@@ -105,18 +132,21 @@ export function ContextMenu(props: ContextMenuProps) {
         zIndex: Z_LAYER.menu,
       }}
     >
-      {MENU_ACTION_GROUPS.map((group, groupIndex) => (
+      {groups.map((group, groupIndex) => (
         <div key={groupIndex} style={{ display: "contents" }}>
           {groupIndex > 0 && <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />}
           {group.map((id) => {
             const action = runtime.actionRegistry.get(id);
             if (!action) return null;
             const enabled = runtime.actionRegistry.isEnabled(id, runtime);
+            const readToggleState = TOGGLE_STATE_READERS[id];
+            const checked = readToggleState ? readToggleState(runtime) : undefined;
             return (
               <button
                 key={id}
                 type="button"
-                role="menuitem"
+                role={checked === undefined ? "menuitem" : "menuitemcheckbox"}
+                aria-checked={checked}
                 data-testid={`context-menu-${id}`}
                 disabled={!enabled}
                 style={{ ...buttonStyle(false), ...(enabled ? {} : disabledButtonStyle), justifyContent: "flex-start", width: "100%", gap: 8 }}
@@ -127,10 +157,15 @@ export function ContextMenu(props: ContextMenuProps) {
               >
                 <Icon name={action.icon} />
                 <span>{t(action.labelKey)}</span>
+                {checked && (
+                  <span style={{ marginLeft: "auto", display: "inline-flex", color: "var(--dd-accent)" }}>
+                    <Icon name="check" size={14} />
+                  </span>
+                )}
                 {/* Shortcut read from the same registry the shortcuts dialog uses, so the two can never
-                    drift — and this menu becomes where the shortcuts are learned, as in Excalidraw. */}
+                    drift — and this menu becomes where the shortcuts are learned. */}
                 {action.shortcut && (
-                  <span style={{ marginLeft: "auto", paddingLeft: 12, color: "var(--dd-text-secondary)", fontSize: 11 }}>
+                  <span style={{ marginLeft: checked ? undefined : "auto", paddingLeft: 12, color: "var(--dd-text-secondary)", fontSize: 11 }}>
                     {formatShortcut(action.shortcut, isMac)}
                   </span>
                 )}
