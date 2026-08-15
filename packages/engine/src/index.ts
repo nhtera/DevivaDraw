@@ -433,7 +433,9 @@ export type { DeserializeSceneLenientResult, DeserializeSceneResult, SerializeSc
 export { deserializeScene, deserializeSceneLenient, serializeScene } from "./persistence/serialize-scene";
 
 export type { AutosaveController, AutosaveOptions, RestoreAutosaveOptions, StorageLike } from "./persistence/local-storage-autosave";
-export { AUTOSAVE_RECOVERY_KEY_SUFFIX, AUTOSAVE_STORAGE_KEY, restoreAutosave, startAutosave } from "./persistence/local-storage-autosave";
+export { AUTOSAVE_RECOVERY_KEY_SUFFIX, AUTOSAVE_STORAGE_KEY, restoreAutosave, restoreAutosaveDocument, startAutosave, writeAutosaveDocument } from "./persistence/local-storage-autosave";
+export type { DeserializeMultiPageLenientResult, DeserializeMultiPageResult, MultiPageDocumentV1, ScenePage, SerializedPage, SerializeMultiPageOptions } from "./persistence/multi-page-document";
+export { CURRENT_DOCUMENT_SCHEMA_VERSION, deserializeMultiPageDocument, deserializeMultiPageDocumentLenient, generatePageId, MULTI_PAGE_DOCUMENT_TYPE, serializeMultiPageDocument } from "./persistence/multi-page-document";
 
 export type { ExportFrame, ExportScale } from "./export/export-geometry";
 export { computeExportBounds, computeExportFrame, DEFAULT_EXPORT_PADDING, EmptyExportSelectionError, EXPORT_SCALES } from "./export/export-geometry";

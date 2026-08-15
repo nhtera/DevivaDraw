@@ -7,6 +7,8 @@
  * delete across a page reload, unlike an export, which strips them.
  */
 import type { Scene } from "../scene/scene";
+import { deserializeMultiPageDocumentLenient } from "./multi-page-document";
+import type { MultiPageDocumentV1, ScenePage } from "./multi-page-document";
 import { deserializeSceneLenient, serializeScene } from "./serialize-scene";
 
 export interface StorageLike {
@@ -123,6 +125,39 @@ export interface RestoreAutosaveOptions {
  * is lost to the overwrite, and `onSalvage` reports what was dropped.
  */
 export function restoreAutosave(storage: StorageLike, storageKey: string = AUTOSAVE_STORAGE_KEY, options: RestoreAutosaveOptions = {}): Scene | null {
+  return restoreWithSalvage(storage, storageKey, options, deserializeSceneLenient, (result) => result.scene);
+}
+
+/**
+ * Multi-page sibling of `restoreAutosave` — same salvage + recovery-backup semantics, but reads the
+ * document envelope (`multi-page-document.ts`), so it also restores a legacy single-scene autosave as
+ * a one-page document. This is what a pages-aware host restores on boot in place of `restoreAutosave`.
+ */
+export function restoreAutosaveDocument(
+  storage: StorageLike,
+  storageKey: string = AUTOSAVE_STORAGE_KEY,
+  options: RestoreAutosaveOptions = {},
+): { pages: ScenePage[]; activePageId: string | null } | null {
+  return restoreWithSalvage(storage, storageKey, options, deserializeMultiPageDocumentLenient, (result) => ({
+    pages: result.pages,
+    activePageId: result.activePageId,
+  }));
+}
+
+/**
+ * Shared salvage-restore skeleton for both readers above: parse, one lenient deserialize pass (zero
+ * drops ≡ a strict success — deliberately NOT strict-then-lenient, which would run `applyMigrations`
+ * twice over the same parsed object and break the moment a migration is less than perfectly
+ * pure/idempotent), and on anything less than a clean restore, first copy the raw payload to the
+ * `":recovery"` slot before the next debounced write can destroy it.
+ */
+function restoreWithSalvage<Result extends { ok: true; droppedErrors: string[] } | { ok: false; error: string }, Value>(
+  storage: StorageLike,
+  storageKey: string,
+  options: RestoreAutosaveOptions,
+  deserialize: (parsed: unknown) => Result,
+  pick: (result: Extract<Result, { ok: true }>) => Value,
+): Value | null {
   const raw = storage.getItem(storageKey);
   if (raw === null) return null;
 
@@ -153,14 +188,30 @@ export function restoreAutosave(storage: StorageLike, storageKey: string = AUTOS
     return null;
   }
 
-  // One lenient pass covers the clean case too (zero drops ≡ a strict success) — deliberately NOT a
-  // strict-then-lenient retry, which would run `applyMigrations` twice over the same parsed object
-  // and break the moment a migration is less than perfectly pure/idempotent.
-  const result = deserializeSceneLenient(parsed);
+  const result = deserialize(parsed);
   if (!result.ok) {
     backupAndReport([result.error]);
     return null;
   }
   if (result.droppedErrors.length > 0) backupAndReport(result.droppedErrors);
-  return result.scene;
+  return pick(result as Extract<Result, { ok: true }>);
+}
+
+/**
+ * One quota-safe write of a multi-page document to the autosave slot — the document-level counterpart
+ * of the single-scene `writeSnapshot` above. Debounce/orchestration lives with the caller (a pages
+ * host knows about page switches and page-list edits, which a single `Scene` subscription cannot see).
+ */
+export function writeAutosaveDocument(
+  storage: StorageLike,
+  document: MultiPageDocumentV1,
+  options: { storageKey?: string; onQuotaExceeded?: (error: unknown) => void; onError?: (error: unknown) => void } = {},
+): void {
+  const { storageKey = AUTOSAVE_STORAGE_KEY, onQuotaExceeded, onError } = options;
+  try {
+    storage.setItem(storageKey, JSON.stringify(document));
+  } catch (error) {
+    if (isQuotaExceededError(error)) onQuotaExceeded?.(error);
+    else onError?.(error);
+  }
 }
