@@ -18,6 +18,7 @@ import { serializeScene } from "../persistence/serialize-scene";
 import type { RoughCanvasDrawer } from "../render/rough-renderer";
 import type { RenderSceneContext2D } from "../render/render-scene-to-canvas";
 import { renderSceneToCanvas } from "../render/render-scene-to-canvas";
+import type { ElementColorAdapter } from "../render/render-scene-to-canvas";
 import type { Scene } from "../scene/scene";
 import type { TextMeasurer } from "../text/text-measurement";
 import { computeExportBounds, computeExportFrame } from "./export-geometry";
@@ -56,6 +57,8 @@ export interface ExportToPngOptions {
   backgroundColor?: string | null;
   /** Embeds the live scene JSON as a `tEXt` chunk — see `png-chunk-writer.ts`. Defaults to `true`. */
   embedSceneData?: boolean;
+  /** Per-color remap applied at draw time (see `RenderSceneOptions.adaptColors`) — how a dark-mode export renders default-palette colors legibly on a dark background without touching the scene. */
+  adaptColors?: ElementColorAdapter;
 }
 
 async function blobToBytes(blob: Blob): Promise<Uint8Array> {
@@ -92,6 +95,7 @@ export async function exportToPng(options: ExportToPngOptions): Promise<Blob> {
     padding,
     backgroundColor = null,
     embedSceneData = true,
+    adaptColors,
   } = options;
 
   const bounds = computeExportBounds(elements, padding);
@@ -104,6 +108,7 @@ export async function exportToPng(options: ExportToPngOptions): Promise<Blob> {
     imageDecodeCache,
     elements,
     background: backgroundColor ?? undefined,
+    adaptColors,
   });
 
   const blob = await target.toBlob();

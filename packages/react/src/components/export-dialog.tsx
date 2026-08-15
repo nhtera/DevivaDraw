@@ -24,10 +24,18 @@ export function ExportDialog(props: { runtime: DevivaRuntime; onClose(): void })
   const { t } = useTranslation();
   const [scale, setScale] = useState<Scale>(2);
   const [includeBackground, setIncludeBackground] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
+  const [onlySelected, setOnlySelected] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const scene = runtime.scene;
-  const background = includeBackground ? scene.getBackground() ?? "#ffffff" : null;
+  const selectedCount = runtime.selection.size;
+  // Dark export pairs the color adapter with the dark canvas background; the transparent option still wins when the background box is unticked.
+  const background = includeBackground ? (darkMode ? "#1e1e1e" : scene.getBackground() ?? "#ffffff") : null;
+  const extras = {
+    darkMode,
+    elements: onlySelected && selectedCount > 0 ? scene.getElements().filter((element) => !element.isDeleted && runtime.selection.isSelected(element.id)) : undefined,
+  };
 
   const run = (task: () => Promise<void>) => {
     setBusy(true);
@@ -63,19 +71,27 @@ export function ExportDialog(props: { runtime: DevivaRuntime; onClose(): void })
           ))}
         </div>
 
-        <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, cursor: "pointer" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, cursor: "pointer" }}>
           <input type="checkbox" data-testid="export-include-background" checked={includeBackground} onChange={(event) => setIncludeBackground(event.target.checked)} />
           <span>{t("export.background")}</span>
         </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, cursor: "pointer" }}>
+          <input type="checkbox" data-testid="export-dark-mode" checked={darkMode} onChange={(event) => setDarkMode(event.target.checked)} />
+          <span>{t("export.darkMode")}</span>
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, cursor: selectedCount > 0 ? "pointer" : "default", opacity: selectedCount > 0 ? 1 : 0.5 }}>
+          <input type="checkbox" data-testid="export-only-selected" disabled={selectedCount === 0} checked={onlySelected && selectedCount > 0} onChange={(event) => setOnlySelected(event.target.checked)} />
+          <span>{t("export.onlySelected")}</span>
+        </label>
 
         <div style={{ display: "flex", gap: 6 }}>
-          <button type="button" disabled={busy} data-testid="export-png" style={{ ...buttonStyle(false), flex: 1, justifyContent: "center" }} onClick={() => run(() => exportSceneToPngFile(scene, scale, background))}>
+          <button type="button" disabled={busy} data-testid="export-png" style={{ ...buttonStyle(false), flex: 1, justifyContent: "center" }} onClick={() => run(() => exportSceneToPngFile(scene, scale, background, extras))}>
             PNG
           </button>
-          <button type="button" disabled={busy} data-testid="export-svg" style={{ ...buttonStyle(false), flex: 1, justifyContent: "center" }} onClick={() => run(() => exportSceneToSvgFile(scene, background))}>
+          <button type="button" disabled={busy} data-testid="export-svg" style={{ ...buttonStyle(false), flex: 1, justifyContent: "center" }} onClick={() => run(() => exportSceneToSvgFile(scene, background, extras))}>
             SVG
           </button>
-          <button type="button" disabled={busy} data-testid="export-pdf" style={{ ...buttonStyle(false), flex: 1, justifyContent: "center" }} onClick={() => run(() => exportScenePdfFile(scene, scale, background ?? "#ffffff"))}>
+          <button type="button" disabled={busy} data-testid="export-pdf" style={{ ...buttonStyle(false), flex: 1, justifyContent: "center" }} onClick={() => run(() => exportScenePdfFile(scene, scale, background ?? (darkMode ? "#1e1e1e" : "#ffffff"), extras))}>
             PDF
           </button>
         </div>

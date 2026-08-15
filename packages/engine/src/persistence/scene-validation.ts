@@ -146,6 +146,15 @@ function validateTypeSpecificFields(raw: Record<string, unknown>, index: number)
       if (!isString(raw.fileId)) return `${label}.fileId must be a string`;
       if (!isNonNegativeFiniteNumber(raw.naturalWidth)) return `${label}.naturalWidth must be a non-negative finite number`;
       if (!isNonNegativeFiniteNumber(raw.naturalHeight)) return `${label}.naturalHeight must be a non-negative finite number`;
+      if (raw.crop !== undefined && raw.crop !== null) {
+        if (typeof raw.crop !== "object" || Array.isArray(raw.crop)) return `${label}.crop must be an object or null`;
+        const crop = raw.crop as Record<string, unknown>;
+        for (const field of ["x", "y", "width", "height"] as const) {
+          const value = crop[field];
+          if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) return `${label}.crop.${field} must be a number in [0, 1]`;
+        }
+        if ((crop.width as number) <= 0 || (crop.height as number) <= 0) return `${label}.crop must have positive width/height`;
+      }
       return null;
     }
     case "embed": {

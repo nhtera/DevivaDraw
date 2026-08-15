@@ -23,7 +23,8 @@ import {
   startAutosave,
   writeAutosaveDocument,
 } from "@deviva-draw/engine";
-import type { AnyElement, AutosaveController, ExcalidrawSceneImport, ExportScale, MultiPageDocumentV1, ScenePage } from "@deviva-draw/engine";
+import type { AnyElement, AutosaveController, ElementColorAdapter, ExcalidrawSceneImport, ExportScale, MultiPageDocumentV1, ScenePage } from "@deviva-draw/engine";
+import { adaptBackgroundColorForTheme, adaptStrokeColorForTheme } from "../theme/canvas-color-inversion";
 import { createBrowserExportRenderTarget, createRoughSvgGenerator, pickAndReadFile, saveFile, triggerDownload } from "./persistence-adapters";
 
 const SCENE_FILE_EXTENSION = ".devivadraw";
@@ -244,29 +245,44 @@ function freshExportDeps() {
  * a plain export matches what's on screen); the export dialog passes an explicit value — `null` for a
  * transparent PNG, a color to force one. Reused by the PDF export.
  */
-export async function renderSceneToPngBlob(scene: Scene, scale: ExportScale = 1, background: string | null = scene.getBackground()): Promise<Blob> {
+/** Export-dialog extras threaded through every export flavor: a selection-only subset and dark-mode color adaptation (PNG-family only — the rough SVG fragments carry their authored colors). */
+export interface ExportRenderExtras {
+  /** Restricts the export to these elements — "export selection only". Absent ⇒ the whole live scene. */
+  elements?: readonly AnyElement[];
+  /** Renders default-palette colors through the dark adapter — pair with a dark `background` for a dark-mode export. */
+  darkMode?: boolean;
+}
+
+function darkAdapter(): ElementColorAdapter {
+  return { stroke: (color) => adaptStrokeColorForTheme(color, "dark"), background: (color) => adaptBackgroundColorForTheme(color, "dark") };
+}
+
+export async function renderSceneToPngBlob(scene: Scene, scale: ExportScale = 1, background: string | null = scene.getBackground(), extras: ExportRenderExtras = {}): Promise<Blob> {
   return exportToPng({
     scene,
     createRenderTarget: createBrowserExportRenderTarget,
     scale,
     padding: DEFAULT_EXPORT_PADDING,
     backgroundColor: background,
+    elements: extras.elements,
+    adaptColors: extras.darkMode ? darkAdapter() : undefined,
     ...freshExportDeps(),
   });
 }
 
 /** Exports the live scene to PNG at `scale`x and triggers a download. */
-export async function exportSceneToPngFile(scene: Scene, scale: ExportScale = 1, background: string | null = scene.getBackground()): Promise<void> {
-  triggerDownload(`scene-${scale}x.png`, await renderSceneToPngBlob(scene, scale, background), "image/png");
+export async function exportSceneToPngFile(scene: Scene, scale: ExportScale = 1, background: string | null = scene.getBackground(), extras: ExportRenderExtras = {}): Promise<void> {
+  triggerDownload(`scene-${scale}x.png`, await renderSceneToPngBlob(scene, scale, background, extras), "image/png");
 }
 
 /** Exports the live scene to SVG and triggers a download. */
-export async function exportSceneToSvgFile(scene: Scene, background: string | null = scene.getBackground()): Promise<void> {
+export async function exportSceneToSvgFile(scene: Scene, background: string | null = scene.getBackground(), extras: ExportRenderExtras = {}): Promise<void> {
   const svg = exportToSvg({
     scene,
     roughGenerator: createRoughSvgGenerator(),
     padding: DEFAULT_EXPORT_PADDING,
     backgroundColor: background,
+    elements: extras.elements,
     textMeasurer: freshExportDeps().textMeasurer,
   });
   triggerDownload("scene.svg", svg, "image/svg+xml");
@@ -325,8 +341,8 @@ function blobToDataUrl(blob: Blob): Promise<string> {
  * imported so it stays out of the base bundle for consumers who never export PDF. PDF pages aren't
  * transparent, so the background defaults to the scene's canvas color, then white.
  */
-export async function exportScenePdfFile(scene: Scene, scale: ExportScale = 2, background: string = scene.getBackground() ?? "#ffffff"): Promise<void> {
-  const blob = await renderSceneToPngBlob(scene, scale, background);
+export async function exportScenePdfFile(scene: Scene, scale: ExportScale = 2, background: string = scene.getBackground() ?? "#ffffff", extras: ExportRenderExtras = {}): Promise<void> {
+  const blob = await renderSceneToPngBlob(scene, scale, background, extras);
   const dataUrl = await blobToDataUrl(blob);
   const image = new Image();
   image.src = dataUrl;

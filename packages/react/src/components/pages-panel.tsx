@@ -5,7 +5,7 @@
  * offers, so this panel is deliberately quiet chrome: one small button until opened.
  */
 import { useEffect, useReducer, useRef, useState } from "react";
-import { Z_LAYER, panelStyle, buttonStyle, inputStyle } from "./chrome-styles";
+import { Z_LAYER, panelStyle, buttonStyle, chromeFontFamily, inputStyle } from "./chrome-styles";
 import { Icon } from "./icon";
 import { useTranslation } from "../i18n/use-translation";
 import type { PageStore } from "../pages/page-store";
@@ -117,7 +117,9 @@ export function PagesPanel(props: PagesPanelProps) {
         data-testid="pages-toggle"
         aria-expanded={open}
         aria-label={t("pages.title")}
-        style={{ ...panelStyle, ...buttonStyle(false), display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", fontSize: 12 }}
+        // `buttonStyle` comes second and its `fontFamily: "inherit"` would override `panelStyle`'s
+        // chrome font — outside a panel that inherits the CANVAS serif, so the chrome face is restated.
+        style={{ ...panelStyle, ...buttonStyle(false), display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", fontSize: 12, fontFamily: chromeFontFamily }}
         onClick={() => setOpen((value) => !value)}
       >
         <Icon name="file" size={13} />

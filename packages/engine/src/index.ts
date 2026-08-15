@@ -67,7 +67,7 @@ export {
   DEFAULT_TEXT_LINE_HEIGHT,
   DEFAULT_TEXT_VERTICAL_ALIGN,
 } from "./elements/text-element";
-export type { ImageElement, ImageElementCreationInput } from "./elements/image-element";
+export type { ImageCrop, ImageElement, ImageElementCreationInput } from "./elements/image-element";
 export { createImageElement } from "./elements/image-element";
 
 export type { EmbedElement, EmbedElementCreationInput } from "./elements/embed-element";
@@ -490,3 +490,5 @@ export { EXCALIDRAW_SCENE_FILE_TYPE, importExcalidrawScene } from "./interop/exc
 
 export type { ExcalidrawLibraryImport, ImportedLibraryItem } from "./interop/excalidraw-library-import";
 export { EXCALIDRAW_LIBRARY_FILE_TYPE, importExcalidrawLibrary } from "./interop/excalidraw-library-import";
+export type { FlowSpawnDirection } from "./bindings/spawn-connected-node";
+export { FLOW_NODE_GAP, spawnConnectedNode } from "./bindings/spawn-connected-node";

@@ -82,6 +82,18 @@ export function buildImageSvgFragment(element: ImageElement, camera: Camera, fil
   if (!file) {
     return `<rect x="${rect.x}" y="${rect.y}" width="${rect.width}" height="${rect.height}" fill="#ffe3e3" stroke="#e03131" stroke-width="2" />`;
   }
+  const crop = element.crop;
+  if (crop) {
+    // A nested <svg> clips for free: its viewBox frames just the crop window of the full-size image
+    // laid out in natural-pixel units, and the outer x/y/width/height place that window in the export.
+    const naturalW = element.naturalWidth;
+    const naturalH = element.naturalHeight;
+    return (
+      `<svg x="${rect.x}" y="${rect.y}" width="${rect.width}" height="${rect.height}" ` +
+      `viewBox="${crop.x * naturalW} ${crop.y * naturalH} ${crop.width * naturalW} ${crop.height * naturalH}" preserveAspectRatio="none">` +
+      `<image x="0" y="0" width="${naturalW}" height="${naturalH}" href="${escapeXmlAttribute(file.dataURL)}" preserveAspectRatio="none" /></svg>`
+    );
+  }
   return (
     `<image x="${rect.x}" y="${rect.y}" width="${rect.width}" height="${rect.height}" ` +
     `href="${escapeXmlAttribute(file.dataURL)}" preserveAspectRatio="none" />`

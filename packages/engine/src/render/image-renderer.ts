@@ -32,6 +32,8 @@ export interface ImageDrawContext2D extends RoughDrawContext2D {
   fillRect(x: number, y: number, width: number, height: number): void;
   strokeRect(x: number, y: number, width: number, height: number): void;
   drawImage(image: HTMLImageElement, dx: number, dy: number, dWidth: number, dHeight: number): void;
+  /** 9-arg source-rect overload — how a cropped image draws only its `crop` window. */
+  drawImage(image: HTMLImageElement, sx: number, sy: number, sWidth: number, sHeight: number, dx: number, dy: number, dWidth: number, dHeight: number): void;
   /** Used to mirror a flipped image about its own centre — see `ImageElement.scale`. */
   scale(x: number, y: number): void;
 }
@@ -90,7 +92,22 @@ export function drawElementImage(
   } else {
     const decoded = decodeCache.get(element.fileId, file.dataURL);
     if (decoded) {
-      ctx.drawImage(decoded, rect.x, rect.y, rect.width, rect.height);
+      const crop = element.crop;
+      if (crop) {
+        ctx.drawImage(
+          decoded,
+          crop.x * element.naturalWidth,
+          crop.y * element.naturalHeight,
+          crop.width * element.naturalWidth,
+          crop.height * element.naturalHeight,
+          rect.x,
+          rect.y,
+          rect.width,
+          rect.height,
+        );
+      } else {
+        ctx.drawImage(decoded, rect.x, rect.y, rect.width, rect.height);
+      }
     } else if (decodeCache.status(element.fileId) === "error") {
       drawPlaceholder(ctx, rect, ERROR_FILL, ERROR_STROKE);
     } else {

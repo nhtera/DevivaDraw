@@ -8,6 +8,7 @@
  */
 import { screenToScene, startArrowLabelEdit, startBoundTextEdit, startExistingStandaloneTextEdit, startStandaloneTextEdit, topmostElementAt } from "@deviva-draw/engine";
 import type { Camera, Scene, SelectionState, ShapeStyleState, TextEditSession, TextMeasurer, ToolStateMachine } from "@deviva-draw/engine";
+import { isCroppableImage } from "../components/image-crop-overlay";
 import { findArrowAt } from "../browser/find-arrow-at-point";
 import { findBindableContainerAt } from "../browser/find-bindable-container-at-point";
 import { findStandaloneTextAt } from "../browser/find-standalone-text-at-point";
@@ -52,6 +53,13 @@ export function attachDoubleClickToEditListener(options: DoubleClickEditOptions)
     // same two-step every mainstream whiteboard uses.
     if (topmost && topmost.groupIds.length > 0 && !(selection.size === 1 && selection.isSelected(topmost.id))) {
       selection.selectOnly([topmost.id]);
+      return;
+    }
+
+    // An (unrotated) image enters its crop editor — the overlay owns the session; a window event
+    // keeps this handler decoupled from React, same as the embed activation above.
+    if (topmost && isCroppableImage(scene, topmost.id)) {
+      window.dispatchEvent(new CustomEvent("deviva:image-crop", { detail: { id: topmost.id } }));
       return;
     }
 

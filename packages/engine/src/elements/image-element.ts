@@ -14,11 +14,20 @@ import type { MirrorScale } from "./element-mirror";
 import type { ElementCreationInput } from "./element-factory-defaults";
 import { createElementBase } from "./element-factory-defaults";
 
+/** Source-rect crop as fractions of the natural image (`x`/`y` top-left, all in [0, 1]) — the element box shows only this window. Absent/`null` ⇒ the whole image. */
+export interface ImageCrop {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface ImageElement extends BaseElement {
   type: "image";
   fileId: string;
   naturalWidth: number;
   naturalHeight: number;
+  crop?: ImageCrop | null;
 }
 
 export interface ImageElementCreationInput extends ElementCreationInput {

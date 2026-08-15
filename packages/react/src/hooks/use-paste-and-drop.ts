@@ -22,7 +22,7 @@
  */
 import { useEffect } from "react";
 import type { RefObject } from "react";
-import { insertImageFile, screenToScene } from "@deviva-draw/engine";
+import { insertImageFile, readEmbeddedSceneData, readEmbeddedSceneDataFromSvg, screenToScene } from "@deviva-draw/engine";
 import type { Camera, Scene } from "@deviva-draw/engine";
 import type { DecodeNaturalSizeFn } from "@deviva-draw/engine";
 import { findFirstImageItem, looksLikeSvgMarkup, shouldConsumePaste, svgMarkupToBytes, SVG_MIME_TYPE } from "./clipboard-image-detection";
@@ -39,6 +39,14 @@ export interface UsePasteAndDropOptions {
   maxFileSizeBytes?: number;
   /** Called when an insert is rejected (oversized file, undecodable image, ...); there's no toast/notification system yet, so the composed app shell just logs it (`console.warn`). */
   onInsertError?: (error: unknown) => void;
+  /**
+   * Offered the scene JSON embedded in a dropped export (a PNG's `tEXt` chunk / an SVG's
+   * `<metadata>`) before the file is inserted as a plain image. Return `true` to claim it (the shell
+   * replaces the document, the same as dropping a `.devivadraw` file); `false`/absent falls through
+   * to the normal image insert. Paste deliberately never takes this path — pasting a picture should
+   * paste a picture.
+   */
+  onEmbeddedSceneDrop?: (parsed: unknown) => boolean;
 }
 
 /** `UsePasteAndDropOptions` with `scene` narrowed to non-null — every helper below is only ever called from inside the effect's `!scene` early-return guard, via `narrowedOptions`. */
@@ -152,7 +160,25 @@ export function usePasteAndDrop(options: UsePasteAndDropOptions): void {
       for (let index = 0; index < files.length; index += 1) {
         const file = files[index];
         if (!file || !findFirstImageItem([file])) continue;
-        insertBlobAt(file, dropPoint, narrowedOptions).catch((error: unknown) => narrowedOptions.onInsertError?.(error));
+        void (async () => {
+          // A previously-exported PNG/SVG carries the whole scene inside it — offer that to the
+          // shell first, so dragging an export back in reopens the drawing instead of flattening it
+          // into a picture of itself.
+          if (narrowedOptions.onEmbeddedSceneDrop) {
+            try {
+              const embedded =
+                file.type === "image/png"
+                  ? readEmbeddedSceneData(new Uint8Array(await file.arrayBuffer()))
+                  : file.type === "image/svg+xml"
+                    ? readEmbeddedSceneDataFromSvg(await file.text())
+                    : null;
+              if (embedded !== null && narrowedOptions.onEmbeddedSceneDrop(JSON.parse(embedded))) return;
+            } catch {
+              // Malformed embed → treat as a plain image, never fail the drop.
+            }
+          }
+          await insertBlobAt(file, dropPoint, narrowedOptions);
+        })().catch((error: unknown) => narrowedOptions.onInsertError?.(error));
         return; // one image per drop keeps "single insert point" semantics simple — YAGNI beyond that for V1
       }
     };

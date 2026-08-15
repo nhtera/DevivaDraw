@@ -12,6 +12,9 @@ import type { ModifierKeys } from "../input/tool-handler";
 import type { Scene } from "../scene/scene";
 import type { ShapeToolHistory } from "../tools/drag-shape-tool-base";
 import { dropArrowBindingsMovingAlone } from "./arrow-binding-drop";
+import { spawnConnectedNode } from "../bindings/spawn-connected-node";
+import type { FlowSpawnDirection } from "../bindings/spawn-connected-node";
+import { isBindableContainer } from "../text/bound-text";
 import { duplicateElements, InternalClipboard } from "./clipboard";
 import { deleteSelection } from "./delete-selection";
 import { groupSelection, ungroupSelection } from "./group-ungroup";
@@ -143,6 +146,26 @@ export function handleSelectionKeyDown(deps: SelectionKeyboardDeps, key: string,
     return;
   }
   if (key in NUDGE_DIRECTION) {
+    // Alt+Arrow with a single bindable shape selected grows a flowchart: a connected sibling node
+    // spawns in that direction and becomes the selection, so repeated presses keep chaining. Plain
+    // arrows stay the pixel nudge.
+    const flowSource = modifiers.alt && ids.length === 1 ? deps.scene.getElement(ids[0]!) : undefined;
+    if (flowSource && isBindableContainer(flowSource)) {
+      let nodeId: string | null = null;
+      runBatched(deps, () => {
+        nodeId = spawnConnectedNode(deps.scene, flowSource.id, FLOW_DIRECTION_BY_KEY[key]!);
+      });
+      if (nodeId !== null) deps.selection.selectOnly([nodeId]);
+      return;
+    }
+    // Alt on a non-bindable selection (text, arrow, image, ...) falls through to the ordinary nudge.
     nudgeSelection(deps, key, modifiers.shift);
   }
 }
+
+const FLOW_DIRECTION_BY_KEY: Record<string, FlowSpawnDirection> = {
+  ArrowLeft: "left",
+  ArrowRight: "right",
+  ArrowUp: "up",
+  ArrowDown: "down",
+};

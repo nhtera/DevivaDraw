@@ -34,7 +34,9 @@ import { TopBar } from "./components/top-bar";
 import { PropertiesPanel } from "./components/properties-panel";
 import { ContextMenu } from "./components/context-menu";
 import { ImagePlacementOverlay } from "./components/image-placement-overlay";
+import { ImageCropOverlay } from "./components/image-crop-overlay";
 import { LinkBadgesOverlay } from "./components/link-badges-overlay";
+import { StatsPanel } from "./components/stats-panel";
 import { PagesPanel } from "./components/pages-panel";
 import { MainMenu } from "./components/main-menu";
 import { ShareDialog } from "./components/share-dialog";
@@ -221,6 +223,12 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     getViewportSize,
     decodeNaturalSize,
     onInsertError: (error) => console.warn("deviva-draw: image insert rejected", error),
+    onEmbeddedSceneDrop: (parsed) => {
+      const result = deserializeMultiPageDocument(parsed);
+      if (!result.ok) return false;
+      pageStore.replaceAll(result.pages, result.activePageId);
+      return true;
+    },
   });
   // Shares the canvas host's drop target with `usePasteAndDrop` above — that one handles files dragged
   // in from outside, this one an in-document drag from the library sidebar. Each ignores the other's.
@@ -395,14 +403,11 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {runtime && commandPaletteOpen.value && <CommandPalette runtime={runtime} onClose={() => commandPaletteOpen.set(false)} />}
       {pendingPlacement && <ImagePlacementOverlay placement={pendingPlacement} getCamera={getCamera} />}
       {runtime && <LinkBadgesOverlay scene={runtime.scene} cameraStore={cameraStore} />}
+      {runtime && !viewOnly.value && <ImageCropOverlay runtime={runtime} cameraStore={cameraStore} />}
       {runtime && contextMenuTriggers.point && !viewOnly.value && (
         <ContextMenu runtime={runtime} screenPoint={contextMenuTriggers.point} variant={contextMenuTriggers.variant} onClose={contextMenuTriggers.close} />
       )}
-      {statsPanel.value && runtime && (
-        <div data-testid="stats-panel" style={{ position: "absolute", bottom: 146, right: 8, fontSize: 11, color: "var(--dd-text-secondary)" }}>
-          {t("panel.layers")}: {runtime.scene.getElements().filter((element) => !element.isDeleted).length}
-        </div>
-      )}
+      {statsPanel.value && runtime && <StatsPanel runtime={runtime} cameraStore={cameraStore} />}
     </div>
   );
 });
