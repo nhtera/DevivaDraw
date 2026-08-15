@@ -42,6 +42,7 @@ import {
 } from "@deviva-draw/engine";
 import type { AnyElement, Camera, Scene, TextMeasurer } from "@deviva-draw/engine";
 import type { GridState, ObjectSnapState } from "../actions/action-types";
+import { readStoredGrid } from "../preferences/grid-storage";
 import { readStoredObjectSnap } from "../preferences/object-snap-storage";
 import { adaptStrokeColorForTheme } from "../theme/canvas-color-inversion";
 import type { ThemeMode } from "../theme/theme-tokens";
@@ -81,6 +82,15 @@ function readInitialObjectSnap(): boolean {
     return typeof window !== "undefined" ? readStoredObjectSnap(window.localStorage) : false;
   } catch {
     return false; // storage can throw outright under a blocked-cookies policy
+  }
+}
+
+/** The persisted grid-mode preference, with the same fallbacks as `readInitialObjectSnap`. */
+function readInitialGrid(): boolean {
+  try {
+    return typeof window !== "undefined" ? readStoredGrid(window.localStorage) : false;
+  } catch {
+    return false;
   }
 }
 
@@ -180,7 +190,7 @@ export function buildTools(
 
   const selectionState = new SelectionState();
   const clipboard = new InternalClipboard();
-  const grid: GridState = { enabled: false, size: 20 };
+  const grid: GridState = { enabled: readInitialGrid(), size: 20 };
   // Read once at build time and mutated in place afterwards, exactly like `grid`: the move gesture
   // reads it every pointer move, so it has to be a live object rather than a captured boolean.
   const objectSnap: ObjectSnapState = { enabled: readInitialObjectSnap() };

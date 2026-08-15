@@ -4,6 +4,7 @@
  * as everything else — kept intentionally tiny, no dedicated UI beyond a main-menu toggle each).
  */
 import { selectionBoundsOf } from "@deviva-draw/engine";
+import { writeStoredGrid } from "../preferences/grid-storage";
 import { writeStoredObjectSnap } from "../preferences/object-snap-storage";
 import type { Action, ActionRuntime } from "./action-types";
 
@@ -32,8 +33,14 @@ export function buildViewActions(): Action[] {
       id: "toggle-grid",
       labelKey: "action.toggleGrid",
       icon: "grid",
+      shortcut: "meta+'",
       run: (runtime) => {
         runtime.grid.enabled = !runtime.grid.enabled;
+        try {
+          if (typeof window !== "undefined") writeStoredGrid(window.localStorage, runtime.grid.enabled);
+        } catch {
+          // Same policy as the snap toggle below: blocked storage costs only the cross-reload memory.
+        }
       },
     },
     {

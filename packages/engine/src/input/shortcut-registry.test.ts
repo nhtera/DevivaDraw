@@ -154,5 +154,8 @@ describe("registerFullShortcutMap", () => {
     expect(registry.resolve("c", { ...NO_MODIFIERS, meta: true, alt: true })).toBe("copy-styles");
     expect(registry.resolve("v", { ...NO_MODIFIERS, ctrl: true, alt: true })).toBe("paste-styles");
     expect(registry.resolve("x", { ...NO_MODIFIERS, shift: true })).toBe("draw-to-shape");
+    expect(registry.resolve("s", { ...NO_MODIFIERS, alt: true })).toBe("toggle-object-snap");
+    expect(registry.resolve("'", { ...NO_MODIFIERS, meta: true })).toBe("toggle-grid");
+    expect(registry.resolve("'", { ...NO_MODIFIERS, ctrl: true })).toBe("toggle-grid");
   });
 });

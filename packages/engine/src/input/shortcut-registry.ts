@@ -115,10 +115,13 @@ export function registerStyleClipboardShortcuts(registry: ShortcutRegistry): voi
 
 /**
  * Canvas preferences that have no tool of their own — `Alt+S` toggles align-to-other-elements
- * snapping, the combo Excalidraw uses for the same preference.
+ * snapping, and `Ctrl/Cmd+'` toggles the dot grid, the combos mainstream whiteboards use for the
+ * same preferences.
  */
 export function registerPreferenceShortcuts(registry: ShortcutRegistry): void {
   registry.register("alt+s", "toggle-object-snap");
+  registry.register("ctrl+'", "toggle-grid");
+  registry.register("meta+'", "toggle-grid");
 }
 
 /** Mirroring the selection — `Shift+H` / `Shift+V`, matching Excalidraw. */

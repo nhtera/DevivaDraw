@@ -236,6 +236,9 @@ export function MainMenu(props: MainMenuProps) {
       <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
       {/* Toggle rows read their state directly at render: the menu closes on every click (`run` calls
           `onClose`), so it reopens with fresh state and never needs a live subscription while open. */}
+      <MenuButton testId="main-menu-toggle-grid" icon="grid" checked={runtime.grid.enabled} onClick={() => run("toggle-grid")}>
+        {t("action.toggleGrid")}
+      </MenuButton>
       <MenuButton testId="main-menu-toggle-object-snap" icon="snap" checked={runtime.objectSnap.enabled} onClick={() => run("toggle-object-snap")}>
         {t("action.toggleObjectSnap")}
       </MenuButton>
