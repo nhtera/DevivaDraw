@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRectangleElement } from "../elements/shape-elements";
 import { Scene } from "../scene/scene";
-import { AUTOSAVE_STORAGE_KEY, restoreAutosave, startAutosave } from "./local-storage-autosave";
+import { AUTOSAVE_RECOVERY_KEY_SUFFIX, AUTOSAVE_STORAGE_KEY, restoreAutosave, startAutosave } from "./local-storage-autosave";
 import type { StorageLike } from "./local-storage-autosave";
 
 /** In-memory `StorageLike` fake — real `window.localStorage`-shaped, no DOM needed. */
@@ -221,5 +221,127 @@ describe("restoreAutosave", () => {
 
     expect(restoreAutosave(storage, "custom-key")).not.toBeNull();
     expect(restoreAutosave(storage)).toBeNull();
+  });
+});
+
+describe("restoreAutosave — salvage and recovery backup", () => {
+  const RECOVERY_KEY = AUTOSAVE_STORAGE_KEY + AUTOSAVE_RECOVERY_KEY_SUFFIX;
+
+  /** A valid saved document with `mutate` applied to it before it goes back into storage. */
+  function savedDocumentWith(mutate: (document: { elements: Record<string, unknown>[] }) => void): string {
+    const scene = new Scene();
+    scene.addElement(createRectangleElement({ x: 0, y: 0, width: 10, height: 10 }));
+    scene.addElement(createRectangleElement({ x: 50, y: 50, width: 10, height: 10 }));
+    const storage = fakeStorage();
+    const controller = startAutosave({ scene, storage });
+    controller.flush();
+    controller.dispose();
+    const document = JSON.parse(storage.getItem(AUTOSAVE_STORAGE_KEY)!) as { elements: Record<string, unknown>[] };
+    mutate(document);
+    return JSON.stringify(document);
+  }
+
+  it("salvages the valid elements when one element is corrupted, instead of dropping the whole board", () => {
+    const raw = savedDocumentWith((document) => {
+      document.elements[0]!.width = "corrupted";
+    });
+    const storage = fakeStorage({ [AUTOSAVE_STORAGE_KEY]: raw });
+    const onSalvage = vi.fn();
+
+    const restored = restoreAutosave(storage, AUTOSAVE_STORAGE_KEY, { onSalvage });
+
+    expect(restored).not.toBeNull();
+    expect(restored!.getElements()).toHaveLength(1);
+    expect(onSalvage).toHaveBeenCalledTimes(1);
+    expect(onSalvage.mock.calls[0]![0].droppedErrors).toEqual([expect.stringContaining("elements[0].width")]);
+  });
+
+  it("backs up the original payload to the recovery key before salvaging", () => {
+    const raw = savedDocumentWith((document) => {
+      document.elements[0]!.width = "corrupted";
+    });
+    const storage = fakeStorage({ [AUTOSAVE_STORAGE_KEY]: raw });
+
+    restoreAutosave(storage);
+
+    expect(storage.getItem(RECOVERY_KEY)).toBe(raw);
+  });
+
+  it("backs up (and reports via onSalvage) an unparsable payload even though nothing is restorable", () => {
+    const storage = fakeStorage({ [AUTOSAVE_STORAGE_KEY]: "{not valid json" });
+    const onSalvage = vi.fn();
+
+    expect(restoreAutosave(storage, AUTOSAVE_STORAGE_KEY, { onSalvage })).toBeNull();
+
+    expect(storage.getItem(RECOVERY_KEY)).toBe("{not valid json");
+    expect(onSalvage).toHaveBeenCalledTimes(1);
+  });
+
+  it("backs up a payload whose envelope is beyond salvage (wrong document type)", () => {
+    const raw = JSON.stringify({ not: "a scene document" });
+    const storage = fakeStorage({ [AUTOSAVE_STORAGE_KEY]: raw });
+    const onSalvage = vi.fn();
+
+    expect(restoreAutosave(storage, AUTOSAVE_STORAGE_KEY, { onSalvage })).toBeNull();
+
+    expect(storage.getItem(RECOVERY_KEY)).toBe(raw);
+    expect(onSalvage.mock.calls[0]![0].droppedErrors).toHaveLength(1);
+  });
+
+  it("does not touch the recovery key or call onSalvage on a clean restore", () => {
+    const raw = savedDocumentWith(() => {});
+    const storage = fakeStorage({ [AUTOSAVE_STORAGE_KEY]: raw });
+    const onSalvage = vi.fn();
+
+    const restored = restoreAutosave(storage, AUTOSAVE_STORAGE_KEY, { onSalvage });
+
+    expect(restored!.getElements()).toHaveLength(2);
+    expect(storage.getItem(RECOVERY_KEY)).toBeNull();
+    expect(onSalvage).not.toHaveBeenCalled();
+  });
+
+  it("still salvages when the recovery-key backup write itself fails (quota)", () => {
+    const raw = savedDocumentWith((document) => {
+      document.elements[0]!.width = "corrupted";
+    });
+    const storage = fakeStorage({ [AUTOSAVE_STORAGE_KEY]: raw });
+    storage.setItem = () => {
+      throw new DOMException("quota exceeded", "QuotaExceededError");
+    };
+
+    const restored = restoreAutosave(storage);
+
+    expect(restored).not.toBeNull();
+    expect(restored!.getElements()).toHaveLength(1);
+  });
+
+  it("cleans up references dangling at a salvaged-away element (arrow binding survives as unbound)", () => {
+    const raw = savedDocumentWith((document) => {
+      const [first, second] = document.elements as [Record<string, unknown>, Record<string, unknown>];
+      document.elements.push({
+        ...structuredClone(first),
+        id: "arrow-1",
+        type: "arrow",
+        points: [
+          { x: 0, y: 0 },
+          { x: 10, y: 10 },
+        ],
+        startBinding: { elementId: first.id, focus: 0, gap: 4 },
+        endBinding: { elementId: second.id, focus: 0, gap: 4 },
+        startArrowhead: "none",
+        endArrowhead: "arrow",
+        arrowType: "straight",
+      });
+      first.width = "corrupted"; // the arrow's start target gets dropped by salvage
+    });
+    const storage = fakeStorage({ [AUTOSAVE_STORAGE_KEY]: raw });
+
+    const restored = restoreAutosave(storage);
+
+    expect(restored).not.toBeNull();
+    const arrow = restored!.getElement("arrow-1");
+    expect(arrow).toBeDefined();
+    expect((arrow as { startBinding: unknown }).startBinding).toBeNull();
+    expect((arrow as { endBinding: { elementId: string } }).endBinding).not.toBeNull();
   });
 });

@@ -37,9 +37,21 @@ export function startBrowserAutosave(scene: Scene, storageKey?: string): Autosav
   });
 }
 
-/** Restores the last autosaved scene from localStorage, or `null` if there's nothing saved / it failed validation — never throws. `storageKey` must match whatever `startBrowserAutosave` was given. */
+/**
+ * Restores the last autosaved scene from localStorage, or `null` if there's nothing saved / it is
+ * beyond recovery — never throws. A partially-corrupted save loads with the bad entries dropped, the
+ * original payload preserved under the `:recovery` key, and a console warning saying what was lost
+ * (see the engine's `restoreAutosave` doc). `storageKey` must match whatever `startBrowserAutosave`
+ * was given.
+ */
 export function restoreBrowserAutosave(storageKey?: string): Scene | null {
-  return restoreAutosave(window.localStorage, storageKey);
+  return restoreAutosave(window.localStorage, storageKey, {
+    onSalvage: ({ droppedErrors }) =>
+      console.warn(
+        "deviva-draw: the autosaved scene did not restore cleanly — the original payload was backed up to the \":recovery\" localStorage key",
+        droppedErrors,
+      ),
+  });
 }
 
 /** Downloads the live scene as a `.devivadraw` JSON file (or opens the native save dialog when available). */

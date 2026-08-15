@@ -233,3 +233,55 @@ export function validateSceneDocument(raw: unknown): ValidationResult<SceneDocum
   if (appStateResult.value) document.appState = appStateResult.value;
   return ok(document);
 }
+
+export interface LenientSceneValidation {
+  document: SceneDocumentV1;
+  /** One human-readable reason per element/file/appState entry that failed validation and was dropped. Empty means the document was fully valid. */
+  droppedErrors: string[];
+}
+
+/**
+ * Entry-level salvage variant of `validateSceneDocument`, for restore paths where rejecting the whole
+ * document destroys data the user cannot re-open from anywhere else (localStorage autosave — see
+ * `local-storage-autosave.ts`). The envelope is still validated strictly (an unrecognizable document
+ * stays rejected), but an individual element or file entry that fails validation is dropped — with its
+ * reason recorded in `droppedErrors` — instead of aborting the load: one corrupted element in a
+ * 500-element board must not turn into "the whole board is gone". A dropped element's dangling
+ * references (bindings, `containerId`, `frameId`) are cleaned up afterwards by
+ * `deserializeScene`'s `repairDanglingReferences` pass, same as any other inconsistent input.
+ */
+export function validateSceneDocumentLenient(raw: unknown): ValidationResult<LenientSceneValidation> {
+  if (!isPlainObject(raw)) return fail("scene document must be a JSON object");
+  if (raw.type !== SCENE_DOCUMENT_TYPE) return fail(`scene document "type" must be "${SCENE_DOCUMENT_TYPE}"`);
+  if (raw.schemaVersion !== CURRENT_SCHEMA_VERSION) {
+    return fail(`scene document "schemaVersion" must be ${CURRENT_SCHEMA_VERSION} after migration (got ${String(raw.schemaVersion)})`);
+  }
+  if (!Array.isArray(raw.elements)) return fail('scene document "elements" must be an array');
+  if (!isPlainObject(raw.files)) return fail('scene document "files" must be an object');
+
+  const droppedErrors: string[] = [];
+
+  const elements: AnyElement[] = [];
+  for (const [index, rawElement] of raw.elements.entries()) {
+    const result = validateElement(rawElement, index);
+    if (result.ok) elements.push(result.value);
+    else droppedErrors.push(result.error);
+  }
+
+  const files: Record<string, SerializedStoredFile> = {};
+  for (const [fileId, rawFile] of Object.entries(raw.files)) {
+    const result = validateFile(rawFile, fileId);
+    if (result.ok) files[fileId] = result.value;
+    else droppedErrors.push(result.error);
+  }
+
+  const document: SceneDocumentV1 = { type: SCENE_DOCUMENT_TYPE, schemaVersion: CURRENT_SCHEMA_VERSION, elements, files };
+  // appState is pure view state (scroll/zoom/background) — losing it is cosmetic, so a bad one is dropped like a bad element rather than failing the load.
+  const appStateResult = validateAppState(raw.appState);
+  if (appStateResult.ok) {
+    if (appStateResult.value) document.appState = appStateResult.value;
+  } else {
+    droppedErrors.push(appStateResult.error);
+  }
+  return ok({ document, droppedErrors });
+}

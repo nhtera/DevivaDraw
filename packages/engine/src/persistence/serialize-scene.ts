@@ -13,7 +13,7 @@ import { isBindableContainer } from "../text/bound-text";
 import { applyMigrations, UnsupportedSchemaVersionError } from "./migrations";
 import type { SceneDocumentV1, SerializedAppState } from "./scene-schema";
 import { CURRENT_SCHEMA_VERSION, SCENE_DOCUMENT_TYPE } from "./scene-schema";
-import { validateSceneDocument } from "./scene-validation";
+import { validateSceneDocument, validateSceneDocumentLenient } from "./scene-validation";
 
 export interface SerializeSceneOptions {
   /**
@@ -111,30 +111,65 @@ function repairDanglingReferences(scene: Scene): void {
  */
 export function deserializeScene(raw: unknown): DeserializeSceneResult {
   try {
-    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-      return { ok: false, error: "scene document must be a JSON object" };
-    }
-    const envelope = raw as Record<string, unknown>;
-    if (envelope.type !== SCENE_DOCUMENT_TYPE) {
-      return { ok: false, error: `scene document "type" must be "${SCENE_DOCUMENT_TYPE}"` };
-    }
-    if (typeof envelope.schemaVersion !== "number" || !Number.isInteger(envelope.schemaVersion) || envelope.schemaVersion < 1) {
-      return { ok: false, error: 'scene document "schemaVersion" must be a positive integer' };
-    }
+    const migrated = migrateRawDocument(raw);
+    if (!migrated.ok) return { ok: false, error: migrated.error };
 
-    const migrated = applyMigrations(envelope, envelope.schemaVersion);
-    const validated = validateSceneDocument(migrated);
+    const validated = validateSceneDocument(migrated.document);
     if (!validated.ok) return { ok: false, error: validated.error };
 
-    const scene = new Scene();
-    for (const [fileId, file] of Object.entries(validated.value.files)) scene.restoreFile(fileId, file);
-    for (const element of validated.value.elements) scene.restoreElement(element);
-    if (validated.value.appState?.background !== undefined) scene.setBackground(validated.value.appState.background);
-    repairDanglingReferences(scene);
-
-    return { ok: true, scene };
+    return { ok: true, scene: buildSceneFromDocument(validated.value) };
   } catch (error) {
     if (error instanceof UnsupportedSchemaVersionError) return { ok: false, error: error.message };
     return { ok: false, error: error instanceof Error ? error.message : "unknown error deserializing scene" };
   }
+}
+
+export type DeserializeSceneLenientResult = { ok: true; scene: Scene; droppedErrors: string[] } | { ok: false; error: string };
+
+/**
+ * Entry-level-salvage variant of `deserializeScene` for restore paths where a rejected document is
+ * *destroyed*, not merely "not opened" — the localStorage autosave (`local-storage-autosave.ts`), whose
+ * stored value the next debounced write overwrites. Same envelope/migration gate, but validation drops
+ * an invalid element/file entry (reported in `droppedErrors`) instead of failing the whole load; see
+ * `validateSceneDocumentLenient`. File-open paths deliberately keep using the strict `deserializeScene`:
+ * there the source file survives rejection untouched, and a hard error is the honest answer.
+ */
+export function deserializeSceneLenient(raw: unknown): DeserializeSceneLenientResult {
+  try {
+    const migrated = migrateRawDocument(raw);
+    if (!migrated.ok) return { ok: false, error: migrated.error };
+
+    const validated = validateSceneDocumentLenient(migrated.document);
+    if (!validated.ok) return { ok: false, error: validated.error };
+
+    return { ok: true, scene: buildSceneFromDocument(validated.value.document), droppedErrors: validated.value.droppedErrors };
+  } catch (error) {
+    if (error instanceof UnsupportedSchemaVersionError) return { ok: false, error: error.message };
+    return { ok: false, error: error instanceof Error ? error.message : "unknown error deserializing scene" };
+  }
+}
+
+/** Shared envelope check + migration for both deserializers: raw JSON in, a document at `CURRENT_SCHEMA_VERSION`'s shape (not yet validated) out. */
+function migrateRawDocument(raw: unknown): { ok: true; document: unknown } | { ok: false; error: string } {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    return { ok: false, error: "scene document must be a JSON object" };
+  }
+  const envelope = raw as Record<string, unknown>;
+  if (envelope.type !== SCENE_DOCUMENT_TYPE) {
+    return { ok: false, error: `scene document "type" must be "${SCENE_DOCUMENT_TYPE}"` };
+  }
+  if (typeof envelope.schemaVersion !== "number" || !Number.isInteger(envelope.schemaVersion) || envelope.schemaVersion < 1) {
+    return { ok: false, error: 'scene document "schemaVersion" must be a positive integer' };
+  }
+  return { ok: true, document: applyMigrations(envelope, envelope.schemaVersion) };
+}
+
+/** Shared `Scene` construction from an already-validated document — restore paths only (see `deserializeScene`'s doc for why `restoreElement`/`restoreFile`, not `addElement`/`addFile`). */
+function buildSceneFromDocument(document: SceneDocumentV1): Scene {
+  const scene = new Scene();
+  for (const [fileId, file] of Object.entries(document.files)) scene.restoreFile(fileId, file);
+  for (const element of document.elements) scene.restoreElement(element);
+  if (document.appState?.background !== undefined) scene.setBackground(document.appState.background);
+  repairDanglingReferences(scene);
+  return scene;
 }

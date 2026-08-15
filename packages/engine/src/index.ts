@@ -426,14 +426,14 @@ export { CURRENT_SCHEMA_VERSION, SCENE_DOCUMENT_TYPE } from "./persistence/scene
 export type { SceneMigration } from "./persistence/migrations";
 export { applyMigrations, migrations, UnsupportedSchemaVersionError } from "./persistence/migrations";
 
-export type { ValidationResult } from "./persistence/scene-validation";
-export { validateSceneDocument } from "./persistence/scene-validation";
+export type { LenientSceneValidation, ValidationResult } from "./persistence/scene-validation";
+export { validateSceneDocument, validateSceneDocumentLenient } from "./persistence/scene-validation";
 
-export type { DeserializeSceneResult, SerializeSceneOptions } from "./persistence/serialize-scene";
-export { deserializeScene, serializeScene } from "./persistence/serialize-scene";
+export type { DeserializeSceneLenientResult, DeserializeSceneResult, SerializeSceneOptions } from "./persistence/serialize-scene";
+export { deserializeScene, deserializeSceneLenient, serializeScene } from "./persistence/serialize-scene";
 
-export type { AutosaveController, AutosaveOptions, StorageLike } from "./persistence/local-storage-autosave";
-export { AUTOSAVE_STORAGE_KEY, restoreAutosave, startAutosave } from "./persistence/local-storage-autosave";
+export type { AutosaveController, AutosaveOptions, RestoreAutosaveOptions, StorageLike } from "./persistence/local-storage-autosave";
+export { AUTOSAVE_RECOVERY_KEY_SUFFIX, AUTOSAVE_STORAGE_KEY, restoreAutosave, startAutosave } from "./persistence/local-storage-autosave";
 
 export type { ExportFrame, ExportScale } from "./export/export-geometry";
 export { computeExportBounds, computeExportFrame, DEFAULT_EXPORT_PADDING, EmptyExportSelectionError, EXPORT_SCALES } from "./export/export-geometry";
