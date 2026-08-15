@@ -39,6 +39,43 @@ export const MENU_GLYPHS: Record<string, ReactNode> = {
   ),
   // A clean downward chevron — the custom dropdown indicator for the language <select>.
   "chevron-down": <path d="M5.5 8 L10 12.5 L14.5 8" strokeLinecap="round" strokeLinejoin="round" />,
+  "chevron-right": <path d="M8 5.5 L12.5 10 L8 14.5" strokeLinecap="round" strokeLinejoin="round" />,
+  // The layers panel's row glyphs — same open-eye drawing as "view-only" (one eye across the whole
+  // chrome), its slashed variant for a hidden layer, and an open-shackle counterpart to `lock`.
+  eye: (
+    <>
+      <path d="M2.5 10 C5.5 5.5 14.5 5.5 17.5 10 C14.5 14.5 5.5 14.5 2.5 10 Z" />
+      <circle cx="10" cy="10" r="2.3" />
+    </>
+  ),
+  "eye-off": (
+    <>
+      <path d="M2.5 10 C5.5 5.5 14.5 5.5 17.5 10 C14.5 14.5 5.5 14.5 2.5 10 Z" />
+      <path d="M4.5 15.5 L15.5 4.5" />
+    </>
+  ),
+  unlock: (
+    <>
+      <rect x="4.5" y="9" width="11" height="8" rx="1.5" />
+      <path d="M7 9 V6.5 A3 3 0 0 1 12.6 5.2" />
+    </>
+  ),
+  // A gear: eight stubby teeth around a ring — the preferences flyout's parent row.
+  settings: (
+    <>
+      <circle cx="10" cy="10" r="4.2" />
+      <circle cx="10" cy="10" r="1.6" />
+      <path d="M10 3.2 V5.8 M10 14.2 V16.8 M3.2 10 H5.8 M14.2 10 H16.8 M5.2 5.2 L7 7 M13 13 L14.8 14.8 M14.8 5.2 L13 7 M7 13 L5.2 14.8" strokeLinecap="round" />
+    </>
+  ),
+  // Stacked planes — the classic layers pictogram, three tilted rhombi front-to-back.
+  layers: (
+    <>
+      <path d="M10 3.5 L17 7 L10 10.5 L3 7 Z" strokeLinejoin="round" />
+      <path d="M3.6 10.2 L10 13.4 L16.4 10.2" strokeLinejoin="round" />
+      <path d="M3.6 13.4 L10 16.6 L16.4 13.4" strokeLinejoin="round" />
+    </>
+  ),
   "chevron-up": <path d="M5.5 12 L10 7.5 L14.5 12" strokeLinecap="round" strokeLinejoin="round" />,
   check: <path d="M4 10.5 L8 14.5 L16 5.5" strokeLinecap="round" strokeLinejoin="round" />,
   // The GitHub mark, filled (the 24-unit official silhouette scaled into the shared 20-unit viewBox).
