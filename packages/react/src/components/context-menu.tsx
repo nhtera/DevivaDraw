@@ -16,7 +16,7 @@ import type { DevivaRuntime } from "../runtime/runtime-types";
  * nothing to anchor on.
  */
 const ELEMENT_ACTION_GROUPS: readonly (readonly string[])[] = [
-  ["copy", "paste", "copy-styles", "paste-styles"],
+  ["cut", "copy", "paste", "copy-styles", "paste-styles"],
   ["duplicate", "delete"],
   ["bring-to-front", "bring-forward", "send-backward", "send-to-back"],
   ["flip-horizontal", "flip-vertical"],

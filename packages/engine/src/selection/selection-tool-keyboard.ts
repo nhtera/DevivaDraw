@@ -104,6 +104,14 @@ export function handleSelectionKeyDown(deps: SelectionKeyboardDeps, key: string,
     deps.clipboard.copy(deps.scene, ids);
     return;
   }
+  if (meta && lower === "x" && ids.length > 0) {
+    // Cut = copy + delete in one undo step; the copy runs before the delete so the clipboard holds
+    // the elements as they were, not tombstones.
+    deps.clipboard.copy(deps.scene, ids);
+    runBatched(deps, () => deleteSelection(deps.scene, ids));
+    deps.selection.clear();
+    return;
+  }
   if (meta && lower === "v" && deps.clipboard.hasContent()) {
     let newIds: string[] = [];
     runBatched(deps, () => {

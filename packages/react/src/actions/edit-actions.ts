@@ -6,11 +6,50 @@
  * an action triggered by a mouse click has no keyboard event to synthesize — both paths converge on
  * the same underlying `Scene`/`SelectionState`/`InternalClipboard` mutations either way.
  */
-import { deleteSelection, duplicateElements } from "@deviva-draw/engine";
+import { deleteSelection, duplicateElements, FONT_SIZE_LEVELS } from "@deviva-draw/engine";
+import type { AnyElement } from "@deviva-draw/engine";
 import type { Action, ActionRuntime } from "./action-types";
 
 function hasSelection(runtime: ActionRuntime): boolean {
   return runtime.selection.size > 0;
+}
+
+/** Selected text elements, plus a container's bound label — so stepping the size works on a selected sticky note/labelled shape too, not only on bare text. */
+function fontSizeTargets(runtime: ActionRuntime): string[] {
+  const ids = new Set<string>();
+  for (const id of runtime.selection.getSelectedIds()) {
+    const element = runtime.scene.getElement(id);
+    if (!element || element.isDeleted) continue;
+    if (element.type === "text") ids.add(element.id);
+    for (const ref of element.boundElements ?? []) {
+      const bound = runtime.scene.getElement(ref.id);
+      if (bound && bound.type === "text" && !bound.isDeleted) ids.add(bound.id);
+    }
+  }
+  return [...ids];
+}
+
+/** Steps every target's `fontSize` to the neighboring `S/M/L/XL` preset — the same ladder the panel's size buttons use, so the shortcut and the buttons can never disagree about what sizes exist. */
+function stepFontSize(runtime: ActionRuntime, direction: 1 | -1): void {
+  const targets = fontSizeTargets(runtime);
+  if (targets.length === 0) return;
+  const levels = Object.values(FONT_SIZE_LEVELS);
+  runtime.history.beginBatch();
+  for (const id of targets) {
+    const element = runtime.scene.getElement(id);
+    if (!element || element.type !== "text") continue;
+    // Nearest preset at or beyond the current size, so a hand-set in-between value still steps sanely.
+    const currentIndex = levels.findIndex((level) => level >= element.fontSize);
+    const baseIndex = currentIndex === -1 ? levels.length - 1 : currentIndex;
+    const nextIndex = Math.max(0, Math.min(levels.length - 1, baseIndex + direction));
+    if (levels[nextIndex] !== element.fontSize) {
+      // Typed through the distributive `Partial<AnyElement>` (as the properties panel does) — the
+      // non-distributive `Omit` in `updateElement`'s own parameter keeps union-only keys out of a bare literal.
+      const changes: Partial<AnyElement> = { fontSize: levels[nextIndex] };
+      runtime.scene.updateElement(id, changes);
+    }
+  }
+  runtime.history.endBatch(runtime.scene.getElements());
 }
 
 /** Same "selectable" predicate `selection-tool-keyboard.ts`'s local `selectAll` uses: skip deleted, locked, and bound-text elements (bound text is never independently selectable — see `hit-test.ts`'s doc). */
@@ -71,6 +110,20 @@ export function buildEditActions(): Action[] {
       run: (runtime) => runtime.clipboard.copy(runtime.scene, [...runtime.selection.getSelectedIds()]),
     },
     {
+      id: "cut",
+      labelKey: "action.cut",
+      icon: "copy",
+      shortcut: "meta+x",
+      isEnabled: hasSelection,
+      run: (runtime) => {
+        const ids = [...runtime.selection.getSelectedIds()];
+        // Copy before delete, so the clipboard holds the live elements rather than tombstones.
+        runtime.clipboard.copy(runtime.scene, ids);
+        runBatched(runtime, () => deleteSelection(runtime.scene, ids));
+        runtime.selection.clear();
+      },
+    },
+    {
       id: "paste",
       labelKey: "action.paste",
       icon: "paste",
@@ -94,6 +147,22 @@ export function buildEditActions(): Action[] {
         runBatched(runtime, () => (newIds = duplicateElements(runtime.scene, ids)));
         runtime.selection.selectOnly(newIds);
       },
+    },
+    {
+      id: "increase-font-size",
+      labelKey: "action.increaseFontSize",
+      icon: "text",
+      shortcut: "meta+shift+>",
+      isEnabled: (runtime) => fontSizeTargets(runtime).length > 0,
+      run: (runtime) => stepFontSize(runtime, 1),
+    },
+    {
+      id: "decrease-font-size",
+      labelKey: "action.decreaseFontSize",
+      icon: "text",
+      shortcut: "meta+shift+<",
+      isEnabled: (runtime) => fontSizeTargets(runtime).length > 0,
+      run: (runtime) => stepFontSize(runtime, -1),
     },
     {
       id: "delete",

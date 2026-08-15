@@ -157,5 +157,7 @@ describe("registerFullShortcutMap", () => {
     expect(registry.resolve("s", { ...NO_MODIFIERS, alt: true })).toBe("toggle-object-snap");
     expect(registry.resolve("'", { ...NO_MODIFIERS, meta: true })).toBe("toggle-grid");
     expect(registry.resolve("'", { ...NO_MODIFIERS, ctrl: true })).toBe("toggle-grid");
+    expect(registry.resolve(">", { ...NO_MODIFIERS, meta: true, shift: true })).toBe("increase-font-size");
+    expect(registry.resolve("<", { ...NO_MODIFIERS, ctrl: true, shift: true })).toBe("decrease-font-size");
   });
 });

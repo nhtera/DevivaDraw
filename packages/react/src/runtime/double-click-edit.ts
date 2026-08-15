@@ -7,7 +7,7 @@
  * tools' own click handling.
  */
 import { screenToScene, startArrowLabelEdit, startBoundTextEdit, startExistingStandaloneTextEdit, startStandaloneTextEdit, topmostElementAt } from "@deviva-draw/engine";
-import type { Camera, Scene, ShapeStyleState, TextEditSession, TextMeasurer, ToolStateMachine } from "@deviva-draw/engine";
+import type { Camera, Scene, SelectionState, ShapeStyleState, TextEditSession, TextMeasurer, ToolStateMachine } from "@deviva-draw/engine";
 import { findArrowAt } from "../browser/find-arrow-at-point";
 import { findBindableContainerAt } from "../browser/find-bindable-container-at-point";
 import { findStandaloneTextAt } from "../browser/find-standalone-text-at-point";
@@ -22,11 +22,13 @@ export interface DoubleClickEditOptions {
   getCamera: () => Camera;
   /** Supplies the stroke/opacity for a text element created by double-clicking empty canvas (matches the text tool's own "next shape" defaults). */
   styleState: ShapeStyleState;
+  /** Read/written by the group drill-in below — a double-click on a grouped member selects just it. */
+  selection: SelectionState;
 }
 
 /** Attaches the listener; returns a detach function for the owning effect's cleanup. */
 export function attachDoubleClickToEditListener(options: DoubleClickEditOptions): () => void {
-  const { container, scene, toolStateMachine, selectToolName, editSession, textMeasurer, getCamera, styleState } = options;
+  const { container, scene, toolStateMachine, selectToolName, editSession, textMeasurer, getCamera, styleState, selection } = options;
 
   const handleDoubleClick = (event: MouseEvent) => {
     if (toolStateMachine.getActiveToolName() !== selectToolName) return;
@@ -41,6 +43,15 @@ export function attachDoubleClickToEditListener(options: DoubleClickEditOptions)
     const topmost = topmostElementAt(scene, scenePoint, 4 / camera.zoom);
     if (topmost && topmost.type === "embed") {
       window.dispatchEvent(new CustomEvent("deviva:embed-activate", { detail: { id: topmost.id } }));
+      return;
+    }
+
+    // Group drill-in: a click on a grouped element selects the whole group, so double-click is the
+    // way *into* it — the first one selects just the member under the cursor (restyle/move it alone),
+    // and a second double-click on the now-sole-selected member falls through to label editing, the
+    // same two-step every mainstream whiteboard uses.
+    if (topmost && topmost.groupIds.length > 0 && !(selection.size === 1 && selection.isSelected(topmost.id))) {
+      selection.selectOnly([topmost.id]);
       return;
     }
 

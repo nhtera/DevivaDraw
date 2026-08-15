@@ -132,6 +132,7 @@ export function buildRuntime(options: BuildRuntimeOptions): DevivaRuntime {
     textMeasurer: tools.textMeasurer,
     getCamera,
     styleState: tools.styleState,
+    selection: tools.selectionState,
   });
 
   runtime.dispose = () => {

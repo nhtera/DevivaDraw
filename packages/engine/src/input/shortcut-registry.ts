@@ -122,6 +122,12 @@ export function registerPreferenceShortcuts(registry: ShortcutRegistry): void {
   registry.register("alt+s", "toggle-object-snap");
   registry.register("ctrl+'", "toggle-grid");
   registry.register("meta+'", "toggle-grid");
+  // Font size stepping for the selected text (Ctrl/Cmd+Shift+> / <) — the shifted period/comma keys
+  // report as ">"/"<" in `event.key`, which is what `normalizeCombo` matches on.
+  for (const modifier of ["ctrl", "meta"]) {
+    registry.register(`${modifier}+shift+>`, "increase-font-size");
+    registry.register(`${modifier}+shift+<`, "decrease-font-size");
+  }
 }
 
 /** Mirroring the selection — `Shift+H` / `Shift+V`, matching Excalidraw. */

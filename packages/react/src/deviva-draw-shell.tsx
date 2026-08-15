@@ -34,6 +34,7 @@ import { TopBar } from "./components/top-bar";
 import { PropertiesPanel } from "./components/properties-panel";
 import { ContextMenu } from "./components/context-menu";
 import { ImagePlacementOverlay } from "./components/image-placement-overlay";
+import { LinkBadgesOverlay } from "./components/link-badges-overlay";
 import { PagesPanel } from "./components/pages-panel";
 import { MainMenu } from "./components/main-menu";
 import { ShareDialog } from "./components/share-dialog";
@@ -393,6 +394,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {runtime && collabDialogOpen.value && <CollabDialog collab={collab} onClose={() => collabDialogOpen.set(false)} />}
       {runtime && commandPaletteOpen.value && <CommandPalette runtime={runtime} onClose={() => commandPaletteOpen.set(false)} />}
       {pendingPlacement && <ImagePlacementOverlay placement={pendingPlacement} getCamera={getCamera} />}
+      {runtime && <LinkBadgesOverlay scene={runtime.scene} cameraStore={cameraStore} />}
       {runtime && contextMenuTriggers.point && !viewOnly.value && (
         <ContextMenu runtime={runtime} screenPoint={contextMenuTriggers.point} variant={contextMenuTriggers.variant} onClose={contextMenuTriggers.close} />
       )}

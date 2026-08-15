@@ -61,6 +61,25 @@ describe("handleSelectionKeyDown — duplicate/copy/paste", () => {
     handleSelectionKeyDown(deps, "v", { ...NO_MODIFIERS, ctrl: true });
     expect(scene.getElements()).toHaveLength(0);
   });
+
+  it("Ctrl+X cuts: the element is deleted (one undoable step) but pastes back from the clipboard", () => {
+    const { scene, selection, history, deps } = setup();
+    const rect = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 10, height: 10 }));
+    selection.selectOnly([rect.id]);
+
+    handleSelectionKeyDown(deps, "x", { ...NO_MODIFIERS, ctrl: true });
+    expect(scene.getElement(rect.id)?.isDeleted).toBe(true);
+    expect(selection.size).toBe(0);
+
+    handleSelectionKeyDown(deps, "v", { ...NO_MODIFIERS, ctrl: true });
+    expect(scene.getElements().filter((el) => !el.isDeleted)).toHaveLength(1);
+
+    // One undo removes the paste and lands exactly on the post-cut state — the cut (copy + delete)
+    // recorded as a single batch, not one entry per mutation.
+    scene.loadElementsSnapshot(history.undo()!);
+    expect(scene.getElement(rect.id)?.isDeleted).toBe(true);
+    expect(scene.getElements().filter((el) => !el.isDeleted)).toHaveLength(0);
+  });
 });
 
 describe("handleSelectionKeyDown — group/ungroup", () => {
