@@ -186,7 +186,7 @@ function buildTestRuntime(scene: Scene): ActionRuntime {
       exportSvg: vi.fn(),
       copyAsImage: vi.fn(),
       copyAsSvg: vi.fn(),
-      shareScene: vi.fn(async () => "https://draw.deviva.app/s/test#key=k&iv=i"),
+      shareScene: vi.fn(async () => ({ url: "https://draw.deviva.app/s/test#key=k&iv=i", blobId: "test", deleteToken: "t".repeat(43), pageCount: 1 })),
     },
   };
 }

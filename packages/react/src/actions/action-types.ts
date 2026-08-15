@@ -75,7 +75,20 @@ export interface PersistenceOperations {
    * `ShareDialogState`, and a silent failure would leave the share dialog stuck on "generating"
    * forever with no explanation.
    */
-  shareScene(): Promise<string>;
+  shareScene(): Promise<ShareLinkResult>;
+}
+
+/**
+ * What creating a share link yields beyond the URL: the blob id plus the revocation-capability
+ * token, which exist ONLY on the creating client (the server stores just the token's hash) — the
+ * dialog persists them to local history so this browser can revoke the link later. The full URL
+ * (whose fragment carries the decryption key) is deliberately NOT part of what history stores.
+ */
+export interface ShareLinkResult {
+  url: string;
+  blobId: string;
+  deleteToken: string;
+  pageCount: number;
 }
 
 /**

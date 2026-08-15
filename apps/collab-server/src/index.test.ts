@@ -14,6 +14,10 @@ function fakeEnv(): Env {
       data.set(key, value);
       return {};
     },
+    async delete(key) {
+      data.delete(key);
+      return undefined;
+    },
     async get(key) {
       const value = data.get(key);
       if (!value) return null;
@@ -80,8 +84,21 @@ describe("worker fetch — /blobs/{id} dispatch", () => {
   });
 
   it("rejects an unsupported method with 405", async () => {
-    const response = await worker.fetch(new Request(`https://collab.example/blobs/${VALID_BLOB_ID}`, { method: "DELETE" }), fakeEnv());
+    const response = await worker.fetch(new Request(`https://collab.example/blobs/${VALID_BLOB_ID}`, { method: "POST" }), fakeEnv());
     expect(response.status).toBe(405);
+  });
+
+  it("routes DELETE to the revocation handler (400 without a token — not 405)", async () => {
+    const response = await worker.fetch(new Request(`https://collab.example/blobs/${VALID_BLOB_ID}`, { method: "DELETE" }), fakeEnv());
+    expect(response.status).toBe(400);
+  });
+
+  it("preflight CORS allow-lists DELETE and both revocation headers for an allowed origin", async () => {
+    const response = await worker.fetch(new Request(`https://collab.example/blobs/${VALID_BLOB_ID}`, { method: "OPTIONS", headers: { origin: "https://draw.deviva.app" } }), fakeEnv());
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-methods")).toContain("DELETE");
+    expect(response.headers.get("access-control-allow-headers")).toContain("x-deviva-delete-token-hash");
+    expect(response.headers.get("access-control-allow-headers")).toContain("x-deviva-delete-token");
   });
 
   it("falls back to a shared 'local-dev' rate-limit bucket when cf-connecting-ip is absent", async () => {

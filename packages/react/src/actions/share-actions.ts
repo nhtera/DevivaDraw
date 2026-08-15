@@ -7,6 +7,7 @@
  * `persistence.shareScene()` directly.
  */
 import type { Action } from "./action-types";
+import { appendShareLinkHistory } from "../browser/share-link-history";
 
 export function buildShareActions(): Action[] {
   return [
@@ -18,8 +19,14 @@ export function buildShareActions(): Action[] {
       run: async (runtime) => {
         runtime.ui.setShareDialogState({ status: "generating" });
         try {
-          const url = await runtime.persistence.shareScene();
-          runtime.ui.setShareDialogState({ status: "ready", url });
+          const result = await runtime.persistence.shareScene();
+          // Record the revocation credentials before showing the link: the token exists only on
+          // this client, and losing the record means the link can never be revoked. `localStorage`
+          // guarded for non-browser hosts (unit tests) — history is then simply not kept.
+          if (typeof window !== "undefined") {
+            appendShareLinkHistory(window.localStorage, { blobId: result.blobId, deleteToken: result.deleteToken, createdAt: Date.now(), pageCount: result.pageCount });
+          }
+          runtime.ui.setShareDialogState({ status: "ready", url: result.url });
         } catch (error) {
           console.error("deviva-draw: share-scene action failed", error);
           runtime.ui.setShareDialogState({ status: "error" });

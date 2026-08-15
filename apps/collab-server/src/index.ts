@@ -8,7 +8,7 @@
  * decision (validation, size limits, rate limiting, relay logic) lives in those modules, which is why
  * they stay unit-testable without a Workers runtime at all.
  */
-import { handleGetBlob, handlePutBlob } from "./blob-routes";
+import { DELETE_TOKEN_HASH_HEADER, DELETE_TOKEN_HEADER, handleDeleteBlob, handleGetBlob, handlePutBlob } from "./blob-routes";
 import type { BlobStore } from "./blob-routes";
 import { RateLimiter } from "./rate-limit";
 import { handleRoomUpgrade, matchRoomPath } from "./room-routes";
@@ -35,14 +35,24 @@ const BLOB_PATH_PATTERN = /^\/blobs\/([^/]+)$/;
 // acceptable request rates.
 const putLimiter = new RateLimiter({ maxRequests: 20, windowMs: 60_000 });
 const getLimiter = new RateLimiter({ maxRequests: 60, windowMs: 60_000 });
+// Its own limiter (not PUT's): revocation attempts are a token-guessing surface, and sharing PUT's
+// bucket would let a revoke-spammer starve legitimate share creation from the same address.
+const deleteLimiter = new RateLimiter({ maxRequests: 20, windowMs: 60_000 });
 
-/** CORS response headers for `origin`, or `{}` (no CORS headers at all) when `origin` is absent/not allow-listed — an unlisted origin's browser request is then blocked by the browser's own CORS enforcement, not by this Worker refusing to respond. */
+/**
+ * CORS response headers for `origin`, or `{}` (no CORS headers at all) when `origin` is absent/not
+ * allow-listed — an unlisted origin's browser request is then blocked by the browser's own CORS
+ * enforcement, not by this Worker refusing to respond. The method/header allow-lists stay explicit
+ * enumerations (never reflected from the preflight's requested values): every custom header a client
+ * sends forces a preflight, and a header missing from this list bricks the request in the browser
+ * before it's ever sent — so any new `x-deviva-*` header MUST be added here to work at all.
+ */
 function corsHeaders(origin: string | null): HeadersInit {
   if (!origin || !ALLOWED_ORIGINS.has(origin)) return {};
   return {
     "access-control-allow-origin": origin,
-    "access-control-allow-methods": "GET, PUT, OPTIONS",
-    "access-control-allow-headers": "content-type",
+    "access-control-allow-methods": "GET, PUT, DELETE, OPTIONS",
+    "access-control-allow-headers": `content-type, ${DELETE_TOKEN_HASH_HEADER}, ${DELETE_TOKEN_HEADER}`,
     vary: "origin",
   };
 }
@@ -79,6 +89,7 @@ export default {
     let response: Response;
     if (request.method === "PUT") response = await handlePutBlob(request, blobId, { ...deps, limiter: putLimiter });
     else if (request.method === "GET") response = await handleGetBlob(blobId, { ...deps, limiter: getLimiter });
+    else if (request.method === "DELETE") response = await handleDeleteBlob(request, blobId, { ...deps, limiter: deleteLimiter });
     else response = new Response("method not allowed", { status: 405 });
 
     return withCors(response, headers);

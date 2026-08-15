@@ -1,24 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { handleGetBlob, handlePutBlob, MAX_BLOB_BYTES } from "./blob-routes";
+import { handleDeleteBlob, handleGetBlob, handlePutBlob, MAX_BLOB_BYTES } from "./blob-routes";
 import type { BlobStore } from "./blob-routes";
 import { RateLimiter } from "./rate-limit";
 
-/** In-memory fake satisfying the minimal `BlobStore` interface — no real R2 bucket or Workers runtime needed to exercise `blob-routes.ts`'s actual decision logic. */
-function fakeStore(): BlobStore & { data: Map<string, ArrayBuffer> } {
+/** In-memory fake satisfying the minimal `BlobStore` interface — no real R2 bucket or Workers runtime needed to exercise `blob-routes.ts`'s actual decision logic. Stores `customMetadata` per key, mirroring R2's behavior of returning it from both `head` and `get`. */
+function fakeStore(): BlobStore & { data: Map<string, ArrayBuffer>; metadata: Map<string, Record<string, string>> } {
   const data = new Map<string, ArrayBuffer>();
+  const metadata = new Map<string, Record<string, string>>();
   return {
     data,
+    metadata,
     async head(key) {
-      return data.has(key) ? {} : null;
+      return data.has(key) ? { customMetadata: metadata.get(key) } : null;
     },
-    async put(key, value) {
+    async put(key, value, options) {
       data.set(key, value);
+      if (options?.customMetadata) metadata.set(key, options.customMetadata);
       return {};
     },
     async get(key) {
       const value = data.get(key);
       if (!value) return null;
-      return { arrayBuffer: async () => value };
+      return { arrayBuffer: async () => value, customMetadata: metadata.get(key) };
+    },
+    async delete(key) {
+      data.delete(key);
+      metadata.delete(key);
+      return undefined;
     },
   };
 }
@@ -188,5 +196,87 @@ describe("handleGetBlob", () => {
     const second = await handleGetBlob(VALID_BLOB_ID, deps);
     expect(first.status).toBe(404); // not found, but still counted against the limiter
     expect(second.status).toBe(429);
+  });
+});
+
+describe("handleDeleteBlob (revocable share links)", () => {
+  const tokenBytes = new Uint8Array(32).fill(7);
+  const toBase64Url = (bytes: Uint8Array) => {
+    let binary = "";
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+  };
+  const token = toBase64Url(tokenBytes);
+  const tokenHash = async () => toBase64Url(new Uint8Array(await crypto.subtle.digest("SHA-256", tokenBytes)));
+
+  const deleteRequest = (presentedToken?: string) =>
+    new Request("https://collab.example/blobs/x", { method: "DELETE", headers: presentedToken !== undefined ? { "x-deviva-delete-token": presentedToken } : {} });
+
+  async function storeWithRevocableBlob(): Promise<ReturnType<typeof fakeStore>> {
+    const store = fakeStore();
+    const response = await handlePutBlob(
+      putRequest(new Uint8Array([1, 2, 3]), { "content-type": "application/octet-stream", "x-deviva-delete-token-hash": await tokenHash() }),
+      VALID_BLOB_ID,
+      { store, limiter: unlimitedLimiter(), clientIp: "1.2.3.4" },
+    );
+    expect(response.status).toBe(204);
+    return store;
+  }
+
+  it("deletes the blob (204) when the presented token hashes to the stored value, and the blob then 404s", async () => {
+    const store = await storeWithRevocableBlob();
+    const deps = { store, limiter: unlimitedLimiter(), clientIp: "1.2.3.4" };
+
+    const response = await handleDeleteBlob(deleteRequest(token), VALID_BLOB_ID, deps);
+    expect(response.status).toBe(204);
+    expect(store.data.has(VALID_BLOB_ID)).toBe(false);
+    expect((await handleGetBlob(VALID_BLOB_ID, deps)).status).toBe(404);
+  });
+
+  it("rejects a wrong token with 403 and leaves the blob in place", async () => {
+    const store = await storeWithRevocableBlob();
+    const wrongToken = toBase64Url(new Uint8Array(32).fill(8));
+    const response = await handleDeleteBlob(deleteRequest(wrongToken), VALID_BLOB_ID, { store, limiter: unlimitedLimiter(), clientIp: "1.2.3.4" });
+    expect(response.status).toBe(403);
+    expect(store.data.has(VALID_BLOB_ID)).toBe(true);
+  });
+
+  it("rejects a missing or malformed token with 400", async () => {
+    const store = await storeWithRevocableBlob();
+    const deps = { store, limiter: unlimitedLimiter(), clientIp: "1.2.3.4" };
+    expect((await handleDeleteBlob(deleteRequest(), VALID_BLOB_ID, deps)).status).toBe(400);
+    expect((await handleDeleteBlob(deleteRequest("short"), VALID_BLOB_ID, deps)).status).toBe(400);
+    expect(store.data.has(VALID_BLOB_ID)).toBe(true);
+  });
+
+  it("404s for an absent blob but 403s for a legacy blob that stored no hash — never a false 'already revoked'", async () => {
+    const store = fakeStore();
+    const deps = { store, limiter: unlimitedLimiter(), clientIp: "1.2.3.4" };
+    expect((await handleDeleteBlob(deleteRequest(token), VALID_BLOB_ID, deps)).status).toBe(404);
+
+    // Legacy PUT without the hash header — accepted, but permanently non-revocable.
+    await handlePutBlob(putRequest(new Uint8Array([9])), VALID_BLOB_ID, deps);
+    const response = await handleDeleteBlob(deleteRequest(token), VALID_BLOB_ID, deps);
+    expect(response.status).toBe(403);
+    expect(store.data.has(VALID_BLOB_ID)).toBe(true);
+  });
+
+  it("is rate limited independently", async () => {
+    const store = await storeWithRevocableBlob();
+    const limiter = new RateLimiter({ maxRequests: 1, windowMs: 60_000 });
+    const deps = { store, limiter, clientIp: "1.2.3.4" };
+    await handleDeleteBlob(deleteRequest(token), VALID_BLOB_ID, deps);
+    expect((await handleDeleteBlob(deleteRequest(token), VALID_BLOB_ID, deps)).status).toBe(429);
+  });
+
+  it("PUT rejects a malformed delete-token hash with 400 instead of minting an unrevocable 'revocable' link", async () => {
+    const store = fakeStore();
+    const response = await handlePutBlob(
+      putRequest(new Uint8Array([1]), { "content-type": "application/octet-stream", "x-deviva-delete-token-hash": "not-a-hash" }),
+      VALID_BLOB_ID,
+      { store, limiter: unlimitedLimiter(), clientIp: "1.2.3.4" },
+    );
+    expect(response.status).toBe(400);
+    expect(store.data.has(VALID_BLOB_ID)).toBe(false);
   });
 });

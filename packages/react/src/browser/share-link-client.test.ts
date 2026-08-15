@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { encryptSceneDocument, CURRENT_SCHEMA_VERSION, SCENE_DOCUMENT_TYPE } from "@deviva-draw/engine";
 import type { SceneDocumentV1 } from "@deviva-draw/engine";
-import { createShareLink, fetchAndDecryptSharedScene } from "./share-link-client";
+import { createShareLink, fetchAndDecryptSharedScene, revokeShareLink } from "./share-link-client";
 
 function fixtureDocument(): SceneDocumentV1 {
   return { type: SCENE_DOCUMENT_TYPE, schemaVersion: CURRENT_SCHEMA_VERSION, elements: [], files: {} };
@@ -24,7 +24,7 @@ describe("createShareLink", () => {
       }),
     );
 
-    const url = await createShareLink({ apiBaseUrl: "http://localhost:8788", origin: "https://draw.deviva.app", document: fixtureDocument() });
+    const { url, blobId } = await createShareLink({ apiBaseUrl: "http://localhost:8788", origin: "https://draw.deviva.app", document: fixtureDocument() });
 
     expect(capturedUrl).toMatch(/^http:\/\/localhost:8788\/blobs\/[0-9a-f-]{36}$/);
     expect(capturedInit.method).toBe("PUT");
@@ -32,6 +32,7 @@ describe("createShareLink", () => {
     expect(capturedInit.body).toBeInstanceOf(Uint8Array);
 
     expect(url).toMatch(/^https:\/\/draw\.deviva\.app\/s\/[0-9a-f-]{36}#key=[\w-]+&iv=[\w-]+$/);
+    expect(url).toContain(blobId);
   });
 
   it("strips a trailing slash from apiBaseUrl before building the upload URL", async () => {
@@ -64,8 +65,8 @@ describe("createShareLink", () => {
       }),
     );
 
-    const shareUrl = await createShareLink({ apiBaseUrl: "http://localhost:8788", origin: "https://draw.deviva.app", document: fixtureDocument() });
-    const fragment = new URL(shareUrl).hash;
+    const result = await createShareLink({ apiBaseUrl: "http://localhost:8788", origin: "https://draw.deviva.app", document: fixtureDocument() });
+    const fragment = new URL(result.url).hash;
     const key = new URLSearchParams(fragment.slice(1)).get("key")!;
     const iv = new URLSearchParams(fragment.slice(1)).get("iv")!;
 
@@ -76,6 +77,12 @@ describe("createShareLink", () => {
     const bodyBytes = Array.from(capturedInit.body as Uint8Array, (b) => String.fromCharCode(b)).join("");
     expect(bodyBytes).not.toContain(key);
     expect(bodyBytes).not.toContain(iv);
+    // The revocation credentials obey the same boundary: the hash header rides the request, but the
+    // raw token exists only in the returned result — never in what the server receives.
+    expect(JSON.stringify(capturedInit.headers)).toContain("x-deviva-delete-token-hash");
+    expect(JSON.stringify(capturedInit.headers)).not.toContain(result.deleteToken);
+    expect(result.deleteToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(result.pageCount).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -120,5 +127,39 @@ describe("fetchAndDecryptSharedScene", () => {
     const { keyBase64Url: wrongKey } = await encryptSceneDocument(fixtureDocument());
     const result = await fetchAndDecryptSharedScene({ apiBaseUrl: "http://localhost:8788", blobId: "abc", keyBase64Url: wrongKey, ivBase64Url: encrypted.ivBase64Url });
     expect(result).toEqual({ ok: false, reason: "decrypt-failed" });
+  });
+});
+
+describe("revokeShareLink", () => {
+  const options = { apiBaseUrl: "http://localhost:8788", blobId: "blob-1", deleteToken: "t".repeat(43) };
+
+  it("DELETEs with the raw token header and reports success on 204 — and on 404 (already gone)", async () => {
+    let capturedInit: RequestInit = {};
+    let status = 204;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        capturedInit = init;
+        return new Response(null, { status });
+      }),
+    );
+
+    expect(await revokeShareLink(options)).toEqual({ ok: true });
+    expect(capturedInit.method).toBe("DELETE");
+    expect(JSON.stringify(capturedInit.headers)).toContain(options.deleteToken);
+
+    status = 404;
+    expect(await revokeShareLink(options)).toEqual({ ok: true });
+  });
+
+  it("maps 403 to not-revocable (never a false success), other errors to their reasons", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 403 })));
+    expect(await revokeShareLink(options)).toEqual({ ok: false, reason: "not-revocable" });
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 500 })));
+    expect(await revokeShareLink(options)).toEqual({ ok: false, reason: "http-error" });
+
+    vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new Error("offline"))));
+    expect(await revokeShareLink(options)).toEqual({ ok: false, reason: "network-error" });
   });
 });

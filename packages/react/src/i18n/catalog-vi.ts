@@ -265,6 +265,13 @@ export const catalogVi: Record<TranslationKey, string> = {
   "share.dialog.error": "Không thể tạo liên kết chia sẻ. Vui lòng thử lại.",
   "share.dialog.snapshotNote": "Liên kết là ảnh chụp tại thời điểm này — các chỉnh sửa sau đó sẽ không xuất hiện trong đó.",
   "share.dialog.startCollab": "Cần chỉnh sửa trực tiếp cùng nhau? Bắt đầu phiên cộng tác",
+  "share.dialog.currentRevoked": "Liên kết này đã bị thu hồi — không ai có thể mở nó nữa.",
+  "share.dialog.historyTitle": "Liên kết bạn đã chia sẻ",
+  "share.dialog.historyMeta": "{date} · số trang: {pages}",
+  "share.dialog.revoke": "Thu hồi",
+  "share.dialog.revokeFailedNotRevocable": "Không thể thu hồi liên kết này.",
+  "share.dialog.revokeFailedNetwork": "Không thể thu hồi — hãy kiểm tra kết nối và thử lại.",
+  "share.dialog.historyOtherBrowsers": "Liên kết tạo trên trình duyệt hoặc thiết bị khác sẽ không xuất hiện ở đây.",
   "share.viewer.editCopy": "Chỉnh sửa bản sao",
   "share.viewer.unsavedCopy": "Bản sao chưa được lưu — hãy lưu tệp để giữ thay đổi của bạn",
 

@@ -422,6 +422,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {runtime && shareDialog.value.status !== "closed" && (
         <ShareDialog
           state={shareDialog.value}
+          apiBaseUrl={shareApiBaseUrl}
           onClose={() => shareDialog.set({ status: "closed" })}
           onStartCollab={() => {
             shareDialog.set({ status: "closed" });

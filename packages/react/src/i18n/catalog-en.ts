@@ -265,6 +265,13 @@ export const catalogEn = {
   "share.dialog.error": "Couldn't create the share link. Please try again.",
   "share.dialog.snapshotNote": "The link is a snapshot frozen at this moment — edits you make later won't appear in it.",
   "share.dialog.startCollab": "Need to edit together live? Start a collaboration",
+  "share.dialog.currentRevoked": "This link has been revoked — no one can open it anymore.",
+  "share.dialog.historyTitle": "Links you've shared",
+  "share.dialog.historyMeta": "{date} · pages: {pages}",
+  "share.dialog.revoke": "Revoke",
+  "share.dialog.revokeFailedNotRevocable": "This link can't be revoked.",
+  "share.dialog.revokeFailedNetwork": "Couldn't revoke — check your connection and try again.",
+  "share.dialog.historyOtherBrowsers": "Links created in other browsers or devices won't appear here.",
   "share.viewer.editCopy": "Edit a copy",
   "share.viewer.unsavedCopy": "Unsaved copy — save the file to keep your changes",
 
