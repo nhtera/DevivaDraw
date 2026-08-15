@@ -35,6 +35,26 @@ ${ROOT} [data-testid="text-editor-overlay-textarea"] { outline: none; }
    (they read through it) and hugs exactly the selected characters, so it's a normal text highlight,
    not the opaque background box the old always-on backing used to draw. */
 ${ROOT} [data-testid="text-editor-overlay-textarea"]::selection { background: rgba(51, 103, 214, 0.30); }
+/* Scrollbars inside the chrome (properties panel, menus, dialogs, library, palette): a thin floating
+   pill on a transparent track instead of the browser's full-width gutter — the panel's content keeps
+   the space, and the bar reads as an affordance rather than furniture. The transparent border +
+   content-box clip is what insets the pill from the panel edge; background-color (never the
+   background shorthand) so the hover rule can't silently reset that clip. One neutral grey with
+   alpha stays legible over both the light and dark chrome without theme-specific rules. */
+${ROOT} ::-webkit-scrollbar { width: 10px; height: 10px; }
+${ROOT} ::-webkit-scrollbar-track { background: transparent; }
+${ROOT} ::-webkit-scrollbar-corner { background: transparent; }
+${ROOT} ::-webkit-scrollbar-thumb {
+  background-color: rgba(127, 127, 127, 0.35);
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  min-height: 40px;
+}
+${ROOT} ::-webkit-scrollbar-thumb:hover { background-color: rgba(127, 127, 127, 0.55); }
+/* Firefox has no scrollbar pseudo-elements — thin + colored is the closest expression of the same look. */
+${ROOT}, ${ROOT} * { scrollbar-width: thin; scrollbar-color: rgba(127, 127, 127, 0.45) transparent; }
+
 /* Library tiles: the preview reads only when the grid isn't a field of × buttons, so the remove control
    is revealed on hover — and on keyboard focus, so it stays reachable without a pointer. Gated on
    "hover: hover": a touch device has no hover state, so hiding it there would make removal impossible,
