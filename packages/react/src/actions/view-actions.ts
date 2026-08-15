@@ -83,6 +83,14 @@ export function buildViewActions(): Action[] {
       run: (runtime) => runtime.ui.setViewOnly(!runtime.ui.getViewOnly()),
     },
     {
+      // Deliberately NOT viewOnlyAllowed even though it's "just a panel toggle": every control the
+      // panel exposes mutates the document, and view-only unmounts the panel anyway.
+      id: "toggle-layers",
+      labelKey: "action.toggleLayers",
+      icon: "layers",
+      run: (runtime) => runtime.ui.setLayersPanelVisible(!runtime.ui.getLayersPanelVisible()),
+    },
+    {
       id: "toggle-minimap",
       viewOnlyAllowed: true,
       labelKey: "action.toggleMinimap",

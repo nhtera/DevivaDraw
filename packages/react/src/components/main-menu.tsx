@@ -248,6 +248,9 @@ export function MainMenu(props: MainMenuProps) {
       <MenuButton testId="main-menu-toggle-view-only" icon="view-only" checked={runtime.ui.getViewOnly()} onClick={() => run("toggle-view-only")}>
         {t("action.toggleViewOnly")}
       </MenuButton>
+      <MenuButton testId="main-menu-toggle-layers" icon="layers" checked={runtime.ui.getLayersPanelVisible()} onClick={() => run("toggle-layers")}>
+        {t("action.toggleLayers")}
+      </MenuButton>
       <MenuButton testId="main-menu-toggle-minimap" icon="minimap" checked={runtime.ui.getMinimapVisible()} onClick={() => run("toggle-minimap")}>
         {t("action.toggleMinimap")}
       </MenuButton>

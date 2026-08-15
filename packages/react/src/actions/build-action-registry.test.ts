@@ -167,6 +167,8 @@ function buildTestRuntime(scene: Scene): ActionRuntime {
       setViewOnly: vi.fn(),
       getMinimapVisible: () => true,
       setMinimapVisible: vi.fn(),
+      getLayersPanelVisible: () => false,
+      setLayersPanelVisible: vi.fn(),
       getStatsPanelVisible: () => false,
       setStatsPanelVisible: vi.fn(),
       getCommandPaletteOpen: () => false,

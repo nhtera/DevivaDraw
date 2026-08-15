@@ -40,6 +40,8 @@ export interface UiToggleState {
   setViewOnly(value: boolean): void;
   getStatsPanelVisible(): boolean;
   setStatsPanelVisible(value: boolean): void;
+  getLayersPanelVisible(): boolean;
+  setLayersPanelVisible(value: boolean): void;
   getMinimapVisible(): boolean;
   setMinimapVisible(value: boolean): void;
   getCommandPaletteOpen(): boolean;

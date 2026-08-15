@@ -42,6 +42,7 @@ import { MainMenu } from "./components/main-menu";
 import { ShareDialog } from "./components/share-dialog";
 import { runShareScene } from "./actions/share-actions";
 import { ShareViewerBadge } from "./components/share-viewer-badge";
+import { LayersPanel } from "./components/layers-panel";
 import { CollabDialog } from "./components/collab-dialog";
 import { ShortcutsDialog } from "./components/shortcuts-dialog";
 import { FindPanel } from "./components/find-panel";
@@ -116,6 +117,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const toolLock = useToggleState(false);
   const viewOnly = useToggleState(initialViewOnly ?? false);
   const statsPanel = useToggleState(false);
+  const layersPanel = useToggleState(false);
   // Defaults on, preserving the minimap's previous always-visible behavior; the toggle only adds a way out.
   const minimapVisible = useToggleState(true);
   const commandPaletteOpen = useToggleState(false);
@@ -173,6 +175,8 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       setViewOnly: viewOnly.set,
       getStatsPanelVisible: statsPanel.get,
       setStatsPanelVisible: statsPanel.set,
+      getLayersPanelVisible: layersPanel.get,
+      setLayersPanelVisible: layersPanel.set,
       getMinimapVisible: minimapVisible.get,
       setMinimapVisible: minimapVisible.set,
       getCommandPaletteOpen: commandPaletteOpen.get,
@@ -444,6 +448,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
         <ContextMenu runtime={runtime} screenPoint={contextMenuTriggers.point} variant={contextMenuTriggers.variant} onClose={contextMenuTriggers.close} />
       )}
       {statsPanel.value && runtime && !viewOnly.value && <StatsPanel runtime={runtime} cameraStore={cameraStore} />}
+      {layersPanel.value && runtime && !zenMode.value && !isNarrow && !viewOnly.value && <LayersPanel runtime={runtime} />}
     </div>
   );
 });
