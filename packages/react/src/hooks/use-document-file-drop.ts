@@ -20,10 +20,13 @@ import { notifyLibraryChanged } from "../browser/library-change-event";
 import { mergeImportedLibrary } from "../browser/library-storage";
 import { renderElementsToThumbnail } from "../browser/scene-file-operations";
 import type { DevivaRuntime } from "../runtime/runtime-types";
+import type { PageStore } from "../pages/page-store";
 
 export interface UseDocumentFileDropOptions {
   containerRef: RefObject<HTMLElement | null>;
   runtime: DevivaRuntime | null;
+  /** Pages-aware host: a dropped document replaces the whole page list. Absent ⇒ only its first page loads via the single-scene `loadScene`. */
+  pageStore?: PageStore | null;
   /** Called after a dropped library file is merged into the shelf — the shell opens the sidebar so the new items are visible rather than silently stored. */
   onLibraryImported?(count: number): void;
   /** Called when the drop was a file this app cannot read; there is no toast system yet, so the default logs it. */
@@ -40,7 +43,7 @@ function firstDocumentFile(files: FileList): File | null {
 }
 
 export function useDocumentFileDrop(options: UseDocumentFileDropOptions): void {
-  const { containerRef, runtime, onLibraryImported, onUnsupportedFile } = options;
+  const { containerRef, runtime, pageStore, onLibraryImported, onUnsupportedFile } = options;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -62,7 +65,8 @@ export function useDocumentFileDrop(options: UseDocumentFileDropOptions): void {
       void (async () => {
         const imported = await importDroppedFileText(await file.text(), renderElementsToThumbnail);
         if (imported.kind === "scene") {
-          runtime.persistence.loadScene(imported.scene);
+          if (pageStore) pageStore.replaceAll(imported.document.pages, imported.document.activePageId);
+          else runtime.persistence.loadScene(imported.document.pages[0]!.scene);
           return;
         }
         if (imported.kind === "library") {
@@ -82,5 +86,5 @@ export function useDocumentFileDrop(options: UseDocumentFileDropOptions): void {
       container.removeEventListener("dragover", handleDragOver);
       container.removeEventListener("drop", handleDrop);
     };
-  }, [containerRef, runtime, onLibraryImported, onUnsupportedFile]);
+  }, [containerRef, runtime, pageStore, onLibraryImported, onUnsupportedFile]);
 }

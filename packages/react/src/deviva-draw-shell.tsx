@@ -14,8 +14,10 @@
  * `canvasHostRef` descendants avoids this entirely rather than special-casing it per component.
  */
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from "react";
-import { createCamera } from "@deviva-draw/engine";
+import { createCamera, Scene } from "@deviva-draw/engine";
 import type { RemoteCursorOverlay } from "@deviva-draw/engine";
+import { restoreBrowserAutosaveDocument } from "./browser/scene-file-operations";
+import { PageStore } from "./pages/page-store";
 import { useDocumentFileDrop } from "./hooks/use-document-file-drop";
 import { useLibraryDrop } from "./hooks/use-library-drop";
 import { usePasteAndDrop } from "./hooks/use-paste-and-drop";
@@ -32,6 +34,7 @@ import { TopBar } from "./components/top-bar";
 import { PropertiesPanel } from "./components/properties-panel";
 import { ContextMenu } from "./components/context-menu";
 import { ImagePlacementOverlay } from "./components/image-placement-overlay";
+import { PagesPanel } from "./components/pages-panel";
 import { MainMenu } from "./components/main-menu";
 import { ShareDialog } from "./components/share-dialog";
 import { CollabDialog } from "./components/collab-dialog";
@@ -69,6 +72,23 @@ import type { DevivaDrawProps } from "./deviva-draw-app-types";
 export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(function DevivaDrawShell(props, ref) {
   const { initialData, persistenceKey, onChange, className, style, initialViewOnly, shareApiBaseUrl, initialRoomUrl } = props;
   const canvasHostRef = useRef<HTMLDivElement | null>(null);
+
+  // The document's page list, seeded once: host-supplied `initialData` wraps into a single page
+  // (host-managed persistence, matching `useDevivaRuntime`'s own rule), otherwise the document
+  // autosave restores — legacy single-scene autosaves come back as one page, so nothing is lost by
+  // an upgrade to a pages-aware build.
+  const pageStoreRef = useRef<PageStore | null>(null);
+  if (pageStoreRef.current === null) {
+    if (initialData) {
+      const result = Scene.fromJSON(initialData);
+      if (!result.ok) console.warn("deviva-draw: initialData failed validation, starting with an empty scene");
+      pageStoreRef.current = PageStore.fresh(result.ok ? result.scene : undefined);
+    } else {
+      const restored = restoreBrowserAutosaveDocument(persistenceKey);
+      pageStoreRef.current = restored ? new PageStore(restored.pages, restored.activePageId) : PageStore.fresh();
+    }
+  }
+  const pageStore = pageStoreRef.current;
   const { t } = useTranslation();
   const { mode, cssVariables, toggleMode } = useTheme();
   const isNarrow = useIsNarrowViewport();
@@ -160,7 +180,27 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     getToolLocked: toolLock.get,
     isChromeOverlayOpen,
     getRemoteCursors,
+    pageStore,
   });
+
+  // Camera-per-page: when the active page changes (switch, file open, "new scene"), restore that
+  // page's parked camera — or the origin for a page never visited. Parking the outgoing page's
+  // camera happens in the switch/add handlers below, which run *before* the store notifies.
+  const activePageIdRef = useRef(pageStore.getActivePageId());
+  useEffect(
+    () =>
+      pageStore.subscribe(() => {
+        const nextActiveId = pageStore.getActivePageId();
+        if (nextActiveId === activePageIdRef.current) return;
+        activePageIdRef.current = nextActiveId;
+        cameraStore.setCamera(pageStore.cameraFor(nextActiveId) ?? createCamera());
+      }),
+    [pageStore, cameraStore],
+  );
+  const parkCameraThen = (action: () => void) => {
+    pageStore.saveCameraFor(pageStore.getActivePageId(), cameraStore.getCamera());
+    action();
+  };
 
   useImperativeHandle(ref, () => handle ?? NOOP_HANDLE, [handle]);
   runtimeForContextMenuRef.current = runtime;
@@ -188,6 +228,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   useDocumentFileDrop({
     containerRef: canvasHostRef,
     runtime,
+    pageStore,
     onLibraryImported: useCallback(() => libraryOpen.set(true), [libraryOpen]),
   });
   const { openImagePicker, pendingPlacement } = useImageFilePicker({
@@ -288,6 +329,9 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {runtime && !zenMode.value && <EmptyStateOverlay runtime={runtime} editSession={editSession} />}
       {runtime && !zenMode.value && (
         <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} />
+      )}
+      {runtime && !zenMode.value && !isNarrow && (
+        <PagesPanel pageStore={pageStore} onSwitchPage={(id) => parkCameraThen(() => pageStore.setActivePage(id))} onAddPage={() => parkCameraThen(() => pageStore.addPage())} />
       )}
       {runtime && !zenMode.value && <LibraryToggle open={libraryOpen.value} onToggle={() => libraryOpen.set(!libraryOpen.value)} />}
       {runtime && !zenMode.value && !viewOnly.value && (isNarrow ? <MobilePropertiesBar runtime={runtime} /> : <PropertiesPanel runtime={runtime} />)}

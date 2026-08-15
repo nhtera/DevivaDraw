@@ -24,7 +24,8 @@ describe("importDroppedFileText", () => {
     const imported = await importDroppedFileText(JSON.stringify(EXCALIDRAW_SCENE), renderPreview);
     expect(imported.kind).toBe("scene");
     if (imported.kind !== "scene") return;
-    expect(imported.scene.getElements()).toHaveLength(1);
+    expect(imported.document.pages).toHaveLength(1);
+    expect(imported.document.pages[0]!.scene.getElements()).toHaveLength(1);
   });
 
   it("reads an .excalidrawlib as library items, not as a scene that would replace the document", async () => {

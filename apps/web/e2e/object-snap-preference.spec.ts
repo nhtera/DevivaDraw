@@ -29,7 +29,7 @@ async function drawBox(page: Page, box: { left: number; top: number; right: numb
 async function moverX(page: Page): Promise<number> {
   await page.waitForTimeout(AUTOSAVE_FLUSH_MS);
   return page.evaluate(() => {
-    const scene = JSON.parse(localStorage.getItem("devivadraw:autosave:v1")!) as { elements: Array<Record<string, unknown>> };
+    const scene = ((autosaved: unknown) => { const doc = autosaved as { pages?: Array<{ id: string; scene: unknown }>; activePageId?: string }; return doc.pages ? (doc.pages.find((entry) => entry.id === doc.activePageId) ?? doc.pages[0]!).scene : autosaved; })(JSON.parse(localStorage.getItem("devivadraw:autosave:v1")!)) as { elements: Array<Record<string, unknown>> };
     const rects = scene.elements.filter((element) => element.type === "rectangle" && !element.isDeleted);
     return rects[rects.length - 1]!.x as number;
   });

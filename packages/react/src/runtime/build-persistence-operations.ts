@@ -5,13 +5,29 @@
  * is built around (not just mutate the current one), so both go through `onSceneReplaced`, the same
  * "rebuild the runtime" path `use-deviva-runtime.ts`'s `sceneVersion` bump drives.
  */
-import type { AnyElement, HistoryStack, Scene, SelectionState } from "@deviva-draw/engine";
+import type { AnyElement, HistoryStack, MultiPageDocumentV1, Scene, SelectionState } from "@deviva-draw/engine";
 import type { PersistenceOperations } from "../actions/action-types";
-import { exportSceneToPngFile, exportSceneToSvgFile, openSceneFromFile, saveSceneToFile, copySceneImageToClipboard, copySceneSvgToClipboard } from "../browser/scene-file-operations";
+import {
+  exportSceneToPngFile,
+  exportSceneToSvgFile,
+  openDocumentFromFile,
+  openSceneFromFile,
+  saveDocumentToFile,
+  saveSceneToFile,
+  copySceneImageToClipboard,
+  copySceneSvgToClipboard,
+} from "../browser/scene-file-operations";
+import type { OpenedDocument } from "../browser/scene-file-operations";
 import { createShareLink } from "../browser/share-link-client";
 import { resetScene } from "./reset-scene";
 
 const EXPORT_PNG_DEFAULT_SCALE = 1;
+
+/** Optional pages-awareness: when present, "Open"/"Save" operate on the whole multi-page document instead of the single live scene. Exports and "Reset canvas" stay scoped to the active page either way. */
+export interface PagesPersistenceAdapter {
+  getDocument(): MultiPageDocumentV1;
+  replaceDocument(document: OpenedDocument): void;
+}
 
 export interface BuildPersistenceOperationsDeps {
   getScene(): Scene;
@@ -19,19 +35,25 @@ export interface BuildPersistenceOperationsDeps {
   selection: SelectionState;
   /** Called when "Open" successfully loads a different `Scene` instance — the caller swaps its live reference and rebuilds the runtime around it. */
   onSceneReplaced(scene: Scene): void;
+  pages?: PagesPersistenceAdapter;
   onError?(error: unknown): void;
   /** The collab-server's base URL — omitted (e.g. the host app never configured `<DevivaDraw shareApiBaseUrl/>`) makes `shareScene` reject immediately rather than attempting a request to nowhere. */
   shareApiBaseUrl?: string;
 }
 
 export function buildPersistenceOperations(deps: BuildPersistenceOperationsDeps): PersistenceOperations {
-  const { getScene, history, selection, onSceneReplaced, onError, shareApiBaseUrl } = deps;
+  const { getScene, history, selection, onSceneReplaced, pages, onError, shareApiBaseUrl } = deps;
   const reportError = onError ?? ((error: unknown) => console.error("deviva-draw: persistence operation failed", error));
 
   return {
     newScene: () => resetScene(getScene(), history, selection),
     openScene: async () => {
       try {
+        if (pages) {
+          const opened = await openDocumentFromFile();
+          if (opened) pages.replaceDocument(opened);
+          return;
+        }
         const opened = await openSceneFromFile();
         if (opened) onSceneReplaced(opened);
       } catch (error) {
@@ -39,7 +61,7 @@ export function buildPersistenceOperations(deps: BuildPersistenceOperationsDeps)
       }
     },
     loadScene: (scene) => onSceneReplaced(scene),
-    saveScene: () => saveSceneToFile(getScene()).catch(reportError),
+    saveScene: () => (pages ? saveDocumentToFile(pages.getDocument()) : saveSceneToFile(getScene())).catch(reportError),
     exportPng: () => exportSceneToPngFile(getScene(), EXPORT_PNG_DEFAULT_SCALE).catch(reportError),
     exportSvg: () => exportSceneToSvgFile(getScene()).catch(reportError),
     copyAsImage: () => copySceneImageToClipboard(getScene()).catch(reportError),

@@ -11,15 +11,19 @@ import {
   createBrowserImageDecoder,
   createCanvasTextMeasurer,
   DEFAULT_EXPORT_PADDING,
+  deserializeMultiPageDocument,
   exportToPng,
   exportToSvg,
+  generatePageId,
   ImageDecodeCache,
   importExcalidrawScene,
   restoreAutosave,
+  restoreAutosaveDocument,
   Scene,
   startAutosave,
+  writeAutosaveDocument,
 } from "@deviva-draw/engine";
-import type { AnyElement, AutosaveController, ExcalidrawSceneImport, ExportScale } from "@deviva-draw/engine";
+import type { AnyElement, AutosaveController, ExcalidrawSceneImport, ExportScale, MultiPageDocumentV1, ScenePage } from "@deviva-draw/engine";
 import { createBrowserExportRenderTarget, createRoughSvgGenerator, pickAndReadFile, saveFile, triggerDownload } from "./persistence-adapters";
 
 const SCENE_FILE_EXTENSION = ".devivadraw";
@@ -120,6 +124,111 @@ export async function openSceneFromFile(): Promise<Scene | null> {
   const text = await pickAndReadFile(`${SCENE_FILE_EXTENSION},${EXCALIDRAW_SCENE_FILE_EXTENSION}`);
   if (text === null) return null;
   return sceneFromFileText(text);
+}
+
+export interface OpenedDocument {
+  pages: ScenePage[];
+  activePageId: string | null;
+}
+
+/**
+ * Document-level sibling of `sceneFromFileText` for pages-aware hosts: reads a multi-page
+ * `.devivadraw` document, a legacy single-scene one (as one page), or an imported Excalidraw scene
+ * (as one page) — one place decides what a pages-aware "Open"/file-drop can load.
+ */
+export function documentFromFileText(text: string): OpenedDocument | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch (error) {
+    console.warn("deviva-draw: open failed — file is not valid JSON", error);
+    return null;
+  }
+
+  const excalidraw = importExcalidrawScene(parsed);
+  if (excalidraw) {
+    const dropped = Object.entries(excalidraw.skipped);
+    if (dropped.length > 0) console.warn("deviva-draw: some Excalidraw elements have no equivalent and were skipped", excalidraw.skipped);
+    return { pages: [{ id: generatePageId(), name: "Page 1", scene: sceneFromExcalidraw(excalidraw) }], activePageId: null };
+  }
+
+  const result = deserializeMultiPageDocument(parsed);
+  if (!result.ok) {
+    console.warn(`deviva-draw: open failed — ${result.error}`);
+    return null;
+  }
+  return { pages: result.pages, activePageId: result.activePageId };
+}
+
+/** Pages-aware "Open" — same picker/extensions as `openSceneFromFile`, reading through `documentFromFileText`. */
+export async function openDocumentFromFile(): Promise<OpenedDocument | null> {
+  const text = await pickAndReadFile(`${SCENE_FILE_EXTENSION},${EXCALIDRAW_SCENE_FILE_EXTENSION}`);
+  if (text === null) return null;
+  return documentFromFileText(text);
+}
+
+/** Saves the whole multi-page document (deleted elements stripped — a saved file is an export, not an autosave). */
+export async function saveDocumentToFile(document: MultiPageDocumentV1): Promise<void> {
+  await saveFile(`scene${SCENE_FILE_EXTENSION}`, JSON.stringify(document, null, 2), "application/json");
+}
+
+/** Debounce matching the engine's single-scene autosave — one write per quiet period, not per mutation. */
+const DOCUMENT_AUTOSAVE_DEBOUNCE_MS = 1000;
+
+/**
+ * Document-level sibling of `startBrowserAutosave` for pages-aware hosts: a debounced write of the
+ * *whole* document, triggered by edits to the active page's scene AND by page-list changes (add/
+ * rename/delete/switch — which a single `Scene` subscription cannot see). Call once per mounted
+ * active scene; `dispose()` on unmount/page-switch and re-start against the new active scene.
+ */
+export function startBrowserDocumentAutosave(
+  document: { toDocument(includeDeleted: boolean): MultiPageDocumentV1; subscribe(listener: () => void): () => void },
+  activeScene: Scene,
+  storageKey?: string,
+): AutosaveController {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const clearPending = () => {
+    if (timer !== null) clearTimeout(timer);
+    timer = null;
+  };
+  const write = () =>
+    writeAutosaveDocument(window.localStorage, document.toDocument(true), {
+      storageKey,
+      onQuotaExceeded: (error) => console.warn("deviva-draw: autosave skipped a write — localStorage quota exceeded", error),
+      onError: (error) => console.error("deviva-draw: autosave write failed", error),
+    });
+  const schedule = () => {
+    clearPending();
+    timer = setTimeout(() => {
+      timer = null;
+      write();
+    }, DOCUMENT_AUTOSAVE_DEBOUNCE_MS);
+  };
+  const unsubscribeScene = activeScene.subscribe(schedule);
+  const unsubscribeDocument = document.subscribe(schedule);
+  return {
+    flush() {
+      clearPending();
+      write();
+    },
+    dispose() {
+      unsubscribeScene();
+      unsubscribeDocument();
+      clearPending();
+    },
+  };
+}
+
+/** Pages-aware boot restore — same salvage/recovery-backup reporting as `restoreBrowserAutosave`, reading the document envelope (legacy single-scene autosaves come back as one page). */
+export function restoreBrowserAutosaveDocument(storageKey?: string): OpenedDocument | null {
+  return restoreAutosaveDocument(window.localStorage, storageKey, {
+    onSalvage: ({ droppedErrors, backedUp }) => {
+      const backupNote = backedUp
+        ? "the original payload was backed up to the recovery slot"
+        : "the recovery backup failed or was skipped to protect an earlier backup";
+      console.warn(`deviva-draw: autosave restore salvaged the document (${backupNote})`, droppedErrors);
+    },
+  });
 }
 
 /** Shared decode caches for a one-shot export render — fresh per export call, mirroring `createBrowserExportRenderTarget`'s "never reuse across calls" contract. */

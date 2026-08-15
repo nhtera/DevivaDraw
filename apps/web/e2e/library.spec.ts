@@ -150,7 +150,7 @@ test("dragging a tile onto the canvas drops it at the cursor, not at the viewpor
 
   const dropped = await page.evaluate(async () => {
     await new Promise((resolve) => setTimeout(resolve, 1300)); // autosave debounce
-    const scene = JSON.parse(localStorage.getItem("devivadraw:autosave:v1")!) as {
+    const scene = ((autosaved: unknown) => { const doc = autosaved as { pages?: Array<{ id: string; scene: unknown }>; activePageId?: string }; return doc.pages ? (doc.pages.find((entry) => entry.id === doc.activePageId) ?? doc.pages[0]!).scene : autosaved; })(JSON.parse(localStorage.getItem("devivadraw:autosave:v1")!)) as {
       elements: Array<{ x: number; y: number; width: number; height: number; isDeleted?: boolean }>;
     };
     const live = scene.elements.filter((element) => !element.isDeleted);

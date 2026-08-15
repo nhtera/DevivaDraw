@@ -37,7 +37,7 @@ async function storedScene(page: Page) {
   return page.evaluate(() => {
     const raw = localStorage.getItem("devivadraw:autosave:v1");
     if (!raw) return { elements: [] as Array<Record<string, unknown>> };
-    return JSON.parse(raw) as { elements: Array<Record<string, unknown>> };
+    return ((autosaved: unknown) => { const doc = autosaved as { pages?: Array<{ id: string; scene: unknown }>; activePageId?: string }; return doc.pages ? (doc.pages.find((entry) => entry.id === doc.activePageId) ?? doc.pages[0]!).scene : autosaved; })(JSON.parse(raw)) as { elements: Array<Record<string, unknown>> };
   });
 }
 

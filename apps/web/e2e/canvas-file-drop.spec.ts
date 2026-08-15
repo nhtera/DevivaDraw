@@ -52,7 +52,7 @@ async function liveElementCount(page: Page): Promise<number> {
   return page.evaluate(() => {
     const raw = localStorage.getItem("devivadraw:autosave:v1");
     if (!raw) return 0;
-    const scene = JSON.parse(raw) as { elements: Array<{ isDeleted?: boolean }> };
+    const scene = ((autosaved: unknown) => { const doc = autosaved as { pages?: Array<{ id: string; scene: unknown }>; activePageId?: string }; return doc.pages ? (doc.pages.find((entry) => entry.id === doc.activePageId) ?? doc.pages[0]!).scene : autosaved; })(JSON.parse(raw)) as { elements: Array<{ isDeleted?: boolean }> };
     return scene.elements.filter((element) => !element.isDeleted).length;
   });
 }

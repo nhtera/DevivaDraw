@@ -22,6 +22,7 @@ import {
   createCamera,
   createCanvasTextMeasurer,
   CanvasStage,
+  generatePageId,
   ImageDecodeCache,
   loadTextFonts,
   Scene,
@@ -31,7 +32,8 @@ import { buildPersistenceOperations } from "./build-persistence-operations";
 import { buildRuntime } from "./build-runtime";
 import type { DevivaDrawHandle } from "./imperative-handle";
 import { buildImperativeHandle } from "./imperative-handle";
-import { restoreBrowserAutosave, startBrowserAutosave } from "../browser/scene-file-operations";
+import { restoreBrowserAutosave, startBrowserAutosave, startBrowserDocumentAutosave } from "../browser/scene-file-operations";
+import { PageStore } from "../pages/page-store";
 import { createBrowserExportRenderTarget, createRoughSvgGenerator } from "../browser/persistence-adapters";
 import { getLiveElements, getLiveFiles } from "./scene-live-snapshot";
 import type { LiveStoredFile } from "./scene-live-snapshot";
@@ -70,6 +72,13 @@ export interface UseDevivaRuntimeOptions {
   isChromeOverlayOpen(): boolean;
   /** Live collaborator cursors for the interactive layer — see `start-render-loop.ts`'s `RenderLoopDeps.getRemoteCursors` doc. Omitted when the host never wires `useCollabSession` up. */
   getRemoteCursors?(): readonly RemoteCursorOverlay[];
+  /**
+   * The document's page list, owned and seeded by the shell (see `deviva-draw-shell.tsx`). When
+   * present it is the single source of truth for the live scene: this hook subscribes and rebuilds
+   * the runtime whenever the active page's `Scene` changes; autosave/open/save become document-level.
+   * Absent ⇒ the original single-scene behavior, byte for byte.
+   */
+  pageStore?: PageStore | null;
 }
 
 export interface UseDevivaRuntimeResult {
@@ -88,14 +97,29 @@ function buildInitialScene(initialData: SceneDocument | null | undefined, persis
 }
 
 export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRuntimeResult {
-  const { containerRef, cameraStore, initialData, persistenceKey, onChange, ui, shareApiBaseUrl, getThemeMode, toggleThemeMode, getToolLocked, isChromeOverlayOpen, getRemoteCursors } = options;
+  const { containerRef, cameraStore, initialData, persistenceKey, onChange, ui, shareApiBaseUrl, getThemeMode, toggleThemeMode, getToolLocked, isChromeOverlayOpen, getRemoteCursors, pageStore } = options;
   const sceneRef = useRef<Scene | null>(null);
-  if (sceneRef.current === null) sceneRef.current = buildInitialScene(initialData, persistenceKey);
+  if (sceneRef.current === null) sceneRef.current = pageStore ? pageStore.getActiveScene() : buildInitialScene(initialData, persistenceKey);
 
   const [runtime, setRuntime] = useState<DevivaRuntime | null>(null);
   const [editSession, setEditSession] = useState<TextEditSession | null>(null);
   const [handle, setHandle] = useState<DevivaDrawHandle | null>(null);
   const [sceneVersion, setSceneVersion] = useState(0);
+
+  // With a page store, every scene swap — page switch, file open, "new scene", share-link load —
+  // flows through the store, and this subscription is the ONE place that turns "the active page's
+  // Scene changed" into a runtime rebuild. (The store also notifies on rename/add-behind-the-scenes,
+  // where the active Scene is unchanged and no rebuild happens.)
+  useEffect(() => {
+    if (!pageStore) return;
+    return pageStore.subscribe(() => {
+      const active = pageStore.getActiveScene();
+      if (active !== sceneRef.current) {
+        sceneRef.current = active;
+        setSceneVersion((version) => version + 1);
+      }
+    });
+  }, [pageStore]);
 
   // Stable regardless of whether the host passes a memoized `onChange` — see the module doc. Always
   // resolves to whichever `onChange` this hook was most recently called with; a `undefined` prop on
@@ -120,7 +144,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
     });
 
     const usingHostManagedData = Boolean(initialData);
-    const autosave = usingHostManagedData ? null : startBrowserAutosave(scene, persistenceKey);
+    const autosave = usingHostManagedData ? null : pageStore ? startBrowserDocumentAutosave(pageStore, scene, persistenceKey) : startBrowserAutosave(scene, persistenceKey);
 
     // Autosave only writes in response to a scene *change*, and a scene that was just opened from a
     // file has none — so without this, opening a document and reloading restored the document from
@@ -130,6 +154,12 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
     if (sceneVersion > 0) autosave?.flush();
 
     const onSceneReplaced = (opened: Scene) => {
+      // Pages mode: a single-scene load (the imperative `loadScene` API) becomes a whole-document
+      // replace; the page-store subscription above performs the actual swap.
+      if (pageStore) {
+        pageStore.replaceAll([{ id: generatePageId(), name: "Page 1", scene: opened }], null);
+        return;
+      }
       sceneRef.current = opened;
       cameraStore.setCamera(createCamera());
       setSceneVersion((version) => version + 1);
@@ -141,7 +171,20 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
       getCamera: cameraStore.getCamera,
       setCamera: cameraStore.setCamera,
       ui,
-      createPersistence: ({ history, selection }) => buildPersistenceOperations({ getScene: () => sceneRef.current!, history, selection, onSceneReplaced, shareApiBaseUrl }),
+      createPersistence: ({ history, selection }) =>
+        buildPersistenceOperations({
+          getScene: () => sceneRef.current!,
+          history,
+          selection,
+          onSceneReplaced,
+          pages: pageStore
+            ? {
+                getDocument: () => pageStore.toDocument(false),
+                replaceDocument: (document) => pageStore.replaceAll(document.pages, document.activePageId),
+              }
+            : undefined,
+          shareApiBaseUrl,
+        }),
       shareApiBaseUrl,
       getThemeMode,
       toggleThemeMode,

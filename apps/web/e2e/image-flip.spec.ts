@@ -36,7 +36,7 @@ async function imageElement(page: Page): Promise<{ type: string; x: number; y: n
   return page.evaluate(() => {
     const raw = localStorage.getItem("devivadraw:autosave:v1");
     if (!raw) return undefined;
-    const scene = JSON.parse(raw) as { elements: Array<{ type: string; x: number; y: number; width: number; height: number; scale?: number[]; isDeleted?: boolean }> };
+    const scene = ((autosaved: unknown) => { const doc = autosaved as { pages?: Array<{ id: string; scene: unknown }>; activePageId?: string }; return doc.pages ? (doc.pages.find((entry) => entry.id === doc.activePageId) ?? doc.pages[0]!).scene : autosaved; })(JSON.parse(raw)) as { elements: Array<{ type: string; x: number; y: number; width: number; height: number; scale?: number[]; isDeleted?: boolean }> };
     return scene.elements.find((element) => element.type === "image" && !element.isDeleted);
   });
 }

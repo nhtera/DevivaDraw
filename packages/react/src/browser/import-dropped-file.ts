@@ -12,14 +12,15 @@
  * Images are deliberately not handled here. They keep their own drop path
  * (`hooks/use-paste-and-drop.ts`), which inserts one at the cursor rather than touching the document.
  */
-import type { Scene } from "@deviva-draw/engine";
 import { parseLibraryFile } from "./library-import";
 import type { PreviewRenderer } from "./library-import";
 import type { LibraryItem } from "./library-storage";
-import { sceneFromFileText } from "./scene-file-operations";
+import { documentFromFileText } from "./scene-file-operations";
+import type { OpenedDocument } from "./scene-file-operations";
 
 export type DroppedFileImport =
-  | { kind: "scene"; scene: Scene }
+  /** A whole document — multi-page, legacy single-scene, or an imported Excalidraw scene as one page. */
+  | { kind: "scene"; document: OpenedDocument }
   | { kind: "library"; items: LibraryItem[]; skipped: Record<string, number> }
   /** Neither format (a PDF, a text file, malformed JSON, ...) — the caller reports it and leaves the document alone. */
   | { kind: "unsupported" };
@@ -28,8 +29,8 @@ export async function importDroppedFileText(text: string, renderPreview: Preview
   const library = await parseLibraryFile(text, renderPreview);
   if (!("error" in library)) return { kind: "library", items: library.items, skipped: library.skipped };
 
-  const scene = sceneFromFileText(text);
-  if (scene) return { kind: "scene", scene };
+  const document = documentFromFileText(text);
+  if (document) return { kind: "scene", document };
 
   return { kind: "unsupported" };
 }

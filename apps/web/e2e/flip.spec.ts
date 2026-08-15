@@ -19,7 +19,7 @@ async function liveElements(page: Page): Promise<Array<{ type: string; x: number
   return page.evaluate(() => {
     const raw = localStorage.getItem("devivadraw:autosave:v1");
     if (!raw) return [];
-    const scene = JSON.parse(raw) as { elements: Array<{ type: string; x: number; y: number; isDeleted?: boolean; points?: Array<{ x: number; y: number }> }> };
+    const scene = ((autosaved: unknown) => { const doc = autosaved as { pages?: Array<{ id: string; scene: unknown }>; activePageId?: string }; return doc.pages ? (doc.pages.find((entry) => entry.id === doc.activePageId) ?? doc.pages[0]!).scene : autosaved; })(JSON.parse(raw)) as { elements: Array<{ type: string; x: number; y: number; isDeleted?: boolean; points?: Array<{ x: number; y: number }> }> };
     return scene.elements.filter((element) => !element.isDeleted);
   });
 }
@@ -157,7 +157,7 @@ test("an asymmetric shape really mirrors, on screen and not just in the data", a
       page.evaluate(() => {
         const raw = localStorage.getItem("devivadraw:autosave:v1"); // written on a debounce
         if (!raw) return undefined;
-        const scene = JSON.parse(raw) as { elements: Array<{ type: string; scale?: number[]; isDeleted?: boolean }> };
+        const scene = ((autosaved: unknown) => { const doc = autosaved as { pages?: Array<{ id: string; scene: unknown }>; activePageId?: string }; return doc.pages ? (doc.pages.find((entry) => entry.id === doc.activePageId) ?? doc.pages[0]!).scene : autosaved; })(JSON.parse(raw)) as { elements: Array<{ type: string; scale?: number[]; isDeleted?: boolean }> };
         return scene.elements.find((element) => element.type === "check-box" && !element.isDeleted)?.scale;
       }),
     )
@@ -182,7 +182,7 @@ test("flipping a block arrow turns it around", async ({ page }) => {
 
   const direction = async () =>
     page.evaluate(() => {
-      const scene = JSON.parse(localStorage.getItem("devivadraw:autosave:v1")!) as { elements: Array<{ type: string; direction?: string; isDeleted?: boolean }> };
+      const scene = ((autosaved: unknown) => { const doc = autosaved as { pages?: Array<{ id: string; scene: unknown }>; activePageId?: string }; return doc.pages ? (doc.pages.find((entry) => entry.id === doc.activePageId) ?? doc.pages[0]!).scene : autosaved; })(JSON.parse(localStorage.getItem("devivadraw:autosave:v1")!)) as { elements: Array<{ type: string; direction?: string; isDeleted?: boolean }> };
       return scene.elements.find((element) => element.type === "block-arrow" && !element.isDeleted)!.direction;
     });
 

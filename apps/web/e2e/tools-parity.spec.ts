@@ -101,7 +101,7 @@ test("the image toolbar button inserts an image via the file picker and selects 
   // ...and it landed centered on the click, not at the viewport centre.
   await page.waitForTimeout(1300);
   const inserted = await page.evaluate(() => {
-    const scene = JSON.parse(localStorage.getItem("devivadraw:autosave:v1")!) as { elements: Array<Record<string, number | string>> };
+    const scene = ((autosaved: unknown) => { const doc = autosaved as { pages?: Array<{ id: string; scene: unknown }>; activePageId?: string }; return doc.pages ? (doc.pages.find((entry) => entry.id === doc.activePageId) ?? doc.pages[0]!).scene : autosaved; })(JSON.parse(localStorage.getItem("devivadraw:autosave:v1")!)) as { elements: Array<Record<string, number | string>> };
     const image = scene.elements.find((element) => element.type === "image")!;
     return { cx: (image.x as number) + (image.width as number) / 2, cy: (image.y as number) + (image.height as number) / 2 };
   });
@@ -282,7 +282,7 @@ test("the sticky-note tool drops a note and opens its label editor immediately",
   // The typed label really landed on the note as bound text.
   await page.waitForTimeout(1300);
   const label = await page.evaluate(() => {
-    const scene = JSON.parse(localStorage.getItem("devivadraw:autosave:v1")!) as { elements: Array<{ type: string; text?: string; containerId?: string | null }> };
+    const scene = ((autosaved: unknown) => { const doc = autosaved as { pages?: Array<{ id: string; scene: unknown }>; activePageId?: string }; return doc.pages ? (doc.pages.find((entry) => entry.id === doc.activePageId) ?? doc.pages[0]!).scene : autosaved; })(JSON.parse(localStorage.getItem("devivadraw:autosave:v1")!)) as { elements: Array<{ type: string; text?: string; containerId?: string | null }> };
     return scene.elements.find((element) => element.type === "text" && element.containerId)?.text;
   });
   expect(label).toBe("todo");

@@ -73,7 +73,7 @@ test("double-clicking a just-drawn shape inserts bound text (reachable immediate
 async function persistedRectOrigin(page: Page): Promise<{ x: number; y: number }> {
   await page.waitForTimeout(1300); // autosave debounce
   return page.evaluate(() => {
-    const scene = JSON.parse(localStorage.getItem("devivadraw:autosave:v1")!) as {
+    const scene = ((autosaved: unknown) => { const doc = autosaved as { pages?: Array<{ id: string; scene: unknown }>; activePageId?: string }; return doc.pages ? (doc.pages.find((entry) => entry.id === doc.activePageId) ?? doc.pages[0]!).scene : autosaved; })(JSON.parse(localStorage.getItem("devivadraw:autosave:v1")!)) as {
       elements: Array<{ type: string; x: number; y: number; isDeleted?: boolean }>;
     };
     const rect = scene.elements.find((element) => element.type === "rectangle" && !element.isDeleted)!;
