@@ -137,7 +137,9 @@ export function hitTestElement(element: AnyElement, point: Point, tolerance: num
     case "embed":
       return hitRectangleLike(local, element.width, element.height, element.type === "text" || element.type === "image" || element.type === "embed" ? true : filled, tolerance);
     case "note":
-      // A note is a solid card — its whole interior is a hit target (like a filled rectangle).
+    case "table":
+      // A note is a solid card, a table a content grid — the whole interior is a hit target either
+      // way (like a filled rectangle); nothing sits "inside" them to protect the way a frame does.
       return hitRectangleLike(local, element.width, element.height, true, tolerance);
     case "cloud":
     case "heart":

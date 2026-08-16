@@ -126,9 +126,24 @@ export function buildElementDrawable(drawer: RoughShapeDrawer, element: AnyEleme
     case "generic":
       // Pre-shape-system placeholder element type; rendered as a plain rectangle until fully retired.
       return drawer.rectangle(rect.x, rect.y, rect.width, rect.height, buildRoughOptions(element, strokeWidthPx));
-    default:
-      throw new Error(`rough-renderer: unhandled element type "${(element as AnyElement).type}"`);
+    default: {
+      // An unknown type must never throw here: this dispatch runs inside the render loop AND the SVG
+      // exporter, and an element from a NEWER build (collab ingest has no type gate — see
+      // `scene/scene.ts`'s `applyRemoteElement`) or a forgotten new-type branch would otherwise take
+      // the whole board down instead of skipping one element. Warn once per type so the gap is
+      // visible in the console without flooding it every frame.
+      warnUnknownElementTypeOnce((element as AnyElement).type);
+      return null;
+    }
   }
+}
+
+const warnedUnknownElementTypes = new Set<string>();
+
+function warnUnknownElementTypeOnce(type: string): void {
+  if (warnedUnknownElementTypes.has(type)) return;
+  warnedUnknownElementTypes.add(type);
+  console.warn(`rough-renderer: skipping unknown element type "${type}" (newer document or missing renderer branch)`);
 }
 
 function buildLineDrawable(drawer: RoughShapeDrawer, element: LineElement, camera: Camera, strokeWidthPx: number): Drawable | null {

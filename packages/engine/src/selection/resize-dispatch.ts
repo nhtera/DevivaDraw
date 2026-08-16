@@ -14,6 +14,8 @@ import type { ArrowElement } from "../elements/arrow-element";
 import type { FreedrawElement } from "../elements/freedraw-element";
 import type { LineElement } from "../elements/shape-elements";
 import type { TextElement } from "../elements/text-element";
+import type { TableElement } from "../elements/table-element";
+import { scaleTableGrid } from "../elements/table-layout";
 import type { ImageElement } from "../elements/image-element";
 import type { SceneRect } from "../render/viewport-culling";
 import type { ElementUpdate } from "../scene/scene";
@@ -83,6 +85,11 @@ export function dispatchResize(element: AnyElement, oldBounds: SceneRect, newBou
       return element.containerId !== null ? null : resizeStandaloneText(element, oldBounds, newBounds);
     case "image":
       return resizeImage(element, oldBounds, newBounds);
+    case "table":
+      // Scales both band arrays proportionally and re-derives width/height from their (min-clamped)
+      // sums, so the sum invariant holds on every frame of a drag. Text re-fit deliberately does NOT
+      // run here (this is the per-frame path) — `ResizeGesture.finish()` re-fits rows once at commit.
+      return scaleTableGrid(element, newBounds) as Partial<TableElement>;
     // Every bounding-box shape (its geometry is recomputed from x/y/width/height by its renderer/hit-test)
     // resizes by just clamping the new bounds — no per-type point math needed.
     case "rectangle":

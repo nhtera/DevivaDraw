@@ -33,8 +33,17 @@ const ELEMENT_TYPES = [
   "generic", "rectangle", "ellipse", "diamond", "triangle", "hexagon", "star",
   "parallelogram", "trapezoid", "cylinder", "double-circle",
   "block-arrow", "cloud", "heart", "x-box", "check-box",
-  "line", "freedraw", "text", "arrow", "image", "frame", "note", "embed",
+  "line", "freedraw", "text", "arrow", "image", "frame", "note", "embed", "table",
 ] as const;
+
+// Table grid caps — literal duplicates of `elements/table-layout.ts`'s MAX_TABLE_ROWS/MAX_TABLE_COLS/
+// MAX_TABLE_CELL_CHARS (this module keeps zero scene-implementation imports, the MAX_LAYER_ENTRIES
+// convention); change both places together.
+const MAX_TABLE_ROWS = 64;
+const MAX_TABLE_COLS = 16;
+const MAX_TABLE_CELL_CHARS = 4000;
+/** A table band size: finite and strictly positive — a zero/negative column or row is degenerate geometry. */
+const isPositiveFiniteNumber = (value: unknown): value is number => isFiniteNumber(value) && value > 0;
 const BLOCK_ARROW_DIRECTIONS = ["left", "right", "up", "down"] as const;
 const TEXT_FONT_FAMILIES = ["normal", "code", "hand-drawn-slot"] as const;
 const TEXT_ALIGNS = ["left", "center", "right"] as const;
@@ -165,6 +174,37 @@ function validateTypeSpecificFields(raw: Record<string, unknown>, index: number)
     }
     case "frame": {
       if (!isString(raw.name)) return `${label}.name must be a string`;
+      return null;
+    }
+    case "table": {
+      if (!(Array.isArray(raw.columnWidths) && raw.columnWidths.length >= 1 && raw.columnWidths.length <= MAX_TABLE_COLS && raw.columnWidths.every(isPositiveFiniteNumber))) {
+        return `${label}.columnWidths must be 1-${MAX_TABLE_COLS} positive finite numbers`;
+      }
+      if (!(Array.isArray(raw.rowHeights) && raw.rowHeights.length >= 1 && raw.rowHeights.length <= MAX_TABLE_ROWS && raw.rowHeights.every(isPositiveFiniteNumber))) {
+        return `${label}.rowHeights must be 1-${MAX_TABLE_ROWS} positive finite numbers`;
+      }
+      // The cells grid must match the size arrays exactly — a jagged or mismatched grid is precisely
+      // what downstream layout math would otherwise index into blindly (defense-in-depth alongside
+      // table-layout's read-time clamps; this is the first NESTED-array element field this validator gates).
+      if (!Array.isArray(raw.cells) || raw.cells.length !== raw.rowHeights.length) {
+        return `${label}.cells must be an array with one row per rowHeights entry`;
+      }
+      for (const rowCells of raw.cells) {
+        if (!Array.isArray(rowCells) || rowCells.length !== raw.columnWidths.length) return `${label}.cells rows must each match columnWidths in length`;
+        for (const cell of rowCells) {
+          if (!isString(cell)) return `${label}.cells entries must be strings`;
+          if (cell.length > MAX_TABLE_CELL_CHARS) return `${label}.cells entries must be at most ${MAX_TABLE_CELL_CHARS} characters`;
+        }
+      }
+      if (!isPositiveFiniteNumber(raw.fontSize)) return `${label}.fontSize must be a positive finite number`;
+      if (!isOneOf(raw.fontFamily, TEXT_FONT_FAMILIES)) return `${label}.fontFamily must be one of ${TEXT_FONT_FAMILIES.join(", ")}`;
+      // The geometry invariant (width/height are the band sums) with a small float allowance — every
+      // legitimate mutation path recomputes the sums, so a real mismatch is hand-edited/corrupted data
+      // that would desync the selection bbox from the drawn grid.
+      const columnSum = (raw.columnWidths as number[]).reduce((total, value) => total + value, 0);
+      const rowSum = (raw.rowHeights as number[]).reduce((total, value) => total + value, 0);
+      if (Math.abs((raw.width as number) - columnSum) > 0.5) return `${label}.width must equal the sum of columnWidths`;
+      if (Math.abs((raw.height as number) - rowSum) > 0.5) return `${label}.height must equal the sum of rowHeights`;
       return null;
     }
     default:

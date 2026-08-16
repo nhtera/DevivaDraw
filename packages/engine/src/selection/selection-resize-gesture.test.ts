@@ -126,3 +126,51 @@ describe("ResizeGesture — multi-element selection with a rotated member", () =
     expect(resized.height).toBeGreaterThan(20);
   });
 });
+
+describe("ResizeGesture — table row re-fit at finish", () => {
+  it("re-fits a resized table's rows to its wrapped text inside the same history batch", async () => {
+    const { createTableElement } = await import("../elements/table-element");
+    const { MIN_ROW_HEIGHT, TABLE_CELL_PADDING } = await import("../elements/table-layout");
+    const { createFixedWidthTextMeasurer } = await import("../text/text-measurement");
+
+    const scene = new Scene();
+    // One row, tall enough for its text at full width (200): wrap width 188 → 18 chars/line.
+    const table = scene.addElement(
+      createTableElement({ x: 0, y: 0, columnWidths: [200], rowHeights: [40], cells: [["a".repeat(36)]], fontSize: 20 }),
+    );
+    // History baseline captured AFTER creation (the runtime pushes a snapshot per committed change),
+    // so one undo lands on the pre-resize table, not an empty scene.
+    const history = new HistoryStack<AnyElement[]>(scene.getElements());
+    const gesture = new ResizeGesture({
+      scene,
+      selection: new SelectionState(),
+      history,
+      clipboard: new InternalClipboard(),
+      getZoom: () => 1,
+      textMeasurer: createFixedWidthTextMeasurer(10),
+    });
+    const frame = buildSelectionFrame([table])!;
+
+    gesture.begin(frame, "se", grabPointFor(frame, "se"));
+    gesture.apply({ x: 100, y: 40 }, NO_MODIFIERS); // halve the width; per-frame path never measures text
+    gesture.finish();
+
+    const resized = scene.getElement(table.id)!;
+    expect(resized.type).toBe("table");
+    if (resized.type !== "table") return;
+    // Wrap width now 100 - 2*padding = 88 → 8 chars/line → 36 chars = 5 lines * 25px + padding*2.
+    expect(resized.rowHeights[0]).toBe(5 * 25 + TABLE_CELL_PADDING * 2);
+    expect(resized.rowHeights[0]!).toBeGreaterThan(MIN_ROW_HEIGHT);
+    expect(resized.height).toBe(resized.rowHeights[0]);
+
+    // Resize + re-fit are ONE undo step: a single undo restores the original 200-wide, 40-tall grid.
+    const undone = history.undo();
+    expect(undone).toBeDefined();
+    scene.loadElementsSnapshot(undone!);
+    const restored = scene.getElement(table.id);
+    expect(restored?.type).toBe("table");
+    const restoredTable = restored as import("../elements/table-element").TableElement;
+    expect(restoredTable.columnWidths).toEqual([200]);
+    expect(restoredTable.rowHeights).toEqual([40]);
+  });
+});

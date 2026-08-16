@@ -21,6 +21,8 @@
 import type { BoundElementRef } from "../elements/base-element";
 import type { ArrowBinding, ArrowElement } from "../elements/arrow-element";
 import type { AnyElement } from "../elements/element-types";
+import type { TableElement } from "../elements/table-element";
+import { tableCellsGrid, tableColumnWidths, tableRowHeights } from "../elements/table-layout";
 import type { TextElement } from "../elements/text-element";
 import type { Scene } from "../scene/scene";
 
@@ -99,6 +101,19 @@ function instantiateCopy(
   }
   if (original.type === "arrow") {
     return { ...base, startBinding: remapBinding(original.startBinding, idMap), endBinding: remapBinding(original.endBinding, idMap) } as ArrowElement;
+  }
+  if (original.type === "table") {
+    // The top-level spread shares nested arrays by reference — fine for immutably-replaced fields,
+    // but a table's grid is exactly the kind of nested structure an in-place edit would silently
+    // corrupt across copy and original. Rebuild all three through table-layout's defensive readers
+    // (never the stored arrays raw — a collab-ingested malformed grid must degrade, not crash the
+    // duplicate/paste path), the `groupIds`/`boundElements` fresh-array precedent.
+    return {
+      ...base,
+      columnWidths: tableColumnWidths(original),
+      rowHeights: tableRowHeights(original),
+      cells: tableCellsGrid(original),
+    } as TableElement;
   }
   return base as AnyElement;
 }

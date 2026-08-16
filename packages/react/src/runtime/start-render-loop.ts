@@ -43,7 +43,24 @@ export interface RenderLoopDeps {
 /** Starts the loop; returns a stop function for the owning effect's cleanup. */
 export function startRenderLoop(deps: RenderLoopDeps): () => void {
   const { stage, scene, cameraStore, selection, getMarqueeRect, getSnapGuides, grid, getRemoteCursors, getTextDraft, getPendingEraseIds, getLaserTrail, getLassoPath, getColorAdapter, getBindingHighlightIds, getBindingAnchor, getTheme, getHoverPoint, getCursor } = deps;
+  // One warn per distinct failure message — a broken frame must be visible in the console without
+  // flooding it at animation-frame rate.
+  const warnedFrameErrors = new Set<string>();
   const renderNow = () => {
+    try {
+      renderFrameOnce();
+    } catch (error) {
+      // The rAF loop below re-schedules AFTER renderNow returns — an uncaught throw here would stop
+      // the chain permanently and freeze the board (one malformed element = a dead canvas). Catch and
+      // keep the loop alive: the failing element skips its frame, everything else keeps painting.
+      const message = error instanceof Error ? error.message : String(error);
+      if (!warnedFrameErrors.has(message)) {
+        warnedFrameErrors.add(message);
+        console.error("render loop: frame failed, continuing", error);
+      }
+    }
+  };
+  const renderFrameOnce = () => {
     const camera = cameraStore.getCamera();
     const textDraft = getTextDraft();
     const pendingEraseIds = getPendingEraseIds();

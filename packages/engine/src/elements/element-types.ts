@@ -38,6 +38,7 @@ import type {
   TriangleElement,
   XBoxElement,
 } from "./shape-elements";
+import type { TableElement } from "./table-element";
 import type { TextElement } from "./text-element";
 
 export type { ElementCreationInput } from "./element-factory-defaults";
@@ -95,6 +96,8 @@ export {
 } from "./shape-elements";
 export type { PolygonShapeType } from "./polygon-shape-geometry";
 export { isPolygonShapeType, polygonShapeUnitVertices } from "./polygon-shape-geometry";
+export type { TableElement, TableElementCreationInput } from "./table-element";
+export { createTableElement, emptyTableCells, DEFAULT_TABLE_COLUMN_WIDTH, DEFAULT_TABLE_ROW_HEIGHT } from "./table-element";
 export type { TextAlign, TextElementCreationInput, TextFontFamily, VerticalAlign } from "./text-element";
 export type { TextElement } from "./text-element";
 export {
@@ -135,7 +138,8 @@ export type AnyElement =
   | ImageElement
   | EmbedElement
   | FrameElement
-  | NoteElement;
+  | NoteElement
+  | TableElement;
 
 /**
  * Builds a new `GenericElement` with sane defaults for every field the caller did not supply.

@@ -208,6 +208,9 @@ export function buildTools(
     history: historyStack,
     clipboard,
     getZoom: () => getCamera().zoom,
+    // Commit-time layout inside gestures (a resized table re-fits its rows at finish) — same
+    // measurer the bound-text hooks use.
+    textMeasurer,
     getGrid: () => grid,
     getObjectSnapEnabled: () => objectSnap.enabled,
     // Snap only to what the user can actually see — an alignment to something off screen has no

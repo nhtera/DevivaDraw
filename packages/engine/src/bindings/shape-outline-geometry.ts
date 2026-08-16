@@ -63,6 +63,7 @@ export function outlineKindFor(type: string): OutlineKind | null {
   switch (type) {
     case "rectangle":
     case "note":
+    case "table":
     case "x-box":
     case "check-box":
     case "cloud":

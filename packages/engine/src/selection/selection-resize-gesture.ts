@@ -20,6 +20,8 @@
  * `computeResizedBounds` already decided on.
  */
 import type { AnyElement } from "../elements/element-types";
+import type { TableElement } from "../elements/table-element";
+import { fitRowHeightsToText } from "../elements/table-layout";
 import type { ModifierKeys } from "../input/tool-handler";
 import type { Point } from "../render/camera";
 import type { SceneRect } from "../render/viewport-culling";
@@ -117,9 +119,30 @@ export class ResizeGesture {
 
   finish(): void {
     const unchanged = !this.frame || !this.lastAppliedBounds || boundsEqual(this.frame.bounds, this.lastAppliedBounds);
-    if (unchanged) this.deps.history.cancelBatch();
-    else this.deps.history.endBatch(this.deps.scene.getElements());
+    if (unchanged) {
+      this.deps.history.cancelBatch();
+    } else {
+      this.refitResizedTables();
+      this.deps.history.endBatch(this.deps.scene.getElements());
+    }
     this.reset();
+  }
+
+  /**
+   * A resized table's rows were scaled proportionally per-frame (`dispatchResize`'s table case never
+   * measures text — the per-frame budget); without this commit-time pass, shrinking a table would
+   * leave its cell text clipped until some later edit happened to re-fit it. Runs inside the
+   * gesture's still-open history batch, so resize + re-fit undo as one step.
+   */
+  private refitResizedTables(): void {
+    const measurer = this.deps.textMeasurer;
+    if (!measurer || !this.originalElements) return;
+    for (const id of this.originalElements.keys()) {
+      const element = this.deps.scene.getElement(id);
+      if (!element || element.type !== "table") continue;
+      const fit = fitRowHeightsToText(element, measurer);
+      if (fit) this.deps.scene.updateElement(id, fit as Partial<TableElement>);
+    }
   }
 
   cancel(): void {

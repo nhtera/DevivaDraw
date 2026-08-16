@@ -6,6 +6,7 @@
  */
 import type { SceneRect } from "../render/viewport-culling";
 import type { Scene } from "../scene/scene";
+import type { TextMeasurer } from "../text/text-measurement";
 import type { ShapeToolHistory } from "../tools/drag-shape-tool-base";
 import type { InternalClipboard } from "./clipboard";
 import type { SelectionState } from "./selection-state";
@@ -16,6 +17,13 @@ export interface SelectionToolDeps {
   history: ShapeToolHistory;
   clipboard: InternalClipboard;
   getZoom(): number;
+  /**
+   * Text measurer for commit-time layout work inside gestures — today: re-fitting a resized table's
+   * row heights to its wrapped cell text when the gesture finishes (never per-frame; see
+   * `elements/table-layout.ts`'s `fitRowHeightsToText`). Optional: a host without one skips the
+   * re-fit and the table just keeps its proportionally-scaled rows.
+   */
+  textMeasurer?: TextMeasurer;
   /** Live grid state; grid snap only applies while `enabled` — omit for a host with no grid UI yet. */
   getGrid?(): { enabled: boolean; size: number };
   /**

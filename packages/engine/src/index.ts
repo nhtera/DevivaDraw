@@ -56,6 +56,26 @@ export {
 } from "./elements/shape-elements";
 export type { NoteElement } from "./elements/note-element";
 export { createNoteElement, DEFAULT_NOTE_BACKGROUND } from "./elements/note-element";
+export type { TableElement, TableElementCreationInput } from "./elements/table-element";
+export { createTableElement, emptyTableCells, DEFAULT_TABLE_COLUMN_WIDTH, DEFAULT_TABLE_ROW_HEIGHT } from "./elements/table-element";
+export type { TableCellAddress, TableGridFields, TableGridUpdate, TableLocalRect, TableRowFitResult } from "./elements/table-layout";
+export {
+  bandOffsets,
+  fitRowHeightsToText,
+  MAX_TABLE_CELL_CHARS,
+  MAX_TABLE_COLS,
+  MAX_TABLE_ROWS,
+  MIN_COLUMN_WIDTH,
+  MIN_ROW_HEIGHT,
+  scaleTableGrid,
+  TABLE_CELL_PADDING,
+  tableCellAtPoint,
+  tableCellRect,
+  tableCellsGrid,
+  tableCellText,
+  tableColumnWidths,
+  tableRowHeights,
+} from "./elements/table-layout";
 export type { PolygonShapeType } from "./elements/polygon-shape-geometry";
 export { blockArrowUnitVertices, isPolygonShapeType, polygonShapeUnitVertices } from "./elements/polygon-shape-geometry";
 export type { TextAlign, TextElement, TextElementCreationInput, TextFontFamily, VerticalAlign } from "./elements/text-element";
