@@ -6,6 +6,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { FileOperationsProvider, OpenedFile } from "@deviva-draw/react";
+import { recordWrittenContent } from "./external-change";
 
 interface WatchEventPayload {
   watchId: string;
@@ -15,7 +16,12 @@ interface WatchEventPayload {
 export function createDesktopFileOperations(): FileOperationsProvider {
   return {
     pickFile: (extensions) => invoke<OpenedFile | null>("pick_open_file", { extensions }),
-    writeFile: (path, text) => invoke("write_allowed_file", { path, text }),
+    writeFile: async (path, text) => {
+      await invoke("write_allowed_file", { path, text });
+      // Recorded only AFTER the atomic write landed — the file watcher compares against this to
+      // tell the app's own save echo from a genuinely external change (see external-change.ts).
+      recordWrittenContent(path, text);
+    },
     pickSavePath: (suggestedName, extensions) => invoke<string | null>("pick_save_path", { suggestedName, extensions }),
     watchFile: (path, onEvent) => {
       const watchId = crypto.randomUUID();

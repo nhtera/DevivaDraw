@@ -8,7 +8,7 @@ import { SHARE_API_BASE_URL } from "./share-api-config";
 // One provider + one host for the app's lifetime — watchers/menu/recents key off ids and OS
 // state, not React component identity, and `onDocumentStateChange` must be referentially stable.
 const fileOperations = createDesktopFileOperations();
-const documentHost = new DocumentHost();
+const documentHost = new DocumentHost(fileOperations);
 
 /**
  * Desktop shell — the editor and nothing else. Unlike the web app there are no `/s/` or `/room/`

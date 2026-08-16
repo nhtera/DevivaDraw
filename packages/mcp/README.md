@@ -35,6 +35,13 @@ Then ask the agent to draw:
   editable in the web app; `.devivadraw` files (including multi-page documents) open and save
   losslessly.
 
+## With the desktop app
+
+Point the server's `--root` at your drawings folder and open one of those `.devivadraw` files in
+the Deviva Draw desktop app: every agent `save_scene` live-reloads the open document within ~2s
+(camera preserved, unsaved local edits protected by a conflict bar — never merged or clobbered).
+Full walkthrough + troubleshooting: [`docs/desktop-agents.md`](../../docs/desktop-agents.md).
+
 ## PNG support (optional native canvas)
 
 PNG export and screenshots use [`@napi-rs/canvas`](https://www.npmjs.com/package/@napi-rs/canvas),

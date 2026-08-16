@@ -16,7 +16,7 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "test:unit": "pnpm --filter \"./packages/*\" --filter @deviva-draw/collab-server --filter @deviva-draw/mcp-worker test"
+    "test:unit": "pnpm --filter \"./packages/*\" --filter @deviva-draw/collab-server --filter @deviva-draw/mcp-worker --filter @deviva-draw/desktop test"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",

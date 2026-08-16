@@ -14,7 +14,8 @@ import { Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/men
 import { appDataDir, join } from "@tauri-apps/api/path";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ask, message } from "@tauri-apps/plugin-dialog";
-import type { DevivaDrawHandle, DocumentState, SaveDocumentOutcome } from "@deviva-draw/react";
+import type { DevivaDrawHandle, DocumentState, FileOperationsProvider, SaveDocumentOutcome } from "@deviva-draw/react";
+import { clearWrittenHash, contentHash, decideOnModify, lastWrittenHash } from "./external-change";
 
 interface PickedFile {
   path: string;
@@ -30,8 +31,12 @@ interface RecentEntry {
 const AUTOSAVE_KEY = "devivadraw:autosave:v1";
 const MAX_RECENTS = 10;
 const KEEP_RECOVERY_FILES = 10;
+/** Agents/editors often write in bursts — coalesce watcher events before reacting. */
+const EXTERNAL_CHANGE_DEBOUNCE_MS = 300;
 
 export class DocumentHost {
+  constructor(private readonly fileOperations: FileOperationsProvider) {}
+
   private state: DocumentState = { path: null, name: "Untitled", dirty: false };
   private getHandle: () => DevivaDrawHandle | null = () => null;
   private recents: RecentEntry[] = [];
@@ -43,11 +48,23 @@ export class DocumentHost {
   private openQueue: Promise<void> = Promise.resolve();
   /** Every menu/item resource of the CURRENT app menu — closed on rebuild (Tauri resources are not GC'd; leaking them grows the Rust resource table for the app's whole lifetime). */
   private menuResources: Array<{ close(): Promise<void> }> = [];
+  private watchedPath: string | null = null;
+  private stopWatching: (() => void) | null = null;
+  private externalChangeTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The open file disappeared from disk (delete/rename) — next save confirms before re-writing the old path. */
+  private removedFromDisk = false;
+  private conflictBar: HTMLElement | null = null;
 
   /** Stable prop for `<DevivaDraw onDocumentStateChange/>` — fires synchronously on every transition. */
   readonly onDocumentStateChange = (state: DocumentState): void => {
+    const previousPath = this.state.path;
     this.state = state;
     void this.syncTitle();
+    if (state.path !== previousPath) {
+      this.removedFromDisk = false;
+      this.dismissConflictBar();
+      this.armWatcher(state.path);
+    }
   };
 
   bindHandle(getHandle: () => DevivaDrawHandle | null): void {
@@ -109,7 +126,29 @@ export class DocumentHost {
   private async saveFlow(saveAs: boolean): Promise<SaveDocumentOutcome> {
     const handle = this.getHandle();
     if (!handle) return "canceled";
+    // An unresolved conflict bar means the disk holds someone else's version: a plain Save must
+    // not overwrite it SILENTLY — pressing Cmd+S here becomes an explicit overwrite decision.
+    if (!saveAs && this.conflictBar !== null) {
+      const overwrite = await ask(`"${this.state.name}" was changed on disk while you have unsaved edits. Overwrite the disk version with yours?`, {
+        title: "File Changed on Disk",
+        okLabel: "Overwrite",
+        cancelLabel: "Cancel",
+      });
+      if (!overwrite) return "canceled"; // bar stays up — the decision is still open
+      this.dismissConflictBar();
+    }
+    // The file vanished from disk (delete/rename): an in-place save becomes an explicit choice —
+    // recreate at the old path, or pick a new one. Never silent either way.
+    if (!saveAs && this.removedFromDisk && this.state.path) {
+      const recreate = await ask(`"${this.state.name}" was removed or renamed on disk. Save it back to the same location?`, {
+        title: "File Removed on Disk",
+        okLabel: "Save to Same Path",
+        cancelLabel: "Save As…",
+      });
+      if (!recreate) return this.saveFlow(true);
+    }
     const outcome = await handle.saveDocument({ saveAs });
+    if (outcome === "saved") this.removedFromDisk = false;
     if (typeof outcome === "object") {
       const retryAs = await ask(`Saving "${this.state.name}" failed:\n${outcome.error}\n\nSave to a different location instead?`, {
         title: "Save Failed",
@@ -297,7 +336,10 @@ export class DocumentHost {
     // intercepts it into the confirm-then-system-browser flow (main.rs).
     const helpMenu = await submenu({
       text: "Help",
-      items: [await item({ text: "Deviva Draw Help", action: () => window.location.assign("https://draw.deviva.app") })],
+      items: [
+        await item({ text: "Deviva Draw Help", action: () => window.location.assign("https://draw.deviva.app") }),
+        await item({ text: "Agent Guide (MCP)", action: () => window.location.assign("https://github.com/nhtera/DevivaDraw/blob/main/docs/desktop-agents.md") }),
+      ],
     });
 
     const items: Submenu[] = [fileMenu, editMenu, viewMenu, windowMenu, helpMenu];
@@ -350,6 +392,110 @@ export class DocumentHost {
       }
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
+  }
+
+  // --- external-change watching (agent integration) ------------------------------------------
+
+  /** (Re)arms the file watcher on the current document path; `null` stops watching. */
+  private armWatcher(path: string | null): void {
+    this.stopWatching?.();
+    this.stopWatching = null;
+    // Evict the abandoned path's self-write hash: a stale match could suppress a genuinely
+    // external change if this document is ever reopened (and the registry must not grow forever).
+    if (this.watchedPath !== null && this.watchedPath !== path) clearWrittenHash(this.watchedPath);
+    this.watchedPath = path;
+    if (path === null || !this.fileOperations.watchFile) return;
+    this.stopWatching = this.fileOperations.watchFile(path, (kind) => {
+      if (kind === "removed") {
+        this.onFileRemoved(path);
+        return;
+      }
+      // Debounced: agents and editors write in bursts; react once per quiet period.
+      if (this.externalChangeTimer !== null) clearTimeout(this.externalChangeTimer);
+      this.externalChangeTimer = setTimeout(() => {
+        this.externalChangeTimer = null;
+        void this.onExternalModify(path);
+      }, EXTERNAL_CHANGE_DEBOUNCE_MS);
+    });
+  }
+
+  private onFileRemoved(path: string): void {
+    if (this.state.path !== path) return;
+    this.removedFromDisk = true;
+    // Never fold delete into modify: the document stays open, the user decides at next save.
+    // The polling watcher self-recovers — a re-appearing file emits "modified" again.
+    this.toast(`${this.state.name} was removed or renamed on disk — the document stays open here; the next Save will confirm before writing.`);
+  }
+
+  private async onExternalModify(path: string): Promise<void> {
+    if (this.state.path !== path) return; // path changed while debouncing — stale event
+    this.removedFromDisk = false;
+    let text: string;
+    try {
+      text = await invoke<string>("read_allowed_file", { path });
+    } catch (error) {
+      console.error("deviva-desktop: external change could not be read", error);
+      return;
+    }
+    const decision = decideOnModify({ changedHash: contentHash(text), lastWrittenHash: lastWrittenHash(path), dirty: this.state.dirty });
+    if (decision === "suppress") return;
+    if (decision === "reload") {
+      this.reloadFromText(text, path);
+      return;
+    }
+    this.showConflictBar(path);
+  }
+
+  private reloadFromText(text: string, path: string): void {
+    const handle = this.getHandle();
+    if (!handle) return;
+    if (!handle.openDocument(text, path, { preserveCamera: true })) {
+      // Parse failure = "changed but unreadable": keep the current document, keep watching —
+      // the next (possibly complete) write gets a fresh chance.
+      this.toast(`${this.state.name} changed on disk but the new content is not readable — keeping the current document.`);
+    }
+  }
+
+  /** Dirty local edits + external change: never auto-merge, never clobber — the user picks. */
+  private showConflictBar(path: string): void {
+    this.dismissConflictBar();
+    const bar = document.createElement("div");
+    bar.setAttribute("role", "alertdialog");
+    bar.setAttribute("aria-label", "File changed on disk");
+    bar.style.cssText =
+      "position:fixed;top:56px;left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:center;" +
+      "padding:10px 14px;background:#7c2d12;color:#fff7ed;border-radius:8px;font:13px system-ui;z-index:99999;box-shadow:0 4px 14px rgba(0,0,0,.4)";
+    const label = document.createElement("span");
+    label.textContent = `${this.state.name} was changed on disk while you have unsaved edits.`;
+    const button = (text: string, onClick: () => void) => {
+      const node = document.createElement("button");
+      node.textContent = text;
+      node.style.cssText = "padding:4px 10px;border-radius:6px;border:1px solid #fdba74;background:transparent;color:inherit;cursor:pointer;font:inherit";
+      node.addEventListener("click", onClick);
+      return node;
+    };
+    bar.append(
+      label,
+      button("Reload from disk", () => {
+        this.dismissConflictBar();
+        // Re-read at click time (freshest disk state), with the same stale-path guard the
+        // debounced watcher path uses — the document may have changed identity while the bar sat.
+        void invoke<string>("read_allowed_file", { path }).then((text) => {
+          if (this.state.path === path) this.reloadFromText(text, path);
+        });
+      }),
+      button("Keep mine (Save As…)", () => {
+        this.dismissConflictBar();
+        void this.saveFlow(true);
+      }),
+    );
+    document.body.appendChild(bar);
+    this.conflictBar = bar;
+  }
+
+  private dismissConflictBar(): void {
+    this.conflictBar?.remove();
+    this.conflictBar = null;
   }
 
   private async showAbout(): Promise<void> {
