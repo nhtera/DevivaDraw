@@ -1,6 +1,7 @@
 name: Release
 
-# Publishes the three @deviva-draw packages to npm when a v* tag is pushed.
+# Publishes the four @deviva-draw packages (engine, collab-client, react, mcp) to npm when a
+# v* tag is pushed.
 #
 # Authentication is npm trusted publishing (OIDC) — there is deliberately no NPM_TOKEN.
 # npm is retiring 2FA-bypass granular access tokens: they lose account-management powers

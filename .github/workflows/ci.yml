@@ -103,6 +103,56 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  mcp-package:
+    name: MCP package (pack smoke, SVG-only mode)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The optional native canvas must never be load-bearing: the whole suite has to stay green
+      # with it disabled (canvas-dependent tests skip; export_png degrades to a clear error).
+      - run: DEVIVA_MCP_NO_CANVAS=1 pnpm --filter @deviva-draw/mcp test
+
+      # Cold-start smoke against the PACKED artifacts — the exact thing `npx @deviva-draw/mcp`
+      # installs: publishConfig-rewritten dist, bin + shebang, engine resolved as a real dependency
+      # (its tarball installed alongside, since a tag may ship both at new versions together).
+      - run: pnpm run build:packages
+      - run: |
+          set -eu
+          SMOKE="$(mktemp -d)"
+          pnpm --dir packages/engine pack --pack-destination "$SMOKE"
+          pnpm --dir packages/mcp pack --pack-destination "$SMOKE"
+          cd "$SMOKE"
+          npm init -y > /dev/null
+          npm install ./deviva-draw-engine-*.tgz ./deviva-draw-mcp-*.tgz --no-audit --no-fund --loglevel=error
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}' \
+            | npx --no-install deviva-draw-mcp | grep -q '"serverInfo"'
+        name: Pack + npx cold-start smoke
+
+      # Publish dry-run on the workspace, so a broken files/exports/publishConfig setup fails a PR
+      # instead of the immutable tag build.
+      - run: pnpm --dir packages/mcp publish --dry-run --no-git-checks
+
+      # Remote-worker bundle guard: the stateless Worker must stay canvas-free AND must not inline
+      # the ~33KB base64 hand-drawn font (only the PNG path needs it; the SVG path tree-shakes it).
+      # `d09GMg` is the woff2 magic in base64 — its presence means tree-shaking regressed.
+      - run: |
+          pnpm --dir apps/mcp-worker exec wrangler deploy --dry-run --outdir /tmp/mcp-worker-bundle
+          if grep -q "d09GMg" /tmp/mcp-worker-bundle/index.js; then
+            echo "::error::hand-drawn font data leaked into the mcp-worker bundle (tree-shaking regressed)"
+            exit 1
+          fi
+        name: Worker bundle guard (size + font tree-shake)
+
   deploy-collab-server:
     name: Deploy collab server
     needs: [build, e2e]
@@ -129,6 +179,32 @@ jobs:
       # `run` is required, not stylistic: `pnpm deploy` is a built-in pnpm command that copies a
       # workspace package into a directory, and it shadows the package's own deploy script.
       - run: pnpm --filter @deviva-draw/collab-server run deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  deploy-mcp-worker:
+    name: Deploy MCP worker
+    needs: [build, e2e, mcp-package]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://mcp-draw.deviva.app
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # `run` (not bare `pnpm deploy`) — same shadowing caveat as the collab job above.
+      - run: pnpm --filter @deviva-draw/mcp-worker run deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
