@@ -81,6 +81,27 @@ actionable errors, never crashes.
 | `take_screenshot` | Returns the rendered PNG as an image block so the agent can inspect its own work. | `{"selectionIds": ["…"]}` |
 | `read_scene_format` | Static cheat-sheet: coordinates, element model, styling, usage patterns. | `{}` |
 
+### Live sessions (draw on the user's open canvas)
+
+Local stdio server only. Start a live session in the browser at
+[draw.deviva.app](https://draw.deviva.app), copy the room link, and hand it to the agent — its
+edits then appear on your open canvas in real time, your edits flow back, and the agent shows up
+in the presence rail as a named collaborator.
+
+| Tool | What it does | Example arguments |
+|---|---|---|
+| `connect_to_live_session` | Join the user's live room as a headless peer (connect early — the current scene merges into the room like a second browser peer). | `{"url": "https://draw.deviva.app/room/…#key=…"}` |
+| `disconnect_live_session` | Leave the room; the scene keeps its merged content. | `{}` |
+| `live_session_status` | Connection status, room id, and current collaborators. | `{}` |
+
+The link's `#key=…` fragment is the room's end-to-end encryption key: the agent holds it in memory
+only and never repeats it in results, errors, or logs. Self-hosted relay: set
+`DEVIVA_MCP_COLLAB_URL`. While connected, `new_scene`/`open_scene` are refused so the room's
+scene can't be swapped out from under it.
+
+Multi-page boards sync fully: pages added or renamed in the browser show up in
+`live_session_status`, and the agent's tools always operate on the room's active page.
+
 ## SVG-only mode
 
 PNG rendering rides `@napi-rs/canvas`, an **optionalDependency**. When it isn't installed (rare
@@ -90,7 +111,8 @@ approximation, and everything else is unaffected.
 
 ## Security
 
-- **stdio = local-only.** Scene data never leaves the machine; there is no network I/O.
+- **stdio = local-only.** Scene data never leaves the machine; the only network I/O is the
+  opt-in live session, which connects to the E2E-encrypted relay only when you paste a room link.
 - File access is restricted to explicit agent-passed paths, optionally confined by `--root`.
 - Image decode accepts `data:` URIs only — the server never fetches remote URLs.
 

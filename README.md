@@ -94,6 +94,11 @@ fully editable in the web app, all headless:
 claude mcp add deviva-draw -- npx -y @deviva-draw/mcp --root ~/diagrams
 ```
 
+The agent can even draw on the canvas you have open in the browser: start a
+live session at [draw.deviva.app](https://draw.deviva.app), paste the room
+link to the agent, and its edits appear on your screen in real time — no
+extension, no plugin, no account.
+
 See [`docs/mcp.md`](docs/mcp.md) for Claude Desktop/Cursor setup and the full
 tool reference.
 

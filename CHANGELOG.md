@@ -4,6 +4,21 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] — 2026-08-16
+
+### Added
+- **MCP live sessions — the agent draws on your open canvas.** Start a live session in the web
+  app, paste the room link to Claude (or any MCP client running `npx @deviva-draw/mcp`), and the
+  agent joins as a named collaborator: its shapes and diagrams appear on the canvas you're looking
+  at in real time, your edits flow back to it, and it shows up in the presence rail. Works with
+  multi-page boards (page adds/renames from the browser reach the agent), needs no extension,
+  plugin, or account, and keeps the room's end-to-end encryption — the relay still sees only
+  ciphertext, and the agent never repeats the room key anywhere. Three new stdio tools:
+  `connect_to_live_session`, `disconnect_live_session`, `live_session_status`.
+- `@deviva-draw/collab-client` now ships `PageStore` (moved from the react package) and the
+  canonical `createPageStoreCollabAdapter`, so every peer kind — browser tab or headless agent —
+  runs identical multi-page sync semantics.
+
 ## [0.6.0] — 2026-08-16
 
 ### Added
