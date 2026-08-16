@@ -13,6 +13,15 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .manage(file_io::AllowedPaths::default())
+        .manage(file_io::WatchRegistry::default())
+        .invoke_handler(tauri::generate_handler![
+            file_io::pick_open_file,
+            file_io::pick_save_path,
+            file_io::read_allowed_file,
+            file_io::write_allowed_file,
+            file_io::watch_allowed_file,
+            file_io::unwatch_file,
+        ])
         .setup(|app| {
             let handle = app.handle().clone();
             // The window is built here (not declared in tauri.conf.json) because the navigation

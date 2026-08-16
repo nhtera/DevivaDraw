@@ -1,5 +1,9 @@
 import { DevivaDraw } from "@deviva-draw/react";
+import { createDesktopFileOperations } from "./desktop-file-operations";
 import { SHARE_API_BASE_URL } from "./share-api-config";
+
+// One provider for the app's lifetime — its watchers key off ids, not component identity.
+const fileOperations = createDesktopFileOperations();
 
 /**
  * Desktop shell — the editor and nothing else. Unlike the web app there are no `/s/` or `/room/`
@@ -12,5 +16,5 @@ import { SHARE_API_BASE_URL } from "./share-api-config";
  * semantics arrive with the Phase 3 file-operations seam.
  */
 export function App() {
-  return <DevivaDraw shareApiBaseUrl={SHARE_API_BASE_URL} style={{ position: "fixed", inset: 0 }} />;
+  return <DevivaDraw shareApiBaseUrl={SHARE_API_BASE_URL} fileOperations={fileOperations} style={{ position: "fixed", inset: 0 }} />;
 }

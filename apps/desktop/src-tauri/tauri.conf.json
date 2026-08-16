@@ -34,7 +34,12 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "nsis", "appimage", "deb"],
+    "targets": [
+      "dmg",
+      "nsis",
+      "appimage",
+      "deb"
+    ],
     "category": "Productivity",
     "shortDescription": "Open-source infinite-canvas whiteboard",
     "icon": [
