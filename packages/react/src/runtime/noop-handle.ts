@@ -15,4 +15,7 @@ export const NOOP_HANDLE: DevivaDrawHandle = {
   undo: () => {},
   redo: () => {},
   zoomToFit: () => {},
+  runAction: () => false,
+  openDocument: () => false,
+  saveDocument: () => Promise.resolve("canceled" as const),
 };

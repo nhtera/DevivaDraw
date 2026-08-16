@@ -6,7 +6,7 @@
  * "rebuild the runtime" path `use-deviva-runtime.ts`'s `sceneVersion` bump drives.
  */
 import type { AnyElement, HistoryStack, MultiPageDocumentV1, Scene, SelectionState } from "@deviva-draw/engine";
-import type { PersistenceOperations } from "../actions/action-types";
+import type { PersistenceOperations, SaveDocumentOutcome } from "../actions/action-types";
 import {
   exportSceneToPngFile,
   exportSceneToSvgFile,
@@ -61,7 +61,32 @@ export function buildPersistenceOperations(deps: BuildPersistenceOperationsDeps)
   /** Strips the directory part of a real path for display — a provider path is host-native (`/` or `\`). */
   const fileNameOf = (path: string) => path.split(/[/\\]/).pop() ?? path;
 
+  /** The provider save flow with its outcome surfaced — `saveScene` wraps it fire-and-forget; the desktop shell calls it directly (error dialog, Save-As fallback, quit guard). */
+  const saveSceneOutcome = async (options?: { saveAs?: boolean }): Promise<SaveDocumentOutcome> => {
+    if (!fileOperations) {
+      // Browser hosts have no path identity to surface, but failures still must not escape as
+      // unhandled rejections — the File System Access picker throws on cancel and write errors.
+      try {
+        await (pages ? saveDocumentToFile(pages.getDocument()) : saveSceneToFile(getScene()));
+        return "saved";
+      } catch (error) {
+        return { error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    try {
+      const document = pages ? pages.getDocument() : getScene().toJSON();
+      const currentPath = options?.saveAs ? null : (getFilePath?.() ?? null);
+      const path = await saveDocumentViaProvider(fileOperations, document, currentPath);
+      if (path === null) return "canceled";
+      onFileIdentity?.({ path, name: fileNameOf(path) });
+      return "saved";
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  };
+
   return {
+    saveSceneOutcome,
     newScene: () => resetScene(getScene(), history, selection),
     openScene: async () => {
       try {
@@ -91,19 +116,8 @@ export function buildPersistenceOperations(deps: BuildPersistenceOperationsDeps)
     },
     loadScene: (scene) => onSceneReplaced(scene),
     saveScene: async () => {
-      try {
-        if (fileOperations) {
-          // Symmetric with openScene: a supplied provider owns saving in BOTH modes — a pages-less
-          // host must not silently fall back to a browser download after opening via native dialogs.
-          const document = pages ? pages.getDocument() : getScene().toJSON();
-          const path = await saveDocumentViaProvider(fileOperations, document, getFilePath?.() ?? null);
-          if (path !== null) onFileIdentity?.({ path, name: fileNameOf(path) });
-          return;
-        }
-        await (pages ? saveDocumentToFile(pages.getDocument()) : saveSceneToFile(getScene()));
-      } catch (error) {
-        reportError(error);
-      }
+      const outcome = await saveSceneOutcome();
+      if (typeof outcome === "object") reportError(new Error(outcome.error));
     },
     exportPng: () => exportSceneToPngFile(getScene(), EXPORT_PNG_DEFAULT_SCALE).catch(reportError),
     exportSvg: () => exportSceneToSvgFile(getScene()).catch(reportError),

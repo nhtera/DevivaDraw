@@ -2,6 +2,7 @@
 import type { AnyElement, MultiPageDocumentV1, SceneDocument } from "@deviva-draw/engine";
 import type { CSSProperties } from "react";
 import type { FileOperationsProvider } from "./browser/file-operations-provider";
+import type { DocumentState } from "./runtime/document-state-tracker";
 import type { Locale } from "./i18n/locale-storage";
 import type { ThemeMode } from "./theme/theme-tokens";
 
@@ -30,6 +31,8 @@ export interface DevivaDrawProps {
   initialRoomUrl?: string;
   /** Host-supplied file operations for scene open/save — how a shell with a real filesystem (the desktop app) provides native dialogs, path identity, and save-in-place. Omit for the browser's picker/download behavior, which is unchanged when this prop is absent. See `FileOperationsProvider`. */
   fileOperations?: FileOperationsProvider;
+  /** Fired synchronously on every document identity/dirty transition (`{path, name, dirty}`) — the desktop shell's title bar, macOS documentEdited dot, recents, and unsaved-close guard all hang off this. Dirty is content-only: pan/zoom and page switching never set it. */
+  onDocumentStateChange?(state: DocumentState): void;
   className?: string;
   style?: CSSProperties;
 }

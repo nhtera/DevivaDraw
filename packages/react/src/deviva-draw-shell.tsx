@@ -76,7 +76,7 @@ import type { ShareDialogState } from "./actions/action-types";
 import type { DevivaDrawProps } from "./deviva-draw-app-types";
 
 export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(function DevivaDrawShell(props, ref) {
-  const { initialData, persistenceKey, onChange, className, style, initialViewOnly, shareApiBaseUrl, initialRoomUrl, fileOperations } = props;
+  const { initialData, persistenceKey, onChange, className, style, initialViewOnly, shareApiBaseUrl, initialRoomUrl, fileOperations, onDocumentStateChange } = props;
   const canvasHostRef = useRef<HTMLDivElement | null>(null);
 
   // The document's page list, seeded once: host-supplied `initialData` wraps into a single page
@@ -189,6 +189,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     },
     shareApiBaseUrl,
     fileOperations,
+    onDocumentStateChange,
     getThemeMode,
     toggleThemeMode,
     getToolLocked: toolLock.get,

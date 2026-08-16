@@ -144,3 +144,18 @@ describe("buildPersistenceOperations — provider branching", () => {
     expect(deps.identitySpy).not.toHaveBeenCalled();
   });
 });
+
+describe("buildPersistenceOperations — browser (no provider) save error handling", () => {
+  it("a throwing browser save is reported, never an unhandled rejection", async () => {
+    // FS Access path present and rejecting — the picker throwing (e.g. write failure) must be
+    // caught and funneled to onError, exactly like the pre-seam behavior.
+    const showSaveFilePicker = vi.fn().mockRejectedValue(new Error("disk full"));
+    vi.stubGlobal("window", { showSaveFilePicker });
+    const onError = vi.fn();
+    const pages = makePages();
+    const deps = makeDeps({ pages, onError });
+
+    await expect(buildPersistenceOperations(deps).saveScene()).resolves.toBeUndefined();
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+});

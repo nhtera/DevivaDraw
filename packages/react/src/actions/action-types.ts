@@ -21,6 +21,9 @@ import type {
 import type { TranslationKey } from "../i18n/catalog-en";
 import type { ThemeMode } from "../theme/theme-tokens";
 
+/** A surfaced save result — see `PersistenceOperations.saveSceneOutcome`. */
+export type SaveDocumentOutcome = "saved" | "canceled" | { error: string };
+
 /** Live mutable grid-mode state — a plain object, not React state, so the render loop and the select tool's snap-to-grid both read the exact same live value every frame. */
 export interface GridState {
   enabled: boolean;
@@ -63,6 +66,14 @@ export interface PersistenceOperations {
    */
   loadScene(scene: Scene): void;
   saveScene(): Promise<void>;
+  /**
+   * `saveScene` with the outcome surfaced instead of swallowed — the desktop shell's Save flow needs
+   * to distinguish saved / canceled / failed to drive its error dialog + Save-As fallback and its
+   * quit-guard "Save then close". `saveAs: true` forces the Save-As dialog even when the document
+   * already has a path. Optional: only provider-backed builds supply it (browser hosts keep the
+   * fire-and-forget `saveScene`).
+   */
+  saveSceneOutcome?(options?: { saveAs?: boolean }): Promise<SaveDocumentOutcome>;
   exportPng(): Promise<void>;
   exportSvg(): Promise<void>;
   copyAsImage(): Promise<void>;

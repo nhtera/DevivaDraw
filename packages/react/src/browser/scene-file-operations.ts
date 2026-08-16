@@ -245,6 +245,10 @@ export function startBrowserDocumentAutosave(
   // pans/zooms mutates no scene and would otherwise never write at all. The shared debounce
   // coalesces pan streams into the same one-write-per-quiet-period the scene subscription gets.
   camera?: { getCamera(): Camera; subscribe(listener: () => void): () => void },
+  // Extra envelope fields stamped onto every write (readers ignore unknown keys): the desktop
+  // shell's `{originPath, unsaved}` marker, so a later external open can tell whether the restored
+  // autosave slot is somebody's unsaved scratch work that must be auto-preserved first.
+  getDocumentMeta?: () => Record<string, string | boolean | null>,
 ): AutosaveController {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const clearPending = () => {
@@ -252,7 +256,7 @@ export function startBrowserDocumentAutosave(
     timer = null;
   };
   const write = () =>
-    writeAutosaveDocument(window.localStorage, document.toDocument(true, camera?.getCamera()), {
+    writeAutosaveDocument(window.localStorage, { ...(getDocumentMeta?.() ?? {}), ...document.toDocument(true, camera?.getCamera()) }, {
       storageKey,
       onQuotaExceeded: (error) => console.warn("deviva-draw: autosave skipped a write — localStorage quota exceeded", error),
       onError: (error) => console.error("deviva-draw: autosave write failed", error),

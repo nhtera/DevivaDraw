@@ -14,6 +14,8 @@ export type { DevivaDrawHandle, DevivaDrawProps, DevivaDrawStoredFile } from "./
 export type { ExportPngOptions, ExportSvgOptions } from "./runtime/imperative-handle";
 export type { FileOperationsProvider, OpenedFile } from "./browser/file-operations-provider";
 export { createBrowserFileOperations } from "./browser/file-operations-provider";
+export type { DocumentFileIdentity, DocumentState } from "./runtime/document-state-tracker";
+export type { SaveDocumentOutcome } from "./actions/action-types";
 
 // --- Theming ---
 

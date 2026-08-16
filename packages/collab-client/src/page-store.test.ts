@@ -169,3 +169,26 @@ describe("PageStore collab manifest", () => {
     expect(store.ensureRemotePage(second)).toBeNull();
   });
 });
+
+// Content revision (desktop dirty tracking): view changes must not read as edits.
+describe("PageStore content revision", () => {
+  it("bumps on add/rename/remove/replaceAll but NOT on setActivePage", () => {
+    const store = PageStore.fresh();
+    const r0 = store.getContentRevision();
+
+    const added = store.addPage();
+    expect(store.getContentRevision()).toBeGreaterThan(r0);
+
+    const r1 = store.getContentRevision();
+    store.setActivePage(added);
+    store.setActivePage(store.getPages()[0]!.id);
+    expect(store.getContentRevision()).toBe(r1);
+
+    store.renamePage(added, "Renamed");
+    expect(store.getContentRevision()).toBeGreaterThan(r1);
+
+    const r2 = store.getContentRevision();
+    store.removePage(added);
+    expect(store.getContentRevision()).toBeGreaterThan(r2);
+  });
+});

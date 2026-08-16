@@ -29,7 +29,10 @@ import {
 } from "@deviva-draw/engine";
 import type { AnyElement, MultiPageDocumentV1, RemoteCursorOverlay, SceneDocument, TextEditSession } from "@deviva-draw/engine";
 import type { FileOperationsProvider } from "../browser/file-operations-provider";
+import { documentFromFileText } from "../browser/scene-file-operations";
 import { buildPersistenceOperations } from "./build-persistence-operations";
+import { DocumentStateTracker } from "./document-state-tracker";
+import type { DocumentState } from "./document-state-tracker";
 import { buildRuntime } from "./build-runtime";
 import type { DevivaDrawHandle } from "./imperative-handle";
 import { buildImperativeHandle } from "./imperative-handle";
@@ -68,6 +71,8 @@ export interface UseDevivaRuntimeOptions {
   shareApiBaseUrl?: string;
   /** Host-supplied path-based file operations (the desktop shell) — forwarded to `buildPersistenceOperations`; absent keeps the browser open/save paths untouched. See `DevivaDrawProps.fileOperations`. */
   fileOperations?: FileOperationsProvider;
+  /** Fired synchronously on every file-identity/dirty transition — see `DevivaDrawProps.onDocumentStateChange`. */
+  onDocumentStateChange?(state: DocumentState): void;
   getThemeMode(): ThemeMode;
   toggleThemeMode(): void;
   /** `true` while the tool lock is engaged — see `build-runtime.ts`'s `getToolLocked` doc. */
@@ -101,12 +106,14 @@ function buildInitialScene(initialData: SceneDocument | MultiPageDocumentV1 | nu
 }
 
 export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRuntimeResult {
-  const { containerRef, cameraStore, initialData, persistenceKey, onChange, ui, shareApiBaseUrl, fileOperations, getThemeMode, toggleThemeMode, getToolLocked, isChromeOverlayOpen, getRemoteCursors, pageStore } = options;
+  const { containerRef, cameraStore, initialData, persistenceKey, onChange, ui, shareApiBaseUrl, fileOperations, onDocumentStateChange, getThemeMode, toggleThemeMode, getToolLocked, isChromeOverlayOpen, getRemoteCursors, pageStore } = options;
   const sceneRef = useRef<Scene | null>(null);
-  // The open document's file identity in provider mode — established by provider-based open/save.
-  // A ref (not state): nothing renders from it yet; the document-lifecycle phase lifts it into
-  // visible state (title bar, dirty dot) and re-plumbs accordingly.
-  const fileIdentityRef = useRef<{ path: string | null; name: string } | null>(null);
+  // File identity + synchronous content-only dirty flag — survives runtime rebuilds/page swaps
+  // (a ref, created once). Fed by the scene/page-store subscriptions below; consumed by the
+  // `onDocumentStateChange` prop and the desktop shell's save/close flows.
+  const documentStateRef = useRef<DocumentStateTracker | null>(null);
+  if (documentStateRef.current === null) documentStateRef.current = new DocumentStateTracker();
+  const documentState = documentStateRef.current;
   if (sceneRef.current === null) sceneRef.current = pageStore ? pageStore.getActiveScene() : buildInitialScene(initialData, persistenceKey);
 
   const [runtime, setRuntime] = useState<DevivaRuntime | null>(null);
@@ -120,14 +127,31 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
   // where the active Scene is unchanged and no rebuild happens.)
   useEffect(() => {
     if (!pageStore) return;
+    // Dirty tracking, page-list half: only CONTENT revisions count (add/rename/delete/replace) —
+    // `setActivePage` notifies without bumping the revision, so page switching stays clean.
+    let seenContentRevision = pageStore.getContentRevision();
     return pageStore.subscribe(() => {
+      const contentRevision = pageStore.getContentRevision();
+      if (contentRevision !== seenContentRevision) {
+        seenContentRevision = contentRevision;
+        documentState.markContentChanged();
+      }
       const active = pageStore.getActiveScene();
       if (active !== sceneRef.current) {
         sceneRef.current = active;
         setSceneVersion((version) => version + 1);
       }
     });
-  }, [pageStore]);
+  }, [pageStore, documentState]);
+
+  // State-out to the host (desktop title bar / documentEdited / recents) — fires on every dirty or
+  // identity transition. `useStableCallback` semantics via manual latest-ref would be overkill:
+  // hosts pass a stable function (module-level in the desktop shell).
+  useEffect(() => {
+    if (!onDocumentStateChange) return;
+    onDocumentStateChange(documentState.getState());
+    return documentState.subscribe(() => onDocumentStateChange(documentState.getState()));
+  }, [onDocumentStateChange, documentState]);
 
   // Stable regardless of whether the host passes a memoized `onChange` — see the module doc. Always
   // resolves to whichever `onChange` this hook was most recently called with; a `undefined` prop on
@@ -142,6 +166,22 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
     const stage = new CanvasStage();
     stage.mount(container);
     const unsubscribeInvalidate = scene.subscribe(() => stage.staticLayer.invalidate());
+    // Dirty tracking, scene half: every element/file/layer mutation on the ACTIVE scene is content.
+    // Synchronous by construction (Scene.notify is synchronous) — no debounce between an edit and
+    // the dirty flag. Camera changes never notify the scene, so pan/zoom stays clean. Switching
+    // the ACTIVE layer notifies too but is a view action (same policy as page switching — the plan
+    // says look-only sessions must close without a prompt), so a notify whose only observable
+    // change is the active-layer id is skipped; `setActiveLayer` is its own mutation, never
+    // bundled with a content edit in one notify.
+    let seenActiveLayerId = scene.getActiveLayerId();
+    const unsubscribeDirty = scene.subscribe(() => {
+      const activeLayerId = scene.getActiveLayerId();
+      if (activeLayerId !== seenActiveLayerId) {
+        seenActiveLayerId = activeLayerId;
+        return;
+      }
+      documentState.markContentChanged();
+    });
 
     // Register the bundled hand-drawn font, then force one repaint so any already-painted text
     // reflows from the fallback sans into the real face once it's ready (a data-URI font settles fast,
@@ -155,7 +195,18 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
     const autosave = usingHostManagedData
       ? null
       : pageStore
-        ? startBrowserDocumentAutosave(pageStore, scene, persistenceKey, { getCamera: cameraStore.getCamera, subscribe: cameraStore.subscribe })
+        ? startBrowserDocumentAutosave(
+            pageStore,
+            scene,
+            persistenceKey,
+            { getCamera: cameraStore.getCamera, subscribe: cameraStore.subscribe },
+            // Origin marker for the desktop shell's scratch-preservation logic (browser hosts write
+            // it too — harmless extra envelope fields the readers ignore).
+            () => {
+              const state = documentState.getState();
+              return { originPath: state.path, unsaved: state.dirty };
+            },
+          )
         : startBrowserAutosave(scene, persistenceKey);
 
     // Autosave only writes in response to a scene *change*, and a scene that was just opened from a
@@ -197,9 +248,12 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
             : undefined,
           shareApiBaseUrl,
           fileOperations,
-          getFilePath: () => fileIdentityRef.current?.path ?? null,
+          getFilePath: () => documentState.getState().path,
           onFileIdentity: (identity) => {
-            fileIdentityRef.current = identity;
+            documentState.markSaved(identity);
+            // Re-stamp the autosave slot immediately: a save/open changes originPath/unsaved with
+            // no scene mutation, so without this flush the marker would go stale until the next edit.
+            autosave?.flush();
           },
         }),
       shareApiBaseUrl,
@@ -243,6 +297,29 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
         createRoughSvgGenerator,
         textMeasurer: createCanvasTextMeasurer(document.createElement("canvas").getContext("2d")!),
         imageDecodeCache: new ImageDecodeCache(createBrowserImageDecoder()),
+        documentControl: {
+          // Same dispatch the in-shell menu/palette use — one action surface for native menus too.
+          runAction: (actionId) => {
+            if (!builtRuntime.actionRegistry.list().some((action) => action.id === actionId)) return false;
+            builtRuntime.actionRegistry.run(actionId, builtRuntime);
+            return true;
+          },
+          openDocument: (text, path) => {
+            const opened = documentFromFileText(text);
+            if (!opened) return false;
+            if (pageStore) pageStore.replaceAll(opened.pages, opened.activePageId);
+            else {
+              const first = opened.pages[0]?.scene;
+              if (!first) return false;
+              onSceneReplaced(first);
+            }
+            const name = path ? (path.split(/[/\\]/).pop() ?? path) : "Untitled";
+            documentState.markSaved({ path, name });
+            autosave?.flush();
+            return true;
+          },
+          saveDocument: (saveOptions) => builtRuntime.persistence.saveSceneOutcome?.(saveOptions) ?? Promise.resolve("canceled" as const),
+        },
       }),
     );
 
@@ -296,6 +373,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
       if (debounceTimer !== null) clearTimeout(debounceTimer);
       unsubscribeOnChange();
       unsubscribeInvalidate();
+      unsubscribeDirty();
       unsubscribeSelectionPrune();
       autosave?.dispose();
       builtRuntime.dispose();

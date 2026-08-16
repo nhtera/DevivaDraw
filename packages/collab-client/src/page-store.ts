@@ -43,6 +43,10 @@ export class PageStore {
   private manifestVersion = 1;
   private manifestNonce = rollNonce();
   private readonly tombstonedPageIds = new Set<string>();
+  // Bumped by every page-list CONTENT change (add/rename/remove/reorder/replace, local or remote-
+  // won) and never by `setActivePage` — the desktop dirty tracker keys off this to keep "switched
+  // pages" from reading as "has unsaved changes" (a view change is not an edit).
+  private contentRevision = 0;
 
   constructor(pages: readonly ScenePage[], activePageId: string | null) {
     if (pages.length === 0) throw new Error("PageStore requires at least one page");
@@ -166,6 +170,9 @@ export class PageStore {
     if (existing) return existing.scene;
     const scene = new Scene();
     this.pages.push({ id: pageId, name: `Page ${this.pages.length + 1}`, scene, camera: null });
+    // A page materializing from a peer IS document content (it will serialize into the next save),
+    // so the dirty tracker must see it — only the manifest nonce stays untouched here (see doc).
+    this.contentRevision += 1;
     this.notify();
     return scene;
   }
@@ -197,6 +204,7 @@ export class PageStore {
       if (!this.pages.some((page) => page.id === this.activeId)) this.activeId = this.pages[0]!.id;
       this.manifestVersion = remote.version;
       this.manifestNonce = remote.versionNonce;
+      this.contentRevision += 1;
       this.notify();
       return true;
     }
@@ -214,13 +222,22 @@ export class PageStore {
         changed = true;
       }
     }
-    if (changed) this.notify();
+    if (changed) {
+      this.contentRevision += 1;
+      this.notify();
+    }
     return changed;
+  }
+
+  /** Monotonic page-list content revision — see the field doc; compare across notifications to distinguish content changes from view changes. */
+  getContentRevision(): number {
+    return this.contentRevision;
   }
 
   private bumpManifest(): void {
     this.manifestVersion += 1;
     this.manifestNonce = rollNonce();
+    this.contentRevision += 1;
   }
 
   private entry(id: string): PageEntry | undefined {
