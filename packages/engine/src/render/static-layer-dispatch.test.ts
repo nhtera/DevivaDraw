@@ -25,7 +25,7 @@ function fakeContext(width = 800, height = 600): StaticLayerContext {
     rotate: vi.fn(),
     globalAlpha: 1,
     fillStyle: "",
-    beginPath: vi.fn(),
+    beginPath: vi.fn(), rect: vi.fn(), clip: vi.fn(),
     moveTo: vi.fn(),
     lineTo: vi.fn(),
     closePath: vi.fn(),

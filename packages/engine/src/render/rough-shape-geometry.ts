@@ -66,6 +66,20 @@ export function heartPath(rect: ScreenRect): string {
   ].join(" ");
 }
 
+/**
+ * SVG path for a table grid: the outer rect as a closed subpath (rough.js fills only closed
+ * subpaths — the `xBoxPath` single-Drawable trick) plus one open segment per interior column/row
+ * boundary. Offsets are screen px relative to the rect's own left/top edge, already zoom-scaled by
+ * the caller (`rough-renderer.ts` derives them from the element's band arrays).
+ */
+export function tablePath(rect: ScreenRect, interiorColumnOffsetsPx: readonly number[], interiorRowOffsetsPx: readonly number[]): string {
+  const { x, y, width: w, height: h } = rect;
+  const parts = [`M ${x} ${y} H ${x + w} V ${y + h} H ${x} Z`];
+  for (const offset of interiorColumnOffsetsPx) parts.push(`M ${x + offset} ${y} V ${y + h}`);
+  for (const offset of interiorRowOffsetsPx) parts.push(`M ${x} ${y + offset} H ${x + w}`);
+  return parts.join(" ");
+}
+
 /** SVG path for a box with an X through it — the rect as a closed subpath plus its two diagonals (one Drawable; rough.js fills only the closed subpath). */
 export function xBoxPath(rect: ScreenRect): string {
   const { x, y, width: w, height: h } = rect;

@@ -38,7 +38,7 @@ function fakeRenderSceneContext(): RenderSceneContext2D {
     rotate: vi.fn(),
     globalAlpha: 1,
     fillStyle: "",
-    beginPath: vi.fn(),
+    beginPath: vi.fn(), rect: vi.fn(), clip: vi.fn(),
     moveTo: vi.fn(),
     lineTo: vi.fn(),
     closePath: vi.fn(),

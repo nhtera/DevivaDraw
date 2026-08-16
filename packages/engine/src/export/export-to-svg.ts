@@ -8,7 +8,11 @@
  * embedding, so a previously-exported SVG can later be re-opened as an editable scene.
  */
 import type { AnyElement } from "../elements/element-types";
+import type { TableElement } from "../elements/table-element";
+import { TABLE_CELL_PADDING, tableCellRect, tableColumnWidths, tableRowHeights } from "../elements/table-layout";
 import { isMirrored, mirrorScaleOf } from "../elements/element-mirror";
+import { layoutTableText } from "../render/table-text-layout-cache";
+import { TEXT_FONT_FAMILY_CSS } from "../text/font-loading";
 import { serializeScene } from "../persistence/serialize-scene";
 import type { Camera } from "../render/camera";
 import { screenRectOf } from "../render/rough-shape-geometry";
@@ -64,6 +68,55 @@ function buildFrameSvgFragment(element: AnyElement & { type: "frame" }, camera: 
   return `${rectTag}${label}`;
 }
 
+/**
+ * A table's rough grid (the same `buildElementDrawable` path the canvas uses — identical sketchy
+ * lines) plus one `<text>` per wrapped cell line, each cell clipped so exported text never bleeds
+ * past its borders (mirroring the canvas painter's per-cell clip). Line breaks come from the SAME
+ * scene-size wrap the canvas layout cache computes, so SVG output matches the screen exactly.
+ */
+function buildTableSvgFragment(element: TableElement, camera: Camera, generator: RoughSvgGenerator, measurer: TextMeasurer): string {
+  const grid = buildRoughShapeSvgFragment(generator, element, camera);
+  const layout = layoutTableText(element, measurer);
+  const rect = screenRectOf(element, camera);
+  const zoom = camera.zoom;
+  const screenFontSizePx = element.fontSize * zoom;
+  const lineHeightPx = layout.lineHeightSceneUnits * zoom;
+  const paddingPx = TABLE_CELL_PADDING * zoom;
+  const fontFamily = escapeXmlAttribute(TEXT_FONT_FAMILY_CSS[element.fontFamily]);
+  const fill = escapeXmlAttribute(element.strokeColor);
+
+  const cellFragments: string[] = [];
+  // The element id is COLLAB-CONTROLLED (a remote peer's id passes ingest with any characters — see
+  // the defensive-read contract), so it must never reach markup verbatim: strip it to id-safe chars
+  // before it lands in an attribute. A cross-element collision after stripping only mis-shares a
+  // clip region (cosmetic), never breaks out of the attribute.
+  const safeElementId = element.id.replace(/[^A-Za-z0-9_-]/g, "");
+  const rowCount = tableRowHeights(element).length;
+  const colCount = tableColumnWidths(element).length;
+  for (let row = 0; row < rowCount; row += 1) {
+    for (let col = 0; col < colCount; col += 1) {
+      const lines = layout.cellLines[row]?.[col];
+      const cell = tableCellRect(element, row, col);
+      if (!lines || lines.length === 0 || !cell) continue;
+      const cellX = rect.x + cell.x * zoom;
+      const cellY = rect.y + cell.y * zoom;
+      const clipId = `table-cell-${safeElementId}-${row}-${col}`;
+      const clip = `<clipPath id="${clipId}"><rect x="${cellX}" y="${cellY}" width="${cell.width * zoom}" height="${cell.height * zoom}" /></clipPath>`;
+      const texts = lines
+        .map((line, index) => {
+          const y = cellY + paddingPx + index * lineHeightPx + lineHeightPx / 2;
+          return (
+            `<text x="${cellX + paddingPx}" y="${y}" font-size="${screenFontSizePx}" font-family="${fontFamily}" ` +
+            `text-anchor="start" dominant-baseline="central" fill="${fill}">${escapeXmlText(line)}</text>`
+          );
+        })
+        .join("");
+      cellFragments.push(`${clip}<g clip-path="url(#${clipId})">${texts}</g>`);
+    }
+  }
+  return `${grid}${cellFragments.join("")}`;
+}
+
 function elementFragment(element: AnyElement, camera: Camera, generator: RoughSvgGenerator, textMeasurer: TextMeasurer, scene: Scene): string {
   switch (element.type) {
     case "freedraw":
@@ -78,6 +131,8 @@ function elementFragment(element: AnyElement, camera: Camera, generator: RoughSv
       return buildEmbedSvgFragment(element, camera);
     case "frame":
       return buildFrameSvgFragment(element, camera);
+    case "table":
+      return buildTableSvgFragment(element, camera, generator, textMeasurer);
     default:
       return buildRoughShapeSvgFragment(generator, element, camera);
   }

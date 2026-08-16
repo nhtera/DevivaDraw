@@ -163,3 +163,46 @@ describe("exportToSvg — background + embedded scene data", () => {
     expect(svg).toContain('width="20" height="20"');
   });
 });
+
+describe("exportToSvg — table elements", () => {
+  it("emits the rough grid path, per-line clipped <text>, and XML-escaped cell content", async () => {
+    const { createTableElement } = await import("../elements/table-element");
+    const scene = new Scene();
+    scene.addElement(
+      createTableElement({ x: 0, y: 0, columnWidths: [100, 100], rowHeights: [40], cells: [["a & <b>", "second"]] }),
+    );
+    const svg = exportToSvg({ ...baseOptions(scene), padding: 0, embedSceneData: false });
+
+    expect(svg).toContain("<path"); // the rough grid drawable
+    expect(svg).toContain("a &amp; &lt;b&gt;"); // escaped, never raw
+    expect(svg).not.toContain("<b>");
+    expect(svg).toContain("second");
+    expect(svg).toContain("clip-path=");
+    expect((svg.match(/<clipPath /g) ?? []).length).toBe(2); // one clip per non-empty cell
+  });
+
+  it("wrapped cell text exports one <text> per line, matching the scene-size wrap", async () => {
+    const { createTableElement } = await import("../elements/table-element");
+    const scene = new Scene();
+    // Fixed-width measurer at 6px/char, wrap width 100-12=88 → 14 chars per line; 28 chars = 2 lines.
+    scene.addElement(createTableElement({ x: 0, y: 0, columnWidths: [100], rowHeights: [40], cells: [["x".repeat(28)]] }));
+    const svg = exportToSvg({ ...baseOptions(scene), padding: 0, embedSceneData: false });
+    expect((svg.match(/<text /g) ?? []).length).toBe(2);
+  });
+});
+
+describe("exportToSvg — hostile element id (collab-controlled) never reaches markup raw", () => {
+  it("strips attribute-breakout characters from the clip-path id", async () => {
+    const { createTableElement } = await import("../elements/table-element");
+    const scene = new Scene();
+    const table = createTableElement({ x: 0, y: 0, columnWidths: [100], rowHeights: [40], cells: [["cell"]] });
+    const hostileId = 'x"/><image href=x onerror=alert(1)/><rect id="x';
+    scene.addElement({ ...table, id: hostileId });
+    const svg = exportToSvg({ ...baseOptions(scene), padding: 0, embedSceneData: false });
+    // The letters survive; the markup does not — no attribute breakout, no injected elements.
+    expect(svg).not.toContain("onerror=");
+    expect(svg).not.toContain("<image");
+    expect(svg).not.toContain(hostileId);
+    expect(svg).toContain('clipPath id="table-cell-ximagehrefxonerroralert1rectidx-0-0"');
+  });
+});

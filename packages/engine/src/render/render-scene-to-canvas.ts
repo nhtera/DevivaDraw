@@ -26,14 +26,16 @@ import { drawElementEmbed } from "./embed-renderer";
 import type { RoughCanvasDrawer } from "./rough-renderer";
 import { drawElementRough } from "./rough-renderer";
 import type { RoughDrawableCache } from "./rough-drawable-cache";
-import type { TextDrawContext2D } from "./text-renderer";
+import type { TableTextDrawContext2D } from "./table-text-renderer";
+import { drawTableCellText } from "./table-text-renderer";
+import type { TableTextLayoutCache } from "./table-text-layout-cache";
 import { drawElementText } from "./text-renderer";
 import type { MeasurementContext2D, TextMeasurer } from "../text/text-measurement";
 import type { ViewportSize } from "./viewport-culling";
 import { filterVisibleElements } from "./viewport-culling";
 
 /** Minimal 2D-context surface a draw pass needs — see `static-layer.ts`'s `StaticLayerContext` (which extends this with the `canvas`/`clearRect` bits only `StaticLayer` itself reads). */
-export interface RenderSceneContext2D extends FreedrawDrawContext2D, TextDrawContext2D, MeasurementContext2D, ImageDrawContext2D, FrameDrawContext2D, EmbedDrawContext2D {
+export interface RenderSceneContext2D extends FreedrawDrawContext2D, TableTextDrawContext2D, MeasurementContext2D, ImageDrawContext2D, FrameDrawContext2D, EmbedDrawContext2D {
   clearRect(x: number, y: number, width: number, height: number): void;
 }
 
@@ -51,6 +53,7 @@ export interface RenderSceneOptions {
   drawableCache?: RoughDrawableCache;
   arrowDrawableCache?: ArrowDrawableCache;
   freedrawOutlineCache?: FreedrawOutlineCache;
+  tableTextLayoutCache?: TableTextLayoutCache;
   grid?: GridRenderState;
   /** Overrides which elements are considered for this pass — defaults to `scene.getElements()` (the whole live scene). An export's "selection only" mode passes just the selected elements instead. */
   elements?: readonly AnyElement[];
@@ -101,7 +104,7 @@ const ERASE_PREVIEW_OPACITY_FACTOR = 0.35;
  */
 export function renderSceneToCanvas(ctx: RenderSceneContext2D, scene: Scene, camera: Camera, viewportSize: ViewportSize, options: RenderSceneOptions): void {
   const { width, height } = viewportSize;
-  const { roughCanvas, textMeasurer, imageDecodeCache, drawableCache, arrowDrawableCache, freedrawOutlineCache, grid, background, textDraft, pendingEraseIds, adaptColors } = options;
+  const { roughCanvas, textMeasurer, imageDecodeCache, drawableCache, arrowDrawableCache, freedrawOutlineCache, tableTextLayoutCache, grid, background, textDraft, pendingEraseIds, adaptColors } = options;
   // Hidden-layer elements never paint, whichever way the element list arrived — a caller-supplied
   // (already-culled) list is filtered the same as the scene's own, so no path can leak them.
   const elements = (options.elements ?? scene.getElements()).filter((element) => !scene.isElementHidden(element));
@@ -137,6 +140,12 @@ export function renderSceneToCanvas(ctx: RenderSceneContext2D, scene: Scene, cam
       drawElementEmbed(ctx, prepare(element), camera);
     } else if (element.type === "frame") {
       drawElementFrame(ctx, prepare(element), camera);
+    } else if (element.type === "table") {
+      // Two passes for one element: the rough grid (cached drawable), then crisp per-cell text
+      // clipped to its cell (cached wrap) — see `table-text-renderer.ts`.
+      const prepared = prepare(element);
+      drawElementRough(ctx, roughCanvas, prepared, camera, drawableCache);
+      drawTableCellText(ctx, prepared, camera, textMeasurer, tableTextLayoutCache);
     } else {
       drawElementRough(ctx, roughCanvas, prepare(element), camera, drawableCache);
     }
@@ -148,6 +157,7 @@ export function renderSceneToCanvas(ctx: RenderSceneContext2D, scene: Scene, cam
   drawableCache?.prune(liveIds);
   arrowDrawableCache?.prune(liveIds);
   freedrawOutlineCache?.prune(liveIds);
+  tableTextLayoutCache?.prune(liveIds);
 
   const liveFileIds = new Set(
     elements.filter((element): element is ImageElement => !element.isDeleted && element.type === "image").map((element) => element.fileId),

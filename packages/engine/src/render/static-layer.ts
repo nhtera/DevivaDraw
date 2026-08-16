@@ -35,11 +35,12 @@ import type { ImageDrawContext2D } from "./image-renderer";
 import type { EmbedDrawContext2D } from "./embed-renderer";
 import type { RoughCanvasDrawer } from "./rough-renderer";
 import { RoughDrawableCache } from "./rough-drawable-cache";
+import { TableTextLayoutCache } from "./table-text-layout-cache";
+import type { TableTextDrawContext2D } from "./table-text-renderer";
 import type { GridRenderState } from "./render-scene-to-canvas";
 import { renderSceneToCanvas } from "./render-scene-to-canvas";
 import type { ElementColorAdapter } from "./render-scene-to-canvas";
 import type { Scene } from "../scene/scene";
-import type { TextDrawContext2D } from "./text-renderer";
 
 export type { GridRenderState } from "./render-scene-to-canvas";
 
@@ -53,7 +54,7 @@ const GRID_DISABLED: GridRenderState = { enabled: false, size: 20 };
  * `FreedrawDrawContext2D` (itself a superset of the rough dispatch's `RoughDrawContext2D`) so one
  * context surface satisfies both draw paths.
  */
-export interface StaticLayerContext extends FreedrawDrawContext2D, TextDrawContext2D, MeasurementContext2D, ImageDrawContext2D, EmbedDrawContext2D {
+export interface StaticLayerContext extends FreedrawDrawContext2D, TableTextDrawContext2D, MeasurementContext2D, ImageDrawContext2D, EmbedDrawContext2D {
   readonly canvas: { clientWidth: number; clientHeight: number };
   clearRect(x: number, y: number, width: number, height: number): void;
 }
@@ -124,6 +125,7 @@ export class StaticLayer {
   private readonly drawableCache = new RoughDrawableCache();
   private readonly arrowDrawableCache = new ArrowDrawableCache();
   private readonly freedrawOutlineCache = new FreedrawOutlineCache();
+  private readonly tableTextLayoutCache = new TableTextLayoutCache();
   private readonly imageDecodeCache: ImageDecodeCache<HTMLImageElement>;
   private lastSnapshot: RenderSnapshot | null = null;
 
@@ -187,6 +189,7 @@ export class StaticLayer {
       drawableCache: this.drawableCache,
       arrowDrawableCache: this.arrowDrawableCache,
       freedrawOutlineCache: this.freedrawOutlineCache,
+      tableTextLayoutCache: this.tableTextLayoutCache,
       grid,
       textDraft,
       pendingEraseIds,

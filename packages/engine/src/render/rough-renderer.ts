@@ -15,6 +15,7 @@
 import type { Drawable, Options as RoughOptions } from "roughjs/bin/core.js";
 import type { AnyElement } from "../elements/element-types";
 import { isMirrored, mirrorScaleOf } from "../elements/element-mirror";
+import { bandOffsets, tableColumnWidths, tableRowHeights } from "../elements/table-layout";
 import type { LineElement } from "../elements/shape-elements";
 import type { Camera } from "./camera";
 import type { RoughDrawableCache } from "./rough-drawable-cache";
@@ -30,6 +31,7 @@ import {
   polygonShapeVertices,
   roundedRectPath,
   screenRectOf,
+  tablePath,
   xBoxPath,
 } from "./rough-shape-geometry";
 import { buildRoughOptions } from "./rough-style-mapping";
@@ -123,6 +125,15 @@ export function buildElementDrawable(drawer: RoughShapeDrawer, element: AnyEleme
     case "note":
       // A sticky note is a solid rounded card; its label is a separate bound-text element.
       return drawer.path(roundedRectPath(rect), buildRoughOptions(element, strokeWidthPx));
+    case "table": {
+      // The grid (outer rect + interior boundary lines) as ONE rough path so it rides the drawable
+      // cache and the element's stroke/fill/sloppiness styling; cell text paints separately (crisp,
+      // never rough — see `table-text-renderer.ts`). Roundness is deliberately ignored: a square
+      // outer rect keeps interior lines meeting the border cleanly (the frame's roughness-ignored class).
+      const columnOffsetsPx = bandOffsets(tableColumnWidths(element)).slice(1).map((offset) => offset * camera.zoom);
+      const rowOffsetsPx = bandOffsets(tableRowHeights(element)).slice(1).map((offset) => offset * camera.zoom);
+      return drawer.path(tablePath(rect, columnOffsetsPx, rowOffsetsPx), buildRoughOptions(element, strokeWidthPx));
+    }
     case "generic":
       // Pre-shape-system placeholder element type; rendered as a plain rectangle until fully retired.
       return drawer.rectangle(rect.x, rect.y, rect.width, rect.height, buildRoughOptions(element, strokeWidthPx));
