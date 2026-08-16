@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "deviva-draw-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  // Deliberately NO nodejs_compat: this Worker imports only `@deviva-draw/mcp/core` (the
+  // runtime-agnostic barrel) + the engine, whose whole graph uses web-standard APIs. Keeping the
+  // flag off makes any future Node-builtin leak into the core barrel a deploy-time error instead
+  // of a silently-growing dependency.
+  // 8789: collab-server dev pins 8788; keep the two side-by-side runnable.
+  "dev": { "port": 8789 },
+  // Public hostname — `custom_domain` provisions DNS + edge cert on the deviva.app zone on deploy,
+  // the same mechanism as apps/collab-server's collab-draw.deviva.app.
+  "routes": [
+    { "pattern": "mcp-draw.deviva.app", "custom_domain": true }
+  ]
+  // No bindings at all: stateless by design — every tools/call carries the scene in and out, and
+  // the Worker stores nothing (no R2, no DO, no KV), preserving the zero-knowledge stance.
+}

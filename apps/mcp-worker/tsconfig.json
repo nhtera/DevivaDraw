@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // DOM lib (not @cloudflare/workers-types): this Worker deliberately touches only web-standard
+    // APIs (Request/Response/URL) that both typings cover, and it type-checks the engine's source,
+    // which is authored against the DOM lib. Workers-specific types would collide with DOM and buy
+    // nothing here — there are no bindings and no CF-only APIs in this app.
+    "lib": ["ES2023", "DOM"],
+    "noEmit": true
+  },
+  "include": ["src", "vitest.config.ts"]
+}
