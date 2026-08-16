@@ -49,13 +49,24 @@ export async function saveFile(suggestedName: string, content: string, mimeType:
  * list is split for it; passing the raw string through makes it reject every file.
  */
 export async function pickAndReadFile(accept: string): Promise<string | null> {
+  const entry = await pickAndReadFileEntry(accept);
+  return entry === null ? null : entry.text;
+}
+
+/**
+ * `pickAndReadFile` variant that keeps the chosen file's name alongside its text — the
+ * file-operations seam (`file-operations-provider.ts`) surfaces the name as the document's identity
+ * in path-less hosts. Same picker/fallback branches, same cancel semantics.
+ */
+export async function pickAndReadFileEntry(accept: string): Promise<{ name: string; text: string } | null> {
   const picker = (window as Window & { showOpenFilePicker?: (options: unknown) => Promise<Array<{ getFile(): Promise<File> }>> }).showOpenFilePicker;
   if (picker) {
     const extensions = accept.split(",").map((entry) => entry.trim()).filter(Boolean);
     try {
       const [handle] = await picker({ types: [{ description: "Deviva Draw scene", accept: { "application/json": extensions } }] });
       if (!handle) return null;
-      return await (await handle.getFile()).text();
+      const file = await handle.getFile();
+      return { name: file.name, text: await file.text() };
     } catch {
       return null; // user canceled the native picker — AbortError, not a real failure
     }
@@ -71,7 +82,10 @@ export async function pickAndReadFile(accept: string): Promise<string | null> {
         resolve(null);
         return;
       }
-      file.text().then(resolve).catch(() => resolve(null));
+      file
+        .text()
+        .then((text) => resolve({ name: file.name, text }))
+        .catch(() => resolve(null));
     });
     input.click();
   });

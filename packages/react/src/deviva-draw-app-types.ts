@@ -1,6 +1,7 @@
 /** Public `<DevivaDraw/>` prop surface — split into its own file so both `deviva-draw-app.tsx` (the provider wrapper) and `deviva-draw-shell.tsx` (the composed chrome, which needs the same shape minus `theme`/`locale`, already consumed by the providers) can reference it without a circular value import. */
 import type { AnyElement, MultiPageDocumentV1, SceneDocument } from "@deviva-draw/engine";
 import type { CSSProperties } from "react";
+import type { FileOperationsProvider } from "./browser/file-operations-provider";
 import type { Locale } from "./i18n/locale-storage";
 import type { ThemeMode } from "./theme/theme-tokens";
 
@@ -27,6 +28,8 @@ export interface DevivaDrawProps {
   shareApiBaseUrl?: string;
   /** A full room URL (`.../room/{id}#key=...`) to auto-join once on mount — how a host application turns a shared room link into a live session without the recipient opening the Collaborate dialog and pasting it by hand. Requires `shareApiBaseUrl`; a malformed or keyless URL surfaces the same inline collab error as a manual join. */
   initialRoomUrl?: string;
+  /** Host-supplied file operations for scene open/save — how a shell with a real filesystem (the desktop app) provides native dialogs, path identity, and save-in-place. Omit for the browser's picker/download behavior, which is unchanged when this prop is absent. See `FileOperationsProvider`. */
+  fileOperations?: FileOperationsProvider;
   className?: string;
   style?: CSSProperties;
 }

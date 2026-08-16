@@ -12,6 +12,8 @@ export { ENGINE_VERSION } from "@deviva-draw/engine";
 export { DevivaDraw } from "./deviva-draw-app";
 export type { DevivaDrawHandle, DevivaDrawProps, DevivaDrawStoredFile } from "./deviva-draw-app";
 export type { ExportPngOptions, ExportSvgOptions } from "./runtime/imperative-handle";
+export type { FileOperationsProvider, OpenedFile } from "./browser/file-operations-provider";
+export { createBrowserFileOperations } from "./browser/file-operations-provider";
 
 // --- Theming ---
 

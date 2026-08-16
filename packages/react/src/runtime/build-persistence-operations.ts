@@ -11,13 +11,16 @@ import {
   exportSceneToPngFile,
   exportSceneToSvgFile,
   openDocumentFromFile,
+  openDocumentViaProvider,
   openSceneFromFile,
   saveDocumentToFile,
+  saveDocumentViaProvider,
   saveSceneToFile,
   copySceneImageToClipboard,
   copySceneSvgToClipboard,
 } from "../browser/scene-file-operations";
 import type { OpenedDocument } from "../browser/scene-file-operations";
+import type { FileOperationsProvider } from "../browser/file-operations-provider";
 import { createShareLink } from "../browser/share-link-client";
 import { resetScene } from "./reset-scene";
 
@@ -39,16 +42,42 @@ export interface BuildPersistenceOperationsDeps {
   onError?(error: unknown): void;
   /** The collab-server's base URL — omitted (e.g. the host app never configured `<DevivaDraw shareApiBaseUrl/>`) makes `shareScene` reject immediately rather than attempting a request to nowhere. */
   shareApiBaseUrl?: string;
+  /**
+   * Host-supplied file operations (the desktop shell's path-based dialogs/writes). ABSENT ⇒ every
+   * open/save flow below stays on the exact pre-seam browser code paths — web behavior is unchanged
+   * by construction, not by wrapper equivalence.
+   */
+  fileOperations?: FileOperationsProvider;
+  /** The document's current save-in-place identity, provider mode only — `null` until an open/save established one. The identity's storage (and dirty tracking) is the document-lifecycle phase's job; this phase only surfaces it. */
+  getFilePath?(): string | null;
+  /** Fired when a provider-based open/save establishes (or re-establishes) the document's file identity. */
+  onFileIdentity?(identity: { path: string | null; name: string }): void;
 }
 
 export function buildPersistenceOperations(deps: BuildPersistenceOperationsDeps): PersistenceOperations {
-  const { getScene, history, selection, onSceneReplaced, pages, onError, shareApiBaseUrl } = deps;
+  const { getScene, history, selection, onSceneReplaced, pages, onError, shareApiBaseUrl, fileOperations, getFilePath, onFileIdentity } = deps;
   const reportError = onError ?? ((error: unknown) => console.error("deviva-draw: persistence operation failed", error));
+
+  /** Strips the directory part of a real path for display — a provider path is host-native (`/` or `\`). */
+  const fileNameOf = (path: string) => path.split(/[/\\]/).pop() ?? path;
 
   return {
     newScene: () => resetScene(getScene(), history, selection),
     openScene: async () => {
       try {
+        if (fileOperations) {
+          const opened = await openDocumentViaProvider(fileOperations);
+          if (!opened) return;
+          if (pages) pages.replaceDocument(opened.document);
+          else {
+            // Single-scene host: a multi-page file collapses to its first page, same as the
+            // imperative `loadScene` rule.
+            const scene = opened.document.pages[0]?.scene;
+            if (scene) onSceneReplaced(scene);
+          }
+          onFileIdentity?.({ path: opened.path, name: opened.name });
+          return;
+        }
         if (pages) {
           const opened = await openDocumentFromFile();
           if (opened) pages.replaceDocument(opened);
@@ -61,7 +90,21 @@ export function buildPersistenceOperations(deps: BuildPersistenceOperationsDeps)
       }
     },
     loadScene: (scene) => onSceneReplaced(scene),
-    saveScene: () => (pages ? saveDocumentToFile(pages.getDocument()) : saveSceneToFile(getScene())).catch(reportError),
+    saveScene: async () => {
+      try {
+        if (fileOperations) {
+          // Symmetric with openScene: a supplied provider owns saving in BOTH modes — a pages-less
+          // host must not silently fall back to a browser download after opening via native dialogs.
+          const document = pages ? pages.getDocument() : getScene().toJSON();
+          const path = await saveDocumentViaProvider(fileOperations, document, getFilePath?.() ?? null);
+          if (path !== null) onFileIdentity?.({ path, name: fileNameOf(path) });
+          return;
+        }
+        await (pages ? saveDocumentToFile(pages.getDocument()) : saveSceneToFile(getScene()));
+      } catch (error) {
+        reportError(error);
+      }
+    },
     exportPng: () => exportSceneToPngFile(getScene(), EXPORT_PNG_DEFAULT_SCALE).catch(reportError),
     exportSvg: () => exportSceneToSvgFile(getScene()).catch(reportError),
     copyAsImage: () => copySceneImageToClipboard(getScene()).catch(reportError),

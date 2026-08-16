@@ -23,13 +23,31 @@ import {
   startAutosave,
   writeAutosaveDocument,
 } from "@deviva-draw/engine";
-import type { AnyElement, AutosaveController, Camera, ElementColorAdapter, ExcalidrawSceneImport, ExportScale, MultiPageDocumentV1, ScenePage } from "@deviva-draw/engine";
+import { DOCUMENT_CEILINGS } from "@deviva-draw/engine";
+import type { AnyElement, AutosaveController, Camera, ElementColorAdapter, ExcalidrawSceneImport, ExportScale, MultiPageDocumentV1, SceneDocument, ScenePage } from "@deviva-draw/engine";
 import { adaptBackgroundColorForTheme, adaptStrokeColorForTheme } from "../theme/canvas-color-inversion";
+import type { FileOperationsProvider } from "./file-operations-provider";
 import { createBrowserExportRenderTarget, createRoughSvgGenerator, pickAndReadFile, saveFile, triggerDownload } from "./persistence-adapters";
 
 const SCENE_FILE_EXTENSION = ".devivadraw";
 /** Excalidraw's scene format, readable by "Open" alongside this app's own — see `openSceneFromFile`. */
 const EXCALIDRAW_SCENE_FILE_EXTENSION = ".excalidraw";
+
+/** Extensions every "Open" flavor accepts, as the provider seam's array shape. */
+const OPENABLE_EXTENSIONS = [SCENE_FILE_EXTENSION, EXCALIDRAW_SCENE_FILE_EXTENSION];
+
+/**
+ * Text-boundary half of the engine's bomb ceilings (`DOCUMENT_CEILINGS.maxDocumentBytes` — parsed
+ * JSON no longer knows its serialized size, so the check lives where raw text exists). Compares
+ * UTF-16 code units, not bytes — close enough for a bomb guard, since real document bulk is ASCII
+ * base64 dataURLs (the desktop shell's Rust pre-check measures true on-disk bytes). Returns
+ * `true` when the text is over the ceiling; every load path below warns + refuses on it.
+ */
+function isOverDocumentSizeCeiling(text: string, source: string): boolean {
+  if (text.length <= DOCUMENT_CEILINGS.maxDocumentBytes) return false;
+  console.warn(`deviva-draw: ${source} refused — document is ${text.length} chars, over the ${DOCUMENT_CEILINGS.maxDocumentBytes}-char hostile-document ceiling`);
+  return true;
+}
 
 /** Starts localStorage autosave for `scene` — call once per mounted `Scene` instance; `dispose()` on unmount/scene-swap. `storageKey` scopes the save slot (e.g. one per embedded instance); omit to use the package-wide default. */
 export function startBrowserAutosave(scene: Scene, storageKey?: string): AutosaveController {
@@ -94,6 +112,7 @@ function sceneFromExcalidraw(imported: ExcalidrawSceneImport): Scene {
  * as the picker-based "Open" — one place decides what this app can load.
  */
 export function sceneFromFileText(text: string): Scene | null {
+  if (isOverDocumentSizeCeiling(text, "open")) return null;
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -138,6 +157,7 @@ export interface OpenedDocument {
  * (as one page) — one place decides what a pages-aware "Open"/file-drop can load.
  */
 export function documentFromFileText(text: string): OpenedDocument | null {
+  if (isOverDocumentSizeCeiling(text, "open")) return null;
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -166,6 +186,40 @@ export async function openDocumentFromFile(): Promise<OpenedDocument | null> {
   const text = await pickAndReadFile(`${SCENE_FILE_EXTENSION},${EXCALIDRAW_SCENE_FILE_EXTENSION}`);
   if (text === null) return null;
   return documentFromFileText(text);
+}
+
+/** A provider-based open's result: the loaded document plus the picked file's identity (for the host to display/store — a path-less host's `path` is `null`). */
+export interface OpenedDocumentWithIdentity {
+  document: OpenedDocument;
+  path: string | null;
+  name: string;
+}
+
+/**
+ * Provider-based sibling of `openDocumentFromFile` — same formats, same parser, but the pick runs
+ * through the host's `FileOperationsProvider` so a real path (when the host has one) survives to
+ * become the document's save-in-place identity. `null` on cancel or unloadable content.
+ */
+export async function openDocumentViaProvider(provider: FileOperationsProvider): Promise<OpenedDocumentWithIdentity | null> {
+  const opened = await provider.pickFile(OPENABLE_EXTENSIONS);
+  if (opened === null) return null;
+  const document = documentFromFileText(opened.text);
+  if (document === null) return null;
+  return { document, path: opened.path, name: opened.name };
+}
+
+/**
+ * Provider-based save: writes in place when the document already has a `path`, otherwise runs the
+ * provider's Save-As dialog first. Resolves the path the document now lives at (`null` = user
+ * canceled Save-As, nothing written). An opened `.excalidraw` still saves as `.devivadraw` content —
+ * same one-way import rule as the picker-based flow.
+ */
+export async function saveDocumentViaProvider(provider: FileOperationsProvider, document: MultiPageDocumentV1 | SceneDocument, currentPath: string | null): Promise<string | null> {
+  const text = JSON.stringify(document, null, 2);
+  const path = currentPath ?? (await provider.pickSavePath(`scene${SCENE_FILE_EXTENSION}`, [SCENE_FILE_EXTENSION]));
+  if (path === null) return null;
+  await provider.writeFile(path, text);
+  return path;
 }
 
 /** Saves the whole multi-page document (deleted elements stripped — a saved file is an export, not an autosave). */

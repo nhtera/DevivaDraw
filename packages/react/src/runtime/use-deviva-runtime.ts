@@ -28,6 +28,7 @@ import {
   Scene,
 } from "@deviva-draw/engine";
 import type { AnyElement, MultiPageDocumentV1, RemoteCursorOverlay, SceneDocument, TextEditSession } from "@deviva-draw/engine";
+import type { FileOperationsProvider } from "../browser/file-operations-provider";
 import { buildPersistenceOperations } from "./build-persistence-operations";
 import { buildRuntime } from "./build-runtime";
 import type { DevivaDrawHandle } from "./imperative-handle";
@@ -65,6 +66,8 @@ export interface UseDevivaRuntimeOptions {
   ui: UiToggleState;
   /** The collab-server's base URL, forwarded to `buildPersistenceOperations` for the "Share" action — see that module's `shareApiBaseUrl` doc. */
   shareApiBaseUrl?: string;
+  /** Host-supplied path-based file operations (the desktop shell) — forwarded to `buildPersistenceOperations`; absent keeps the browser open/save paths untouched. See `DevivaDrawProps.fileOperations`. */
+  fileOperations?: FileOperationsProvider;
   getThemeMode(): ThemeMode;
   toggleThemeMode(): void;
   /** `true` while the tool lock is engaged — see `build-runtime.ts`'s `getToolLocked` doc. */
@@ -98,8 +101,12 @@ function buildInitialScene(initialData: SceneDocument | MultiPageDocumentV1 | nu
 }
 
 export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRuntimeResult {
-  const { containerRef, cameraStore, initialData, persistenceKey, onChange, ui, shareApiBaseUrl, getThemeMode, toggleThemeMode, getToolLocked, isChromeOverlayOpen, getRemoteCursors, pageStore } = options;
+  const { containerRef, cameraStore, initialData, persistenceKey, onChange, ui, shareApiBaseUrl, fileOperations, getThemeMode, toggleThemeMode, getToolLocked, isChromeOverlayOpen, getRemoteCursors, pageStore } = options;
   const sceneRef = useRef<Scene | null>(null);
+  // The open document's file identity in provider mode — established by provider-based open/save.
+  // A ref (not state): nothing renders from it yet; the document-lifecycle phase lifts it into
+  // visible state (title bar, dirty dot) and re-plumbs accordingly.
+  const fileIdentityRef = useRef<{ path: string | null; name: string } | null>(null);
   if (sceneRef.current === null) sceneRef.current = pageStore ? pageStore.getActiveScene() : buildInitialScene(initialData, persistenceKey);
 
   const [runtime, setRuntime] = useState<DevivaRuntime | null>(null);
@@ -189,6 +196,11 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
               }
             : undefined,
           shareApiBaseUrl,
+          fileOperations,
+          getFilePath: () => fileIdentityRef.current?.path ?? null,
+          onFileIdentity: (identity) => {
+            fileIdentityRef.current = identity;
+          },
         }),
       shareApiBaseUrl,
       getThemeMode,
