@@ -4,7 +4,7 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.6.0] — 2026-08-16
 
 ### Added
 - **MCP server for AI agents** (`@deviva-draw/mcp`). `claude mcp add deviva-draw -- npx -y
