@@ -49,6 +49,15 @@ MIT license.
 - **Polish** — light / dark / system theming, i18n (English + Vietnamese),
   keyboard shortcuts, command palette, zen & view-only modes, mobile support.
 
+## Desktop app
+
+Deviva Draw runs as a native desktop app (macOS / Windows / Linux, built with Tauri): real
+`.devivadraw` files with Save-in-place and file association, fully offline, native menus, and a
+file-based agent workflow where MCP edits to the open file live-reload in the app
+([guide](docs/desktop-agents.md)). Download installers from the
+[latest GitHub Release](https://github.com/nhtera/DevivaDraw/releases/latest), or build locally
+with `pnpm --filter @deviva-draw/desktop build` (needs a [Rust toolchain](apps/desktop/README.md)).
+
 ## Packages
 
 Published to npm under the `@deviva-draw` scope:

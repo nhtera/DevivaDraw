@@ -14,6 +14,8 @@ import { Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/men
 import { appDataDir, join } from "@tauri-apps/api/path";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ask, message } from "@tauri-apps/plugin-dialog";
+import { relaunch } from "@tauri-apps/plugin-process";
+import { check } from "@tauri-apps/plugin-updater";
 import type { DevivaDrawHandle, DocumentState, FileOperationsProvider, SaveDocumentOutcome } from "@deviva-draw/react";
 import { clearWrittenHash, contentHash, decideOnModify, lastWrittenHash } from "./external-change";
 
@@ -88,33 +90,70 @@ export class DocumentHost {
     if (pending[0]) this.enqueueOpen(pending[0]);
     if (pending.length > 1) this.toast(`Opened ${pending[0]!.name} — ${pending.length - 1} more file(s) were not opened (one document per window).`);
 
+    // Launch update check: delayed past first paint, online-only by behavior (silent on failure).
+    setTimeout(() => void this.checkForUpdates(false), 5000);
+
     void getCurrentWindow().onCloseRequested(async (event) => {
       if (this.closing || !this.state.dirty) return; // clean → let the close proceed
       event.preventDefault();
-      if (this.closePromptInFlight) return; // a prompt is already up — don't stack another
-      this.closePromptInFlight = true;
-      try {
-        await this.guardedClose();
-      } finally {
-        this.closePromptInFlight = false;
-      }
+      await this.guardedClose();
     });
   }
 
   /**
-   * The ONE unsaved-changes gate for every app-exit path (window close, Cmd+W, Cmd+Q — and the
-   * updater's restart flow later MUST call this too). Prompts, optionally saves, then destroys
-   * the window; returns without closing on Cancel or a failed/canceled save.
+   * The ONE unsaved-changes gate for every app-exit path — window close, Cmd+W, Cmd+Q, AND the
+   * updater's restart (`exit: "relaunch"`). Prompts, optionally saves, then exits; returns
+   * without exiting on Cancel or a failed/canceled save.
    */
-  async guardedClose(): Promise<void> {
-    const choice = await invoke<string>("prompt_unsaved", { name: this.state.name });
-    if (choice === "cancel") return;
-    if (choice === "save") {
-      const outcome = await this.saveFlow(false);
-      if (outcome !== "saved") return; // canceled or failed → stay open, stay dirty
+  async guardedClose(exit: "close" | "relaunch" = "close"): Promise<void> {
+    if (this.closePromptInFlight) return; // self-guarding: close, quit, AND updater-restart share it — prompts never stack
+    this.closePromptInFlight = true;
+    try {
+      if (this.state.dirty) {
+        const choice = await invoke<string>("prompt_unsaved", { name: this.state.name });
+        if (choice === "cancel") return;
+        if (choice === "save") {
+          const outcome = await this.saveFlow(false);
+          if (outcome !== "saved") return; // canceled or failed → stay open, stay dirty
+        }
+      }
+      this.closing = true;
+      if (exit === "relaunch") await relaunch();
+      else await getCurrentWindow().destroy();
+    } finally {
+      this.closePromptInFlight = false;
     }
-    this.closing = true;
-    await getCurrentWindow().destroy();
+  }
+
+  /**
+   * Update check — silent on every failure when `interactive` is false (offline boot must never
+   * show update errors; the endpoint 404s until the first signed release exists, same rule).
+   * The restart path goes through `guardedClose` — the updater never relaunches over unsaved work.
+   */
+  async checkForUpdates(interactive: boolean): Promise<void> {
+    try {
+      const update = await check();
+      if (!update) {
+        if (interactive) await message("You're on the latest version.", { title: "Check for Updates" });
+        return;
+      }
+      const install = await ask(`Deviva Draw ${update.version} is available. Download and install it now?`, {
+        title: "Update Available",
+        okLabel: "Install",
+        cancelLabel: "Later",
+      });
+      if (!install) return;
+      await update.downloadAndInstall();
+      const restart = await ask("The update is installed. Restart Deviva Draw to use it?", {
+        title: "Update Ready",
+        okLabel: "Restart",
+        cancelLabel: "Later",
+      });
+      if (restart) await this.guardedClose("relaunch");
+    } catch (error) {
+      console.warn("deviva-desktop: update check failed", error);
+      if (interactive) await message("Could not check for updates — are you online?", { title: "Check for Updates", kind: "warning" });
+    }
   }
 
   /** Chains an external open behind any in-flight one — order preserved, no runtime-rebuild races. */
@@ -339,6 +378,8 @@ export class DocumentHost {
       items: [
         await item({ text: "Deviva Draw Help", action: () => window.location.assign("https://draw.deviva.app") }),
         await item({ text: "Agent Guide (MCP)", action: () => window.location.assign("https://github.com/nhtera/DevivaDraw/blob/main/docs/desktop-agents.md") }),
+        await predefined({ item: "Separator" }),
+        await item({ text: "Check for Updates…", action: () => void this.checkForUpdates(true) }),
       ],
     });
 

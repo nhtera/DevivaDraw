@@ -4,6 +4,24 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Desktop app** (`@deviva-draw/desktop`, Tauri v2): native macOS/Windows/Linux shell around the
+  editor — real `.devivadraw` open/Save-in-place with dirty tracking and unsaved-close guard, OS
+  file association + "Open With", recent files, crash-safe scratch recovery, drag-drop with path
+  identity, native menus dispatching the editor's own actions, fully-offline boot (verified
+  zero-network), host-gated offline hints for online-only features, file-based agent integration
+  (external MCP edits live-reload the open document with conflict protection —
+  `docs/desktop-agents.md`), and auto-update (user-prompted, close-guard-aware) via signed GitHub
+  Releases built by `release-desktop.yml`.
+- `@deviva-draw/react`: injectable `fileOperations` provider seam, `onDocumentStateChange`,
+  `offlineHints`, and imperative `runAction`/`openDocument`/`saveDocument` handle methods
+  (`DevivaDrawHandle` implementers: three new required methods).
+- `@deviva-draw/engine`: hostile-document hardening — unsafe `element.link` schemes nulled at
+  load; document ceilings (100k elements, 500 pages, 20MB per embedded file, 50MB total).
+
 ## [0.7.0] — 2026-08-16
 
 ### Added

@@ -1,0 +1,108 @@
+# Desktop installers on v* tags: macOS (universal dmg), Windows (nsis), Linux (AppImage + deb),
+# published to a DRAFT GitHub Release for human review before it goes live. Signing/notarization
+# activate automatically when the corresponding secrets exist; without them the build ships
+# unsigned (beta strategy — the release train never blocks on cert timelines).
+#
+# Secrets:
+#   TAURI_SIGNING_PRIVATE_KEY / TAURI_SIGNING_PRIVATE_KEY_PASSWORD  — REQUIRED (pubkey is baked
+#                                                                     into tauri.conf.json; builds fail without it)
+#   APPLE_CERTIFICATE / APPLE_CERTIFICATE_PASSWORD                  — Developer ID .p12, base64
+#   APPLE_SIGNING_IDENTITY                                          — "Developer ID Application: …"
+#   APPLE_ID / APPLE_PASSWORD / APPLE_TEAM_ID                       — notarytool credentials
+name: Release Desktop
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  gate:
+    name: Gates (typecheck, lint, unit)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test:unit
+
+  build:
+    name: Build (${{ matrix.name }})
+    needs: gate
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS universal
+            os: macos-latest
+            args: --target universal-apple-darwin
+          - name: Windows x64
+            os: windows-latest
+            args: ""
+          - name: Linux x64
+            os: ubuntu-22.04
+            args: ""
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Linux WebKit deps
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf xdg-utils
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ startsWith(matrix.os, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
+      - run: pnpm install --frozen-lockfile
+      # The desktop vite build imports the workspace packages — build them first, in dependency
+      # order, so it compiles against emitted .d.ts (same rule as the npm release workflow).
+      - run: pnpm run build:packages
+
+      # Tag pushes release; manual dispatch is a DRY RUN — full matrix build, no release/tag
+      # created (github.ref_name is the BRANCH on dispatch; unguarded, tauri-action would mint a
+      # release literally named "main").
+      - name: Dry-run build (manual dispatch)
+        if: github.ref_type != 'tag'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm --filter @deviva-draw/desktop exec tauri build ${{ matrix.args }}
+
+      - uses: tauri-apps/tauri-action@v0
+        if: github.ref_type == 'tag'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: "Deviva Draw Desktop __VERSION__"
+          releaseDraft: true
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+          args: ${{ matrix.args }}
