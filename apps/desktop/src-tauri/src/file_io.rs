@@ -94,6 +94,18 @@ fn deny(path: &Path) -> String {
     format!("path is not on the granted allowlist: {}", path.display())
 }
 
+/// Shared size-check → read → grant → `PickedFile` step for dialog picks AND externally-delivered
+/// opens (file association, drag-drop) — one place decides what "reading a document file" means.
+pub fn read_openable(allowed: State<'_, AllowedPaths>, path: &Path) -> Result<PickedFile, String> {
+    let metadata = std::fs::metadata(path).map_err(|error| format!("cannot stat {}: {error}", path.display()))?;
+    if metadata.len() > MAX_DOCUMENT_BYTES {
+        return Err(format!("{} is {} bytes — over the {MAX_DOCUMENT_BYTES}-byte document ceiling", path.display(), metadata.len()));
+    }
+    let text = std::fs::read_to_string(path).map_err(|error| format!("cannot read {}: {error}", path.display()))?;
+    allowed.grant(path.to_path_buf());
+    Ok(PickedFile { path: path.to_string_lossy().into_owned(), name: file_name_of(path), text })
+}
+
 /// Native open dialog → size pre-check → read → allowlist grant. `None` = user canceled.
 /// The blocking dialog runs on a blocking-pool thread — never the main thread.
 #[tauri::command]
@@ -105,15 +117,7 @@ pub async fn pick_open_file(app: AppHandle, extensions: Vec<String>) -> Result<O
         .map_err(|error| error.to_string())?;
     let Some(file_path) = picked else { return Ok(None) };
     let path = file_path.into_path().map_err(|error| error.to_string())?;
-
-    let metadata = std::fs::metadata(&path).map_err(|error| format!("cannot stat {}: {error}", path.display()))?;
-    if metadata.len() > MAX_DOCUMENT_BYTES {
-        return Err(format!("{} is {} bytes — over the {MAX_DOCUMENT_BYTES}-byte document ceiling", path.display(), metadata.len()));
-    }
-    let text = std::fs::read_to_string(&path).map_err(|error| format!("cannot read {}: {error}", path.display()))?;
-    let name = file_name_of(&path);
-    app.state::<AllowedPaths>().grant(path.clone());
-    Ok(Some(PickedFile { path: path.to_string_lossy().into_owned(), name, text }))
+    read_openable(app.state::<AllowedPaths>(), &path).map(Some)
 }
 
 /// Native save dialog → allowlist grant of the chosen path. `None` = user canceled.

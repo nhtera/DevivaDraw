@@ -42,6 +42,17 @@
     ],
     "category": "Productivity",
     "shortDescription": "Open-source infinite-canvas whiteboard",
+    "fileAssociations": [
+      {
+        "ext": [
+          "devivadraw"
+        ],
+        "name": "Deviva Draw Document",
+        "description": "Deviva Draw whiteboard document",
+        "role": "Editor",
+        "mimeType": "application/json"
+      }
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
