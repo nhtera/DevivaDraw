@@ -55,12 +55,14 @@ export interface DevivaDrawHandle {
   runAction(actionId: string): boolean;
   /**
    * Programmatic document open for hosts handed file content directly (file association,
-   * drag-drop bridge): parses through the same text parser as "Open", replaces the document, and
-   * establishes the file identity (`path` null for path-less content). Returns `false` when the
-   * text isn't a loadable document (caller owns the error UX). Does NOT prompt about unsaved
-   * changes — the host decides (the desktop shell auto-preserves to a recovery file first).
+   * drag-drop bridge, external-change reload): parses through the same text parser as "Open",
+   * replaces the document, and establishes the file identity (`path` null for path-less content).
+   * Returns `false` when the text isn't a loadable document (caller owns the error UX). Does NOT
+   * prompt about unsaved changes — the host decides (the desktop shell auto-preserves to a
+   * recovery file first). `preserveCamera` keeps the live viewport through the swap — the
+   * live-reload flow's "no camera jump" contract.
    */
-  openDocument(text: string, path: string | null): boolean;
+  openDocument(text: string, path: string | null, options?: { preserveCamera?: boolean }): boolean;
   /** Save with the outcome surfaced — see `PersistenceOperations.saveSceneOutcome`. Hosts without provider-backed persistence resolve `"saved"` after the browser save flow. */
   saveDocument(options?: { saveAs?: boolean }): Promise<SaveDocumentOutcome>;
 }
@@ -68,7 +70,7 @@ export interface DevivaDrawHandle {
 /** Injected by `use-deviva-runtime` (which owns the live runtime/pageStore/persistence closures) to implement the document-level handle methods above. */
 export interface DocumentControlDeps {
   runAction(actionId: string): boolean;
-  openDocument(text: string, path: string | null): boolean;
+  openDocument(text: string, path: string | null, options?: { preserveCamera?: boolean }): boolean;
   saveDocument(options?: { saveAs?: boolean }): Promise<SaveDocumentOutcome>;
 }
 
@@ -91,7 +93,7 @@ export function buildImperativeHandle(deps: ImperativeHandleDeps): DevivaDrawHan
 
   return {
     runAction: (actionId) => documentControl?.runAction(actionId) ?? false,
-    openDocument: (text, path) => documentControl?.openDocument(text, path) ?? false,
+    openDocument: (text, path, options) => documentControl?.openDocument(text, path, options) ?? false,
     saveDocument: (options) => documentControl?.saveDocument(options) ?? Promise.resolve("canceled" as const),
     getSceneElements: () => getLiveElements(scene),
     getFiles: () => getLiveFiles(scene),

@@ -304,15 +304,20 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
             builtRuntime.actionRegistry.run(actionId, builtRuntime);
             return true;
           },
-          openDocument: (text, path) => {
+          openDocument: (text, path, openOptions) => {
             const opened = documentFromFileText(text);
             if (!opened) return false;
+            // Live-reload contract: an external-change reload must not jump the viewport — capture
+            // the camera across the swap (replaceAll/page effects would otherwise restore the
+            // FILE's parked camera, which is wherever the agent's write left it).
+            const camera = openOptions?.preserveCamera ? cameraStore.getCamera() : null;
             if (pageStore) pageStore.replaceAll(opened.pages, opened.activePageId);
             else {
               const first = opened.pages[0]?.scene;
               if (!first) return false;
               onSceneReplaced(first);
             }
+            if (camera) cameraStore.setCamera(camera);
             const name = path ? (path.split(/[/\\]/).pop() ?? path) : "Untitled";
             documentState.markSaved({ path, name });
             autosave?.flush();

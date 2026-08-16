@@ -16,6 +16,7 @@ export const NOOP_HANDLE: DevivaDrawHandle = {
   redo: () => {},
   zoomToFit: () => {},
   runAction: () => false,
-  openDocument: () => false,
+  openDocument: () => false, // options ignored — nothing mounted to preserve a camera for
+
   saveDocument: () => Promise.resolve("canceled" as const),
 };
