@@ -164,3 +164,22 @@ describe("table-layout — fitRowHeightsToText", () => {
     expect(fitRowHeightsToText(settled, measurer)).toBeNull();
   });
 });
+
+describe("table-layout — column boundary hit", () => {
+  const el = { columnWidths: [100, 60, 40], rowHeights: [30, 50] };
+  it("finds interior boundaries within tolerance; outer edges are never boundaries", async () => {
+    const { tableColumnBoundaryAt } = await import("./table-layout");
+    expect(tableColumnBoundaryAt(el, 100, 40, 6)).toBe(0);
+    expect(tableColumnBoundaryAt(el, 163, 40, 6)).toBe(1); // 160 + 3 within tolerance
+    expect(tableColumnBoundaryAt(el, 0, 40, 6)).toBeNull(); // left edge
+    expect(tableColumnBoundaryAt(el, 200, 40, 6)).toBeNull(); // right edge
+    expect(tableColumnBoundaryAt(el, 130, 40, 6)).toBeNull(); // mid-cell
+  });
+  it("respects the vertical extent (with tolerance) and degenerate grids", async () => {
+    const { tableColumnBoundaryAt } = await import("./table-layout");
+    expect(tableColumnBoundaryAt(el, 100, -20, 6)).toBeNull();
+    expect(tableColumnBoundaryAt(el, 100, 90, 6)).toBeNull(); // below 80 + tolerance
+    expect(tableColumnBoundaryAt({ columnWidths: [100], rowHeights: [30] }, 50, 10, 6)).toBeNull(); // 1 column → no boundaries
+    expect(tableColumnBoundaryAt({ columnWidths: "hostile", rowHeights: [30] }, 50, 10, 6)).toBeNull();
+  });
+});

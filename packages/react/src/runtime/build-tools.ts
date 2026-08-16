@@ -281,6 +281,12 @@ export function buildTools(
   };
   handleTableCreated = (elementId: string) => {
     handleCreated(elementId, { select: true });
+    // A placed table opens its first cell for typing (the sticky-note auto-edit affordance).
+    // rAF-deferred: this fires in the same tick the element committed, and the overlay's window
+    // listener may not be attached yet — an event dispatched now would be silently lost.
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new CustomEvent("deviva:table-cell-edit", { detail: { id: elementId, row: 0, col: 0 } }));
+    });
   };
   handleNoteCreated = (elementId: string) => {
     handleCreated(elementId, { select: true });

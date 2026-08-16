@@ -12,6 +12,7 @@ import { isCroppableImage } from "../components/image-crop-overlay";
 import { findArrowAt } from "../browser/find-arrow-at-point";
 import { findBindableContainerAt } from "../browser/find-bindable-container-at-point";
 import { findStandaloneTextAt } from "../browser/find-standalone-text-at-point";
+import { findTableCellAt } from "../browser/find-table-cell-at-point";
 
 export interface DoubleClickEditOptions {
   container: HTMLElement;
@@ -63,6 +64,15 @@ export function attachDoubleClickToEditListener(options: DoubleClickEditOptions)
       return;
     }
 
+    // Tables are checked BEFORE bindable containers: that finder ranks only within its own type
+    // allowlist, so a table sitting visually on top of a rectangle would otherwise open the
+    // rectangle's label editor. The overlay owns the cell-edit session; the window event keeps this
+    // handler decoupled from React (the image-crop pattern).
+    const cellHit = findTableCellAt(scene, scenePoint);
+    if (cellHit) {
+      window.dispatchEvent(new CustomEvent("deviva:table-cell-edit", { detail: { id: cellHit.table.id, row: cellHit.row, col: cellHit.col } }));
+      return;
+    }
     const containerHit = findBindableContainerAt(scene, scenePoint);
     if (containerHit) {
       startBoundTextEdit(scene, editSession, containerHit.id, textMeasurer);

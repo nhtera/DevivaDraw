@@ -24,6 +24,9 @@ import { CLICK_HIT_PX, HANDLE_HIT_PX, ROTATE_HANDLE_OFFSET_PX, resizeCursorForHa
 import { hitTestHandles, inflateSelectionBounds } from "./resize-handles";
 import { rotatePointAroundCenter } from "./selection-geometry";
 import { MarqueeGesture } from "./selection-marquee-gesture";
+import { TableColumnResizeGesture } from "./table-column-resize-gesture";
+import { tableColumnBoundaryAt } from "../elements/table-layout";
+import { TABLE_COLUMN_BOUNDARY_HIT_PX } from "./selection-cursor";
 import { MoveGesture } from "./selection-move-gesture";
 import { ResizeGesture } from "./selection-resize-gesture";
 import { RotateGesture } from "./selection-rotate-gesture";
@@ -34,7 +37,7 @@ import type { SnapGuide } from "./snapping";
 
 export type { SelectionToolDeps } from "./selection-tool-deps";
 
-type Mode = "idle" | "marquee" | "move" | "resize" | "rotate" | "linear-point";
+type Mode = "idle" | "marquee" | "move" | "resize" | "rotate" | "linear-point" | "table-column";
 
 /**
  * A pointer must travel at least this far (screen px, so divided by zoom in scene space) before a
@@ -54,6 +57,7 @@ export class SelectionTool extends NoOpToolHandler {
   private readonly rotate: RotateGesture;
   private readonly marquee: MarqueeGesture;
   private readonly linearPoint: LinearPointGesture;
+  private readonly tableColumn: TableColumnResizeGesture;
   private mode: Mode = "idle";
   /** Latest pointer position (scene space) — decides which of a selected arrow's segments offers its insert-a-bend dot. */
   private hoverPoint: Point | null = null;
@@ -72,7 +76,28 @@ export class SelectionTool extends NoOpToolHandler {
     this.rotate = new RotateGesture(deps);
     this.marquee = new MarqueeGesture(deps);
     this.linearPoint = new LinearPointGesture(deps);
+    this.tableColumn = new TableColumnResizeGesture(deps);
   }
+
+  /**
+   * Converts a scene point into a table's unrotated LOCAL space (relative to its origin) and returns
+   * the interior column boundary under it, when exactly one table is selected. Kept next to the
+   * gesture dispatch so `onGestureStart` and the hover cursor share one definition of "on a boundary".
+   */
+  private tableColumnBoundaryHit(selectedElements: readonly AnyElement[], point: Point, zoom: number, radiusMultiplier: number): { table: AnyElement & { type: "table" }; boundaryIndex: number } | null {
+    if (selectedElements.length !== 1) return null;
+    const only = selectedElements[0]!;
+    if (only.type !== "table") return null;
+    const center = { x: only.x + only.width / 2, y: only.y + only.height / 2 };
+    const unrotated = rotatePointAroundCenter(point, center, -only.angle);
+    const localX = unrotated.x - only.x;
+    const localY = unrotated.y - only.y;
+    const tolerance = (TABLE_COLUMN_BOUNDARY_HIT_PX / zoom) * radiusMultiplier;
+    const boundaryIndex = tableColumnBoundaryAt(only, localX, localY, tolerance);
+    return boundaryIndex === null ? null : { table: only, boundaryIndex };
+  }
+
+
 
   /** Once the pointer has moved `DRAG_ACTIVATE_PX` from the gesture's start, the drag is "real" and stays activated for the rest of the gesture. Returns the current activation state. */
   private updateDragActivation(point: Point): boolean {
@@ -135,6 +160,16 @@ export class SelectionTool extends NoOpToolHandler {
           return;
         }
       }
+      // A single selected table offers its interior column boundaries for one-column resizing —
+      // after the frame handles (handles win where they overlap a boundary at low zoom, documented)
+      // and before body-move, so grabbing a boundary never drags the whole table.
+      const columnHit = this.tableColumnBoundaryHit(selectedElements, point, zoom, radiusMultiplier);
+      if (columnHit) {
+        this.mode = "table-column";
+        this.gestureCursor = "col-resize";
+        this.tableColumn.begin(columnHit.table, columnHit.boundaryIndex, point);
+        return;
+      }
       const b = frame.bounds;
       insideSelectionBounds = localPoint.x >= b.x && localPoint.x <= b.x + b.width && localPoint.y >= b.y && localPoint.y <= b.y + b.height;
     }
@@ -175,6 +210,7 @@ export class SelectionTool extends NoOpToolHandler {
     else if (this.mode === "move") this.move.apply(point, modifiers);
     else if (this.mode === "resize") this.resize.apply(point, modifiers);
     else if (this.mode === "rotate") this.rotate.apply(point, modifiers);
+    else if (this.mode === "table-column") this.tableColumn.apply(point);
   }
 
   override onGestureEnd(point: Point, modifiers: ModifierKeys): void {
@@ -200,6 +236,9 @@ export class SelectionTool extends NoOpToolHandler {
     } else if (this.mode === "linear-point") {
       if (dragged) this.linearPoint.apply(point, modifiers);
       this.linearPoint.finish(point, modifiers);
+    } else if (this.mode === "table-column") {
+      if (dragged) this.tableColumn.apply(point);
+      this.tableColumn.finish();
     }
     this.mode = "idle";
   }
@@ -211,6 +250,7 @@ export class SelectionTool extends NoOpToolHandler {
     else if (this.mode === "rotate") this.rotate.cancel();
     else if (this.mode === "marquee") this.marquee.reset();
     else if (this.mode === "linear-point") this.linearPoint.cancel();
+    else if (this.mode === "table-column") this.tableColumn.cancel();
     this.mode = "idle";
   }
 

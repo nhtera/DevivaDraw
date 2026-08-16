@@ -15,7 +15,7 @@ export function findBindableContainerAt(scene: Scene, point: Point): AnyElement 
   const elements = scene.getElements();
   for (let i = elements.length - 1; i >= 0; i -= 1) {
     const element = elements[i];
-    if (!element || element.isDeleted || scene.isElementHidden(element) || !isBindableContainer(element)) continue;
+    if (!element || element.isDeleted || scene.isElementHidden(element) || scene.effectiveLocked(element) || !isBindableContainer(element)) continue;
     const withinX = point.x >= element.x && point.x <= element.x + element.width;
     const withinY = point.y >= element.y && point.y <= element.y + element.height;
     if (withinX && withinY) return element;

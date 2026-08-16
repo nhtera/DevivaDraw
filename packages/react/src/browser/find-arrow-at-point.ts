@@ -25,7 +25,7 @@ export function findArrowAt(scene: Scene, point: Point): ArrowElement | null {
   const elements = scene.getElements();
   for (let i = elements.length - 1; i >= 0; i -= 1) {
     const element = elements[i];
-    if (!element || element.isDeleted || scene.isElementHidden(element) || element.type !== "arrow") continue;
+    if (!element || element.isDeleted || scene.isElementHidden(element) || scene.effectiveLocked(element) || element.type !== "arrow") continue;
     // The drawn path (routed for elbow arrows), so the label hit test matches what is on screen.
     const points = absolutePoints({ x: element.x, y: element.y }, arrowPathPoints(element));
     for (let j = 0; j < points.length - 1; j += 1) {

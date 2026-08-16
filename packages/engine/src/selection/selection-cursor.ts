@@ -17,6 +17,7 @@ import { hitLinearHandle, linearHandleLayout } from "./linear-handles";
 import { hitTestHandles, inflateSelectionBounds } from "./resize-handles";
 import type { ResizeHandleId } from "./resize-handles";
 import { rotatePointAroundCenter } from "./selection-geometry";
+import { tableColumnBoundaryAt } from "../elements/table-layout";
 import { buildSelectionFrame, buildSelectionOverlay } from "./selection-tool-frame";
 
 /** Pointer-to-handle hit tolerance (screen px) shared by the gesture dispatch and this hover feedback. */
@@ -25,6 +26,8 @@ export const HANDLE_HIT_PX = 8;
 export const ROTATE_HANDLE_OFFSET_PX = 28;
 /** Pointer-to-element hit tolerance (screen px) for clicking/hovering bare geometry. */
 export const CLICK_HIT_PX = 5;
+/** Pointer-to-interior-column-boundary tolerance (screen px) on a selected table — shared by the gesture dispatch and hover feedback. */
+export const TABLE_COLUMN_BOUNDARY_HIT_PX = 6;
 
 /** Screen-space bearing (degrees, y-down) each handle's drag direction points along, before frame rotation. */
 const HANDLE_DIRECTION_DEG: Record<ResizeHandleId, number> = { e: 0, se: 45, s: 90, sw: 135, w: 180, nw: 225, n: 270, ne: 315 };
@@ -64,6 +67,15 @@ export function selectionHoverCursor(scene: Scene, selectedElements: readonly An
       const handle = hitTestHandles(inflateSelectionBounds(frame.bounds, zoom), localPoint, HANDLE_HIT_PX / zoom, ROTATE_HANDLE_OFFSET_PX / zoom);
       if (handle === "rotate") return "grab";
       if (handle) return resizeCursorForHandle(handle, frame.angle);
+    }
+    // A single selected table's interior column boundaries telegraph the one-column resize —
+    // same priority slot as the gesture dispatch (after handles, before body-move).
+    const only = selectedElements.length === 1 ? selectedElements[0] : undefined;
+    if (only && only.type === "table") {
+      const center = { x: only.x + only.width / 2, y: only.y + only.height / 2 };
+      const unrotated = rotatePointAroundCenter(point, center, -only.angle);
+      const tolerance = (TABLE_COLUMN_BOUNDARY_HIT_PX / zoom) * radiusMultiplier;
+      if (tableColumnBoundaryAt(only, unrotated.x - only.x, unrotated.y - only.y, tolerance) !== null) return "col-resize";
     }
     const b = frame.bounds;
     insideSelectionBounds = localPoint.x >= b.x && localPoint.x <= b.x + b.width && localPoint.y >= b.y && localPoint.y <= b.y + b.height;

@@ -9,6 +9,8 @@
  * their points, and writing the box without rescaling the points would tear the geometry.
  */
 import { MIN_ELEMENT_SIZE, selectionBoundsOf } from "@deviva-draw/engine";
+import { scaleTableGrid } from "@deviva-draw/engine";
+import type { TableElement } from "@deviva-draw/engine";
 import type { AnyElement } from "@deviva-draw/engine";
 import { useState } from "react";
 import { panelStyle, inputStyle, labelStyle } from "./chrome-styles";
@@ -39,7 +41,14 @@ export function StatsPanel(props: { runtime: DevivaRuntime; cameraStore: CameraS
   const apply = (changes: Partial<AnyElement>) => {
     if (!single) return;
     runtime.history.beginBatch();
-    runtime.scene.updateElement(single.id, changes);
+    // A table's width/height are the band-array sums — a raw write here would silently desync them
+    // (the same invariant every resize path protects), so W/H input rescales the grid instead.
+    if (single.type === "table" && (changes.width !== undefined || changes.height !== undefined)) {
+      const bounds = { x: single.x, y: single.y, width: changes.width ?? single.width, height: changes.height ?? single.height };
+      runtime.scene.updateElement(single.id, scaleTableGrid(single, bounds) as Partial<TableElement>);
+    } else {
+      runtime.scene.updateElement(single.id, changes);
+    }
     runtime.history.endBatch(runtime.scene.getElements());
   };
   const isLinear = single !== null && "points" in single;

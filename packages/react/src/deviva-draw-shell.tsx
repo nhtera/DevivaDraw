@@ -35,6 +35,7 @@ import { PropertiesPanel } from "./components/properties-panel";
 import { ContextMenu } from "./components/context-menu";
 import { ImagePlacementOverlay } from "./components/image-placement-overlay";
 import { ImageCropOverlay } from "./components/image-crop-overlay";
+import { TableCellEditorOverlay } from "./components/table-cell-editor-overlay";
 import { LinkBadgesOverlay } from "./components/link-badges-overlay";
 import { StatsPanel } from "./components/stats-panel";
 import { PagesPanel } from "./components/pages-panel";
@@ -444,6 +445,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {pendingPlacement && <ImagePlacementOverlay placement={pendingPlacement} getCamera={getCamera} />}
       {runtime && <LinkBadgesOverlay scene={runtime.scene} cameraStore={cameraStore} />}
       {runtime && !viewOnly.value && <ImageCropOverlay runtime={runtime} cameraStore={cameraStore} />}
+      {runtime && !viewOnly.value && <TableCellEditorOverlay runtime={runtime} cameraStore={cameraStore} />}
       {runtime && contextMenuTriggers.point && !viewOnly.value && (
         <ContextMenu runtime={runtime} screenPoint={contextMenuTriggers.point} variant={contextMenuTriggers.variant} onClose={contextMenuTriggers.close} />
       )}

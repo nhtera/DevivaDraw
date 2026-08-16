@@ -136,6 +136,25 @@ function bandIndexAt(sizes: readonly number[], position: number): number | null 
   return position === running && sizes.length > 0 ? sizes.length - 1 : null;
 }
 
+/**
+ * Which interior column boundary a TABLE-LOCAL point (unrotated, relative to the table origin) is
+ * within `tolerance` of — returns the LEFT column's index (boundary `i` sits between columns `i` and
+ * `i+1`), or `null`. The outer left/right edges are never boundaries (those belong to the selection
+ * frame's resize handles, which are hit-tested first and win on overlap — documented behavior).
+ */
+export function tableColumnBoundaryAt(element: TableGridFields, localX: number, localY: number, tolerance: number): number | null {
+  const columnWidths = tableColumnWidths(element);
+  const rowHeights = tableRowHeights(element);
+  if (columnWidths.length < 2 || rowHeights.length === 0) return null;
+  const height = sumOf(rowHeights);
+  if (localY < -tolerance || localY > height + tolerance) return null;
+  const offsets = bandOffsets(columnWidths);
+  for (let index = 1; index < offsets.length; index += 1) {
+    if (Math.abs(localX - offsets[index]!) <= tolerance) return index - 1;
+  }
+  return null;
+}
+
 export interface TableGridUpdate {
   x: number;
   y: number;
