@@ -90,6 +90,16 @@ xcrun stapler staple "apps/desktop/src-tauri/target/release/bundle/dmg/Deviva Dr
 spctl -a -t open --context context:primary-signature -v "…dmg"   # expect: accepted
 ```
 
+## App icon convention
+
+Platform conventions differ: **macOS icons need Apple's grid** — an 824×824 rounded tile
+(≈185px corner radius) centered on a transparent 1024×1024 canvas with a subtle shadow — while
+**Windows/Linux icons are full-bleed** edge-to-edge. So `icons/icon.icns` is built from the
+padded master `icons/icon-macos.png`, and everything else (`icon.ico`, the pngs) comes from the
+full-bleed `icons/icon.png`. A full-bleed icns renders oversized next to other Dock icons.
+Rebuild the icns after artwork changes:
+`mkdir i.iconset; for s in 16 32 128 256 512; do sips -z $s $s icon-macos.png --out i.iconset/icon_${s}x${s}.png; sips -z $((s*2)) $((s*2)) icon-macos.png --out i.iconset/icon_${s}x${s}@2x.png; done; iconutil -c icns i.iconset -o icon.icns`
+
 ## Beta strategy (validation decision #1)
 
 Unsigned releases ship as **pre-releases** with install notes: macOS right-click → Open (or
