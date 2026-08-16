@@ -5,16 +5,25 @@
  * reopen. Everything crosses the wire as JSON-RPC — nothing is called in-process.
  */
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { getDefaultEnvironment, StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadCanvasRuntime } from "../node/canvas-runtime";
 
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const hasCanvas = loadCanvasRuntime() !== null;
+
+/**
+ * The server is spawned as `node <tsx-cli> src/stdio.ts` — NOT through a nested `pnpm exec`:
+ * `StdioClientTransport` launches children with a sanitized minimal env, under which a nested
+ * pnpm invocation works on a dev machine but dies silently on CI runners ("Connection closed").
+ * Resolving tsx's CLI entry through the module graph keeps the spawn package-manager-free.
+ */
+const tsxCli = join(dirname(createRequire(import.meta.url).resolve("tsx/package.json")), "dist", "cli.mjs");
 
 let dir: string;
 let client: Client;
@@ -24,9 +33,11 @@ beforeAll(async () => {
   client = new Client({ name: "e2e-client", version: "0.0.0" });
   await client.connect(
     new StdioClientTransport({
-      command: "pnpm",
-      args: ["--silent", "exec", "tsx", "src/stdio.ts", "--root", dir],
+      command: process.execPath,
+      args: [tsxCli, "src/stdio.ts", "--root", dir],
       cwd: packageDir,
+      // Forward the canvas kill-switch so the SVG-only CI job's spawned server degrades too.
+      env: { ...getDefaultEnvironment(), ...(process.env["DEVIVA_MCP_NO_CANVAS"] ? { DEVIVA_MCP_NO_CANVAS: process.env["DEVIVA_MCP_NO_CANVAS"] } : {}) },
       stderr: "inherit",
     }),
   );
