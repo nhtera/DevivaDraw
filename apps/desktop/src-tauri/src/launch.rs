@@ -60,6 +60,80 @@ fn pick_external(app: &AppHandle, path: &Path) -> Option<PickedFile> {
     }
 }
 
+/// Image types the drop bridge forwards — with Tauri's drag-drop interception on, DOM file drops
+/// never fire, so without this an image dragged onto the desktop canvas would be a silent no-op
+/// (web parity gap flagged in the document-lifecycle phase).
+const IMAGE_EXTENSIONS: [(&str, &str); 7] = [
+    ("png", "image/png"),
+    ("jpg", "image/jpeg"),
+    ("jpeg", "image/jpeg"),
+    ("gif", "image/gif"),
+    ("webp", "image/webp"),
+    ("svg", "image/svg+xml"),
+    ("bmp", "image/bmp"),
+];
+
+/// Raw-image cap for the drop bridge — comfortably under the engine's 20M-char dataURL ceiling
+/// (base64 inflates ~4/3).
+const MAX_DROPPED_IMAGE_BYTES: u64 = 14 * 1024 * 1024;
+
+#[derive(serde::Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct DroppedImage {
+    name: String,
+    mime_type: &'static str,
+    data_base64: String,
+    x: f64,
+    y: f64,
+}
+
+fn image_mime_of(path: &Path) -> Option<&'static str> {
+    let ext = path.extension()?.to_str()?;
+    IMAGE_EXTENSIONS.iter().find(|(known, _)| ext.eq_ignore_ascii_case(known)).map(|(_, mime)| *mime)
+}
+
+pub fn is_image_path(path: &Path) -> bool {
+    image_mime_of(path).is_some()
+}
+
+/// OS drag-drop dispatch: document files go through the normal open flow; images are forwarded as
+/// bytes for the frontend to re-dispatch through the editor's own DOM drop pipeline (no allowlist
+/// grant — the file is read once here, never re-readable by path from the WebView).
+/// The CALLER forwards at most one image per OS drop — the web pipeline inserts one image per drop
+/// event, and N separate synthetic drops at the same cursor position would stack N overlapping
+/// copies web users would never get.
+pub fn deliver_drop(app: &AppHandle, path: &Path, x: f64, y: f64) {
+    if let Some(mime_type) = image_mime_of(path) {
+        match std::fs::metadata(path) {
+            Ok(metadata) if metadata.len() <= MAX_DROPPED_IMAGE_BYTES => {}
+            Ok(metadata) => {
+                eprintln!("image drop ignored ({} bytes over cap): {}", metadata.len(), path.display());
+                return;
+            }
+            Err(error) => {
+                eprintln!("image drop ignored (cannot stat {}): {error}", path.display());
+                return;
+            }
+        }
+        match std::fs::read(path) {
+            Ok(bytes) => {
+                use base64::Engine;
+                let payload = DroppedImage {
+                    name: path.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_else(|| "image".into()),
+                    mime_type,
+                    data_base64: base64::engine::general_purpose::STANDARD.encode(bytes),
+                    x,
+                    y,
+                };
+                let _ = app.emit("insert-image-request", payload);
+            }
+            Err(error) => eprintln!("image drop ignored (cannot read {}): {error}", path.display()),
+        }
+        return;
+    }
+    deliver(app, path);
+}
+
 /// Deliver an external open: emit when the frontend is listening, buffer otherwise.
 pub fn deliver(app: &AppHandle, path: &Path) {
     let Some(picked) = pick_external(app, path) else { return };

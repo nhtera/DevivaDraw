@@ -38,9 +38,18 @@ fn main() {
         // OS drag-drop is handled SHELL-side (never a JS-invokable ungated read): the drop event
         // itself is the user's trust grant, and only Rust can observe it happened.
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) = event {
+            if let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, position }) = event {
+                // One image max per OS drop (web parity — see launch::deliver_drop's doc);
+                // document files all deliver.
+                let mut image_forwarded = false;
                 for path in paths {
-                    launch::deliver(&window.app_handle().clone(), path);
+                    if launch::is_image_path(path) {
+                        if image_forwarded {
+                            continue;
+                        }
+                        image_forwarded = true;
+                    }
+                    launch::deliver_drop(&window.app_handle().clone(), path, position.x, position.y);
                 }
             }
         })

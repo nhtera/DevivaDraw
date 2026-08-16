@@ -7,6 +7,7 @@
  * Every menu action dispatches through `DevivaDrawHandle.runAction` — the exact `ActionRegistry`
  * path the in-shell menu/command palette use — so native and in-app chrome can never drift.
  */
+import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
@@ -64,6 +65,7 @@ export class DocumentHost {
     await this.syncTitle();
 
     await listen<PickedFile>("open-file-request", (event) => this.enqueueOpen(event.payload));
+    await listen<{ name: string; mimeType: string; dataBase64: string; x: number; y: number }>("insert-image-request", (event) => this.insertDroppedImage(event.payload));
     // Handshake AFTER the listener exists — Rust buffers anything delivered before this call.
     const pending = await invoke<PickedFile[]>("frontend_ready");
     if (pending[0]) this.enqueueOpen(pending[0]);
@@ -269,15 +271,20 @@ export class DocumentHost {
       ],
     });
 
-    // Scaffolded topology — handlers land in the desktop-UX phase.
+    // Cmd-modified accelerators only: a bare/shifted-character accelerator (the in-app "Shift+1"
+    // style) would fire while the user is TYPING in a text element — native menus can't see the
+    // editor's is-editing state the in-app shortcut resolver suppresses on.
     const viewMenu = await submenu({
       text: "View",
       items: [
-        await item({ text: "Zoom In", enabled: false }),
-        await item({ text: "Zoom Out", enabled: false }),
-        await item({ text: "Zoom to Fit", enabled: false }),
+        await item({ text: "Zoom In", accelerator: "CmdOrCtrl+=", action: run("zoom-in") }),
+        await item({ text: "Zoom Out", accelerator: "CmdOrCtrl+-", action: run("zoom-out") }),
+        await item({ text: "Reset Zoom", accelerator: "CmdOrCtrl+0", action: run("zoom-reset") }),
+        await item({ text: "Zoom to Fit", action: run("zoom-to-fit") }),
         await predefined({ item: "Separator" }),
-        await item({ text: "Toggle Theme", enabled: false }),
+        await item({ text: "Toggle Theme", action: run("toggle-theme") }),
+        await predefined({ item: "Separator" }),
+        await predefined({ item: "Fullscreen" }),
       ],
     });
 
@@ -286,7 +293,12 @@ export class DocumentHost {
       items: [await predefined({ item: "Minimize" }), await predefined({ item: "Maximize" })],
     });
 
-    const helpMenu = await submenu({ text: "Help", items: [await item({ text: "Deviva Draw Help", enabled: false })] });
+    // External URL via same-window navigation on purpose: the shell's on_navigation policy
+    // intercepts it into the confirm-then-system-browser flow (main.rs).
+    const helpMenu = await submenu({
+      text: "Help",
+      items: [await item({ text: "Deviva Draw Help", action: () => window.location.assign("https://draw.deviva.app") })],
+    });
 
     const items: Submenu[] = [fileMenu, editMenu, viewMenu, windowMenu, helpMenu];
     if (navigator.userAgent.includes("Mac")) {
@@ -296,6 +308,8 @@ export class DocumentHost {
         await submenu({
           text: "Deviva Draw",
           items: [
+            await item({ text: "About Deviva Draw", action: () => void this.showAbout() }),
+            await predefined({ item: "Separator" }),
             await predefined({ item: "Hide" }),
             await predefined({ item: "HideOthers" }),
             await predefined({ item: "ShowAll" }),
@@ -335,6 +349,31 @@ export class DocumentHost {
         return null;
       }
       await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+
+  private async showAbout(): Promise<void> {
+    const version = await getVersion();
+    await message(`Deviva Draw ${version}\n\nAn open-source infinite-canvas whiteboard.\nWeb version + docs: https://draw.deviva.app (Help menu opens it).`, { title: "About Deviva Draw" });
+  }
+
+  /**
+   * Rust forwards dropped image FILES as bytes (Tauri's drag-drop interception means the DOM never
+   * sees them) — re-dispatch through the canvas's own DOM drop pipeline so insert behavior,
+   * positioning, and validation stay identical to the web app's.
+   */
+  private insertDroppedImage(payload: { name: string; mimeType: string; dataBase64: string; x: number; y: number }): void {
+    try {
+      const bytes = Uint8Array.from(atob(payload.dataBase64), (char) => char.charCodeAt(0));
+      const file = new File([bytes], payload.name, { type: payload.mimeType });
+      const transfer = new DataTransfer();
+      transfer.items.add(file);
+      const host = document.querySelector('[data-testid="deviva-draw-canvas-host"]');
+      if (!host) return;
+      const scale = window.devicePixelRatio || 1;
+      host.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer, clientX: payload.x / scale, clientY: payload.y / scale }));
+    } catch (error) {
+      console.error("deviva-desktop: dropped image could not be inserted", error);
     }
   }
 

@@ -34,6 +34,7 @@ export function App() {
       shareApiBaseUrl={SHARE_API_BASE_URL}
       fileOperations={fileOperations}
       onDocumentStateChange={documentHost.onDocumentStateChange}
+      offlineHints
       style={{ position: "fixed", inset: 0 }}
     />
   );
