@@ -193,25 +193,89 @@ button[data-open-modal]:hover {
 
 /* ---------- Splash hero ---------- */
 
-/* Single quiet accent wash behind the hero; no mesh gradients, no glow. */
+/* Centered stack, tightened vertical rhythm so the live canvas demo (the real hero
+   visual) rises into the first viewport, and a single quiet accent wash. */
 [data-has-hero] .hero {
   position: relative;
+  padding-block: clamp(1.5rem, 5vh, 3.5rem) 0.5rem;
 }
-[data-has-hero] .hero > img,
-[data-has-hero] .hero-html {
-  filter: none;
+[data-has-hero] .hero::before {
+  content: '';
+  position: absolute;
+  inset: -6rem -2rem 0;
+  pointer-events: none;
+  background: radial-gradient(
+    42rem 20rem at 50% 0%,
+    color-mix(in srgb, var(--sl-color-accent) 13%, transparent),
+    transparent 70%
+  );
+}
+[data-has-hero] .hero .copy {
+  align-items: center;
+  text-align: center;
+  margin-inline: auto;
+}
+[data-has-hero] .hero .copy > h1 {
+  font-size: clamp(2.75rem, 5.5vw, 4rem);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  background: linear-gradient(180deg, var(--sl-color-white) 55%, var(--sl-color-gray-3));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--sl-color-white); /* fallback when background-clip is unsupported */
 }
 [data-has-hero] .hero .tagline {
   color: var(--sl-color-gray-2);
-  max-width: 42rem;
+  font-size: var(--sl-text-lg);
+  line-height: 1.7;
+  max-width: 40rem;
   margin-inline: auto;
 }
-.hero .action.primary {
+[data-has-hero] .hero .actions {
+  justify-content: center;
+}
+.hero .sl-link-button.primary {
   border-radius: 999px;
   font-weight: 550;
+  padding-inline: 1.5rem;
+  transition: transform 0.15s ease;
 }
-.hero .action.minimal {
+.hero .sl-link-button.primary:active {
+  transform: translateY(1px);
+}
+.hero .sl-link-button.minimal {
   border-radius: 999px;
+  border: 1px solid var(--sl-color-gray-5);
+  padding-inline: 1.25rem;
+  transition: border-color 0.15s ease;
+}
+.hero .sl-link-button.minimal:hover {
+  border-color: var(--sl-color-gray-3);
+}
+
+/* The splash demo is the product shot: lift it with an accent-tinted shadow. */
+[data-has-hero] .canvas-demo {
+  box-shadow: 0 16px 48px -16px color-mix(in srgb, var(--sl-color-accent) 28%, transparent);
+}
+
+/* Card icons: one consistent accent chip instead of the per-icon default colors. */
+.card .title .icon {
+  background-color: var(--sl-color-accent-low);
+  color: var(--sl-color-accent);
+  border: 1px solid color-mix(in srgb, var(--sl-color-accent) 25%, transparent);
+  border-radius: var(--dd-radius);
+  padding: 0.4rem;
+  font-size: 1.4rem;
+}
+:root:not([data-theme='light']) .card .title .icon {
+  color: var(--sl-color-accent-high);
+}
+
+/* Neutral wordmark; accent is reserved for links, active states, and CTAs. */
+.site-title {
+  color: var(--sl-color-white);
 }
 
 /* Reduced motion: the theme's transitions are decorative; drop them. */

@@ -266,12 +266,12 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # The docs site imports @deviva-draw/react (live canvas demos) and generates the API
-      # reference from both packages' source, so the packages must be built first.
-      - run: pnpm build:packages
-
-      # `run deploy` is `astro build && wrangler deploy` — see the collab job's note on why
-      # bare `pnpm deploy` would shadow the package script.
+      # No build:packages needed: workspace exports resolve to package source under
+      # Astro/Vite (same as the web job), and TypeDoc reads source directly too —
+      # verified by building with packages/*/dist absent.
+      #
+      # `run deploy` runs the docs build then `wrangler deploy` — see the collab job's
+      # note on why bare `pnpm deploy` would shadow the package script.
       - run: pnpm --filter @deviva-draw/docs run deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

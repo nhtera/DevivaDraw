@@ -34,9 +34,20 @@ function parse(file) {
       .filter(Boolean)
       .map(([, k, v]) => [k, v.replace(/^["']|["']$/g, '')]),
   );
+  // Strip MDX imports and island/component tags from PROSE ONLY — fenced code blocks
+  // must ship verbatim (a naive whole-body regex would gut the `import`/JSX example code).
+  let inFence = false;
   const body = match[2]
-    .replaceAll(/^import .*$/gm, '') // MDX imports
-    .replaceAll(/^<\/?[A-Z][^>]*>.*$/gm, '') // island/component tags (single-line usage only)
+    .split('\n')
+    .filter((line) => {
+      if (line.trimStart().startsWith('```')) {
+        inFence = !inFence;
+        return true;
+      }
+      if (inFence) return true;
+      return !/^import .*$/.test(line) && !/^<\/?[A-Z][^>\n]*\/?>\s*$/.test(line);
+    })
+    .join('\n')
     .replaceAll(/\n{3,}/g, '\n\n')
     .trim();
   const url = `${site}/${file.replace('src/content/docs/', '').replace(/\.mdx$/, '/')}`;
