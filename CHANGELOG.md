@@ -7,6 +7,15 @@ All notable changes to Deviva Draw are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **MCP server for AI agents** (`@deviva-draw/mcp`). `claude mcp add deviva-draw -- npx -y
+  @deviva-draw/mcp` gives Claude (or any MCP client) a headless Deviva canvas: batch element
+  create/update/delete with auto-wrapped shape labels, semantic `create_diagram` (nodes + edges)
+  and mermaid-flowchart import with automatic layout, content search, `.devivadraw` file open/save
+  (multi-page aware), and SVG/PNG export that embeds the scene so exported files re-open fully
+  editable in the app. `take_screenshot` returns the rendered PNG to the agent so it can visually
+  check its own work. PNG rides an optional native canvas (`@napi-rs/canvas`); installs without it
+  degrade cleanly to SVG-only. File access can be confined with `--root`; nothing leaves the
+  machine. See `docs/mcp.md`.
 - **Tables.** A real table element, at last: pick it from the tool overflow, click or drag to
   place a grid, and the first cell opens for typing immediately. Tab walks cell to cell —
   Tab past the last cell grows the table by a row — double-click edits any cell, rows grow to

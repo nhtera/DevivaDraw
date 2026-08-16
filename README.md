@@ -3,6 +3,7 @@
 [![@deviva-draw/engine](https://img.shields.io/npm/v/@deviva-draw/engine?label=%40deviva-draw%2Fengine&color=cb3837&logo=npm)](https://www.npmjs.com/package/@deviva-draw/engine)
 [![@deviva-draw/react](https://img.shields.io/npm/v/@deviva-draw/react?label=%40deviva-draw%2Freact&color=cb3837&logo=npm)](https://www.npmjs.com/package/@deviva-draw/react)
 [![@deviva-draw/collab-client](https://img.shields.io/npm/v/@deviva-draw/collab-client?label=%40deviva-draw%2Fcollab-client&color=cb3837&logo=npm)](https://www.npmjs.com/package/@deviva-draw/collab-client)
+[![@deviva-draw/mcp](https://img.shields.io/npm/v/@deviva-draw/mcp?label=%40deviva-draw%2Fmcp&color=cb3837&logo=npm)](https://www.npmjs.com/package/@deviva-draw/mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 An open-source, infinite-canvas whiteboard — a framework-agnostic drawing
@@ -57,6 +58,7 @@ Published to npm under the `@deviva-draw` scope:
 | [`@deviva-draw/engine`](packages/engine) | Framework-agnostic core: element model, scene store, history, renderer, geometry, input/tools. No DOM/React required at the type level. |
 | [`@deviva-draw/react`](packages/react) | React bindings: the `<DevivaDraw/>` component, hooks, UI chrome, and a scene-read API for embedding. |
 | [`@deviva-draw/collab-client`](packages/collab-client) | Real-time sync client: WebSocket transport, E2E crypto, presence. |
+| [`@deviva-draw/mcp`](packages/mcp) | MCP server: AI agents create, edit, and export scenes headlessly (`npx @deviva-draw/mcp`). |
 
 Apps in this repo (not published):
 
@@ -82,6 +84,19 @@ export function App() {
 See [`packages/react/README.md`](packages/react/README.md) for the full API,
 scene-read helpers, and framework notes (Next.js, Vite).
 
+## AI agents (MCP)
+
+Let Claude (or any MCP client) draw on a Deviva canvas — create shapes and
+flowcharts, screenshot-verify its own work, and export SVG/PNG that re-opens
+fully editable in the web app, all headless:
+
+```bash
+claude mcp add deviva-draw -- npx -y @deviva-draw/mcp --root ~/diagrams
+```
+
+See [`docs/mcp.md`](docs/mcp.md) for Claude Desktop/Cursor setup and the full
+tool reference.
+
 ## Develop locally
 
 ```bash
@@ -103,6 +118,7 @@ in dependency order (`engine` → `collab-client` → `react`).
 packages/engine         Framework-agnostic drawing core
 packages/react          <DevivaDraw/> React component + hooks
 packages/collab-client  WebSocket sync client, E2E crypto, presence
+packages/mcp            MCP server for AI agents (stdio, npx @deviva-draw/mcp)
 apps/web                Standalone web app (Vite + React SPA)
 apps/collab-server      Cloudflare Worker: Durable Objects + R2
 docs/                   Architecture, code standards, roadmap, deployment
