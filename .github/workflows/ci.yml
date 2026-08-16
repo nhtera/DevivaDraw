@@ -122,6 +122,14 @@ jobs:
       # with it disabled (canvas-dependent tests skip; export_png degrades to a clear error).
       - run: DEVIVA_MCP_NO_CANVAS=1 pnpm --filter @deviva-draw/mcp test
 
+      # Live-session bridge against the REAL relay: wrangler dev (miniflare DO) + actual Node
+      # WebSockets. Opt-in via env so local `pnpm test` stays fast; retried once because wrangler
+      # cold-start is occasionally flaky in CI — a second consecutive failure is a real failure.
+      - run: |
+          DEVIVA_MCP_INTEGRATION=1 pnpm --filter @deviva-draw/mcp exec vitest run src/live/live-relay.integration.test.ts \
+            || DEVIVA_MCP_INTEGRATION=1 pnpm --filter @deviva-draw/mcp exec vitest run src/live/live-relay.integration.test.ts
+        name: Live-relay integration (wrangler dev)
+
       # Cold-start smoke against the PACKED artifacts — the exact thing `npx @deviva-draw/mcp`
       # installs: publishConfig-rewritten dist, bin + shebang, engine resolved as a real dependency
       # (its tarball installed alongside, since a tag may ship both at new versions together).
@@ -130,10 +138,11 @@ jobs:
           set -eu
           SMOKE="$(mktemp -d)"
           pnpm --dir packages/engine pack --pack-destination "$SMOKE"
+          pnpm --dir packages/collab-client pack --pack-destination "$SMOKE"
           pnpm --dir packages/mcp pack --pack-destination "$SMOKE"
           cd "$SMOKE"
           npm init -y > /dev/null
-          npm install ./deviva-draw-engine-*.tgz ./deviva-draw-mcp-*.tgz --no-audit --no-fund --loglevel=error
+          npm install ./deviva-draw-engine-*.tgz ./deviva-draw-collab-client-*.tgz ./deviva-draw-mcp-*.tgz --no-audit --no-fund --loglevel=error
           printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}' \
             | npx --no-install deviva-draw-mcp | grep -q '"serverInfo"'
         name: Pack + npx cold-start smoke
