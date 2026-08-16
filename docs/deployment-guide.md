@@ -97,7 +97,7 @@ Two workflows in `.github/workflows/`:
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `ci.yml` | PRs to `main`, pushes to `main` | Typecheck, lint, unit tests, full build; Playwright e2e in a parallel job. On `main` only, then deploys the collab Worker followed by the web Worker. |
+| `ci.yml` | PRs to `main`, pushes to `main` | Typecheck, lint, unit tests, full build; Playwright e2e in a parallel job. On `main` only, then deploys the collab Worker, the web Worker, and the docs site (`apps/docs` → `docs-draw.deviva.app`, assets-only Worker like the web app). |
 | `release.yml` | `v*` tags, manual dispatch | Re-runs the gates, builds the packages, publishes them to npm with provenance. |
 
 Deploys are gated on `needs: [build, e2e]`, so a red build or a failing e2e run

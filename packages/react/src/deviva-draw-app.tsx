@@ -16,6 +16,19 @@ import type { DevivaDrawProps } from "./deviva-draw-app-types";
 export type { DevivaDrawHandle } from "./runtime/imperative-handle";
 export type { DevivaDrawProps, DevivaDrawStoredFile } from "./deviva-draw-app-types";
 
+/**
+ * The complete Deviva Draw whiteboard as a single React component — canvas, tools, toolbar,
+ * panels, menus, shortcuts, theming, i18n, and touch support, with zero required props.
+ *
+ * @example
+ * ```tsx
+ * import { DevivaDraw } from "@deviva-draw/react";
+ *
+ * export default function App() {
+ *   return <DevivaDraw style={{ position: "fixed", inset: 0 }} />;
+ * }
+ * ```
+ */
 export const DevivaDraw = forwardRef<DevivaDrawHandle, DevivaDrawProps>(function DevivaDraw(props, ref) {
   const { theme, locale, offlineHints, ...shellProps } = props;
   return (

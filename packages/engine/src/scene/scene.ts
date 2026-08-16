@@ -38,6 +38,21 @@ export type SceneUpdateHook = (updated: AnyElement, scene: Scene) => void;
  */
 export type ElementUpdate = Partial<Omit<AnyElement, "id" | "type" | "version" | "versionNonce" | "updated">>;
 
+/**
+ * The observable element store at the heart of the engine: elements in fractional-index z-order,
+ * stored files (images), layers, and a change-notification surface every Deviva Draw host
+ * (React shell, desktop app, MCP server, collab merge) builds on.
+ *
+ * @example
+ * ```ts
+ * import { Scene, createRectangleElement } from "@deviva-draw/engine";
+ *
+ * const scene = new Scene();
+ * const box = scene.addElement(createRectangleElement({ x: 0, y: 0, width: 160, height: 80 }));
+ * scene.updateElement(box.id, { backgroundColor: "#ffec99" });
+ * const doc = scene.toJSON(); // persist anywhere; reload with Scene.fromJSON(doc)
+ * ```
+ */
 export class Scene {
   private readonly elements = new Map<string, AnyElement>();
   /** Binary files (images) referenced by `ImageElement.fileId` — stored separately from `elements` on purpose, see `images/files-map.ts`'s module doc. Composed unit, see `scene-files-store.ts`. */

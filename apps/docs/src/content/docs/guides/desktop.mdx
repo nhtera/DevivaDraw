@@ -1,0 +1,55 @@
+---
+title: Desktop App
+description: Deviva Draw as a native, fully offline desktop app - real files, save-in-place, and a live agent workflow.
+---
+
+Deviva Draw runs as a native desktop app on macOS, Windows, and Linux (built
+with Tauri). It is the full whiteboard, fully offline, with a real-file
+workflow the browser can't offer:
+
+- **Real `.devivadraw` files** - Open, Save-in-place, Save As, file
+  association (double-click a `.devivadraw` file to open it), recents, and an
+  unsaved-changes guard.
+- **Fully offline** - every feature that doesn't inherently need a network
+  (drawing, files, export) works with no connection; online-only entry points
+  (Share, Collaborate) mark themselves clearly while offline.
+- **Native menus and shortcuts** - driven by the same action registry as the
+  in-app menus.
+
+Download installers from the
+[latest release](https://github.com/nhtera/DevivaDraw/releases/latest).
+
+## Live agent workflow
+
+The desktop app's AI-agent story is **file-based**: an agent edits the open
+`.devivadraw` file through the [MCP server](/guides/mcp/), and the app
+live-reloads the document within ~2 seconds of every save - same camera
+position, no flash, no plugins, works fully offline.
+
+```bash
+claude mcp add deviva-draw -- npx -y @deviva-draw/mcp --root ~/Drawings
+```
+
+1. Open a document in the desktop app - e.g. `~/Drawings/roadmap.devivadraw`.
+2. Ask your agent: *"Open ~/Drawings/roadmap.devivadraw with deviva-draw, add
+   a Q3 frame with three notes, save."*
+3. The app notices the on-disk change and reloads in place. Your turn again.
+
+### Reload semantics
+
+The app never merges or clobbers your work:
+
+- **No unsaved edits** → external changes reload automatically.
+- **Unsaved edits** → a conflict bar lets you choose: *Reload from disk* or
+  *Keep mine (Save As…)*. Both versions stay intact until you decide.
+- **Partial/corrupt write on disk** → the app keeps the current document and
+  says so; the next complete save reloads normally.
+
+## Building from source
+
+The desktop app lives in the open-source repo (`apps/desktop`). With a Rust
+toolchain installed:
+
+```bash
+pnpm --filter @deviva-draw/desktop build
+```

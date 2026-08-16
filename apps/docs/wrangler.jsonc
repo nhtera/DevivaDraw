@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "deviva-draw-docs",
+  "compatibility_date": "2026-08-01",
+  // Static-asset-only Worker (same shape as apps/web): serves the Astro build in ./dist. No `main`
+  // — there is no server-side code. `404-page` serves Starlight's generated /404.html for unknown
+  // paths; the docs site is fully static, so SPA fallback would be wrong here.
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page"
+  },
+  // `custom_domain` provisions the DNS record + edge cert on the deviva.app zone on deploy,
+  // exactly like draw.deviva.app (web) and mcp-draw.deviva.app (MCP worker).
+  "routes": [
+    { "pattern": "docs-draw.deviva.app", "custom_domain": true }
+  ]
+}

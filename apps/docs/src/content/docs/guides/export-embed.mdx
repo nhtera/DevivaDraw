@@ -1,0 +1,49 @@
+---
+title: Export & Share
+description: PNG and SVG export, re-importable images, .devivadraw files, and E2E-encrypted share links.
+---
+
+## In the app
+
+The main menu exports the canvas (or the current selection) as:
+
+- **PNG** - at 1–3× scale, with the **scene embedded**: drop an exported PNG
+  back onto any Deviva Draw canvas and it re-opens fully editable.
+- **SVG** - vector output identical to the canvas rendering, scene data
+  embedded by default.
+- **Copy as image** - straight to the clipboard.
+- **`.devivadraw` files** - the app's native JSON document format
+  (single-scene or multi-page), also what the [desktop app](/guides/desktop/)
+  and [MCP server](/guides/mcp/) read and write.
+
+## Programmatic export
+
+The [imperative handle](/guides/react-component/#the-imperative-handle)
+exposes the same pipeline to embedding hosts:
+
+```tsx
+const png: Blob = await ref.current.exportToPng({ scale: 2, padding: 16 });
+const svg: string = ref.current.exportToSvg({ backgroundColor: null });
+```
+
+Both accept `padding` and `backgroundColor` (pass `null` for transparent);
+PNG additionally takes `scale` (1–3).
+
+Headless hosts (Node.js, workers) can render without a browser through the
+engine's exported renderers - the MCP server's `export_svg`/`export_png`
+tools are built on exactly that path.
+
+## Share links
+
+**Share** in the main menu uploads an **end-to-end encrypted** snapshot and
+returns a link:
+
+- The decryption key lives only in the URL fragment (`#key=…`) - it is never
+  sent to the server, which stores an opaque encrypted blob.
+- Recipients see a read-only viewer; one click copies the scene into their own
+  editable canvas.
+
+In an embed, share requires pointing the component at a collab server via
+`shareApiBaseUrl` - see [Collaboration](/guides/collaboration/). The
+read-only viewer is exported as `SharedSceneViewer` for hosts that route
+share links themselves.

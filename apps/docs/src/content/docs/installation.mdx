@@ -1,0 +1,44 @@
+---
+title: Installation
+description: The Deviva Draw package matrix - which package to install for which job.
+---
+
+Deviva Draw ships as four npm packages plus a desktop app. Most apps only need
+`@deviva-draw/react`.
+
+| Package | What it is | Install when you want |
+|---|---|---|
+| [`@deviva-draw/react`](https://www.npmjs.com/package/@deviva-draw/react) | The complete whiteboard as a React component (`<DevivaDraw />`), plus hooks and building blocks for custom chrome. | A whiteboard in a React app. **Start here.** |
+| [`@deviva-draw/engine`](https://www.npmjs.com/package/@deviva-draw/engine) | Framework-agnostic, zero-dependency core: element model, scene, history, rendering, geometry. | Headless scene processing, a custom renderer, or non-React bindings. |
+| [`@deviva-draw/collab-client`](https://www.npmjs.com/package/@deviva-draw/collab-client) | Client for E2E-encrypted live collaboration and share links. | Direct protocol access. The React package already uses it under the hood - you rarely install this yourself. |
+| [`@deviva-draw/mcp`](https://www.npmjs.com/package/@deviva-draw/mcp) | Model Context Protocol server - AI agents draw, edit, and export scenes. | AI-agent workflows. Run with `npx`, no app integration required. See [MCP for AI Agents](/guides/mcp/). |
+
+## Requirements
+
+- **`@deviva-draw/react`**: React 19 (`react` and `react-dom` are peer dependencies).
+- **`@deviva-draw/engine`**: any ES2022 runtime - browser, Node.js 18+, or edge. Zero runtime dependencies.
+- **Node.js 18+** for tooling; the packages ship as ESM with TypeScript types included.
+
+```bash
+# the usual case
+npm install @deviva-draw/react
+
+# headless / framework-agnostic
+npm install @deviva-draw/engine
+
+# AI-agent MCP server (no install - run directly)
+npx -y @deviva-draw/mcp
+```
+
+## Desktop app
+
+The full app also runs natively on macOS, Windows, and Linux - offline, with
+real `.devivadraw` files and save-in-place. Download installers from the
+[latest release](https://github.com/nhtera/DevivaDraw/releases/latest), or read
+the [Desktop App guide](/guides/desktop/).
+
+## TypeScript
+
+All packages ship their own type declarations - no `@types/*` packages needed.
+The public API is fully typed, including the element model
+(`AnyElement`, `SceneDocument`) and every component prop.

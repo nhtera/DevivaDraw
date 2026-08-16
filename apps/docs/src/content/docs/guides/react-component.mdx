@@ -1,0 +1,127 @@
+---
+title: The React Component
+description: Everything <DevivaDraw /> can do - props, change events, the imperative handle, theming, i18n, and persistence.
+---
+
+import CanvasDemo from '../../../components/canvas-demo';
+
+`<DevivaDraw />` is the complete whiteboard: canvas, tools, toolbar, style
+panel, menus, keyboard shortcuts, command palette, touch support. This guide
+covers the embedding contract - how a host app feeds it data, reacts to
+changes, and drives it programmatically. Here it is embedded with an
+`initialData` document, exactly as described below:
+
+<CanvasDemo client:visible scene="flowchart" />
+
+## Minimal embed
+
+```tsx
+import { DevivaDraw } from "@deviva-draw/react";
+
+<DevivaDraw style={{ position: "fixed", inset: 0 }} />
+```
+
+The component fills whatever sized box you give it - `position: fixed; inset: 0`
+for full-screen, or any container with an explicit width and height.
+
+## Loading and persisting data
+
+By default the component autosaves to `localStorage` and restores on mount -
+zero-config persistence for a standalone page.
+
+**Multiple instances:** scope each instance's autosave with `persistenceKey`
+so they don't overwrite each other:
+
+```tsx
+<DevivaDraw persistenceKey="board-review-session-42" />
+```
+
+**Own your persistence:** pass `initialData` (a previously saved document) and
+listen to `onChange`. When `initialData` is supplied, the component never
+touches `localStorage` - you are the storage layer:
+
+```tsx
+<DevivaDraw
+  initialData={savedDocument}
+  onChange={(elements, files) => {
+    // debounced; fires after any user-authored scene change
+    saveToYourBackend(elements, files);
+  }}
+/>
+```
+
+## The imperative handle
+
+Attach a ref for programmatic control:
+
+```tsx
+import { useRef } from "react";
+import { DevivaDraw, type DevivaDrawHandle } from "@deviva-draw/react";
+
+function Board() {
+  const ref = useRef<DevivaDrawHandle>(null);
+
+  const download = async () => {
+    const blob = await ref.current!.exportToPng({ scale: 2 });
+    // hand the Blob to a download link, upload, etc.
+  };
+
+  return <DevivaDraw ref={ref} />;
+}
+```
+
+The handle's surface:
+
+| Method | What it does |
+|---|---|
+| `getSceneElements()` | Every live element in z-order - read the scene structure. |
+| `getFiles()` | Stored files (images) referenced by live elements. |
+| `exportToPng(options?)` | Rendered PNG as a `Blob` (`scale` 1–3, `padding`, `backgroundColor`). |
+| `exportToSvg(options?)` | Rendered SVG as a string. |
+| `loadSceneDocument(doc)` | Replace the scene with a saved document - returns `false` on invalid input, never throws. |
+| `openDocument(text, path, options?)` | Programmatic file open with document identity; `preserveCamera` keeps the viewport steady. |
+| `saveDocument(options?)` | Runs the save flow; resolves with the outcome. |
+| `resetScene()` | Clear the canvas (a single undo step). |
+| `undo()` / `redo()` | History control. |
+| `zoomToFit()` | Frame all content in the viewport. |
+| `runAction(actionId)` | Dispatch any registered action - the same path the menus and command palette use. |
+
+## Theme and language
+
+```tsx
+<DevivaDraw theme="dark" locale="en" />
+```
+
+- `theme`: `"light"` or `"dark"`. Omit to use the visitor's persisted
+  preference (defaulting to light). Sync this with your app's theme toggle.
+- `locale`: `"en"` or `"vi"`. Omit for the persisted preference, then the
+  browser language.
+
+## View-only mode
+
+```tsx
+<DevivaDraw initialViewOnly />
+```
+
+Starts the shell read-only - no properties panel or context menu. This is how
+the built-in share-link viewer renders snapshots.
+
+## Enabling share & collaboration
+
+Share links and live multiplayer need a collab server to talk to:
+
+```tsx
+<DevivaDraw shareApiBaseUrl="https://collab-draw.deviva.app" />
+```
+
+Omit it and both features disable themselves gracefully. See
+[Collaboration](/guides/collaboration/) for the full story, including
+`initialRoomUrl` for auto-joining a live room on mount.
+
+## Building your own chrome
+
+The composed component is one option. The package also exports the lower-level
+building blocks it is made of - `ThemeProvider`, `ActionRegistry`,
+`createCameraStore`, `useTextEditing`, `usePasteAndDrop`, and more - for hosts
+that want the engine with custom UI around it. Start from the
+[engine guide](/guides/engine/) and the package's typed exports.

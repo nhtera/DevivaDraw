@@ -1,0 +1,84 @@
+---
+title: MCP for AI Agents
+description: Let AI agents create, edit, and export whiteboard scenes with the @deviva-draw/mcp Model Context Protocol server.
+---
+
+`@deviva-draw/mcp` is a [Model Context Protocol](https://modelcontextprotocol.io)
+server that lets AI agents draw: create and edit scenes, lay out flowcharts,
+convert Mermaid, export images, and even join your live canvas - all headlessly,
+on the exact engine the app uses. Anything an agent draws re-opens fully
+editable at [draw.deviva.app](https://draw.deviva.app).
+
+## Setup
+
+The server runs over stdio; one agent session owns one live scene.
+
+**Claude Code**
+
+```bash
+claude mcp add deviva-draw -- npx -y @deviva-draw/mcp --root ~/diagrams
+```
+
+**Claude Desktop** - add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "deviva-draw": {
+      "command": "npx",
+      "args": ["-y", "@deviva-draw/mcp", "--root", "/Users/you/diagrams"]
+    }
+  }
+}
+```
+
+**Cursor** - Settings → MCP → Add server, command `npx -y @deviva-draw/mcp`
+(args as above).
+
+`--root <dir>` (or env `DEVIVA_MCP_ROOT`) is optional but recommended: every
+file path a tool accepts must then resolve inside that directory.
+
+## What agents can do
+
+| Area | Tools |
+|---|---|
+| Scene lifecycle | `new_scene`, `open_scene`, `save_scene` (`.devivadraw` files, multi-page aware), `describe_scene`, `get_scene_content` |
+| Elements | `create_elements` (batch, with bound labels), `update_elements`, `delete_elements`, `list_elements`, `search_scene_content` |
+| Diagrams | `create_diagram` (semantic nodes + edges → laid-out flowchart), `create_diagram_from_mermaid` |
+| Export & self-check | `export_svg`, `export_png` (both embed editable scene data), `take_screenshot` (agent inspects its own work), `read_scene_format` |
+| Live sessions | `connect_to_live_session`, `disconnect_live_session`, `live_session_status` |
+
+Every mutating tool returns compact element summaries, inputs are
+schema-validated with actionable errors, and exports embed the scene data so
+the output stays editable.
+
+## Live sessions
+
+The standout workflow: the agent draws **on your open canvas, live**. Start a
+session at [draw.deviva.app](https://draw.deviva.app) (Collaborate → copy the
+room link) and hand the link to the agent. Its edits appear in real time, your
+edits flow back, and it shows up in the presence rail as a named collaborator.
+
+The link's `#key=…` fragment is the room's end-to-end encryption key - the
+agent holds it in memory only and never repeats it in results or logs.
+
+## Remote endpoint (zero install)
+
+A stateless Streamable-HTTP endpoint runs on Cloudflare Workers - no install
+and no server-side scene storage:
+
+```bash
+claude mcp add --transport http deviva-draw-remote https://mcp-draw.deviva.app/mcp
+```
+
+Each call optionally takes the previous call's returned `scene` JSON and
+returns the updated scene; there are no file/session tools and no PNG
+rendering. Prefer the local server for real work.
+
+## Security model
+
+- **stdio = local-only.** Scene data never leaves your machine; the only
+  network I/O is the opt-in live session to the E2E-encrypted relay.
+- File access is restricted to explicit agent-passed paths, optionally
+  confined by `--root`.
+- Image decode accepts `data:` URIs only - the server never fetches remote URLs.

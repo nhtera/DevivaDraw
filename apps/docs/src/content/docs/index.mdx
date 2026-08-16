@@ -1,0 +1,41 @@
+---
+title: Deviva Draw
+description: Open-source infinite-canvas whiteboard SDK - a zero-dependency engine, a complete React component, E2E-encrypted collaboration, and an MCP server for AI agents.
+template: splash
+hero:
+  tagline: "The open-source infinite-canvas whiteboard SDK: a complete React component, a zero-dependency engine, encrypted collaboration, and AI-agent tooling. MIT licensed."
+  actions:
+    - text: Quick Start
+      link: /quick-start/
+      icon: right-arrow
+    - text: Try it live
+      link: https://draw.deviva.app
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+import CanvasDemo from '../../components/canvas-demo';
+
+<CanvasDemo client:visible scene="quick-start" height={440} />
+
+<CardGrid stagger>
+	<Card title="Drop-in React component" icon="seti:react">
+		`<DevivaDraw />` renders the entire whiteboard - tools, panels, menus,
+		shortcuts, theming, touch - with zero required props.
+		[Quick Start →](/quick-start/)
+	</Card>
+	<Card title="Zero-dependency engine" icon="setting">
+		A framework-agnostic core with no required runtime dependencies: element
+		model, scene store, history, renderers. Runs in browsers, Node.js, and
+		edge workers. [The Engine →](/guides/engine/)
+	</Card>
+	<Card title="Encrypted collaboration" icon="random">
+		Live multiplayer and share links, end-to-end encrypted - the key never
+		leaves the URL fragment. [Collaboration →](/guides/collaboration/)
+	</Card>
+	<Card title="Built for AI agents" icon="rocket">
+		An MCP server lets agents draw on your canvas - headless or live, with
+		exports that stay editable. [MCP for AI Agents →](/guides/mcp/)
+	</Card>
+</CardGrid>

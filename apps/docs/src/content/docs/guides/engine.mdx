@@ -1,0 +1,95 @@
+---
+title: The Engine
+description: Headless use of @deviva-draw/engine - the zero-dependency scene model behind every Deviva Draw surface.
+---
+
+import CanvasDemo from '../../../components/canvas-demo';
+
+`@deviva-draw/engine` is the framework-agnostic core: the element model, the
+`Scene` store, history, serialization, cameras, and the renderers. It runs
+anywhere ES2022 runs - browser, Node.js, edge workers - with **zero required
+runtime dependencies**. The React component, the desktop app, and the MCP
+server are all built on this one engine, so a scene produced headlessly opens
+pixel-identical in the app.
+
+## The scene
+
+`Scene` is an observable element store:
+
+```ts
+import {
+  Scene,
+  createRectangleElement,
+  createEllipseElement,
+  createArrowElement,
+} from "@deviva-draw/engine";
+
+const scene = new Scene();
+
+const box = scene.addElement(
+  createRectangleElement({ x: 100, y: 100, width: 160, height: 80 }),
+);
+const circle = scene.addElement(
+  createEllipseElement({ x: 360, y: 90, width: 100, height: 100 }),
+);
+scene.addElement(
+  createArrowElement({ x: 260, y: 140, width: 100, height: 0 }),
+);
+
+scene.updateElement(box.id, { backgroundColor: "#ffec99" });
+scene.getElements(); // every live element, in z-order
+```
+
+Element factories exist for every shape - `createRectangleElement`,
+`createEllipseElement`, `createDiamondElement`, `createTriangleElement`,
+`createHexagonElement`, `createStarElement`, `createCloudElement`,
+`createHeartElement`, `createLineElement`, `createArrowElement`,
+`createFreedrawElement`, `createTextElement`, `createNoteElement`,
+`createFrameElement`, `createTableElement`, `createImageElement`, and more.
+Each takes `{ x, y }` plus optional geometry and style fields and fills in
+consistent defaults. A few of them, rendered (this scene was built
+programmatically with exactly these factories):
+
+<CanvasDemo client:visible scene="shapes-tour" height={380} />
+
+Subscribe to changes with `scene.subscribe(listener)`; every mutation path
+(`addElement`, `updateElement`, `deleteElement`) notifies.
+
+## Serialization
+
+Scenes round-trip through plain JSON - the same format the app's
+`.devivadraw` files use:
+
+```ts
+const doc = scene.toJSON();          // SceneDocument - safe to persist anywhere
+const result = Scene.fromJSON(doc);  // validating deserialize; never throws on bad input
+```
+
+`Scene.fromJSON` accepts `unknown` and returns a result you can check -
+corrupt input yields a structured failure, not an exception.
+
+## History
+
+`HistoryStack` implements undo/redo over scene snapshots with batching -
+the same mechanism behind the app's <kbd>Cmd/Ctrl</kbd>+<kbd>Z</kbd>.
+
+## Cameras and geometry
+
+The camera model (`createCamera`, `sceneToScreen`, `screenToScene`,
+`clampZoom`) converts between scene and screen space, and the geometry
+helpers (hit testing, viewport culling, arrow routing and binding) are all
+exported for hosts building custom interactions.
+
+## Rendering
+
+The hand-drawn canvas renderers are exported too: `buildElementDrawable` /
+`drawElementRough` (shape sketching), `drawElementFreedraw` (ink),
+`drawElementText`, `drawElementImage`, plus their caches. Headless SVG/PNG
+export - how the MCP server renders without a browser - builds on the same
+functions.
+
+## Where to go deeper
+
+The engine's full surface is large (elements, layers, files, find, fractional
+z-ordering, image handling, embeds). Explore the typed exports in your
+editor: every public API carries doc comments.

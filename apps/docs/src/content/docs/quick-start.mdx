@@ -1,0 +1,75 @@
+---
+title: Quick Start
+description: Install @deviva-draw/react and render a full-featured infinite-canvas whiteboard in under five minutes.
+---
+
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import CanvasDemo from '../../components/canvas-demo';
+
+Get a complete whiteboard - canvas, tools, toolbar, panels, menus, shortcuts,
+theming, and mobile support - rendering inside your React app in a few minutes.
+This is it, live - draw on it:
+
+<CanvasDemo client:visible scene="quick-start" />
+
+## Prerequisites
+
+- Node.js 18+ and a package manager (npm, pnpm, or yarn)
+- A React **19** app (for a fresh one: `npm create vite@latest my-app -- --template react-ts`)
+
+<Steps>
+
+1. **Install the package.**
+
+   <Tabs syncKey="pkg">
+     <TabItem label="npm">
+       ```bash
+       npm install @deviva-draw/react
+       ```
+     </TabItem>
+     <TabItem label="pnpm">
+       ```bash
+       pnpm add @deviva-draw/react
+       ```
+     </TabItem>
+     <TabItem label="yarn">
+       ```bash
+       yarn add @deviva-draw/react
+       ```
+     </TabItem>
+   </Tabs>
+
+   `@deviva-draw/engine` comes along as a dependency - you don't install it separately.
+
+2. **Render the component.**
+
+   `<DevivaDraw />` needs no required props and no CSS import. Give it a sized
+   container - here, the full viewport:
+
+   ```tsx
+   // src/App.tsx
+   import { DevivaDraw } from "@deviva-draw/react";
+
+   export default function App() {
+     return <DevivaDraw style={{ position: "fixed", inset: 0 }} />;
+   }
+   ```
+
+3. **Run your app.**
+
+   ```bash
+   npm run dev
+   ```
+
+   You should see the whiteboard: pick a tool from the toolbar, draw a few
+   shapes, connect them with arrows, press <kbd>Cmd/Ctrl</kbd>+<kbd>K</kbd> for
+   the command palette. Your drawing autosaves to `localStorage` and is restored
+   on reload.
+
+</Steps>
+
+## Next steps
+
+- [The React Component](/guides/react-component/) - props, events, imperative handle, theming
+- [Installation](/installation/) - the full package matrix (engine, collab, MCP)
+- [Export & Share](/guides/export-embed/) - PNG/SVG export and encrypted share links

@@ -1,0 +1,70 @@
+---
+title: Collaboration
+description: End-to-end-encrypted live multiplayer and share links - how they work and how to enable them in your embed.
+---
+
+Deviva Draw ships two collaboration surfaces, both **end-to-end encrypted**:
+
+- **Share links** - a read-only snapshot of the canvas behind a URL. The
+  decryption key travels in the URL fragment (`#key=…`) and never reaches the
+  server; the backend stores only an encrypted blob.
+- **Live rooms** - real-time multiplayer with presence cursors. The relay
+  (Cloudflare Durable Objects) forwards encrypted updates between peers; the
+  room key again lives only in the URL fragment.
+
+Try both at [draw.deviva.app](https://draw.deviva.app) - the Share and
+Collaborate actions in the main menu.
+
+## Enabling collaboration in your embed
+
+Both features activate when you point the component at a collab server:
+
+```tsx
+<DevivaDraw shareApiBaseUrl="https://collab-draw.deviva.app" />
+```
+
+Omit the prop and both entry points disable themselves gracefully - no
+requests, an inline hint instead of an error.
+
+**Auto-joining a room:** turn an incoming room link into a live session on
+mount - this is how the standalone app handles `/room/{id}#key=…` URLs:
+
+```tsx
+<DevivaDraw
+  shareApiBaseUrl="https://collab-draw.deviva.app"
+  initialRoomUrl={window.location.href}
+/>
+```
+
+**Rendering a shared snapshot:** the read-only share viewer ships as its own
+component:
+
+```tsx
+import { SharedSceneViewer } from "@deviva-draw/react";
+```
+
+## Lower-level hooks
+
+Hosts building custom collaboration UI can use the exported hooks directly:
+
+- `useCollabSession` - join/leave, connection state, error reasons, and the
+  scene-merge lifecycle.
+- `useCollabCursorTracking` - publish and render presence cursors.
+- `CollabDialog` - the ready-made join/share dialog the shell uses.
+
+The wire protocol itself lives in
+[`@deviva-draw/collab-client`](https://www.npmjs.com/package/@deviva-draw/collab-client);
+the React package wraps it, and you only reach for it directly when building a
+non-React client (the MCP server's live-session peer does exactly that).
+
+## Self-hosting the relay
+
+The collab server is part of the open-source repo (`apps/collab-server`, a
+Cloudflare Workers + Durable Objects app). Deploy your own and point
+`shareApiBaseUrl` at it - the E2E encryption model means the relay operator
+can never read scene content either way.
+
+## AI agents as collaborators
+
+An MCP-driven agent can join a live room as a headless peer and draw on your
+open canvas in real time - see [MCP for AI Agents](/guides/mcp/#live-sessions).

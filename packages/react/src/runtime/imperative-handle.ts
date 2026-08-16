@@ -33,6 +33,19 @@ export interface ExportSvgOptions {
   backgroundColor?: string | null;
 }
 
+/**
+ * Programmatic control surface for `<DevivaDraw/>` — attach via `ref` to read the scene,
+ * export images, load documents, and drive history/actions from the host app.
+ *
+ * @example
+ * ```tsx
+ * const ref = useRef<DevivaDrawHandle>(null);
+ * const download = async () => {
+ *   const blob = await ref.current!.exportToPng({ scale: 2 });
+ * };
+ * return <DevivaDraw ref={ref} />;
+ * ```
+ */
 export interface DevivaDrawHandle {
   /** Every non-deleted element in the live scene, in z-order — the read surface `deviva.app`'s diagram extraction consumes. */
   getSceneElements(): AnyElement[];

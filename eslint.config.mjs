@@ -3,7 +3,7 @@ import tseslint from "typescript-eslint";
 import unicorn from "eslint-plugin-unicorn";
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**", "**/.wrangler/**", "**/playwright-report/**", "**/test-results/**"] },
+  { ignores: ["**/dist/**", "**/node_modules/**", "**/.wrangler/**", "**/playwright-report/**", "**/test-results/**", "**/.astro/**", "**/*.astro"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
