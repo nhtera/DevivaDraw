@@ -37,6 +37,13 @@ interface StoredTable {
   locked?: boolean;
 }
 
+/** The one table the test expects — asserted present, so the type is definite. */
+async function storedTable(page: Page): Promise<StoredTable> {
+  const tables = await storedTables(page);
+  expect(tables.length).toBeGreaterThan(0);
+  return tables[0]!;
+}
+
 /** The autosaved table elements (waits out the autosave debounce). */
 async function storedTables(page: Page): Promise<StoredTable[]> {
   await page.waitForTimeout(1300);
@@ -55,7 +62,7 @@ test("place by click: auto-edits cell (0,0); typing + Tab walk the row; Escape c
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("table-cell-editor")).toHaveCount(0);
 
-  const [table] = await storedTables(page);
+  const table = await storedTable(page);
   expect(table.cells[0]).toEqual(["Alpha", "Beta", ""]);
   expect(table.width).toBe(360);
   expect(table.columnWidths).toEqual([120, 120, 120]);
@@ -70,12 +77,12 @@ test("Tab past the last cell appends a row in ONE undo step (row + its trigger c
   await expect(page.getByTestId("table-cell-editor")).toBeVisible(); // caret continued into the new row
   await page.keyboard.press("Escape");
 
-  let [table] = await storedTables(page);
+  let table = await storedTable(page);
   expect(table.rowHeights).toHaveLength(4);
   expect(table.cells[2]![2]).toBe("last");
 
   await page.keyboard.press(process.platform === "darwin" ? "Meta+z" : "Control+z");
-  [table] = await storedTables(page);
+  table = await storedTable(page);
   expect(table.rowHeights).toHaveLength(3);
   expect(table.cells[2]![2]).toBe(""); // the append-Tab's text commit undid with the row
 });
@@ -89,7 +96,7 @@ test("double-click edits exactly the clicked cell; a long text grows only its ro
   await page.getByTestId("table-cell-editor").fill("a much longer cell text that must wrap across several lines");
   await page.keyboard.press("Escape");
 
-  const [table] = await storedTables(page);
+  const table = await storedTable(page);
   expect(table.cells[1]![1]).toContain("longer cell text");
   expect(table.rowHeights[1]!).toBeGreaterThan(40); // its row grew
   expect(table.rowHeights[0]).toBe(28); // empty rows settle at the minimum on re-fit (shrink-to-fit, by design)
@@ -102,7 +109,7 @@ test("panel structure buttons add/remove rows and columns; the last of each is g
   await page.mouse.click(650, 350); // select
   await page.getByTestId("table-add-row").click();
   await page.getByTestId("table-add-column").click();
-  let [table] = await storedTables(page);
+  let table = await storedTable(page);
   expect(table.rowHeights).toHaveLength(4);
   expect(table.columnWidths).toHaveLength(4);
   expect(table.cells[3]).toHaveLength(4);
@@ -112,7 +119,7 @@ test("panel structure buttons add/remove rows and columns; the last of each is g
   for (let i = 0; i < 3; i += 1) await page.getByTestId("table-remove-column").click();
   await expect(page.getByTestId("table-remove-row")).toBeDisabled();
   await expect(page.getByTestId("table-remove-column")).toBeDisabled();
-  [table] = await storedTables(page);
+  table = await storedTable(page);
   expect(table.rowHeights).toHaveLength(1);
   expect(table.columnWidths).toHaveLength(1);
 });
@@ -128,7 +135,7 @@ test("dragging an interior column boundary resizes that column; the table never 
   await page.mouse.move(650, 350);
   await page.mouse.up();
 
-  const [table] = await storedTables(page);
+  const table = await storedTable(page);
   expect(table.columnWidths[0]!).toBeGreaterThan(150);
   expect(table.columnWidths[1]).toBe(120);
   expect(table.x).toBe(470);
@@ -145,12 +152,12 @@ test("corner-handle resize scales the whole grid and one undo restores it", asyn
   await page.mouse.move(1000, 500);
   await page.mouse.up();
 
-  let [table] = await storedTables(page);
+  let table = await storedTable(page);
   expect(table.width).toBeGreaterThan(400);
   expect(table.width).toBeCloseTo(table.columnWidths.reduce((a, b) => a + b, 0), 1);
 
   await page.keyboard.press(process.platform === "darwin" ? "Meta+z" : "Control+z");
-  [table] = await storedTables(page);
+  table = await storedTable(page);
   expect(table.width).toBeCloseTo(360, 1);
 });
 
@@ -303,9 +310,9 @@ test("reload restores the table exactly (grid + text + sums)", async ({ page }) 
   await placeTable(page);
   await page.getByTestId("table-cell-editor").fill("persist me");
   await page.keyboard.press("Escape");
-  const [before] = await storedTables(page);
+  const before = await storedTable(page);
   await page.reload();
   await expect(page.getByTestId("deviva-draw-root")).toBeVisible();
-  const [after] = await storedTables(page);
+  const after = await storedTable(page);
   expect(after).toEqual(before);
 });
