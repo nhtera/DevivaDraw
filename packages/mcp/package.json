@@ -1,6 +1,6 @@
 {
   "name": "@deviva-draw/mcp",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "MCP server for Deviva Draw: lets AI agents create, edit, query, and export whiteboard scenes headlessly",
   "type": "module",
   "license": "MIT",
@@ -48,6 +48,7 @@
     "dist",
     "src",
     "!src/**/*.test.ts",
+    "!**/fake-collab-relay.*",
     "README.md",
     "LICENSE"
   ],
@@ -60,6 +61,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@deviva-draw/collab-client": "workspace:*",
     "@deviva-draw/engine": "workspace:*",
     "@modelcontextprotocol/sdk": "~1.30.0",
     "zod": "^4.4.3"

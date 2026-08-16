@@ -10,8 +10,9 @@
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
-import { deserializeMultiPageDocumentLenient, generatePageId, MULTI_PAGE_DOCUMENT_TYPE, Scene, serializeMultiPageDocument, serializeScene } from "@deviva-draw/engine";
-import type { ScenePage, TextMeasurer } from "@deviva-draw/engine";
+import { PageStore } from "@deviva-draw/collab-client";
+import { deserializeMultiPageDocumentLenient, MULTI_PAGE_DOCUMENT_TYPE, Scene, serializeScene } from "@deviva-draw/engine";
+import type { TextMeasurer } from "@deviva-draw/engine";
 import { createApproximateTextMeasurer } from "./approximate-measurer";
 import { liveElementCount, ToolError } from "./tools/tool-types";
 import type { OpenSceneResult, ToolSession } from "./tools/tool-types";
@@ -27,16 +28,22 @@ export interface SceneSessionOptions {
   measurer?: TextMeasurer;
 }
 
-function freshPage(): ScenePage {
-  return { id: generatePageId(), name: "Page 1", scene: new Scene() };
-}
-
 export class SceneSession implements ToolSession {
-  private pages: ScenePage[] = [freshPage()];
-  private activeIndex = 0;
+  /**
+   * The page list — the same `PageStore` class the browser shell runs, so the live-session bridge
+   * can hand it straight to the canonical collab pages adapter and remote page operations (add,
+   * rename, delete from the user's tab) reflect here with browser-identical semantics.
+   */
+  private store: PageStore = PageStore.fresh();
   private boundPath: string | null = null;
   /** Whether the opened file used the multi-page envelope — save must write the same format back. */
   private sourceIsMultiPage = false;
+  /**
+   * Non-`null` while the live-session bridge has this session's scene bound to a collab room:
+   * `new_scene`/`open_scene` would swap the scene out from under the room, so both refuse with
+   * this message. Save/export stay allowed — they read the same live scene.
+   */
+  private lockReason: string | null = null;
   private readonly rootDir: string | null;
   readonly measurer: TextMeasurer;
 
@@ -47,19 +54,23 @@ export class SceneSession implements ToolSession {
 
   /** The active page's live scene — the one object every element/diagram/export tool operates on. */
   get scene(): Scene {
-    const page = this.pages[this.activeIndex];
-    if (!page) throw new Error("scene-session: active page index out of range (bug)");
-    return page.scene;
+    return this.store.getActiveScene();
   }
 
-  get activePage(): ScenePage {
-    const page = this.pages[this.activeIndex];
-    if (!page) throw new Error("scene-session: active page index out of range (bug)");
+  get activePage(): { id: string; name: string } {
+    const activeId = this.store.getActivePageId();
+    const page = this.store.getPages().find((entry) => entry.id === activeId);
+    if (!page) throw new Error("scene-session: active page missing from the store (bug)");
     return page;
   }
 
   get pageCount(): number {
-    return this.pages.length;
+    return this.store.getPages().length;
+  }
+
+  /** The live page list — what the bridge binds to the room's pages adapter. */
+  get pageStore(): PageStore {
+    return this.store;
   }
 
   get filePath(): string | null {
@@ -75,15 +86,28 @@ export class SceneSession implements ToolSession {
     return resolved;
   }
 
+  lockScene(reason: string): void {
+    this.lockReason = reason;
+  }
+
+  unlockScene(): void {
+    this.lockReason = null;
+  }
+
+  private assertNotLocked(): void {
+    if (this.lockReason !== null) throw new ToolError(this.lockReason);
+  }
+
   /** Discards the current document and starts a fresh, unbound single-page scene. */
   newScene(): void {
-    this.pages = [freshPage()];
-    this.activeIndex = 0;
+    this.assertNotLocked();
+    this.store = PageStore.fresh();
     this.boundPath = null;
     this.sourceIsMultiPage = false;
   }
 
   openScene(path: string): OpenSceneResult {
+    this.assertNotLocked();
     const resolved = this.resolvePath(path);
     let text: string;
     try {
@@ -100,14 +124,14 @@ export class SceneSession implements ToolSession {
     const result = deserializeMultiPageDocumentLenient(raw);
     if (!result.ok) throw new ToolError(`"${path}" is not a readable Deviva Draw file: ${result.error}`);
 
-    this.pages = result.pages;
-    const activeIndex = result.activePageId === null ? 0 : result.pages.findIndex((page) => page.id === result.activePageId);
-    this.activeIndex = activeIndex === -1 ? 0 : activeIndex;
+    // A fresh store per open (subscribers are never carried across documents — the live bridge
+    // locks this method away while connected, so no live adapter can be watching the old store).
+    this.store = new PageStore(result.pages, result.activePageId);
     this.boundPath = resolved;
     this.sourceIsMultiPage = typeof raw === "object" && raw !== null && (raw as Record<string, unknown>).type === MULTI_PAGE_DOCUMENT_TYPE;
     return {
       path: resolved,
-      pageCount: this.pages.length,
+      pageCount: this.pageCount,
       activePageName: this.activePage.name,
       elementCount: liveElementCount(this.scene),
       droppedErrors: result.droppedErrors,
@@ -126,8 +150,8 @@ export class SceneSession implements ToolSession {
       throw new ToolError("no file is bound to this session — pass a \"path\" to save_scene (or open_scene first)");
     }
     const document =
-      this.sourceIsMultiPage || this.pages.length > 1
-        ? serializeMultiPageDocument(this.pages, { activePageId: this.activePage.id, includeDeleted: true })
+      this.sourceIsMultiPage || this.pageCount > 1
+        ? this.store.toDocument(true) // multi-page envelope with parked cameras, tombstones kept
         : serializeScene(this.scene, { includeDeleted: true });
     try {
       mkdirSync(dirname(target), { recursive: true });

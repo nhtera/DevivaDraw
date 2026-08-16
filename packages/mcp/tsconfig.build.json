@@ -11,5 +11,5 @@
     "noEmit": false
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts"]
+  "exclude": ["src/**/*.test.ts", "src/live/fake-collab-relay.ts"]
 }

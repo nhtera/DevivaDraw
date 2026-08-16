@@ -9,7 +9,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { liveSessionBridge } from "./live/live-session-bridge";
 import { SceneSession } from "./scene-session";
 import { createDevivaMcpServer } from "./server";
 
@@ -53,15 +54,18 @@ describe("deviva-draw MCP server over the wire", () => {
     const { tools } = await client.listTools();
     const names = tools.map((tool) => tool.name).sort();
     expect(names).toEqual([
+      "connect_to_live_session",
       "create_diagram",
       "create_diagram_from_mermaid",
       "create_elements",
       "delete_elements",
       "describe_scene",
+      "disconnect_live_session",
       "export_png",
       "export_svg",
       "get_scene_content",
       "list_elements",
+      "live_session_status",
       "new_scene",
       "open_scene",
       "read_scene_format",
@@ -113,5 +117,15 @@ describe("deviva-draw MCP server over the wire", () => {
 
     const { tools } = await client.listTools();
     expect(tools.length).toBeGreaterThan(0); // still alive
+  });
+
+  it("leaves any live session when the transport closes (stdin EOF, host restart)", async () => {
+    // The wiring is what matters here: a live WebSocket + timers would keep the process alive past
+    // stdin EOF, so transport close must reach the bridge. Full teardown behavior is covered by the
+    // bridge's own suite.
+    const disconnectSpy = vi.spyOn(liveSessionBridge, "disconnect");
+    await client.close();
+    expect(disconnectSpy).toHaveBeenCalled();
+    disconnectSpy.mockRestore();
   });
 });

@@ -135,6 +135,9 @@ importers:
 
   packages/mcp:
     dependencies:
+      '@deviva-draw/collab-client':
+        specifier: workspace:*
+        version: link:../collab-client
       '@deviva-draw/engine':
         specifier: workspace:*
         version: link:../engine

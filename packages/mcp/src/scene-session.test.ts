@@ -129,4 +129,21 @@ describe("SceneSession", () => {
     expect(session.scene.getElements()).toHaveLength(0);
     expect(session.pageCount).toBe(1);
   });
+
+  it("lockScene blocks scene swaps (not saves) until unlockScene", () => {
+    const session = new SceneSession();
+    addRect(session);
+    const path = join(dir, "locked.devivadraw");
+    session.saveScene(path);
+
+    session.lockScene("the scene is bound to a live session — disconnect first");
+    expect(() => session.newScene()).toThrow(/live session/);
+    expect(() => session.openScene(path)).toThrow(/live session/);
+    // Saving/reading the live scene stays allowed — snapshotting the shared board is a feature.
+    expect(() => session.saveScene(path)).not.toThrow();
+
+    session.unlockScene();
+    expect(() => session.openScene(path)).not.toThrow();
+    expect(() => session.newScene()).not.toThrow();
+  });
 });

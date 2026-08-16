@@ -6,6 +6,7 @@
  * plan's risk assessment).
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { liveSessionBridge } from "./live/live-session-bridge";
 import type { SceneSession } from "./scene-session";
 import { allTools } from "./tools/index";
 import { ToolError } from "./tools/tool-types";
@@ -33,5 +34,11 @@ function registerTool(server: McpServer, session: SceneSession, tool: McpToolDef
 export function createDevivaMcpServer(session: SceneSession, version: string): McpServer {
   const server = new McpServer({ name: "deviva-draw", version });
   for (const tool of allTools) registerTool(server, session, tool);
+  // A live session's WebSocket + timers are the only handles that can outlive the transport: when
+  // the MCP client closes the pipe (stdin EOF, host restart), leave the room so the process can
+  // actually exit and the user's presence rail doesn't keep a ghost agent. The bridge's own
+  // `process.on("exit")` hook alone can't cover this — those live handles are exactly what would
+  // keep the event loop (and therefore the process) alive.
+  server.server.onclose = () => liveSessionBridge.disconnect();
   return server;
 }

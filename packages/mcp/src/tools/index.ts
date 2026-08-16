@@ -11,5 +11,7 @@ import { exportTools } from "./export-tools";
 import { screenshotTools } from "./screenshot-tools";
 import { searchTools } from "./search-tools";
 import { formatGuideTools } from "./format-guide";
+// stdio-only by construction: the worker builds its own `remoteTools` list and never imports this barrel.
+import { liveSessionTools } from "./live-session-tools";
 
-export const allTools: readonly McpToolDef[] = [...sceneTools, ...elementTools, ...diagramTools, ...searchTools, ...exportTools, ...screenshotTools, ...formatGuideTools];
+export const allTools: readonly McpToolDef[] = [...sceneTools, ...elementTools, ...diagramTools, ...searchTools, ...exportTools, ...screenshotTools, ...liveSessionTools, ...formatGuideTools];
