@@ -6,6 +6,48 @@ All notable changes to Deviva Draw are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-08-16
+
+### Added
+- **Layers.** Every page now has a layers panel: create, rename, and reorder named
+  layers, hide or lock a whole layer at once, and move any selection onto the layer you
+  click. Hidden layers vanish from the canvas, from clicks and marquees, from find, and
+  from exports — including the scene payload embedded in an exported PNG or SVG, so an
+  export never smuggles hidden content in its metadata. Locked layers behave exactly
+  like individually locked elements everywhere. New elements land on the active layer,
+  drawing order is layer-by-layer, and z-order actions stay within an element's layer.
+  A document saved before layers existed opens exactly as it always did.
+- **Layers sync in collaboration.** Adding, renaming, hiding, locking, reordering, or
+  deleting a layer propagates live to every peer, deletions never resurrect from a
+  concurrent edit, and it all rides the existing end-to-end encrypted relay — the
+  server never learns layers exist. Old clients simply ignore the new data.
+- **Revocable share links.** Every share link now comes with a kill switch: the share
+  dialog lists the links this browser has created, and one click permanently deletes a
+  link's data from the server. The proof of ownership is a secret only your browser
+  holds — the server stores just its fingerprint, so nobody else (including the server)
+  can revoke or read your link.
+- **Share links can expire.** Choose never, 7 days, or 30 days when creating a link;
+  an expired link is gone from the server the moment anyone touches it.
+- **View-only share links mean it.** A view-only link now disables every mutating
+  action — shortcuts, menus, and panels included — and offers an explicit "Edit a copy"
+  path that forks the scene into the visitor's own workspace instead.
+- **Documents reopen where you left them.** Autosaves, saved files, and share links
+  all remember the viewport — every page comes back at the exact camera position it was
+  saved at instead of a zoom-to-fit guess.
+- **A tidier menu.** The growing list of view toggles — grid, snapping, zen mode, and
+  friends — now lives in a Preferences submenu with keyboard-shortcut hints, keeping
+  the main menu short. The submenu stays open while you flip several toggles in a row.
+- **Sharper panel icons.** The layers panel's visibility and lock markers are now
+  crisp monochrome line icons that match the rest of the chrome in both themes.
+
+### Fixed
+- **Opening the share dialog no longer creates a link.** The dialog now opens idle
+  with an explicit "Create link" button, so glancing at it never uploads anything.
+- **Revoking a link is unambiguous.** Each history row shows the link's creation date
+  and time, revoking shows a busy state, a revoked current link says so instead of
+  pretending to be live, and hitting the server's rate limit says "wait a minute"
+  instead of failing cryptically.
+
 ## [0.4.0] — 2026-08-15
 
 ### Added
