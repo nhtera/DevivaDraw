@@ -31,6 +31,7 @@ export const MORE_TOOL_IDS: readonly string[] = [
   "highlighter-tool",
   "bucket-fill-tool",
   "frame-tool",
+  "table-tool",
   "laser-tool",
   "lasso-tool",
 ];

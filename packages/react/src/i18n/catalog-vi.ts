@@ -37,6 +37,7 @@ export const catalogVi: Record<TranslationKey, string> = {
   "tool.laser": "Con trỏ laser",
   "tool.lasso": "Chọn tự do",
   "tool.frame": "Khung",
+  "tool.table": "Bảng",
   "tool.image": "Chèn hình ảnh",
   "tool.more": "Thêm công cụ",
   "tool.lock": "Giữ công cụ sau khi vẽ",

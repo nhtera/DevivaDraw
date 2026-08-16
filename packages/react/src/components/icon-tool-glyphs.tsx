@@ -105,12 +105,19 @@ export const TOOL_GLYPHS: Record<string, ReactNode> = {
       <circle cx="5.5" cy="16.8" r="0.9" fill="currentColor" stroke="none" />
     </>
   ),
-  // Corner brackets, the universal "frame" mark (matches tldraw's frame glyph).
+  // Corner brackets, the universal "frame" mark.
   frame: (
     <path
       d="M6 3.5 H3.5 V6 M14 3.5 H16.5 V6 M6 16.5 H3.5 V14 M14 16.5 H16.5 V14 M7.5 2 V18 M12.5 2 V18 M2 7.5 H18 M2 12.5 H18"
       strokeLinecap="round"
     />
+  ),
+  // A bordered grid with one interior column and row line: the table mark.
+  table: (
+    <>
+      <rect x="3" y="4" width="14" height="12" rx="1" />
+      <path d="M3 9 H17 M9.5 4 V16" />
+    </>
   ),
   // A downward chevron: the "More tools" overflow toggle (the popover opens below the top toolbar).
   more: <path d="M5 8 L10 13 L15 8" strokeLinecap="round" strokeLinejoin="round" />,

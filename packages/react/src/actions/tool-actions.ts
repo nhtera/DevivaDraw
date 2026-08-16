@@ -26,6 +26,7 @@ import {
   LASSO_TOOL_NAME,
   LINE_TOOL_NAME,
   NOTE_TOOL_NAME,
+  TABLE_TOOL_NAME,
   PAN_TOOL_NAME,
   RECTANGLE_TOOL_NAME,
   SELECT_TOOL_NAME,
@@ -69,5 +70,6 @@ export function buildToolActions(): Action[] {
     toolAction("laser-tool", "tool.laser", "laser", LASER_TOOL_NAME, "k"),
     toolAction("lasso-tool", "tool.lasso", "lasso", LASSO_TOOL_NAME),
     toolAction("frame-tool", "tool.frame", "frame", FRAME_TOOL_NAME, "f"),
+    toolAction("table-tool", "tool.table", "table", TABLE_TOOL_NAME),
   ];
 }

@@ -22,6 +22,7 @@ export const STAR_TOOL_NAME = "star";
 export const LASSO_TOOL_NAME = "lasso";
 export const FRAME_TOOL_NAME = "frame";
 export const NOTE_TOOL_NAME = "note";
+export const TABLE_TOOL_NAME = "table";
 export const CLOUD_TOOL_NAME = "cloud";
 export const HEART_TOOL_NAME = "heart";
 export const X_BOX_TOOL_NAME = "x-box";

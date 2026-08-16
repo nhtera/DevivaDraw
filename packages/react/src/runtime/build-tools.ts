@@ -35,6 +35,7 @@ import {
   ShapeStyleState,
   StarTool,
   startBoundTextEdit,
+  TableTool,
   TextEditSession,
   TextTool,
   ToolStateMachine,
@@ -72,6 +73,7 @@ import {
   RECTANGLE_TOOL_NAME,
   SELECT_TOOL_NAME,
   STAR_TOOL_NAME,
+  TABLE_TOOL_NAME,
   TEXT_TOOL_NAME,
   TRIANGLE_TOOL_NAME,
   X_BOX_TOOL_NAME,
@@ -154,6 +156,8 @@ export function buildTools(
   // time, but can't be needed until a gesture commits.
   let handleNoteCreated: (elementId: string) => void = () => {};
   const onNoteCreated = (elementId: string) => handleNoteCreated(elementId);
+  let handleTableCreated: (elementId: string) => void = () => {};
+  const onTableCreated = (elementId: string) => handleTableCreated(elementId);
 
   const shapeToolDeps = { scene, styleState, history: historyStack, onCreated: onShapeCreated };
   const rectangleTool = new RectangleTool(shapeToolDeps);
@@ -167,6 +171,7 @@ export function buildTools(
   const xBoxTool = new XBoxTool(shapeToolDeps);
   const checkBoxTool = new CheckBoxTool(shapeToolDeps);
   const noteTool = new NoteTool({ ...shapeToolDeps, onCreated: onNoteCreated });
+  const tableTool = new TableTool({ scene, styleState, history: historyStack, onCreated: onTableCreated });
   const blockArrowRightTool = new BlockArrowTool(shapeToolDeps, "right");
   const blockArrowLeftTool = new BlockArrowTool(shapeToolDeps, "left");
   const blockArrowUpTool = new BlockArrowTool(shapeToolDeps, "up");
@@ -244,6 +249,7 @@ export function buildTools(
       [X_BOX_TOOL_NAME]: xBoxTool,
       [CHECK_BOX_TOOL_NAME]: checkBoxTool,
       [NOTE_TOOL_NAME]: noteTool,
+      [TABLE_TOOL_NAME]: tableTool,
       [BLOCK_ARROW_RIGHT_TOOL_NAME]: blockArrowRightTool,
       [BLOCK_ARROW_LEFT_TOOL_NAME]: blockArrowLeftTool,
       [BLOCK_ARROW_UP_TOOL_NAME]: blockArrowUpTool,
@@ -272,6 +278,9 @@ export function buildTools(
     if (getToolLocked()) return;
     if (options?.select !== false) selectionState.selectOnly([elementId]);
     toolStateMachine.setTool(SELECT_TOOL_NAME);
+  };
+  handleTableCreated = (elementId: string) => {
+    handleCreated(elementId, { select: true });
   };
   handleNoteCreated = (elementId: string) => {
     handleCreated(elementId, { select: true });

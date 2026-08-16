@@ -367,6 +367,8 @@ export type { LaserToolDeps, LaserTrailPoint } from "./tools/laser-tool";
 export { LaserTool, LASER_FADE_MS } from "./tools/laser-tool";
 export type { LassoToolDeps } from "./tools/lasso-tool";
 export { LassoTool } from "./tools/lasso-tool";
+export type { TableToolDeps } from "./tools/table-tool";
+export { TableTool } from "./tools/table-tool";
 export type { FrameToolDeps } from "./tools/frame-tool";
 export { FrameTool } from "./tools/frame-tool";
 export { frameContainedElementIds } from "./selection/frame-membership";

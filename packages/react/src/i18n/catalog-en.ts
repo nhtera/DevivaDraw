@@ -37,6 +37,7 @@ export const catalogEn = {
   "tool.laser": "Laser pointer",
   "tool.lasso": "Lasso selection",
   "tool.frame": "Frame",
+  "tool.table": "Table",
   "tool.image": "Insert image",
   "tool.more": "More tools",
   "tool.lock": "Keep tool active after drawing",
