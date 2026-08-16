@@ -210,6 +210,15 @@ button[data-open-modal]:hover {
     transparent 70%
   );
 }
+/* Starlight keeps a 7fr/4fr hero grid even without a hero image, which pushes the copy
+   left of the page center — collapse to one column and center the whole stack. */
+[data-has-hero] .hero {
+  grid-template-columns: 1fr;
+}
+[data-has-hero] .hero .stack {
+  max-width: 46rem;
+  margin-inline: auto;
+}
 [data-has-hero] .hero .copy {
   align-items: center;
   text-align: center;
