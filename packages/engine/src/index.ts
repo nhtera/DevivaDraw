@@ -211,6 +211,7 @@ export { createElementTarget, createGlobalTarget } from "./input/dom-event-targe
 
 export type { FontLoaderTarget, TextFontFaceSource } from "./text/font-loading";
 export { DEFAULT_TEXT_FONT_SOURCES, FONT_SIZE_LEVELS, loadTextFonts, TEXT_FONT_FAMILY_CSS } from "./text/font-loading";
+export { HAND_DRAWN_FONT_DATA_URL, HAND_DRAWN_FONT_FAMILY } from "./text/hand-drawn-font-data";
 
 export type {
   MeasureWrappedTextOptions,

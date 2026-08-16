@@ -11,12 +11,12 @@
     "dev": "pnpm --parallel --filter \"./apps/*\" dev",
     "dev:web": "pnpm --filter @deviva-draw/web dev",
     "dev:collab": "pnpm --filter @deviva-draw/collab-server dev",
-    "build": "pnpm --filter @deviva-draw/engine build && pnpm --filter @deviva-draw/collab-client build && pnpm --filter @deviva-draw/react build && pnpm --filter @deviva-draw/web build",
-    "build:packages": "pnpm --filter @deviva-draw/engine build && pnpm --filter @deviva-draw/collab-client build && pnpm --filter @deviva-draw/react build",
+    "build": "pnpm --filter @deviva-draw/engine build && pnpm --filter @deviva-draw/collab-client build && pnpm --filter @deviva-draw/react build && pnpm --filter @deviva-draw/mcp build && pnpm --filter @deviva-draw/web build",
+    "build:packages": "pnpm --filter @deviva-draw/engine build && pnpm --filter @deviva-draw/collab-client build && pnpm --filter @deviva-draw/react build && pnpm --filter @deviva-draw/mcp build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "test:unit": "pnpm --filter \"./packages/*\" --filter @deviva-draw/collab-server test"
+    "test:unit": "pnpm --filter \"./packages/*\" --filter @deviva-draw/collab-server --filter @deviva-draw/mcp-worker test"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
