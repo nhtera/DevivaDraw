@@ -20,6 +20,8 @@ export default defineConfig({
       components: {
         // Adds the "Open App" header CTA in front of the social icon links.
         SocialIcons: './src/components/header-links.astro',
+        // Icon trigger + System/Light/Dark dropdown instead of the native select.
+        ThemeSelect: './src/components/theme-select.astro',
       },
       head: [
         { tag: 'meta', attrs: { property: 'og:image', content: 'https://docs-draw.deviva.app/og-default.png' } },

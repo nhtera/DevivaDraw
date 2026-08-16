@@ -1,0 +1,193 @@
+---
+// ThemeSelect override: a round icon trigger opening a System / Light / Dark menu with
+// the active choice checked, replacing Starlight's native <select> pill. Persists to the
+// same `starlight-theme` localStorage key (and mirrors Starlight's remove-on-auto
+// behavior), so the early ThemeProvider inline script keeps painting the right theme on
+// load and the canvas demos' data-theme observer keeps working unchanged.
+import { Icon } from '@astrojs/starlight/components';
+---
+
+<deviva-theme-select>
+  <button type="button" class="theme-trigger" aria-label="Select theme" aria-haspopup="true" aria-expanded="false">
+    <Icon name="sun" class="icon-when-light" size="1.125rem" />
+    <Icon name="moon" class="icon-when-dark" size="1.125rem" />
+  </button>
+  <div class="theme-menu" role="menu" hidden>
+    <button type="button" role="menuitemradio" data-theme-choice="auto" aria-checked="false">
+      <Icon name="laptop" size="1.0625rem" />
+      <span>System</span>
+      <Icon name="approve-check" class="check" size="1.0625rem" />
+    </button>
+    <button type="button" role="menuitemradio" data-theme-choice="light" aria-checked="false">
+      <Icon name="sun" size="1.0625rem" />
+      <span>Light</span>
+      <Icon name="approve-check" class="check" size="1.0625rem" />
+    </button>
+    <button type="button" role="menuitemradio" data-theme-choice="dark" aria-checked="false">
+      <Icon name="moon" size="1.0625rem" />
+      <span>Dark</span>
+      <Icon name="approve-check" class="check" size="1.0625rem" />
+    </button>
+  </div>
+</deviva-theme-select>
+
+<style>
+  deviva-theme-select {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .theme-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 999px;
+    background-color: var(--sl-color-gray-6);
+    color: var(--sl-color-gray-2);
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .theme-trigger:hover {
+    border-color: var(--sl-color-gray-3);
+    color: var(--sl-color-white);
+  }
+
+  /* Trigger shows the icon of the currently RESOLVED theme. */
+  .icon-when-dark {
+    display: none;
+  }
+  :root[data-theme='dark'] .icon-when-light {
+    display: none;
+  }
+  :root[data-theme='dark'] .icon-when-dark {
+    display: inline;
+  }
+
+  .theme-menu {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    z-index: var(--sl-z-index-navbar, 10);
+    min-width: 10.5rem;
+    padding: 0.375rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: var(--dd-radius-lg, 0.625rem);
+    background-color: var(--sl-color-black);
+    box-shadow: 0 12px 32px -8px color-mix(in srgb, var(--sl-color-gray-1) 20%, transparent);
+  }
+  :root:not([data-theme='light']) .theme-menu {
+    background-color: var(--sl-color-gray-6);
+  }
+
+  .theme-menu button {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    width: 100%;
+    padding: 0.5rem 0.625rem;
+    border: 0;
+    border-radius: calc(var(--dd-radius-lg, 0.625rem) - 0.25rem);
+    background: none;
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  .theme-menu button:hover {
+    background-color: var(--sl-color-gray-5);
+    color: var(--sl-color-white);
+  }
+  :root[data-theme='light'] .theme-menu button:hover {
+    background-color: var(--sl-color-gray-6);
+  }
+
+  .theme-menu button[aria-checked='true'] {
+    color: var(--sl-color-text-accent);
+  }
+
+  .theme-menu .check {
+    visibility: hidden;
+    margin-inline-start: auto;
+  }
+  .theme-menu button[aria-checked='true'] .check {
+    visibility: visible;
+  }
+</style>
+
+<script>
+  /** Mirrors Starlight's storage contract: light/dark stored, auto = key removed. */
+  const STORAGE_KEY = 'starlight-theme';
+
+  class DevivaThemeSelect extends HTMLElement {
+    #trigger: HTMLButtonElement;
+    #menu: HTMLElement;
+    #media = window.matchMedia('(prefers-color-scheme: light)');
+
+    constructor() {
+      super();
+      this.#trigger = this.querySelector('.theme-trigger') as HTMLButtonElement;
+      this.#menu = this.querySelector('.theme-menu') as HTMLElement;
+
+      this.#trigger.addEventListener('click', () => this.#toggle());
+      for (const item of this.#items()) {
+        item.addEventListener('click', () => {
+          this.#setTheme(item.dataset.themeChoice as 'auto' | 'light' | 'dark');
+          this.#toggle(false);
+        });
+      }
+      document.addEventListener('click', (event) => {
+        if (!this.contains(event.target as Node)) this.#toggle(false);
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') this.#toggle(false);
+      });
+      // Follow OS changes while in "auto".
+      this.#media.addEventListener('change', () => {
+        if (this.#stored() === 'auto') this.#apply('auto');
+      });
+
+      this.#markChecked(this.#stored());
+    }
+
+    #items(): HTMLButtonElement[] {
+      return [...this.#menu.querySelectorAll<HTMLButtonElement>('[data-theme-choice]')];
+    }
+
+    #stored(): 'auto' | 'light' | 'dark' {
+      const value = localStorage.getItem(STORAGE_KEY);
+      return value === 'light' || value === 'dark' ? value : 'auto';
+    }
+
+    #toggle(open = this.#menu.hidden) {
+      this.#menu.hidden = !open;
+      this.#trigger.setAttribute('aria-expanded', String(open));
+    }
+
+    #apply(theme: 'auto' | 'light' | 'dark') {
+      const resolved = theme === 'auto' ? (this.#media.matches ? 'light' : 'dark') : theme;
+      document.documentElement.dataset.theme = resolved;
+    }
+
+    #setTheme(theme: 'auto' | 'light' | 'dark') {
+      if (theme === 'auto') localStorage.removeItem(STORAGE_KEY);
+      else localStorage.setItem(STORAGE_KEY, theme);
+      this.#apply(theme);
+      // Keep every instance (desktop header + mobile menu) in sync.
+      document.querySelectorAll<DevivaThemeSelect>('deviva-theme-select').forEach((picker) => {
+        picker.#markChecked(theme);
+      });
+    }
+
+    #markChecked(theme: 'auto' | 'light' | 'dark') {
+      for (const item of this.#items()) {
+        item.setAttribute('aria-checked', String(item.dataset.themeChoice === theme));
+      }
+    }
+  }
+
+  customElements.define('deviva-theme-select', DevivaThemeSelect);
+</script>
