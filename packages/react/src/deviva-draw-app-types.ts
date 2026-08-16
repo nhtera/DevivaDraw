@@ -33,6 +33,8 @@ export interface DevivaDrawProps {
   fileOperations?: FileOperationsProvider;
   /** Fired synchronously on every document identity/dirty transition (`{path, name, dirty}`) — the desktop shell's title bar, macOS documentEdited dot, recents, and unsaved-close guard all hang off this. Dirty is content-only: pan/zoom and page switching never set it. */
   onDocumentStateChange?(state: DocumentState): void;
+  /** Lets online-only entry points (Share, Collaborate, Mermaid AI) render a "requires internet" hint and disable themselves while `navigator.onLine` is false — set by the desktop shell. Omit (the browser default) and those surfaces render exactly as before, hint code inert. */
+  offlineHints?: boolean;
   className?: string;
   style?: CSSProperties;
 }

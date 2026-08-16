@@ -271,6 +271,7 @@ export const catalogVi: Record<TranslationKey, string> = {
   "share.dialog.copy": "Sao chép liên kết",
   "share.dialog.copied": "Đã sao chép!",
   "share.dialog.error": "Không thể tạo liên kết chia sẻ. Vui lòng thử lại.",
+  "offline.hint": "Tính năng này cần kết nối internet — sẽ hoạt động trở lại khi bạn trực tuyến.",
   "share.dialog.snapshotNote": "Liên kết là ảnh chụp tại thời điểm này — các chỉnh sửa sau đó sẽ không xuất hiện trong đó.",
   "share.dialog.startCollab": "Cần chỉnh sửa trực tiếp cùng nhau? Bắt đầu phiên cộng tác",
   "share.dialog.currentRevoked": "Liên kết này đã bị thu hồi — không ai có thể mở nó nữa.",

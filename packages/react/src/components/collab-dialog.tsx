@@ -12,6 +12,7 @@ import { Icon } from "./icon";
 import type { TranslationKey } from "../i18n/catalog-en";
 import { useTranslation } from "../i18n/use-translation";
 import type { CollabErrorReason, UseCollabSessionResult } from "../hooks/use-collab-session";
+import { useOfflineHint } from "../hooks/use-online";
 
 export interface CollabDialogProps {
   collab: UseCollabSessionResult;
@@ -41,6 +42,8 @@ export function CollabDialog(props: CollabDialogProps) {
   };
 
   const isActive = collab.status === "connected" || collab.status === "connecting";
+  // Renders only in hosts that opted in (the desktop shell) — see `hooks/use-online.ts`.
+  const offline = useOfflineHint();
 
   return (
     <div style={dialogOverlayStyle} onClick={onClose} data-testid="collab-dialog-overlay">
@@ -59,8 +62,17 @@ export function CollabDialog(props: CollabDialogProps) {
           </p>
         )}
 
+        {offline && (
+          <p role="status" data-testid="collab-dialog-offline" style={{ fontSize: 12, color: "var(--dd-text-secondary)" }}>
+            {t("offline.hint")}
+          </p>
+        )}
+
         {!isActive && (
           <>
+            {/* Hint-only, never disabled: navigator.onLine can false-negative on WKWebView after
+                sleep/network changes, and a disabled button would have no recovery path — a real
+                failure lands in the dialog's existing error state instead. */}
             <button type="button" style={{ marginBottom: 12 }} onClick={() => void collab.startSession()} data-testid="collab-dialog-start">
               {t("collab.dialog.start")}
             </button>

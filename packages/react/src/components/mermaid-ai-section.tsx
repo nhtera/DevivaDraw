@@ -13,6 +13,7 @@ import { AiRequestError, generateMermaidFromPrompt } from "../browser/ai-text-to
 import { readStoredAiKey, writeStoredAiKey } from "../preferences/ai-key-storage";
 import { useTranslation } from "../i18n/use-translation";
 import type { TranslationKey } from "../i18n/catalog-en";
+import { useOfflineHint } from "../hooks/use-online";
 
 function readInitialKey(): string {
   try {
@@ -31,6 +32,10 @@ export function MermaidAiSection(props: { onGenerated(source: string): void }) {
   const [generating, setGenerating] = useState(false);
   const [errorKey, setErrorKey] = useState<TranslationKey | null>(null);
 
+  // Hint-only, never a gate: navigator.onLine can false-negative on WKWebView, and a disabled
+  // Generate would have no recovery path — an actual offline attempt fails into the existing
+  // error branch below. Renders only in hosts that opted in — see `hooks/use-online.ts`.
+  const offline = useOfflineHint();
   const canGenerate = !generating && prompt.trim() !== "" && apiKey.trim() !== "";
 
   const generate = () => {
@@ -100,6 +105,11 @@ export function MermaidAiSection(props: { onGenerated(source: string): void }) {
         >
           {t("mermaid.ai.changeKey")}
         </button>
+      )}
+      {offline && (
+        <div data-testid="mermaid-ai-offline" role="status" style={{ fontSize: 12, color: "var(--dd-text-secondary)" }}>
+          {t("offline.hint")}
+        </div>
       )}
       {errorKey && (
         <div data-testid="mermaid-ai-error" role="alert" style={{ fontSize: 12, color: "var(--dd-danger, #c0392b)" }}>

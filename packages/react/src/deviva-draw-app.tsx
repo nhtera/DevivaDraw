@@ -7,6 +7,7 @@
  */
 import { forwardRef } from "react";
 import { LocaleProvider } from "./i18n/use-translation";
+import { OfflineHintsContext } from "./hooks/use-online";
 import { ThemeProvider } from "./theme/theme-provider";
 import { DevivaDrawShell } from "./deviva-draw-shell";
 import type { DevivaDrawHandle } from "./runtime/imperative-handle";
@@ -16,11 +17,13 @@ export type { DevivaDrawHandle } from "./runtime/imperative-handle";
 export type { DevivaDrawProps, DevivaDrawStoredFile } from "./deviva-draw-app-types";
 
 export const DevivaDraw = forwardRef<DevivaDrawHandle, DevivaDrawProps>(function DevivaDraw(props, ref) {
-  const { theme, locale, ...shellProps } = props;
+  const { theme, locale, offlineHints, ...shellProps } = props;
   return (
     <LocaleProvider locale={locale}>
       <ThemeProvider theme={theme}>
-        <DevivaDrawShell {...shellProps} ref={ref} />
+        <OfflineHintsContext.Provider value={offlineHints ?? false}>
+          <DevivaDrawShell {...shellProps} ref={ref} />
+        </OfflineHintsContext.Provider>
       </ThemeProvider>
     </LocaleProvider>
   );

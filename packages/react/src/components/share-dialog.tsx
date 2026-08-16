@@ -13,6 +13,7 @@ import type { ShareDialogState } from "../actions/action-types";
 import { revokeShareLink } from "../browser/share-link-client";
 import { readShareLinkHistory, removeShareLinkHistoryEntry } from "../browser/share-link-history";
 import type { ShareLinkHistoryEntry } from "../browser/share-link-history";
+import { useOfflineHint } from "../hooks/use-online";
 
 export interface ShareDialogProps {
   state: ShareDialogState;
@@ -35,6 +36,8 @@ const EXPIRY_CHOICES = [
 export function ShareDialog(props: ShareDialogProps) {
   const { state, onClose, onStartCollab, apiBaseUrl, onRegenerate } = props;
   const { t } = useTranslation();
+  // Renders only in hosts that opted in (the desktop shell) — see `hooks/use-online.ts`.
+  const offline = useOfflineHint();
   const [copied, setCopied] = useState(false);
   const [expiryChoice, setExpiryChoice] = useState<(typeof EXPIRY_CHOICES)[number]["value"]>("never");
   // Re-read whenever a link lands: the dialog mounts at "generating", BEFORE the share action
@@ -103,6 +106,11 @@ export function ShareDialog(props: ShareDialogProps) {
         {state.status === "idle" && (
           <p data-testid="share-dialog-idle" style={{ fontSize: 13, color: "var(--dd-text-secondary)" }}>
             {t("share.dialog.idleHint")}
+          </p>
+        )}
+        {offline && (
+          <p role="status" data-testid="share-dialog-offline" style={{ fontSize: 12, color: "var(--dd-text-secondary)" }}>
+            {t("offline.hint")}
           </p>
         )}
         {state.status === "generating" && <p data-testid="share-dialog-generating">{t("share.dialog.generating")}</p>}

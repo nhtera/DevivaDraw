@@ -271,6 +271,7 @@ export const catalogEn = {
   "share.dialog.copy": "Copy link",
   "share.dialog.copied": "Copied!",
   "share.dialog.error": "Couldn't create the share link. Please try again.",
+  "offline.hint": "This feature needs an internet connection — it will work again once you're back online.",
   "share.dialog.snapshotNote": "The link is a snapshot frozen at this moment — edits you make later won't appear in it.",
   "share.dialog.startCollab": "Need to edit together live? Start a collaboration",
   "share.dialog.currentRevoked": "This link has been revoked — no one can open it anymore.",
