@@ -6,6 +6,25 @@ All notable changes to Deviva Draw are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Tables.** A real table element, at last: pick it from the tool overflow, click or drag to
+  place a grid, and the first cell opens for typing immediately. Tab walks cell to cell —
+  Tab past the last cell grows the table by a row — double-click edits any cell, rows grow to
+  fit their text, and dragging a line between two columns resizes just that column. Add or
+  remove rows and columns from the properties panel, which also sets the table's font. Tables
+  are drawn in the same hand-sketched style as everything else, follow every canvas rule
+  (select, move, rotate, duplicate, layers, frames, arrows connect to them, Cmd+F searches
+  their text), and export faithfully to PNG and SVG. Documents with tables need this version
+  or newer to open.
+
+### Fixed
+- **Double-clicking a locked shape no longer opens its text editor.** Locked meant locked for
+  moving and resizing, but a double-click could still edit labels and text — now every editor
+  respects the lock, element-level or from a locked layer.
+- **A drawing error can no longer freeze the whole board.** If one element fails to draw (for
+  example, malformed data from a future version arriving over a live collaboration), it is
+  skipped for that frame instead of stopping the canvas permanently.
+
 ## [0.5.0] — 2026-08-16
 
 ### Added

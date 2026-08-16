@@ -26,7 +26,7 @@ Element types currently supported:
 
 `rectangle`, `ellipse`, `diamond`, `triangle`, `hexagon`, `star`, `cloud`,
 `heart`, `x-box`, `check-box`, `line`, `arrow`, `freedraw` (incl. highlighter),
-`block-arrow`, `text`, `note` (sticky note), `frame`, `image`, plus a `generic`
+`block-arrow`, `text`, `note` (sticky note), `table` (editable text grid), `frame`, `image`, plus a `generic`
 base.
 
 ## packages/engine/src

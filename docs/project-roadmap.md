@@ -24,7 +24,7 @@ These are settled; revisit only with explicit maintainer sign-off:
 |---|---|---|
 | **Solo whiteboard** | ✅ done | Shapes, freehand, text, arrows/bindings, images, select/transform/align, snapping, grid, undo/redo, save/export (PNG/SVG). |
 | **UI & polish** | ✅ done | Full toolbar + overflow menu, style panel, command palette, shortcuts, light/dark/system theming, i18n (EN/VI), zen & view-only modes, mobile. |
-| **Extended tool set** | ✅ done | Triangle/hexagon/star, cloud/heart, x-box/check-box, block arrows, sticky notes, frames, highlighter, lasso select. |
+| **Extended tool set** | ✅ done | Triangle/hexagon/star, cloud/heart, x-box/check-box, block arrows, sticky notes, frames, tables (editable text grids), highlighter, lasso select. |
 | **Share links** | ✅ done | End-to-end-encrypted, read-only snapshots stored as R2 blobs; key stays in the URL fragment. |
 | **Live collaboration** | ✅ done | Real-time multiplayer + presence cursors over Cloudflare Durable Objects. |
 | **React library** | ✅ done | `<DevivaDraw/>` component, hooks, and scene-read API for embedding. |

@@ -157,3 +157,18 @@ describe("mergeRemoteElement", () => {
     expect(finalStates[2]).toEqual(finalStates[0]);
   });
 });
+
+describe("mergeRemoteElement — table elements", () => {
+  it("a remote table passes LWW merge verbatim, grid arrays intact", async () => {
+    const { createTableElement, Scene: EngineScene } = await import("@deviva-draw/engine");
+    const source = new EngineScene();
+    const table = source.addElement(
+      createTableElement({ x: 0, y: 0, columnWidths: [100, 60], rowHeights: [40, 30], cells: [["a", "b"], ["c", "d"]] }),
+    );
+    const receiver = new EngineScene();
+    expect(mergeRemoteElement(receiver, table)).toBe(true);
+    const stored = receiver.getElement(table.id);
+    expect(stored).toMatchObject({ type: "table", columnWidths: [100, 60], rowHeights: [40, 30] });
+    expect((stored as { cells: string[][] }).cells).toEqual([["a", "b"], ["c", "d"]]);
+  });
+});
