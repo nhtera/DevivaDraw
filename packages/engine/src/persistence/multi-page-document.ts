@@ -15,6 +15,7 @@ import { clampZoom } from "../render/camera";
 import type { Camera } from "../render/camera";
 import { randomInt } from "../elements/element-factory-defaults";
 import { deserializeScene, deserializeSceneLenient, serializeScene } from "./serialize-scene";
+import { DOCUMENT_CEILINGS } from "./scene-validation";
 import type { SceneDocumentV1 } from "./scene-schema";
 import { SCENE_DOCUMENT_TYPE } from "./scene-schema";
 
@@ -191,6 +192,21 @@ function readEnvelope(raw: unknown): EnvelopeShape {
     return { ok: false, error: `unsupported document schemaVersion ${String(envelope.schemaVersion)}` };
   }
   if (!Array.isArray(envelope.pages)) return { ok: false, error: 'document "pages" must be an array' };
+  // Bomb ceilings shared by both readers (strict and lenient — a hostile document gets no salvage):
+  // the page count itself, and the element total across all pages (each page's scene is ALSO capped
+  // per-scene by `validateSceneDocument`; this closes the many-pages-of-99k-elements composition).
+  if (envelope.pages.length > DOCUMENT_CEILINGS.maxPages) {
+    return { ok: false, error: `document has ${envelope.pages.length} pages — the ${DOCUMENT_CEILINGS.maxPages}-page ceiling protects against hostile documents` };
+  }
+  let totalElements = 0;
+  for (const entry of envelope.pages) {
+    const scene = typeof entry === "object" && entry !== null ? (entry as Record<string, unknown>).scene : null;
+    const elements = typeof scene === "object" && scene !== null ? (scene as Record<string, unknown>).elements : null;
+    if (Array.isArray(elements)) totalElements += elements.length;
+    if (totalElements > DOCUMENT_CEILINGS.maxElements) {
+      return { ok: false, error: `document has more than ${DOCUMENT_CEILINGS.maxElements} elements across its pages — over the hostile-document ceiling` };
+    }
+  }
   return { ok: true, kind: "document", entries: envelope.pages, activePageId: envelope.activePageId };
 }
 

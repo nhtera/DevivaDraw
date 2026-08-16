@@ -183,3 +183,25 @@ describe("per-page camera round-trip", () => {
     expect(result.pages[0]!.camera!.zoom).toBe(30);
   });
 });
+
+// Hostile-document ceilings (offline-desktop plan phase 3) — shared by strict and lenient readers.
+describe("multi-page bomb ceilings", () => {
+  const emptyScene = () => serializeScene(new Scene());
+
+  it("rejects a document over the page-count ceiling", () => {
+    const pages = Array.from({ length: 501 }, (_, index) => ({ id: `p${index}`, name: `P${index}`, scene: emptyScene() }));
+    const result = deserializeMultiPageDocument({ type: "devivadraw/document", schemaVersion: 1, pages });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/page.*ceiling/i);
+  });
+
+  it("rejects a document whose element total across pages exceeds the ceiling, on both readers", () => {
+    const scene = { ...emptyScene(), elements: new Array(60_000).fill(0) };
+    const doc = { type: "devivadraw/document", schemaVersion: 1, pages: [
+      { id: "a", name: "A", scene },
+      { id: "b", name: "B", scene },
+    ] };
+    expect(deserializeMultiPageDocument(doc).ok).toBe(false);
+    expect(deserializeMultiPageDocumentLenient(doc).ok).toBe(false);
+  });
+});

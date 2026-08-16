@@ -452,7 +452,7 @@ export type { SceneMigration } from "./persistence/migrations";
 export { applyMigrations, migrations, UnsupportedSchemaVersionError } from "./persistence/migrations";
 
 export type { LenientSceneValidation, ValidationResult } from "./persistence/scene-validation";
-export { validateSceneDocument, validateSceneDocumentLenient } from "./persistence/scene-validation";
+export { DOCUMENT_CEILINGS, validateSceneDocument, validateSceneDocumentLenient } from "./persistence/scene-validation";
 
 export type { DeserializeSceneLenientResult, DeserializeSceneResult, SerializeSceneOptions } from "./persistence/serialize-scene";
 export { deserializeScene, deserializeSceneLenient, serializeScene } from "./persistence/serialize-scene";

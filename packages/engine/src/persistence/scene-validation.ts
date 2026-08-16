@@ -13,6 +13,40 @@ import type { SceneDocumentV1, SerializedAppState, SerializedLayer, SerializedSt
 
 export type ValidationResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
+/**
+ * Hostile-document ceilings — pure decompression-bomb/DoS guards, deliberately far above any real
+ * board (validation decision, 2026-08-16: generous on purpose; a product limit these are not).
+ * `maxDocumentBytes` is enforced where raw text exists (file-open boundaries and the desktop shell's
+ * on-disk pre-check) since parsed JSON no longer knows its serialized size; the rest are enforced
+ * here and in `multi-page-document.ts`. Centralized so tuning is one edit.
+ */
+export const DOCUMENT_CEILINGS = {
+  /** Elements per scene (per page) — and, via `multi-page-document.ts`, across a whole document. */
+  maxElements: 100_000,
+  /** Whole-document serialized size in bytes/chars, checked at text boundaries before parsing. */
+  maxDocumentBytes: 50 * 1024 * 1024,
+  /** One embedded file's dataURL length — a single 20MB+ image entry is a memory bomb, not artwork. */
+  maxFileDataUrlChars: 20 * 1024 * 1024,
+  /** Pages per multi-page document. */
+  maxPages: 500,
+} as const;
+
+/**
+ * Scene-load twin of the UI entry gate in `@deviva-draw/react`'s `components/link-url.ts`: only
+ * absolute `http:`/`https:` URLs survive a load. A `javascript:`/`data:`/`file:` link in a crafted
+ * `.devivadraw` file would otherwise flow into the link-open anchor path — with OS file association
+ * (double-click opens the file), that is an untrusted-input XSS surface, so it is closed at the one
+ * gate every load path shares.
+ */
+const isSafeLinkUrl = (link: string): boolean => {
+  try {
+    const protocol = new URL(link).protocol;
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
 const ok = <T>(value: T): ValidationResult<T> => ({ ok: true, value });
 const fail = <T>(error: string): ValidationResult<T> => ({ ok: false, error });
 
@@ -220,6 +254,9 @@ function validateElement(raw: unknown, index: number): ValidationResult<AnyEleme
   if (typeError) return fail(typeError);
   // Every field `AnyElement`'s discriminated union requires has now been checked above (base fields
   // plus this element's specific `type` branch) — the shape matches structurally.
+  // Unsafe link schemes are nulled (not rejected — losing a link must never lose the element), on a
+  // copy: callers may pass objects they still own (e.g. a host's `initialData`), never mutate those.
+  if (isString(raw.link) && !isSafeLinkUrl(raw.link)) return ok({ ...raw, link: null } as unknown as AnyElement);
   return ok(raw as unknown as AnyElement);
 }
 
@@ -227,6 +264,9 @@ function validateFile(raw: unknown, fileId: string): ValidationResult<Serialized
   if (!isPlainObject(raw)) return fail(`files["${fileId}"] must be an object`);
   if (!isString(raw.mimeType)) return fail(`files["${fileId}"].mimeType must be a string`);
   if (!isString(raw.dataURL)) return fail(`files["${fileId}"].dataURL must be a string`);
+  if (raw.dataURL.length > DOCUMENT_CEILINGS.maxFileDataUrlChars) {
+    return fail(`files["${fileId}"].dataURL exceeds the ${DOCUMENT_CEILINGS.maxFileDataUrlChars}-character ceiling for one embedded file`);
+  }
   if (!isFiniteNumber(raw.createdAt)) return fail(`files["${fileId}"].createdAt must be a finite number`);
   return ok({ mimeType: raw.mimeType, dataURL: raw.dataURL, createdAt: raw.createdAt });
 }
@@ -262,6 +302,9 @@ function validateEnvelope(raw: unknown): ValidationResult<{ elements: unknown[];
     return fail(`scene document "schemaVersion" must be ${CURRENT_SCHEMA_VERSION} after migration (got ${String(raw.schemaVersion)})`);
   }
   if (!Array.isArray(raw.elements)) return fail('scene document "elements" must be an array');
+  if (raw.elements.length > DOCUMENT_CEILINGS.maxElements) {
+    return fail(`scene document has ${raw.elements.length} elements — the ${DOCUMENT_CEILINGS.maxElements}-element ceiling protects against hostile documents`);
+  }
   if (!isPlainObject(raw.files)) return fail('scene document "files" must be an object');
   return ok({ elements: raw.elements, files: raw.files, appState: raw.appState, layers: raw.layers, activeLayerId: raw.activeLayerId });
 }

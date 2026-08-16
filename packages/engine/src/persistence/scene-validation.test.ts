@@ -230,3 +230,45 @@ describe("validateSceneDocument — per-element-type structural validation", () 
     if (!result.ok) expect(result.error).toMatch(/elements\[1\]/);
   });
 });
+
+// Hostile-document hardening (offline-desktop plan phase 3): OS file association makes "open a
+// file" an untrusted-input boundary, so loads null unsafe link schemes and reject bomb-sized parts.
+describe("validateSceneDocument — load-path hardening", () => {
+  const withLink = (link: string | null) => stored({ ...createRectangleElement({ x: 0, y: 0 }), link }) as unknown as Record<string, unknown>;
+
+  it("keeps http(s) links as-is", () => {
+    for (const link of ["https://example.com/a?b=c", "http://localhost:1234/x"]) {
+      const result = validateSceneDocument(minimalDocument([withLink(link)]));
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value.elements[0]!.link).toBe(link);
+    }
+  });
+
+  it("nulls javascript:/data:/file: and relative links instead of rejecting the element", () => {
+    for (const link of ["javascript:alert(1)", "data:text/html,<script>1</script>", "file:///etc/passwd", "vbscript:x", "./relative", "example.com"]) {
+      const result = validateSceneDocument(minimalDocument([withLink(link)]));
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value.elements[0]!.link).toBeNull();
+    }
+  });
+
+  it("does not mutate the caller's element object when nulling a link", () => {
+    const raw = withLink("javascript:alert(1)");
+    validateSceneDocument(minimalDocument([raw]));
+    expect(raw.link).toBe("javascript:alert(1)");
+  });
+
+  it("rejects an element-bomb document at the ceiling", () => {
+    const bomb = minimalDocument(new Array(100_001).fill(0));
+    const result = validateSceneDocument(bomb);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/ceiling/);
+  });
+
+  it("rejects a single oversized embedded-file dataURL", () => {
+    const doc = minimalDocument([], { big: { mimeType: "image/png", dataURL: "x".repeat(20 * 1024 * 1024 + 1), createdAt: 1 } });
+    const result = validateSceneDocument(doc);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/dataURL/);
+  });
+});
