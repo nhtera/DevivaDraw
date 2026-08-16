@@ -16,6 +16,11 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'Deviva Draw',
+      logo: { src: './src/assets/logo.svg', alt: '' },
+      components: {
+        // Adds the "Open App" header CTA in front of the social icon links.
+        SocialIcons: './src/components/header-links.astro',
+      },
       head: [
         { tag: 'meta', attrs: { property: 'og:image', content: 'https://docs-draw.deviva.app/og-default.png' } },
         { tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },

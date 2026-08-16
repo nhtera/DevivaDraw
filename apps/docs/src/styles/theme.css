@@ -79,6 +79,27 @@ header.header {
 .site-title {
   font-weight: 650;
   letter-spacing: -0.01em;
+  gap: 0.625rem;
+}
+.site-title img {
+  height: 1.75rem;
+  width: 1.75rem;
+}
+
+/* Desktop header: logo left, search centered on the page axis, actions right. */
+@media (min-width: 50rem) {
+  header.header .header {
+    display: grid;
+    grid-template-columns: 1fr minmax(auto, 26rem) 1fr;
+    align-items: center;
+    gap: var(--sl-nav-gap);
+  }
+  header.header .right-group {
+    justify-content: flex-end;
+  }
+  button[data-open-modal] {
+    width: 100%;
+  }
 }
 
 /* Search trigger as a quiet pill */
@@ -90,6 +111,37 @@ button[data-open-modal] {
 }
 button[data-open-modal]:hover {
   border-color: var(--sl-color-gray-4);
+}
+
+/* "Open App" CTA pill (see src/components/header-links.astro). */
+.header-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 1rem;
+  border-radius: 999px;
+  background-color: var(--sl-color-accent);
+  color: #ffffff;
+  font-size: var(--sl-text-sm);
+  font-weight: 550;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+}
+.header-cta:hover {
+  color: #ffffff;
+  background-color: color-mix(in srgb, var(--sl-color-accent) 85%, var(--sl-color-white));
+}
+
+/* Theme select as a matching ghost pill. */
+starlight-theme-select label {
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 999px;
+  padding-inline: 0.75rem 0.25rem;
+  transition: border-color 0.15s ease;
+}
+starlight-theme-select label:hover {
+  border-color: var(--sl-color-gray-3);
 }
 
 /* ---------- Sidebar ---------- */

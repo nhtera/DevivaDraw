@@ -1,0 +1,13 @@
+---
+// SocialIcons override: prepends a filled "Open App" CTA (the docs equivalent of a
+// dev-portal button) before the default social icon links. Registered in
+// astro.config.mjs under starlight.components.SocialIcons.
+import Default from '@astrojs/starlight/components/SocialIcons.astro';
+import { Icon } from '@astrojs/starlight/components';
+---
+
+<a class="header-cta not-content" href="https://draw.deviva.app">
+  Open App
+  <Icon name="right-arrow" size="1em" />
+</a>
+<Default><slot /></Default>
