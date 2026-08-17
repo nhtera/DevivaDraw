@@ -4,6 +4,33 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] — 2026-08-17
+
+### Added
+
+- **Input-device preference** (main menu → Preferences): Auto / Trackpad / Mouse wheel modes plus
+  "Invert mouse zoom". Mouse mode makes a plain scroll wheel zoom at the cursor while a
+  mouse-notch Ctrl/Cmd+wheel pans; a real trackpad pinch always zooms in every mode. Auto (the
+  default) routes classic 120-per-notch wheel deltas to zoom and trackpad-style deltas to pan,
+  statelessly per event. Persisted per device; applies live without a reload.
+- **"Pen draws, finger pans"** (opt-in): with an Apple Pencil (or any stylus) and a drawing tool
+  active, a single-finger touch pans the camera instead of drawing — taps with the select tool
+  still select. Always on regardless of the toggle: a pen landing now preempts a palm that touched
+  first, a resting palm can no longer trigger phantom hover after a stroke or pop the context menu
+  mid-stroke.
+- **Tablet tier**: desktop-sized viewports with a coarse pointer (iPad landscape) get the desktop
+  layout with ≥44px touch targets — compact hamburger-only top bar, centered toolbar, and
+  undo/redo + zoom in a bottom-left island (zoom popover opens upward). Switches live when a
+  mouse/trackpad is attached or detached.
+- **Mobile layout hardening**: bottom chrome clears the iPhone/iPad home indicator
+  (safe-area insets), heights survive Safari's collapsing URL bar (`dvh`), the on-screen keyboard
+  no longer hides the text you're editing (the camera pans to keep the caret visible), and
+  pull-to-refresh / double-tap zoom / tap flash are suppressed over the canvas and chrome.
+- `@deviva-draw/engine`: new pure wheel-routing policy (`resolveWheelAction`,
+  `WheelBehaviorPreference`) and pipeline options `getWheelBehavior` / `getTouchDrawPolicy`, plus
+  `shouldSuppressTouchLongPress` for host touch layers. All additive; embedders are unaffected
+  until they opt in.
+
 ## [0.8.0] — 2026-08-17
 
 ### Added
