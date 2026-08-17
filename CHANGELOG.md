@@ -4,6 +4,20 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.9.1] — 2026-08-17
+
+### Fixed
+
+- **Typing into table cells no longer loses letters or switches tools.** Keystrokes in the cell
+  editor bubbled to the global shortcut resolver, so tool-shortcut letters (r, o, l, d, …) were
+  swallowed out of the draft while silently changing the active tool — typing "World" produced "W"
+  and left the diamond tool selected. The editor now owns every keystroke outright.
+- **Double-tap-to-edit now works on touch devices.** iOS Safari never synthesizes `dblclick` from
+  double-taps, so table cells (and shape labels, arrow labels, text) could not be edited by touch
+  at all. The touch layer recognizes double-taps itself and routes them through the same
+  edit dispatch as a desktop double-click — including a synchronous focus hand-off so iOS raises
+  the on-screen keyboard for the editor.
+
 ## [0.9.0] — 2026-08-17
 
 ### Added

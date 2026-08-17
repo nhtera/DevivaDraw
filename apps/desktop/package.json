@@ -1,6 +1,6 @@
 {
   "name": "@deviva-draw/desktop",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "private": true,
   "description": "Deviva Draw desktop app — Tauri v2 shell around the same editor the web app hosts",
   "type": "module",
