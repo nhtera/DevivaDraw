@@ -37,9 +37,13 @@ export class RotateGesture {
     if (!this.frame || !this.startPoint) return;
     const delta = computeRotationDelta(this.frame.pivot, this.startPoint, point, modifiers.shift);
     this.lastDelta = delta;
-    for (const result of rotateElementsAroundPivot(this.frame.members, this.frame.pivot, delta)) {
-      this.deps.scene.updateElement(result.id, result.changes);
-    }
+    const frame = this.frame;
+    // Batched for the same reason as the move gesture: one dispatch per frame, not per element.
+    this.deps.scene.batch(() => {
+      for (const result of rotateElementsAroundPivot(frame.members, frame.pivot, delta)) {
+        this.deps.scene.updateElement(result.id, result.changes);
+      }
+    });
   }
 
   finish(): void {
@@ -50,7 +54,10 @@ export class RotateGesture {
 
   cancel(): void {
     if (this.originalElements) {
-      for (const original of this.originalElements.values()) this.deps.scene.updateElement(original.id, original);
+      const originals = this.originalElements;
+      this.deps.scene.batch(() => {
+        for (const original of originals.values()) this.deps.scene.updateElement(original.id, original);
+      });
     }
     this.reset();
   }

@@ -134,3 +134,45 @@ describe("insertImageFile", () => {
     expect(decode).toHaveBeenCalledWith(expect.stringContaining("data:image/jpeg;base64,"), "image/jpeg");
   });
 });
+
+describe("pixel-dimension limits", () => {
+  /**
+   * Deviva applies NO cap on an image's pixel dimensions — the only import limit is
+   * `DEFAULT_MAX_FILE_SIZE_BYTES`, on the encoded bytes. This is pinned as a test because "the cap
+   * is 8000px" is a natural assumption to make (several editors in this genre do exactly that), and
+   * a future change adding one would be a silent regression for anyone importing large scans, maps
+   * or exports.
+   *
+   * `fitInitialSize` scales only the element's on-canvas footprint; `naturalWidth`/`naturalHeight`
+   * always keep the decoded truth, which is what crop, export and re-scale all read.
+   */
+  it("keeps the full natural dimensions of an image far larger than 8000px", async () => {
+    const scene = new Scene();
+    const decodeHuge: DecodeNaturalSizeFn = () => Promise.resolve({ width: 12_000, height: 9_000 });
+
+    const { element } = await insertImageFile({
+      scene,
+      bytes: bytesFrom("huge"),
+      mimeType: "image/png",
+      decodeNaturalSize: decodeHuge,
+      position: { x: 0, y: 0 },
+      maxFitSize: { width: 1440, height: 900 },
+    });
+
+    expect(element.naturalWidth).toBe(12_000);
+    expect(element.naturalHeight).toBe(9_000);
+    // Displayed smaller to fit the viewport, without touching the stored natural size.
+    expect(element.width).toBeLessThan(12_000);
+    expect(element.width / element.height).toBeCloseTo(12_000 / 9_000, 5);
+  });
+
+  it("rejects on encoded SIZE, never on dimensions — the only import limit there is", async () => {
+    const scene = new Scene();
+    const decodeSmall: DecodeNaturalSizeFn = () => Promise.resolve({ width: 32, height: 32 });
+    const oversized = new Uint8Array(DEFAULT_MAX_FILE_SIZE_BYTES + 1);
+
+    await expect(
+      insertImageFile({ scene, bytes: oversized, mimeType: "image/png", decodeNaturalSize: decodeSmall, position: { x: 0, y: 0 } }),
+    ).rejects.toBeInstanceOf(ImageFileTooLargeError);
+  });
+});

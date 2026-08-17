@@ -100,21 +100,27 @@ export class ResizeGesture {
     const newBounds = compensateForRotatedAnchor(this.handle, this.frame.bounds, rawNewBounds, this.frame.angle, modifiers.alt);
     this.lastAppliedBounds = newBounds;
 
-    for (const member of this.frame.members) {
-      const memberOldBounds = { x: member.x, y: member.y, width: member.width, height: member.height };
-      const memberNewBounds = mapBoundsToGroup(memberOldBounds, this.frame.bounds, newBounds);
-      // Dispatches against the *frozen original* element, not whatever `Scene` currently holds:
-      // `dispatchResize` scales a line/arrow/freedraw's point array and a text's fontSize
-      // *relative to the element it's given* — recomputing from scratch against the original on
-      // every `apply()` call (this method is called once per `onGestureMove` and again in
-      // `onGestureEnd`, always for the *same* absolute target bounds) keeps every call idempotent;
-      // resizing from the live, already-partially-resized element would compound the scale factor
-      // on every repeated call for the same drag instead of landing on the same final answer.
-      const original = this.originalElements.get(member.id);
-      if (!original) continue;
-      const update = dispatchResize(original, memberOldBounds, memberNewBounds);
-      if (update) this.deps.scene.updateElement(member.id, update);
-    }
+    // Narrowed once here so the batch closure below doesn't have to re-assert them per reference.
+    const frame = this.frame;
+    const originalElements = this.originalElements;
+    // Batched for the same reason as the move gesture: one dispatch per frame, not per element.
+    this.deps.scene.batch(() => {
+      for (const member of frame.members) {
+        const memberOldBounds = { x: member.x, y: member.y, width: member.width, height: member.height };
+        const memberNewBounds = mapBoundsToGroup(memberOldBounds, frame.bounds, newBounds);
+        // Dispatches against the *frozen original* element, not whatever `Scene` currently holds:
+        // `dispatchResize` scales a line/arrow/freedraw's point array and a text's fontSize
+        // *relative to the element it's given* — recomputing from scratch against the original on
+        // every `apply()` call (this method is called once per `onGestureMove` and again in
+        // `onGestureEnd`, always for the *same* absolute target bounds) keeps every call idempotent;
+        // resizing from the live, already-partially-resized element would compound the scale factor
+        // on every repeated call for the same drag instead of landing on the same final answer.
+        const original = originalElements.get(member.id);
+        if (!original) continue;
+        const update = dispatchResize(original, memberOldBounds, memberNewBounds);
+        if (update) this.deps.scene.updateElement(member.id, update);
+      }
+    });
   }
 
   finish(): void {
@@ -147,7 +153,9 @@ export class ResizeGesture {
 
   cancel(): void {
     if (this.originalElements) {
-      for (const original of this.originalElements.values()) this.deps.scene.updateElement(original.id, original);
+      this.deps.scene.batch(() => {
+        for (const original of this.originalElements!.values()) this.deps.scene.updateElement(original.id, original);
+      });
     }
     this.reset();
   }

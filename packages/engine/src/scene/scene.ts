@@ -64,6 +64,10 @@ export class Scene {
   private readonly updateHooks = new Set<SceneUpdateHook>();
   /** True while `notify()` is actively running the listener set — guards against re-entrancy. */
   private notifying = false;
+  /** True while a `batch()` is open — `notify()` records the intent and defers, see `batch`. */
+  private batching = false;
+  /** Set when a mutation happened inside an open batch, so the batch knows to notify on exit. */
+  private batchPending = false;
   /** Set when a mutation happens from inside a listener; drained by the outer `notify()` call. */
   private notifyQueued = false;
   /**
@@ -437,6 +441,48 @@ export class Scene {
     return () => this.updateHooks.delete(hook);
   }
 
+  /**
+   * Runs `mutate` with subscriber notification collapsed into a single dispatch at the end, instead
+   * of one per mutation.
+   *
+   * Every notification is cheap on its own, but subscribers are per-*change*, not per-element:
+   * dragging a 10 000-element selection updates 10 000 elements per pointer move, and each update
+   * separately invalidated the static layer, bumped a React version counter, and reset two debounce
+   * timers. The work is identical whether it happens once or ten thousand times per frame — so it
+   * happens once.
+   *
+   * Update *hooks* are deliberately NOT deferred: they still run inline per element (see
+   * `registerUpdateHook`), because a hook is a domain cascade — a bound arrow must reroute as part
+   * of the same mutation that moved its shape, not a frame later. Only the outward notification
+   * waits.
+   *
+   * Nested calls join the outermost batch, so a hook that mutates the scene cannot end the batch
+   * early. If `mutate` throws, the notification still fires for whatever it already changed —
+   * subscribers must never be left stale about mutations that really happened.
+   *
+   * That flush runs in a `finally`, which is why it is guarded: an exception escaping it would
+   * *replace* whatever `mutate` was throwing, so a failing listener would erase the real bug and
+   * leave only its own error visible. The listener failure is logged and swallowed, exactly as
+   * `runUpdateHooks` isolates a throwing hook, and the original exception propagates untouched.
+   */
+  batch<T>(mutate: () => T): T {
+    if (this.batching) return mutate();
+    this.batching = true;
+    try {
+      return mutate();
+    } finally {
+      this.batching = false;
+      if (this.batchPending) {
+        this.batchPending = false;
+        try {
+          this.notify();
+        } catch (error) {
+          console.error("scene: a listener threw while flushing a batch", error);
+        }
+      }
+    }
+  }
+
   /** Runs every registered update hook against `updated`, isolating each from the others' (and its own) failures — see `registerUpdateHook`'s error contract doc. */
   private runUpdateHooks(updated: AnyElement): void {
     for (const hook of this.updateHooks) {
@@ -462,6 +508,11 @@ export class Scene {
    * pass rather than one per mutation.
    */
   private notify(): void {
+    // Inside a batch the dispatch is collapsed to one call on exit — see `batch()`.
+    if (this.batching) {
+      this.batchPending = true;
+      return;
+    }
     if (this.notifying) {
       this.notifyQueued = true;
       return;

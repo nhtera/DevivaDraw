@@ -112,7 +112,12 @@ export class MoveGesture {
       }
     }
 
-    for (const [id, original] of this.originalElements) this.deps.scene.updateElement(id, { x: original.x + dx, y: original.y + dy });
+    // One notification for the whole selection, not one per element: this runs on every pointer
+    // move, and a large selection made the per-element dispatch the dominant cost of the drag.
+    const moving = this.originalElements;
+    this.deps.scene.batch(() => {
+      for (const [id, original] of moving) this.deps.scene.updateElement(id, { x: original.x + dx, y: original.y + dy });
+    });
   }
 
   /**
@@ -173,10 +178,18 @@ export class MoveGesture {
       return;
     }
     if (this.wasDuplicating) {
-      for (const id of this.originalElements.keys()) this.deps.scene.deleteElement(id);
+      const duplicated = this.originalElements;
+      // Batched for the same reason as every other multi-element loop here: cancelling a large
+      // drag-duplicate would otherwise notify once per deleted element.
+      this.deps.scene.batch(() => {
+        for (const id of duplicated.keys()) this.deps.scene.deleteElement(id);
+      });
       if (this.preDuplicateSelectionIds) this.deps.selection.selectOnly(this.preDuplicateSelectionIds);
     } else {
-      for (const original of this.originalElements.values()) this.deps.scene.updateElement(original.id, original);
+      const originals = this.originalElements;
+      this.deps.scene.batch(() => {
+        for (const original of originals.values()) this.deps.scene.updateElement(original.id, original);
+      });
     }
     this.reset();
   }
