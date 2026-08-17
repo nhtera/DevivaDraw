@@ -4,6 +4,25 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.10.1] — 2026-08-18
+
+### Fixed
+
+- **Presentation no longer shows the audience your selection handles.** Selection is editor state and
+  presentation only hides *chrome*, so the outline and resize handles of whatever was selected went
+  on being drawn over the slides. The natural flow all but guarantees it: drawing a frame leaves that
+  frame selected, and the next thing a presenter does is press Present.
+- **Presentation gives your tool back on exit.** It switches to the laser pointer on entry, which is
+  right for presenting and wrong to leave behind — the presenter returned to a board where the tool
+  had silently changed, and the first click did something they had not asked for. Both the tool and
+  the selection are now restored on the way out, since the change was ours and not the user's.
+- **The toolbar no longer shows no tool selected while a tool is active.** These live-state hooks
+  subscribe in an effect, which React runs after the render that read the value — so a change landing
+  in that window notified nobody and the toolbar kept painting a stale value until something else
+  changed the tool. Leaving presentation lands in exactly that window.
+
+`react` 0.10.1. `engine` 0.9.0, `collab-client` 0.7.0 and `mcp` 0.7.1 are unchanged.
+
 ## [0.10.0] — 2026-08-18
 
 ### Added

@@ -40,10 +40,22 @@ export function useSelectionVersion(selection: SelectionState): number {
   return version;
 }
 
-/** Bumps whenever the active tool actually changes (not on a no-op re-selection). */
+/**
+ * Bumps whenever the active tool actually changes (not on a no-op re-selection).
+ *
+ * The bump on subscribe is not redundant. A subscription is established in an effect, which React
+ * runs *after* the render that read the value — so a change landing in that window notifies nobody
+ * and the component keeps painting a value that is already wrong, until something unrelated happens
+ * to change the tool again. Leaving presentation does exactly that: the toolbar is remounting as the
+ * previous tool is put back, so it rendered with the laser still active and showed no tool selected
+ * while a creation tool was live under it.
+ */
 export function useToolVersion(toolStateMachine: ToolStateMachine): number {
   const [version, dispatch] = useReducer((count: number) => count + 1, 0);
-  useEffect(() => toolStateMachine.subscribe(() => dispatch()), [toolStateMachine]);
+  useEffect(() => {
+    dispatch();
+    return toolStateMachine.subscribe(() => dispatch());
+  }, [toolStateMachine]);
   return version;
 }
 

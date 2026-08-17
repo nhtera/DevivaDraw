@@ -46,6 +46,21 @@ test("selection handles are not painted over the slides", async ({ page }) => {
   expect(await selectionBluePixels(page)).toBe(0);
 });
 
+// Presentation picks the laser tool on entry, which is right for presenting and wrong to leave
+// behind: the presenter returns to a board where their tool has silently changed, and the first
+// click does something they did not ask for.
+test("the tool comes back on exit", async ({ page }) => {
+  await loadDeck(page, deckDocument([frameElement("f-1", "1. Only", 0, "a001")]));
+  await page.getByTestId("toolbar-rectangle-tool").click();
+  await expect(page.getByTestId("toolbar-rectangle-tool")).toHaveAttribute("aria-pressed", "true");
+
+  await startPresenting(page);
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("presentation-hud")).toHaveCount(0);
+
+  await expect(page.getByTestId("toolbar-rectangle-tool")).toHaveAttribute("aria-pressed", "true");
+});
+
 // Clearing the selection was our doing, not the user's: someone who presents mid-edit should find
 // the board as they left it.
 test("the selection comes back on exit", async ({ page }) => {

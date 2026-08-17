@@ -17,11 +17,10 @@ import type { Camera, SceneRect } from "@deviva-draw/engine";
 import { buttonStyle, panelStyle, Z_LAYER } from "../chrome-styles";
 import { orderFramesAsSlides, orderedSceneFrames } from "./frame-slide-order";
 import type { Slide } from "./frame-slide-order";
-import { useSuspendedSelection } from "./use-suspended-selection";
+import { useSuspendedEditorState } from "./use-suspended-editor-state";
 import { Icon } from "../icon";
 import { useTranslation } from "../../i18n/use-translation";
 import { useSceneVersion } from "../../runtime/use-live-version";
-import { LASER_TOOL_NAME } from "../../runtime/tool-names";
 import type { CameraStore } from "../../runtime/camera-store";
 import type { DevivaRuntime } from "../../runtime/runtime-types";
 
@@ -77,8 +76,8 @@ export function PresentationController(props: PresentationControllerProps) {
   const [index, setIndex] = useState(0);
   const animationRef = useRef<number | null>(null);
 
-  // Selection handles are editor state and would otherwise be drawn over the slides — see the hook.
-  useSuspendedSelection(runtime);
+  // Selection and tool are the editor's, not the presentation's — borrowed here, returned on exit.
+  useSuspendedEditorState(runtime);
 
   useEffect(() => {
     const next = slidesOf(runtime);
@@ -119,17 +118,17 @@ export function PresentationController(props: PresentationControllerProps) {
     [runtime.scene, slides],
   );
 
-  // Entering: pick the laser tool (the pointing affordance a presenter reaches for) and jump — not
-  // animate — to the first slide, since there is no previous camera position worth travelling from.
+  // Entering: jump — not animate — to the first slide, since there is no previous camera position
+  // worth travelling from. The laser tool is picked by `useSuspendedEditorState`, which also puts the
+  // previous tool back; see there for why the two halves must not be split across effects.
   const enteredRef = useRef(false);
   useEffect(() => {
     if (enteredRef.current || slides.length === 0) return;
     enteredRef.current = true;
     void tryEnterFullscreen(document.documentElement);
-    runtime.toolStateMachine.setTool(LASER_TOOL_NAME);
     const rect = rectForIndex(0);
     if (rect) animateTo(rect, true);
-  }, [slides.length, runtime, rectForIndex, animateTo]);
+  }, [slides.length, rectForIndex, animateTo]);
 
   // Every later slide change animates.
   const previousIndexRef = useRef(0);
