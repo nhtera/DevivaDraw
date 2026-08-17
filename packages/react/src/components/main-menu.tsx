@@ -91,14 +91,22 @@ function MenuButton(props: { onClick: () => void; icon: string; children: string
       aria-checked={isToggle ? props.checked : undefined}
       data-testid={props.testId}
       disabled={props.disabled}
+      title={props.children}
       style={{ ...buttonStyle(false), justifyContent: "flex-start", width: "100%", ...(props.disabled ? { opacity: 0.45, cursor: "default" } : undefined) }}
       onClick={props.onClick}
     >
-      <Icon name={props.icon} />
-      {props.children}
-      {props.shortcutHint && <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--dd-text-secondary)" }}>{props.shortcutHint}</span>}
+      {/* Icon and trailing marks hold their size; only the label flexes. A wrapping label was the bug
+          here — a long row ("Canvas & shape properties") broke onto a second line and, because the
+          button centers its content, the wrapped text read as centered against every single-line
+          neighbour. One line with an ellipsis (plus the `title` above for the full string) keeps the
+          rows a uniform stack. */}
+      <span style={{ display: "inline-flex", flex: "none" }}>
+        <Icon name={props.icon} />
+      </span>
+      <span style={{ flex: 1, minWidth: 0, textAlign: "left", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{props.children}</span>
+      {props.shortcutHint && <span style={{ flex: "none", fontSize: 11, color: "var(--dd-text-secondary)" }}>{props.shortcutHint}</span>}
       {props.checked && (
-        <span style={{ marginLeft: props.shortcutHint ? 6 : "auto", display: "inline-flex", color: "var(--dd-accent)" }}>
+        <span style={{ flex: "none", marginLeft: props.shortcutHint ? 6 : 0, display: "inline-flex", color: "var(--dd-accent)" }}>
           <Icon name="check" size={14} />
         </span>
       )}
@@ -123,7 +131,11 @@ function MenuLink(props: { href: string; icon: string; children: string; testId:
   );
 }
 
-/** Estimated flyout height used to clamp its top so it stays on-screen: one row per `PREFERENCE_TOGGLES` entry + the input-device section (label + radio row + invert & pen rows) + the select-on section (label + radio row + two toggle rows). */
+/** Flyout width — wide enough for the longest row ("Canvas & shape properties" plus its ⌥/ hint) on one line. */
+const FLYOUT_WIDTH = 268;
+/** Keep the flyout this far from every viewport edge, so it never sits flush against (or past) the window. */
+const VIEWPORT_MARGIN = 8;
+/** First-paint fallback height, used only before the flyout has been measured: one row per `PREFERENCE_TOGGLES` entry + the input-device section (label + radio row + invert & pen rows) + the select-on section (label + radio row + two toggle rows). */
 const FLYOUT_HEIGHT_ESTIMATE = PREFERENCE_TOGGLES.length * 34 + 144 + 162;
 
 export function MainMenu(props: MainMenuProps) {
@@ -139,6 +151,7 @@ export function MainMenu(props: MainMenuProps) {
   // positioned child would be clipped by its own parent; `null` until measured keeps the first
   // paint hidden (the color-picker popover's exact pattern).
   const [flyoutPos, setFlyoutPos] = useState<{ top: number; left: number } | null>(null);
+  const flyoutRef = useRef<HTMLDivElement | null>(null);
   // Flyout toggles keep the menu open, so their check marks need a re-render trigger of their own.
   const [, bump] = useReducer((count: number) => count + 1, 0);
   const isMac = detectIsMac(typeof navigator !== "undefined" ? navigator.platform : undefined);
@@ -156,8 +169,23 @@ export function MainMenu(props: MainMenuProps) {
       const row = prefsRowRef.current;
       if (!row) return;
       const rect = row.getBoundingClientRect();
-      const top = Math.max(8, Math.min(rect.top - 4, window.innerHeight - 8 - FLYOUT_HEIGHT_ESTIMATE - 8));
-      setFlyoutPos({ top, left: rect.right + 6 });
+      // The rendered height, not a guess: the touch density tier grows every row to 44px, so a
+      // constant would clamp the top wrongly on exactly the devices with the least room.
+      const height = flyoutRef.current?.offsetHeight ?? FLYOUT_HEIGHT_ESTIMATE;
+      const top = Math.max(VIEWPORT_MARGIN, Math.min(rect.top - 4, window.innerHeight - VIEWPORT_MARGIN - height));
+      // Open to the right of the row where it fits; flip to its left when the window's right edge is
+      // too close; and in a window too narrow for menu-plus-flyout side by side (phones, a pinched
+      // desktop window) clamp inside the viewport instead — overlapping the menu shows the whole
+      // panel, where the un-clamped position cropped it against the window.
+      const rightOf = rect.right + 6;
+      const leftOf = rect.left - 6 - FLYOUT_WIDTH;
+      const left =
+        rightOf + FLYOUT_WIDTH + VIEWPORT_MARGIN <= window.innerWidth
+          ? rightOf
+          : leftOf >= VIEWPORT_MARGIN
+            ? leftOf
+            : Math.max(VIEWPORT_MARGIN, window.innerWidth - VIEWPORT_MARGIN - FLYOUT_WIDTH);
+      setFlyoutPos({ top, left });
     };
     measure();
     window.addEventListener("resize", measure);
@@ -349,11 +377,26 @@ export function MainMenu(props: MainMenuProps) {
       {prefsOpen &&
         createPortal(
           <div
+            ref={flyoutRef}
             role="menu"
             {...popoverMarkerProps}
             data-testid="main-menu-preferences-flyout"
             className="dd-animate-in"
-            style={{ ...panelStyle, position: "fixed", top: flyoutPos?.top ?? 0, left: flyoutPos?.left ?? 0, visibility: flyoutPos ? "visible" : "hidden", width: 230, padding: 4, zIndex: Z_LAYER.popover }}
+            style={{
+              ...panelStyle,
+              position: "fixed",
+              top: flyoutPos?.top ?? 0,
+              left: flyoutPos?.left ?? 0,
+              visibility: flyoutPos ? "visible" : "hidden",
+              width: FLYOUT_WIDTH,
+              boxSizing: "border-box",
+              // Taller than the window (short viewport, touch density, or both) scrolls inside the
+              // panel rather than running off the bottom edge.
+              maxHeight: `calc(100dvh - ${VIEWPORT_MARGIN * 2}px)`,
+              overflowY: "auto",
+              padding: 4,
+              zIndex: Z_LAYER.popover,
+            }}
           >
             {PREFERENCE_TOGGLES.map(({ actionId, testId, icon, labelKey, isChecked }) => (
               <MenuButton
