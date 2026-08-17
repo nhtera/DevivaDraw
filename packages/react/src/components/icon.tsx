@@ -55,6 +55,7 @@ const GLYPHS: Record<string, string> = {
   theme: "◐",
   command: "⌘",
   zen: "◎",
+  present: "▶",
   "view-only": "👁",
   stats: "📊",
   minimap: "🗺",

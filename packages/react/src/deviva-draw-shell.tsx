@@ -57,6 +57,7 @@ import { EmbedOverlay } from "./components/embed-overlay";
 import { Minimap } from "./components/minimap";
 import { BackToContentPill } from "./components/back-to-content-pill";
 import { ExitZenPill } from "./components/exit-zen-pill";
+import { PresentationController } from "./components/presentation/presentation-controller";
 import { useCanvasBackground } from "./runtime/use-live-version";
 import { useAdaptNextShapeStyle } from "./runtime/use-adapt-next-shape-style";
 import { CommandPalette } from "./components/command-palette";
@@ -128,6 +129,16 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const minimapVisible = useToggleState(true);
   // Same "defaults on, the toggle is only a way out" contract as the minimap above.
   const propertiesPanelVisible = useToggleState(true);
+  const presentationActive = useToggleState(false);
+  //
+  // Zen hides the panel-class chrome (see the render tree below); presentation hides that AND the
+  // toolbar/top bar, because a slide walk has its own controls and nothing else on screen belongs in
+  // front of an audience.
+  const panelsHidden = zenMode.value || presentationActive.value;
+  // View-only is either the user's own toggle or presentation's temporary override. Derived rather
+  // than written on enter (`viewOnly.set(true)`), so leaving presentation restores whatever the
+  // user's own setting was without this component having to remember it.
+  const presentationViewOnly = viewOnly.value || presentationActive.value;
   const commandPaletteOpen = useToggleState(false);
   const shortcutsDialogOpen = useToggleState(false);
   const findOpen = useToggleState(false);
@@ -140,6 +151,9 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const collabDialogOpen = useToggleState(false);
   // Mirror of `runtime` (declared below) for the context-menu trigger hook, which must attach its
   // listeners before the runtime exists but hit-tests the scene only at right-click time.
+  // Stable identity (both inputs are ref-backed getters), so the runtime can hold it forever while
+  // always reading the current values — same contract as `useToggleState`'s own `get`.
+  const getEffectiveViewOnly = useCallback(() => viewOnly.get() || presentationActive.get(), [viewOnly, presentationActive]);
   const runtimeForContextMenuRef = useRef<DevivaRuntime | null>(null);
   const contextMenuTriggers = useContextMenuTriggers(canvasHostRef, cameraStore, runtimeForContextMenuRef);
 
@@ -159,7 +173,10 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       mainMenuOpen.value ||
       shareDialog.value.status !== "closed" ||
       collabDialogOpen.value ||
-      contextMenuTriggers.point !== null,
+      contextMenuTriggers.point !== null ||
+      // Presentation owns the keyboard: its controller handles the navigation keys itself, and every
+      // other global binding (tool letters, chrome toggles) must not fire behind a slide walk.
+      presentationActive.value,
   );
 
   // Read by the render loop every frame (see `start-render-loop.ts`'s `getRemoteCursors` doc); kept as
@@ -179,7 +196,11 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     ui: {
       getZenMode: zenMode.get,
       setZenMode: zenMode.set,
-      getViewOnly: viewOnly.get,
+      // Derived, not the raw toggle: presentation is view-only for its duration, and this getter is
+      // what `ActionRegistry` checks before running any scene-mutating action (see
+      // `Action.viewOnlyAllowed`). Reading only the user's own toggle here would leave every
+      // mutating action live behind the presentation overlay.
+      getViewOnly: getEffectiveViewOnly,
       setViewOnly: viewOnly.set,
       getStatsPanelVisible: statsPanel.get,
       setStatsPanelVisible: statsPanel.set,
@@ -191,6 +212,8 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       setPropertiesPanelVisible: propertiesPanelVisible.set,
       getToolLocked: toolLock.get,
       setToolLocked: toolLock.set,
+      getPresentationActive: presentationActive.get,
+      setPresentationActive: presentationActive.set,
       getCommandPaletteOpen: commandPaletteOpen.get,
       setCommandPaletteOpen: commandPaletteOpen.set,
       getShortcutsDialogOpen: shortcutsDialogOpen.get,
@@ -240,6 +263,8 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     const wasViewOnly = wasViewOnlyRef.current;
     wasViewOnlyRef.current = viewOnly.value;
     if (!runtime) return;
+    // Keyed to the user's own toggle, deliberately NOT the presentation-derived value: presentation
+    // selects the laser tool itself, and pinning pan here would immediately override it.
     if (viewOnly.value) runtime.actionRegistry.run("pan-tool", runtime);
     else if (wasViewOnly) runtime.actionRegistry.run("select-tool", runtime);
   }, [runtime, viewOnly.value]);
@@ -256,7 +281,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   usePasteAndDrop({
     containerRef: canvasHostRef,
     // `null` scene in view-only detaches the listeners entirely — paste/drop are scene mutations.
-    scene: viewOnly.value ? null : (runtime?.scene ?? null),
+    scene: presentationViewOnly ? null : (runtime?.scene ?? null),
     getCamera,
     getViewportSize,
     decodeNaturalSize,
@@ -270,22 +295,22 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   });
   // Shares the canvas host's drop target with `usePasteAndDrop` above — that one handles files dragged
   // in from outside, this one an in-document drag from the library sidebar. Each ignores the other's.
-  useLibraryDrop({ containerRef: canvasHostRef, runtime: viewOnly.value ? null : runtime, getCamera });
+  useLibraryDrop({ containerRef: canvasHostRef, runtime: presentationViewOnly ? null : runtime, getCamera });
   // The third drop listener on that target: scene/library *documents* dragged in from the desktop.
   // A dropped library opens the sidebar, so its items are somewhere the user can see rather than
   // silently added to a shelf that is currently closed.
   useDocumentFileDrop({
     containerRef: canvasHostRef,
-    runtime: viewOnly.value ? null : runtime,
+    runtime: presentationViewOnly ? null : runtime,
     pageStore,
     onLibraryImported: useCallback(() => libraryOpen.set(true), [libraryOpen]),
   });
   const { openImagePicker, pendingPlacement } = useImageFilePicker({
     // Nulled in view-only like the paste/drop hooks above — the "9" shortcut and placement click
     // dispatch straight to the scene, not through the action registry's view-only gate.
-    scene: viewOnly.value ? null : (runtime?.scene ?? null),
-    history: viewOnly.value ? null : (runtime?.history ?? null),
-    selection: viewOnly.value ? null : (runtime?.selection ?? null),
+    scene: presentationViewOnly ? null : (runtime?.scene ?? null),
+    history: presentationViewOnly ? null : (runtime?.history ?? null),
+    selection: presentationViewOnly ? null : (runtime?.selection ?? null),
     containerRef: canvasHostRef,
     getCamera,
     getViewportSize,
@@ -364,7 +389,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   // the two floating pills stay, so the mode never becomes a trap: whatever the user reaches for
   // next (a tool, undo, zoom, the menu, the exit pill) is still on screen. Hiding *everything* left
   // no affordance at all, keyboard-only or otherwise.
-  const panelsHidden = zenMode.value;
+
 
   // Auto-join a room link exactly once, after the runtime (and thus the scene the session syncs into)
   // exists. Guarded so a re-render or a status change never re-triggers the join mid-session.
@@ -399,21 +424,29 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
           />
         )}
       </div>
-      {runtime && !viewOnly.value && (isNarrow ? <BottomToolbar runtime={runtime} onInsertImage={openImagePicker} /> : <Toolbar runtime={runtime} toolLocked={toolLock.value} onToggleLock={() => toolLock.set(!toolLock.value)} onInsertImage={openImagePicker} />)}
+      {runtime && !presentationViewOnly && (isNarrow ? <BottomToolbar runtime={runtime} onInsertImage={openImagePicker} /> : <Toolbar runtime={runtime} toolLocked={toolLock.value} onToggleLock={() => toolLock.set(!toolLock.value)} onInsertImage={openImagePicker} />)}
       {runtime && !panelsHidden && !isNarrow && <CanvasHint runtime={runtime} editSession={editSession} />}
       {runtime && !panelsHidden && <EmptyStateOverlay runtime={runtime} editSession={editSession} />}
-      {runtime && <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} compact={layoutTier === "tablet"} />}
+      {runtime && !presentationActive.value && <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} compact={layoutTier === "tablet"} />}
       {/* Tablet tier: the compact top bar's history/zoom controls live bottom-left instead (see TopBarProps.compact), keeping the centered toolbar's whole top row free. */}
-      {runtime && layoutTier === "tablet" && <TabletBottomControls runtime={runtime} cameraStore={cameraStore} />}
+      {runtime && !presentationActive.value && layoutTier === "tablet" && <TabletBottomControls runtime={runtime} cameraStore={cameraStore} />}
       {runtime && !panelsHidden && !isNarrow && (
         <PagesPanel pageStore={pageStore} readOnly={viewOnly.value} onSwitchPage={(id) => parkCameraThen(() => pageStore.setActivePage(id))} onAddPage={() => parkCameraThen(() => pageStore.addPage())} />
       )}
       {runtime && !panelsHidden && <LibraryToggle open={libraryOpen.value} onToggle={() => libraryOpen.set(!libraryOpen.value)} />}
-      {runtime && !panelsHidden && propertiesPanelVisible.value && !viewOnly.value && (isNarrow ? <MobilePropertiesBar runtime={runtime} /> : <PropertiesPanel runtime={runtime} />)}
-      {runtime && (
+      {runtime && !panelsHidden && propertiesPanelVisible.value && !presentationViewOnly && (isNarrow ? <MobilePropertiesBar runtime={runtime} /> : <PropertiesPanel runtime={runtime} />)}
+      {runtime && !presentationActive.value && (
         <BackToContentPill runtime={runtime} cameraStore={cameraStore} getViewportSize={() => ({ width: canvasHostRef.current?.clientWidth ?? 0, height: canvasHostRef.current?.clientHeight ?? 0 })} />
       )}
-      {runtime && zenMode.value && <ExitZenPill onExit={() => zenMode.set(false)} />}
+      {runtime && zenMode.value && !presentationActive.value && <ExitZenPill onExit={() => zenMode.set(false)} />}
+      {runtime && presentationActive.value && (
+        <PresentationController
+          runtime={runtime}
+          cameraStore={cameraStore}
+          getViewportSize={() => ({ width: canvasHostRef.current?.clientWidth ?? 0, height: canvasHostRef.current?.clientHeight ?? 0 })}
+          onExit={() => presentationActive.set(false)}
+        />
+      )}
       {runtime && !panelsHidden && !isNarrow && minimapVisible.value && (
         <Minimap runtime={runtime} cameraStore={cameraStore} getViewportSize={() => ({ width: canvasHostRef.current?.clientWidth ?? 0, height: canvasHostRef.current?.clientHeight ?? 0 })} />
       )}
@@ -476,13 +509,13 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {runtime && commandPaletteOpen.value && <CommandPalette runtime={runtime} onClose={() => commandPaletteOpen.set(false)} />}
       {pendingPlacement && <ImagePlacementOverlay placement={pendingPlacement} getCamera={getCamera} />}
       {runtime && <LinkBadgesOverlay scene={runtime.scene} cameraStore={cameraStore} />}
-      {runtime && !viewOnly.value && <ImageCropOverlay runtime={runtime} cameraStore={cameraStore} />}
-      {runtime && !viewOnly.value && <TableCellEditorOverlay runtime={runtime} cameraStore={cameraStore} keyboardInsetPx={keyboardInsetPx} />}
-      {runtime && contextMenuTriggers.point && !viewOnly.value && (
+      {runtime && !presentationViewOnly && <ImageCropOverlay runtime={runtime} cameraStore={cameraStore} />}
+      {runtime && !presentationViewOnly && <TableCellEditorOverlay runtime={runtime} cameraStore={cameraStore} keyboardInsetPx={keyboardInsetPx} />}
+      {runtime && contextMenuTriggers.point && !presentationViewOnly && (
         <ContextMenu runtime={runtime} screenPoint={contextMenuTriggers.point} variant={contextMenuTriggers.variant} onClose={contextMenuTriggers.close} />
       )}
-      {statsPanel.value && runtime && !viewOnly.value && <StatsPanel runtime={runtime} cameraStore={cameraStore} />}
-      {layersPanel.value && runtime && !panelsHidden && !isNarrow && !viewOnly.value && <LayersPanel runtime={runtime} />}
+      {statsPanel.value && runtime && !presentationViewOnly && <StatsPanel runtime={runtime} cameraStore={cameraStore} />}
+      {layersPanel.value && runtime && !panelsHidden && !isNarrow && !presentationViewOnly && <LayersPanel runtime={runtime} />}
     </div>
   );
 });

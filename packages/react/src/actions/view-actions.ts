@@ -79,6 +79,9 @@ export function buildViewActions(): Action[] {
       labelKey: "action.toggleZenMode",
       icon: "zen",
       shortcut: "alt+z",
+      // Inert while presenting: presentation already owns what chrome is visible, and letting this
+      // write the zen flag underneath it would leave the user in zen after exiting, with no idea why.
+      isEnabled: (runtime) => !runtime.ui.getPresentationActive(),
       run: (runtime) => runtime.ui.setZenMode(!runtime.ui.getZenMode()),
     },
     {
@@ -87,6 +90,12 @@ export function buildViewActions(): Action[] {
       labelKey: "action.toggleViewOnly",
       icon: "view-only",
       shortcut: "alt+r",
+      // Inert while presenting, and this one is a correctness requirement rather than a nicety.
+      // `ui.getViewOnly()` is DERIVED (the user's own toggle OR presentation), while `setViewOnly`
+      // writes only the raw toggle — so running this during a presentation reads `true` from the
+      // derived value and writes `false` to the raw one. On a view-only share link that silently
+      // converted the board to editable the moment the presentation ended.
+      isEnabled: (runtime) => !runtime.ui.getPresentationActive(),
       run: (runtime) => runtime.ui.setViewOnly(!runtime.ui.getViewOnly()),
     },
     {
@@ -154,6 +163,16 @@ export function buildViewActions(): Action[] {
       labelKey: "action.toggleConstantWidthPen",
       icon: "pencil",
       run: () => setEditorPreferences({ constantWidthPen: !getEditorPreferences().constantWidthPen }),
+    },
+    {
+      // View-only-allowed: presenting is the most read-only thing the app does — it *enters*
+      // view-only itself. Enabled only with at least one frame, since frames are the slides.
+      id: "present",
+      viewOnlyAllowed: true,
+      labelKey: "action.present",
+      icon: "present",
+      isEnabled: (runtime) => runtime.scene.getElements().some((element) => element.type === "frame" && !element.isDeleted),
+      run: (runtime) => runtime.ui.setPresentationActive(true),
     },
     {
       // Not view-only-allowed: the stats panel's editable fields write straight to the scene.

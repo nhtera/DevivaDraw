@@ -53,6 +53,9 @@ export interface UiToggleState {
   /** The toolbar's "keep the active tool after drawing" lock — the same boolean `build-runtime.ts`'s `getToolLocked` reads, exposed here so the action registry (menu row, palette, `Q`) can flip it too. */
   getToolLocked(): boolean;
   setToolLocked(value: boolean): void;
+  /** Presentation mode — frames walked as slides. See `components/presentation/presentation-controller.tsx`. */
+  getPresentationActive(): boolean;
+  setPresentationActive(value: boolean): void;
   getCommandPaletteOpen(): boolean;
   setCommandPaletteOpen(value: boolean): void;
   getShortcutsDialogOpen(): boolean;

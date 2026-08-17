@@ -184,6 +184,8 @@ export { computeElementsBounds, computeZoomToFitCamera, panCameraByScreenDelta, 
 export type { PanZoomToolDeps } from "./input/pan-zoom-tool";
 export { PanZoomTool } from "./input/pan-zoom-tool";
 
+export { computeRevealRectCamera, easeInOutCubic, interpolateCamera } from "./input/pan-zoom-math";
+
 export {
   normalizeCombo,
   registerChromeToggleShortcuts,

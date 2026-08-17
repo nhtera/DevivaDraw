@@ -171,6 +171,8 @@ function buildTestRuntime(scene: Scene): ActionRuntime {
       setPropertiesPanelVisible: vi.fn(),
       getToolLocked: () => false,
       setToolLocked: vi.fn(),
+      getPresentationActive: () => false,
+      setPresentationActive: vi.fn(),
       getLayersPanelVisible: () => false,
       setLayersPanelVisible: vi.fn(),
       getStatsPanelVisible: () => false,

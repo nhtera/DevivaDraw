@@ -9,12 +9,11 @@
  *    different tool active is standard whiteboard behavior, not something that should require
  *    switching tools first.
  */
-import { clampZoom } from "../render/camera";
 import type { Camera, Point } from "../render/camera";
 import type { SceneRect, ViewportSize } from "../render/viewport-culling";
 import { NoOpToolHandler } from "./tool-handler";
 import type { ModifierKeys } from "./tool-handler";
-import { computeZoomToFitCamera, panCameraByScreenDelta, zoomCameraAtScreenPoint } from "./pan-zoom-math";
+import { computeRevealRectCamera, computeZoomToFitCamera, panCameraByScreenDelta, zoomCameraAtScreenPoint } from "./pan-zoom-math";
 
 /** Wheel-delta-to-zoom-factor sensitivity; tuned so a typical mouse-wheel notch (~100 units) reads as a small, controllable step. */
 const WHEEL_ZOOM_SENSITIVITY = 0.002;
@@ -130,12 +129,8 @@ export class PanZoomTool extends NoOpToolHandler {
    */
   revealRect(rect: SceneRect): void {
     if (rect.width <= 0 && rect.height <= 0) return;
-    const camera = this.deps.getCamera();
-    const { width, height } = this.deps.getViewportSize();
-    const fitZoom = Math.min((width * 0.8) / Math.max(rect.width, 1), (height * 0.8) / Math.max(rect.height, 1));
-    const zoom = clampZoom(Math.min(camera.zoom, fitZoom));
-    const centerX = rect.x + rect.width / 2;
-    const centerY = rect.y + rect.height / 2;
-    this.deps.setCamera({ zoom, scrollX: width / (2 * zoom) - centerX, scrollY: height / (2 * zoom) - centerY });
+    // The fit math lives in `pan-zoom-math.ts` so the animated caller (the presentation walk) aims
+    // at exactly the same destination this instant jump does.
+    this.deps.setCamera(computeRevealRectCamera(this.deps.getCamera(), rect, this.deps.getViewportSize()));
   }
 }

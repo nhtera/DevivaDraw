@@ -251,6 +251,12 @@ export function MainMenu(props: MainMenuProps) {
       <MenuButton testId="main-menu-copy-image" icon="copy-image" onClick={() => run("copy-as-image")}>
         {t("action.copyAsImage")}
       </MenuButton>
+      {/* Disabled rather than hidden with no frames: "Present" absent entirely would read as a
+          missing feature, where a dimmed row plus the frame tool in the toolbar tells the user what
+          the mode needs. `isEnabled` on the action is the single source of that condition. */}
+      <MenuButton testId="main-menu-present" icon="present" disabled={!runtime.actionRegistry.get("present")?.isEnabled?.(runtime)} onClick={() => run("present")}>
+        {t("action.present")}
+      </MenuButton>
       {shareEnabled && (
         <MenuButton testId="main-menu-share" icon="share" onClick={() => run("share-scene")}>
           {t("action.share")}

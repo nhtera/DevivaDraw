@@ -45,6 +45,8 @@ export const MENU_GLYPHS: Record<string, ReactNode> = {
   // A clean downward chevron — the custom dropdown indicator for the language <select>.
   "chevron-down": <path d="M5.5 8 L10 12.5 L14.5 8" strokeLinecap="round" strokeLinejoin="round" />,
   "chevron-right": <path d="M8 5.5 L12.5 10 L8 14.5" strokeLinecap="round" strokeLinejoin="round" />,
+  // Mirror of `chevron-right`, for the presentation HUD's "previous slide" control.
+  "chevron-left": <path d="M12 5.5 L7.5 10 L12 14.5" strokeLinecap="round" strokeLinejoin="round" />,
   // The layers panel's row glyphs — same open-eye drawing as "view-only" (one eye across the whole
   // chrome), its slashed variant for a hidden layer, and an open-shackle counterpart to `lock`.
   eye: (

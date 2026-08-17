@@ -5,6 +5,8 @@
  * rendering lives in `browser/scene-file-operations.ts`; this is just the control surface.
  */
 import { useState } from "react";
+import { frameContainedElementIds } from "@deviva-draw/engine";
+import { orderedSceneFrames } from "./presentation/frame-slide-order";
 import { buttonStyle, dialogOverlayStyle, dialogStyle, labelStyle } from "./chrome-styles";
 import { Icon } from "./icon";
 import {
@@ -26,16 +28,31 @@ export function ExportDialog(props: { runtime: DevivaRuntime; onClose(): void })
   const [includeBackground, setIncludeBackground] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [onlySelected, setOnlySelected] = useState(false);
+  const [onlyFrame, setOnlyFrame] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const scene = runtime.scene;
   const selectedCount = runtime.selection.size;
+  // "Current frame" means the selected frame, or the deck's FIRST SLIDE when nothing is selected.
+  // `orderedSceneFrames` is shared with the presentation walk precisely so the two agree: raw scene
+  // order would export a different frame than Present opens on, for any deck using numeric name
+  // prefixes. A frame's own element is included alongside its contents so the exported image keeps
+  // the frame border the user sees on canvas.
+  const frames = orderedSceneFrames(scene.getElements());
+  const currentFrame = frames.find((frame) => runtime.selection.isSelected(frame.id)) ?? frames[0] ?? null;
+  const frameElements = currentFrame
+    ? [currentFrame, ...frameContainedElementIds(scene, currentFrame.id).map((id) => scene.getElement(id)).filter((element): element is NonNullable<typeof element> => Boolean(element && !element.isDeleted))]
+    : [];
   // Dark export pairs the color adapter with the dark canvas background; the transparent option still wins when the background box is unticked.
   const background = includeBackground ? (darkMode ? "#1e1e1e" : scene.getBackground() ?? "#ffffff") : null;
-  const extras = {
-    darkMode,
-    elements: onlySelected && selectedCount > 0 ? scene.getElements().filter((element) => !element.isDeleted && runtime.selection.isSelected(element.id)) : undefined,
+  // Scope precedence: frame beats selection. Both are explicit opt-ins, and a frame is the narrower,
+  // more deliberate of the two — nothing else would explain ticking it while a selection exists.
+  const scopedElements = () => {
+    if (onlyFrame && frameElements.length > 0) return frameElements;
+    if (onlySelected && selectedCount > 0) return scene.getElements().filter((element) => !element.isDeleted && runtime.selection.isSelected(element.id));
+    return undefined;
   };
+  const extras = { darkMode, elements: scopedElements() };
 
   const run = (task: () => Promise<void>) => {
     setBusy(true);
@@ -82,6 +99,10 @@ export function ExportDialog(props: { runtime: DevivaRuntime; onClose(): void })
         <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, cursor: selectedCount > 0 ? "pointer" : "default", opacity: selectedCount > 0 ? 1 : 0.5 }}>
           <input type="checkbox" data-testid="export-only-selected" disabled={selectedCount === 0} checked={onlySelected && selectedCount > 0} onChange={(event) => setOnlySelected(event.target.checked)} />
           <span>{t("export.onlySelected")}</span>
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <input type="checkbox" data-testid="export-only-frame" disabled={frames.length === 0} checked={onlyFrame && frameElements.length > 0} onChange={(event) => setOnlyFrame(event.target.checked)} />
+          <span>{t("export.currentFrame")}</span>
         </label>
 
         <div style={{ display: "flex", gap: 6 }}>
