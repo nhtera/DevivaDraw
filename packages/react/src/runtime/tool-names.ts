@@ -32,3 +32,45 @@ export const BLOCK_ARROW_RIGHT_TOOL_NAME = "block-arrow-right";
 export const BLOCK_ARROW_LEFT_TOOL_NAME = "block-arrow-left";
 export const BLOCK_ARROW_UP_TOOL_NAME = "block-arrow-up";
 export const BLOCK_ARROW_DOWN_TOOL_NAME = "block-arrow-down";
+
+/**
+ * Tools whose single-pointer gesture *creates content* — the set the pen-only-draw touch routing
+ * consults: with that preference on, a single-finger touch pans the camera instead of drawing while
+ * one of these is active. Deliberately excludes the tap/selection-oriented tools (select, pan,
+ * lasso, eraser, bucket-fill, laser) so a finger tap keeps selecting/erasing exactly as before.
+ * Lives here, next to the canonical tool-name registry, so a new tool must opt in explicitly rather
+ * than the pipeline guessing from a hardcoded list. New creation tools should be added here.
+ */
+export const DRAW_CAPABLE_TOOL_NAMES: ReadonlySet<string> = new Set([
+  RECTANGLE_TOOL_NAME,
+  ELLIPSE_TOOL_NAME,
+  DIAMOND_TOOL_NAME,
+  TRIANGLE_TOOL_NAME,
+  HEXAGON_TOOL_NAME,
+  STAR_TOOL_NAME,
+  CLOUD_TOOL_NAME,
+  HEART_TOOL_NAME,
+  X_BOX_TOOL_NAME,
+  CHECK_BOX_TOOL_NAME,
+  BLOCK_ARROW_RIGHT_TOOL_NAME,
+  BLOCK_ARROW_LEFT_TOOL_NAME,
+  BLOCK_ARROW_UP_TOOL_NAME,
+  BLOCK_ARROW_DOWN_TOOL_NAME,
+  LINE_TOOL_NAME,
+  ARROW_TOOL_NAME,
+  FREEDRAW_TOOL_NAME,
+  HIGHLIGHTER_TOOL_NAME,
+  TEXT_TOOL_NAME,
+  FRAME_TOOL_NAME,
+  NOTE_TOOL_NAME,
+  TABLE_TOOL_NAME,
+]);
+
+/**
+ * The pen-only-draw routing decision the engine pipeline consults per touch gesture
+ * (`getTouchDrawPolicy`): pan only when the preference is on AND the active tool would otherwise
+ * draw — tap-to-select and other non-creating tools keep native touch behavior.
+ */
+export function resolveTouchDrawPolicy(penOnlyDraw: boolean, activeToolName: string): "draw" | "pan" {
+  return penOnlyDraw && DRAW_CAPABLE_TOOL_NAMES.has(activeToolName) ? "pan" : "draw";
+}

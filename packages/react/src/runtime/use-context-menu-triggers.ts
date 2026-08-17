@@ -61,6 +61,10 @@ export function useContextMenuTriggers(
       getCamera: cameraStore.getCamera,
       setCamera: cameraStore.setCamera,
       onLongPress: openAt,
+      // Read lazily off the runtime ref (same reason the ref exists — this hook attaches before the
+      // runtime is built): the pipeline knows which touches are a resting palm around a pen stroke
+      // or a finger mid-camera-pan, neither of which may pop the context menu.
+      shouldSuppressLongPress: (pointerId) => runtimeRef.current?.pipeline?.shouldSuppressTouchLongPress(pointerId) ?? false,
     });
     touchAdapter.attach();
 

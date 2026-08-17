@@ -262,6 +262,13 @@ export const catalogVi: Record<TranslationKey, string> = {
   "theme.dark": "Tối",
   "theme.system": "Theo hệ thống",
 
+  "menu.inputDevice": "Thiết bị nhập",
+  "inputDevice.auto": "Tự động",
+  "inputDevice.trackpad": "Bàn di chuột",
+  "inputDevice.mouse": "Chuột",
+  "inputDevice.invertMouseZoom": "Đảo chiều thu phóng chuột",
+  "inputDevice.penOnlyDraw": "Bút vẽ, ngón tay di chuyển",
+
   "language.en": "English",
   "language.vi": "Tiếng Việt",
 

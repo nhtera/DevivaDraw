@@ -262,6 +262,13 @@ export const catalogEn = {
   "theme.dark": "Dark",
   "theme.system": "System",
 
+  "menu.inputDevice": "Input device",
+  "inputDevice.auto": "Auto",
+  "inputDevice.trackpad": "Trackpad",
+  "inputDevice.mouse": "Mouse",
+  "inputDevice.invertMouseZoom": "Invert mouse zoom",
+  "inputDevice.penOnlyDraw": "Pen draws, finger pans",
+
   "language.en": "English",
   "language.vi": "Tiếng Việt",
 

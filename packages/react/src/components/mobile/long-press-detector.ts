@@ -21,3 +21,14 @@ export function hasLongPressElapsed(pressStartMs: number, nowMs: number, duratio
 export function hasMovedPastLongPressThreshold(start: TouchPoint, current: TouchPoint, thresholdPx: number = LONG_PRESS_MOVE_CANCEL_THRESHOLD_PX): boolean {
   return Math.hypot(current.x - start.x, current.y - start.y) > thresholdPx;
 }
+
+/**
+ * The complete fire-time decision for an armed long-press timer: the touch must still be tracked,
+ * the full duration must have elapsed, and the press must not be suppressed *as of firing* — the
+ * suppression re-check is load-bearing, because a pen stroke can start (and even finish) entirely
+ * inside the 450ms hold, and arm-time state only reflects events that had completed before the
+ * press began. A resting palm must not pop the context menu mid-stroke or right after it.
+ */
+export function shouldFireLongPress(pressStartMs: number, nowMs: number, stillTracked: boolean, suppressed: boolean, durationMs: number = LONG_PRESS_DURATION_MS): boolean {
+  return stillTracked && !suppressed && hasLongPressElapsed(pressStartMs, nowMs, durationMs);
+}

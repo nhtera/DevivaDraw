@@ -13,13 +13,14 @@ import {
 } from "@deviva-draw/engine";
 import type { Camera, Scene } from "@deviva-draw/engine";
 import { buildActionRegistry } from "../actions/build-action-registry";
+import { getInputDevicePreference } from "../browser/input-device-preference";
 import type { PersistenceOperations, UiToggleState } from "../actions/action-types";
 import type { ThemeMode } from "../theme/theme-tokens";
 import { buildTools } from "./build-tools";
 import type { BuiltTools } from "./build-tools";
 import { attachDoubleClickToEditListener } from "./double-click-edit";
 import { shouldSuppressGlobalShortcuts } from "./should-suppress-global-shortcuts";
-import { PAN_TOOL_NAME, SELECT_TOOL_NAME, TEXT_TOOL_NAME } from "./tool-names";
+import { PAN_TOOL_NAME, resolveTouchDrawPolicy, SELECT_TOOL_NAME, TEXT_TOOL_NAME } from "./tool-names";
 import type { DevivaRuntime } from "./runtime-types";
 
 export interface BuildRuntimeOptions {
@@ -131,6 +132,10 @@ export function buildRuntime(options: BuildRuntimeOptions): DevivaRuntime {
     historyStack: tools.historyStack,
     actionHandlers: buildPipelineActionHandlers(runtime),
     isEditingTextSuppressed: () => shouldSuppressGlobalShortcuts(tools.editSession.getState().status === "editing", isChromeOverlayOpen()),
+    // Callbacks, not values: the menu writes the module-level store, so a preference change applies
+    // to the very next wheel event / touch gesture without rebuilding the pipeline.
+    getWheelBehavior: getInputDevicePreference,
+    getTouchDrawPolicy: () => resolveTouchDrawPolicy(getInputDevicePreference().penOnlyDraw, tools.toolStateMachine.getActiveToolName()),
   });
   pipeline.attach();
   runtime.pipeline = pipeline;

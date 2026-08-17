@@ -37,6 +37,11 @@ export const MENU_GLYPHS: Record<string, ReactNode> = {
       <path d="M7.5 16.5 H12.5 M10 13.5 V16.5" strokeLinecap="round" />
     </>
   ),
+  // Input-device picker glyphs: a capital A (auto-detect), a trackpad slab with its click zone, a
+  // mouse silhouette with a scroll-wheel notch.
+  "input-auto": <path d="M5.5 16 L10 4.5 L14.5 16 M7 12 H13" strokeLinecap="round" strokeLinejoin="round" />,
+  "input-trackpad": <><rect x="3" y="4.5" width="14" height="11" rx="1.5" /><path d="M3 11.5 H17 M10 11.5 V15.5" /></>,
+  "input-mouse": <><rect x="6" y="3.5" width="8" height="13" rx="4" /><path d="M10 6 V9" strokeLinecap="round" /></>,
   // A clean downward chevron — the custom dropdown indicator for the language <select>.
   "chevron-down": <path d="M5.5 8 L10 12.5 L14.5 8" strokeLinecap="round" strokeLinejoin="round" />,
   "chevron-right": <path d="M8 5.5 L12.5 10 L8 14.5" strokeLinecap="round" strokeLinejoin="round" />,

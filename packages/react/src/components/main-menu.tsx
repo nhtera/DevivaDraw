@@ -17,6 +17,8 @@ import type { Locale } from "../i18n/locale-storage";
 import { useTranslation } from "../i18n/use-translation";
 import { useTheme } from "../theme/theme-provider";
 import type { ThemePreference } from "../theme/theme-tokens";
+import { useInputDevicePreference } from "../browser/input-device-preference";
+import type { InputDevicePreference } from "../browser/input-device-preference";
 import type { DevivaRuntime } from "../runtime/runtime-types";
 
 export interface MainMenuProps {
@@ -59,13 +61,21 @@ const PREFERENCE_TOGGLES: readonly {
   { actionId: "toggle-stats", testId: "main-menu-toggle-stats", icon: "stats", labelKey: "action.toggleStats", isChecked: (runtime) => runtime.ui.getStatsPanelVisible() },
 ];
 
+/** The input-device picker's three wheel-routing modes, mirroring the theme picker's icon-radio shape. */
+const INPUT_DEVICE_OPTIONS: readonly { value: InputDevicePreference["mode"]; icon: string }[] = [
+  { value: "auto", icon: "input-auto" },
+  { value: "trackpad", icon: "input-trackpad" },
+  { value: "mouse", icon: "input-mouse" },
+];
+
 /** Shared style for the small uppercase-ish section headers (Theme / Language). */
 const sectionLabelStyle = { padding: "6px 8px 2px", fontSize: 11, color: "var(--dd-text-secondary)" } as const;
 
-function MenuButton(props: { onClick: () => void; icon: string; children: string; testId: string; checked?: boolean; shortcutHint?: string }) {
+function MenuButton(props: { onClick: () => void; icon: string; children: string; testId: string; checked?: boolean; shortcutHint?: string; disabled?: boolean }) {
   // `checked` distinguishes a toggle row (zen mode, minimap, …) from a plain command row: toggles are
   // `menuitemcheckbox`es and draw a trailing ✓ when on — the row itself stays unhighlighted so the
-  // eye scans one column of marks.
+  // eye scans one column of marks. `disabled` renders the row inert and dimmed (used for a setting
+  // that only applies under another setting's value, e.g. invert-zoom outside mouse mode).
   const isToggle = props.checked !== undefined;
   return (
     <button
@@ -73,7 +83,8 @@ function MenuButton(props: { onClick: () => void; icon: string; children: string
       role={isToggle ? "menuitemcheckbox" : undefined}
       aria-checked={isToggle ? props.checked : undefined}
       data-testid={props.testId}
-      style={{ ...buttonStyle(false), justifyContent: "flex-start", width: "100%" }}
+      disabled={props.disabled}
+      style={{ ...buttonStyle(false), justifyContent: "flex-start", width: "100%", ...(props.disabled ? { opacity: 0.45, cursor: "default" } : undefined) }}
       onClick={props.onClick}
     >
       <Icon name={props.icon} />
@@ -105,10 +116,14 @@ function MenuLink(props: { href: string; icon: string; children: string; testId:
   );
 }
 
+/** Estimated flyout height used to clamp its top so it stays on-screen: 7 toggle rows + the input-device section (label + radio row + invert & pen rows). */
+const FLYOUT_HEIGHT_ESTIMATE = 7 * 34 + 144;
+
 export function MainMenu(props: MainMenuProps) {
   const { runtime, onClose, onOpenShortcuts, onOpenCollab, onOpenExport, onOpenLibrary, onOpenMermaid, onOpenEmbed, shareEnabled } = props;
   const { t, locale, setLocale } = useTranslation();
   const { preference, setPreference } = useTheme();
+  const { preference: inputDevice, setPreference: setInputDevice } = useInputDevicePreference();
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [prefsOpen, setPrefsOpen] = useState(false);
   const prefsRowRef = useRef<HTMLButtonElement | null>(null);
@@ -133,7 +148,7 @@ export function MainMenu(props: MainMenuProps) {
       const row = prefsRowRef.current;
       if (!row) return;
       const rect = row.getBoundingClientRect();
-      const top = Math.max(8, Math.min(rect.top - 4, window.innerHeight - 8 - 7 * 34 - 8));
+      const top = Math.max(8, Math.min(rect.top - 4, window.innerHeight - 8 - FLYOUT_HEIGHT_ESTIMATE - 8));
       setFlyoutPos({ top, left: rect.right + 6 });
     };
     measure();
@@ -172,7 +187,7 @@ export function MainMenu(props: MainMenuProps) {
   };
 
   return (
-    <div ref={menuRef} role="menu" data-testid="main-menu" className="dd-animate-in" style={{ ...panelStyle, position: "absolute", top: 56, left: 12, padding: 4, width: 220, zIndex: Z_LAYER.menu, maxHeight: "calc(100vh - 72px)", overflowY: "auto" }}>
+    <div ref={menuRef} role="menu" data-testid="main-menu" className="dd-animate-in" style={{ ...panelStyle, position: "absolute", top: 56, left: 12, padding: 4, width: 220, zIndex: Z_LAYER.menu, maxHeight: "calc(100dvh - 72px)", overflowY: "auto" }}>
       <MenuButton testId="main-menu-open" icon="folder-open" onClick={() => run("open-scene")}>
         {t("action.openScene")}
       </MenuButton>
@@ -341,6 +356,43 @@ export function MainMenu(props: MainMenuProps) {
                 {t(labelKey)}
               </MenuButton>
             ))}
+            <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
+            <div style={sectionLabelStyle}>{t("menu.inputDevice")}</div>
+            <div style={{ display: "flex", gap: 2, padding: "0 4px 4px" }} role="radiogroup" aria-label={t("menu.inputDevice")}>
+              {INPUT_DEVICE_OPTIONS.map(({ value, icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  data-testid={`main-menu-input-device-${value}`}
+                  title={t(`inputDevice.${value}`)}
+                  aria-label={t(`inputDevice.${value}`)}
+                  aria-checked={inputDevice.mode === value}
+                  aria-pressed={inputDevice.mode === value}
+                  style={{ ...buttonStyle(inputDevice.mode === value), flex: 1, justifyContent: "center", padding: "8px 0" }}
+                  onClick={() => setInputDevice({ mode: value })}
+                >
+                  <Icon name={icon} />
+                </button>
+              ))}
+            </div>
+            <MenuButton
+              testId="main-menu-invert-mouse-zoom"
+              icon="input-mouse"
+              checked={inputDevice.invertMouseZoom}
+              disabled={inputDevice.mode !== "mouse"}
+              onClick={() => setInputDevice({ invertMouseZoom: !inputDevice.invertMouseZoom })}
+            >
+              {t("inputDevice.invertMouseZoom")}
+            </MenuButton>
+            <MenuButton
+              testId="main-menu-pen-only-draw"
+              icon="pencil"
+              checked={inputDevice.penOnlyDraw}
+              onClick={() => setInputDevice({ penOnlyDraw: !inputDevice.penOnlyDraw })}
+            >
+              {t("inputDevice.penOnlyDraw")}
+            </MenuButton>
           </div>,
           popoverPortalHost(prefsRowRef.current),
         )}

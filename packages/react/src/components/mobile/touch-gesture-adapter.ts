@@ -18,7 +18,7 @@
  * (native-pinch-zoom-conflict is a known pitfall class).
  */
 import type { Camera } from "@deviva-draw/engine";
-import { hasLongPressElapsed, hasMovedPastLongPressThreshold, LONG_PRESS_DURATION_MS } from "./long-press-detector";
+import { hasMovedPastLongPressThreshold, LONG_PRESS_DURATION_MS, shouldFireLongPress } from "./long-press-detector";
 import { computeTouchPanZoomCamera, touchCentroid, touchSpread } from "./touch-gesture-math";
 
 interface ScreenPoint {
@@ -32,6 +32,15 @@ export interface TouchGestureAdapterOptions {
   setCamera(camera: Camera): void;
   /** Fired once a single touch holds still for `LONG_PRESS_DURATION_MS` — the caller opens its context menu at `screenPoint`. */
   onLongPress(screenPoint: ScreenPoint): void;
+  /**
+   * Consulted before arming the long-press timer AND again when it fires (a pen may have landed
+   * mid-hold): `true` means this touch must not open the context menu. The engine pipeline supplies
+   * the answer (`shouldSuppressTouchLongPress`) — it knows about resting palms it is swallowing
+   * around a pen stroke and about a finger that is mid-camera-pan under the pen-only-draw policy;
+   * this capture-phase listener is pen-blind by design and cannot tell those cases apart itself.
+   * Optional; omitted behaves as always-`false` (long-press always allowed, the pre-pen behavior).
+   */
+  shouldSuppressLongPress?(pointerId: number): boolean;
 }
 
 export class TouchGestureAdapter {
@@ -106,7 +115,10 @@ export class TouchGestureAdapter {
     const startedAt = Date.now();
     this.longPressTimer = setTimeout(() => {
       const current = this.touches.get(pointerId);
-      if (!current || !hasLongPressElapsed(startedAt, Date.now(), LONG_PRESS_DURATION_MS)) return;
+      // The full fire-time decision (elapsed + still tracked + suppression re-check) is the tested
+      // pure predicate — see its doc for why suppression must be re-read here, not just at arm time.
+      if (!shouldFireLongPress(startedAt, Date.now(), current !== undefined, this.options.shouldSuppressLongPress?.(pointerId) ?? false, LONG_PRESS_DURATION_MS)) return;
+      if (!current) return; // unreachable past the predicate — narrows the type for the calls below
       // Cede the pipeline's single-pointer gesture (e.g. an incidental marquee-select start) before
       // opening the context menu — same synthetic-`pointercancel` handoff the 2-finger path uses.
       this.options.element.dispatchEvent(new PointerEvent("pointercancel", { pointerId, bubbles: true, cancelable: true }));
@@ -120,7 +132,7 @@ export class TouchGestureAdapter {
     this.touches.set(event.pointerId, point);
 
     if (this.touches.size === 1) {
-      this.armLongPressTimer(event.pointerId, point);
+      if (!this.options.shouldSuppressLongPress?.(event.pointerId)) this.armLongPressTimer(event.pointerId, point);
       return;
     }
     // A 2nd+ finger belongs to this adapter alone — stop it here (capture phase) so the
