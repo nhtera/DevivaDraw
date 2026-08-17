@@ -53,7 +53,7 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
         // used to run off the bottom of the screen with its lower controls — align, distribute, lock —
         // unreachable. Cap it and scroll instead. Nothing else is anchored to this edge below it, so the
         // cap is simply everything left under the top bar.
-        maxHeight: `calc(100vh - ${TOP_BAR_BOTTOM + PANEL_INSET * 2}px)`,
+        maxHeight: `calc(100dvh - ${TOP_BAR_BOTTOM + PANEL_INSET * 2}px)`,
         // Without this the cap applies to the *content* box, so the panel still renders `padding * 2 +
         // border` taller than its own max-height and overflows the space reserved above.
         boxSizing: "border-box",

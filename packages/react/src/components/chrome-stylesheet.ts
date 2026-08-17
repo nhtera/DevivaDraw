@@ -19,6 +19,12 @@ const CHROME_CSS = `
    the whole UI highlighted blue until the next click. Inputs opt back in below — they are the only places
    in the chrome where selecting, and copying, real text is the point. */
 ${ROOT} { user-select: none; -webkit-user-select: none; }
+/* Touch hardening: no rubber-band/pull-to-refresh behind the canvas, no grey tap flash on chrome,
+   no double-tap-to-zoom delay on buttons (touch-action: manipulation), and no iOS long-press
+   callout/share-sheet on the canvas host — the app's own long-press opens its context menu there. */
+${ROOT} { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+${ROOT} button, ${ROOT} a.dd-menu-link { touch-action: manipulation; }
+${ROOT} [data-testid="deviva-draw-canvas-host"] { -webkit-touch-callout: none; }
 ${ROOT} input, ${ROOT} textarea, ${ROOT} [contenteditable="true"] { user-select: text; -webkit-user-select: text; }
 ${ROOT} button { background: transparent; }
 ${ROOT} button:hover:not(:disabled) { background: rgba(127, 127, 127, 0.14); }
@@ -65,6 +71,26 @@ ${ROOT}, ${ROOT} * { scrollbar-width: thin; scrollbar-color: rgba(127, 127, 127,
   ${ROOT} .dd-library-tile:focus-within .dd-library-tile__remove { opacity: 1; pointer-events: auto; }
   ${ROOT} .dd-library-tile:hover button[data-testid="library-item"] { border-color: var(--dd-chrome-border); background: rgba(127, 127, 127, 0.10); }
 }
+/* Tablet tier ("touch" density — set by the shell when the viewport is desktop-sized but the primary
+   pointer is coarse, e.g. an iPad in landscape): desktop layout with >=44px effective touch targets,
+   scoped to canvas-adjacent chrome only — toolbar, top bar, zoom/main/context/more-tools menus and
+   the mobile bars. Dialogs and side panels deliberately keep desktop sizing (their buttonStyle() is
+   shared by 26 files; a global bump would silently resize unaudited surfaces). Icon-button surfaces
+   get a real visual bump; full-width menu rows grow height only; the dense properties panel keeps
+   its compact visuals and expands the effective hit area with a pseudo-element instead. */
+${ROOT}[data-dd-density="touch"] [role="toolbar"] button,
+${ROOT}[data-dd-density="touch"] [data-testid="top-bar"] button,
+${ROOT}[data-dd-density="touch"] [data-testid="more-tools-popover"] button,
+${ROOT}[data-dd-density="touch"] [data-testid="zoom-menu-popover"] button { min-width: 44px; min-height: 44px; }
+${ROOT}[data-dd-density="touch"] [data-testid="main-menu"] button,
+${ROOT}[data-dd-density="touch"] [data-testid="main-menu"] a.dd-menu-link,
+${ROOT}[data-dd-density="touch"] [data-testid="main-menu-preferences-flyout"] button,
+${ROOT}[data-dd-density="touch"] [data-testid="context-menu"] button { min-height: 44px; }
+${ROOT}[data-dd-density="touch"] [data-testid^="properties-panel"] button { position: relative; }
+${ROOT}[data-dd-density="touch"] [data-testid^="properties-panel"] button::after { content: ""; position: absolute; inset: -7px; }
+/* The 44px toolbar is taller, so the canvas hint below it needs a lower anchor (var read by canvas-hint.tsx). */
+${ROOT}[data-dd-density="touch"] { --dd-hint-top: 80px; }
+
 /* An edge-anchored sidebar slides in from its own edge. The shared .dd-animate-in pop-in scales the
    whole element, which on a full-height panel reads as the entire sidebar shrinking away from the
    screen edges rather than arriving. */

@@ -47,7 +47,9 @@ export function CanvasHint(props: CanvasHintProps) {
       data-testid="canvas-hint"
       style={{
         position: "absolute",
-        top: 62,
+        // Sits just under the top toolbar. Var-driven so the touch-density stylesheet can push it
+        // down when the tablet tier's 44px targets make that toolbar taller (see chrome-stylesheet.ts).
+        top: "var(--dd-hint-top, 62px)",
         left: "50%",
         transform: "translateX(-50%)",
         maxWidth: "min(90vw, 640px)",

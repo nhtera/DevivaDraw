@@ -58,7 +58,7 @@ export function TopBar(props: TopBarProps) {
   useCameraVersion(cameraStore);
 
   return (
-    <div data-testid="top-bar" style={{ ...panelStyle, display: "flex", alignItems: "center", gap: 2, padding: 4, position: "absolute", top: INSET, left: INSET }}>
+    <div data-testid="top-bar" style={{ ...panelStyle, display: "flex", alignItems: "center", gap: 2, padding: 4, position: "absolute", top: `calc(${INSET}px + env(safe-area-inset-top))`, left: INSET }}>
       <button type="button" data-testid="top-bar-menu" title={t("menu.title")} aria-label={t("menu.title")} style={buttonStyle(false)} onClick={onOpenMainMenu}>
         <Icon name="menu" />
       </button>

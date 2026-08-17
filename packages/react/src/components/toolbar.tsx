@@ -73,7 +73,7 @@ export function Toolbar(props: ToolbarProps) {
       // More popover's z-index *inside* the toolbar — the later-painted `CanvasHint` (also a transformed
       // sibling) would then bleed over the open popover. A z-index here ranks the whole toolbar subtree
       // (popover included) above that hint. See `more-tools-menu.tsx`.
-      style={{ ...panelStyle, display: "flex", alignItems: "center", gap: 2, padding: 5, position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: 20 }}
+      style={{ ...panelStyle, display: "flex", alignItems: "center", gap: 2, padding: 5, position: "absolute", top: "calc(12px + env(safe-area-inset-top))", left: "50%", transform: "translateX(-50%)", zIndex: 20 }}
     >
       <button
         type="button"

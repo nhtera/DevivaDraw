@@ -32,6 +32,51 @@ export function isCompactViewport(
   return isNarrowViewport(viewportWidthPx, breakpointPx) || viewportHeightPx < shortEdgePx;
 }
 
+/**
+ * The chrome's three effective layout tiers. `phone` is the compact bottom-toolbar chrome (narrow OR
+ * short — unchanged). `tablet` is the desktop layout with touch-sized (≥44px effective) targets: wide
+ * enough for desktop chrome but driven by a coarse primary pointer (an iPad in landscape). `desktop`
+ * is the fine-pointer layout, unchanged. An iPad with an attached trackpad reports a fine pointer and
+ * gets desktop density — acceptable, the pointer is precise.
+ */
+export type LayoutTier = "phone" | "tablet" | "desktop";
+
+export function resolveLayoutTier(
+  viewportWidthPx: number,
+  viewportHeightPx: number,
+  isCoarsePointer: boolean,
+  breakpointPx: number = MOBILE_BREAKPOINT_PX,
+  shortEdgePx: number = MOBILE_SHORT_EDGE_PX,
+): LayoutTier {
+  return resolveLayoutTierFromFlags(isCompactViewport(viewportWidthPx, viewportHeightPx, breakpointPx, shortEdgePx), isCoarsePointer);
+}
+
+/** The tier decision itself, on the two already-resolved flags — what `useLayoutTier` runs live (its flags come from matchMedia, not raw dimensions). */
+export function resolveLayoutTierFromFlags(isCompact: boolean, isCoarsePointer: boolean): LayoutTier {
+  if (isCompact) return "phone";
+  return isCoarsePointer ? "tablet" : "desktop";
+}
+
+/** Live layout tier for the shell: compact viewport → phone; else coarse pointer → tablet; else desktop. Recomputes on matchMedia changes (viewport resize, mouse attach/detach). */
+export function useLayoutTier(): LayoutTier {
+  return resolveLayoutTierFromFlags(useIsNarrowViewport(), useIsCoarsePointer());
+}
+
+/** Live `(pointer: coarse)` — flips when e.g. a mouse is attached/detached. Thin matchMedia wiring (untested, like `useIsNarrowViewport`); SSR-safe. */
+export function useIsCoarsePointer(): boolean {
+  const [coarse, setCoarse] = useState(() => (typeof window === "undefined" ? false : !!window.matchMedia?.("(pointer: coarse)").matches));
+
+  useEffect(() => {
+    const query = window.matchMedia("(pointer: coarse)");
+    const update = () => setCoarse(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  return coarse;
+}
+
 export function useIsNarrowViewport(breakpointPx: number = MOBILE_BREAKPOINT_PX, shortEdgePx: number = MOBILE_SHORT_EDGE_PX): boolean {
   const [narrow, setNarrow] = useState(() => (typeof window === "undefined" ? false : isCompactViewport(window.innerWidth, window.innerHeight, breakpointPx, shortEdgePx)));
 

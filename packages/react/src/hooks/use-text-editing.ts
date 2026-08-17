@@ -8,7 +8,8 @@
 import { useEffect, useReducer } from "react";
 import type { CSSProperties, KeyboardEvent } from "react";
 import type { Camera, Scene, TextAlign, TextEditSession, TextElement } from "@deviva-draw/engine";
-import { sceneToScreen, TEXT_FONT_FAMILY_CSS } from "@deviva-draw/engine";
+import { panCameraByScreenDelta, sceneToScreen, TEXT_FONT_FAMILY_CSS } from "@deviva-draw/engine";
+import { computeKeyboardPanDelta } from "../browser/visual-viewport-inset";
 
 export interface UseTextEditingOptions {
   session: TextEditSession;
@@ -24,6 +25,16 @@ export interface UseTextEditingOptions {
    * `<DevivaDraw/>` app shell always supplies it.
    */
   subscribeCamera?: (listener: () => void) => () => void;
+  /**
+   * On-screen-keyboard occlusion in px (`useKeyboardInsetPx()`; 0 on desktop) plus the camera writer
+   * — when the edited element's box would sit under the keyboard, the camera pans up so the caret
+   * stays visible. A camera pan (not a CSS offset) is deliberate: the canvas paints the glyphs from
+   * the same camera this overlay is positioned with, so panning moves glyphs + textarea together and
+   * leaves the rotation transform untouched. All optional; omit any and the adjustment is off.
+   */
+  keyboardInsetPx?: number;
+  setCamera?: (camera: Camera) => void;
+  getViewportHeight?: () => number;
 }
 
 export interface TextEditingOverlay {
@@ -60,7 +71,7 @@ function useForceRender(): () => void {
  * emit anything for a pan-only change) is the third subscription below.
  */
 export function useTextEditing(options: UseTextEditingOptions): TextEditingOverlay | null {
-  const { session, scene, getCamera, subscribeCamera } = options;
+  const { session, scene, getCamera, subscribeCamera, keyboardInsetPx = 0, setCamera, getViewportHeight } = options;
   const forceRender = useForceRender();
 
   useEffect(() => session.subscribe(forceRender), [session, forceRender]);
@@ -68,6 +79,23 @@ export function useTextEditing(options: UseTextEditingOptions): TextEditingOverl
   useEffect(() => subscribeCamera?.(forceRender), [subscribeCamera, forceRender]);
 
   const sessionState = session.getState();
+  const editingElementId = sessionState.status === "editing" ? sessionState.elementId : null;
+
+  // Keyboard avoidance: pans once per (session, keyboard-inset) change — not per camera move, so it
+  // never fights a pan/zoom the user makes mid-edit. Geometry is recomputed inside the effect from
+  // the live camera rather than closed over. See `keyboardInsetPx`'s option doc for why this pans
+  // the camera instead of offsetting the overlay.
+  useEffect(() => {
+    if (!editingElementId || keyboardInsetPx <= 0 || !setCamera || !getViewportHeight) return;
+    const edited = scene.getElement(editingElementId);
+    if (!edited || edited.type !== "text") return;
+    const camera = getCamera();
+    const bottomPx = sceneToScreen({ x: edited.x, y: edited.y + edited.height }, camera).y + MIN_OVERLAY_SIZE_PX;
+    const delta = computeKeyboardPanDelta(bottomPx, getViewportHeight(), keyboardInsetPx);
+    if (delta > 0) setCamera(panCameraByScreenDelta(camera, 0, delta));
+    // Deps are deliberately only (session, inset): scene/getCamera/setCamera/getViewportHeight are stable runtime wiring.
+  }, [editingElementId, keyboardInsetPx]);
+
   if (sessionState.status !== "editing") return null;
   const element = scene.getElement(sessionState.elementId);
   if (!element || element.type !== "text") return null;

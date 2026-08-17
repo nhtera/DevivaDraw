@@ -98,9 +98,11 @@ export function MobilePropertiesBar(props: MobilePropertiesBarProps) {
               left: 0,
               right: 0,
               marginInline: "auto",
-              bottom: 112,
+              // Cleared above the style bar, which itself clears the home indicator; dvh (not vh) so
+              // Safari's collapsing URL bar can't push the sheet's top off screen.
+              bottom: "calc(112px + env(safe-area-inset-bottom))",
               width: "min(360px, calc(100vw - 16px))",
-              maxHeight: "min(60vh, calc(100vh - 180px))",
+              maxHeight: "min(60dvh, calc(100dvh - 180px))",
               overflowY: "auto",
               padding: 12,
               display: "flex",
@@ -123,7 +125,7 @@ export function MobilePropertiesBar(props: MobilePropertiesBarProps) {
         role="toolbar"
         aria-label={t("mobile.styleOptions")}
         data-testid="mobile-properties-bar"
-        style={{ ...panelStyle, display: "flex", alignItems: "center", gap: 8, padding: 6, position: "fixed", bottom: 64, left: "50%", transform: "translateX(-50%)", maxWidth: "calc(100vw - 16px)", zIndex: 26 }}
+        style={{ ...panelStyle, display: "flex", alignItems: "center", gap: 8, padding: 6, position: "fixed", bottom: "calc(64px + env(safe-area-inset-bottom))", left: "50%", transform: "translateX(-50%)", maxWidth: "calc(100vw - 16px)", zIndex: 26 }}
       >
         <SwatchChip color={style.strokeColor} label={t("panel.stroke")} testId="mobile-stroke-swatch" onClick={openSheet} />
         <SwatchChip color={style.backgroundColor} label={t("panel.background")} testId="mobile-background-swatch" onClick={openSheet} />

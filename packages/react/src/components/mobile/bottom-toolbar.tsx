@@ -78,7 +78,8 @@ export function BottomToolbar(props: BottomToolbarProps) {
         gap: 2,
         padding: 4,
         position: "fixed",
-        bottom: 8,
+        // env() is 0 on inset-free devices; on iPhone/iPad it lifts the bar clear of the home indicator.
+        bottom: "calc(8px + env(safe-area-inset-bottom))",
         left: "50%",
         transform: "translateX(-50%)",
         maxWidth: "calc(100vw - 16px)",

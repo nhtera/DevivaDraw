@@ -17,6 +17,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 
 import { createCamera, deserializeMultiPageDocument } from "@deviva-draw/engine";
 import type { RemoteCursorOverlay } from "@deviva-draw/engine";
 import { restoreBrowserAutosaveDocument } from "./browser/scene-file-operations";
+import { useKeyboardInsetPx } from "./browser/visual-viewport-inset";
 import { PageStore } from "./pages/page-store";
 import { useDocumentFileDrop } from "./hooks/use-document-file-drop";
 import { useLibraryDrop } from "./hooks/use-library-drop";
@@ -60,7 +61,7 @@ import { useAdaptNextShapeStyle } from "./runtime/use-adapt-next-shape-style";
 import { CommandPalette } from "./components/command-palette";
 import { BottomToolbar } from "./components/mobile/bottom-toolbar";
 import { MobilePropertiesBar } from "./components/mobile/mobile-properties-bar";
-import { useIsNarrowViewport } from "./components/responsive-layout";
+import { useLayoutTier } from "./components/responsive-layout";
 import { useTheme } from "./theme/theme-provider";
 import { decodeNaturalSize } from "./browser/browser-image-decode";
 import { createCameraStore } from "./runtime/camera-store";
@@ -98,7 +99,10 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   }
   const pageStore = pageStoreRef.current;
   const { mode, cssVariables, toggleMode } = useTheme();
-  const isNarrow = useIsNarrowViewport();
+  const layoutTier = useLayoutTier();
+  const isNarrow = layoutTier === "phone";
+  // On-screen-keyboard occlusion (0 on desktop) — feeds the text/table editors' camera-pan keyboard avoidance.
+  const keyboardInsetPx = useKeyboardInsetPx();
 
   // Inject the chrome's pseudo-class/motion stylesheet once (hover/focus-visible/press states +
   // reduced-motion-aware transitions) — see `chrome-stylesheet.ts`.
@@ -362,12 +366,23 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     <div
       className={className}
       data-testid="deviva-draw-root"
+      // The tablet tier (`useLayoutTier`): desktop layout, touch-sized targets. The injected
+      // chrome stylesheet keys density overrides on this attribute, so no component branches itself.
+      data-dd-density={layoutTier === "tablet" ? "touch" : undefined}
       style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden", ...cssVariables, ...style }}
     >
       <div ref={canvasHostRef} data-testid="deviva-draw-canvas-host" style={{ position: "absolute", inset: 0, background: canvasBackground ?? "var(--dd-canvas-background)" }}>
         {runtime && <EmbedOverlay runtime={runtime} cameraStore={cameraStore} />}
         {runtime && editSession && (
-          <TextEditorOverlay session={editSession} scene={runtime.scene} getCamera={getCamera} subscribeCamera={cameraStore.subscribe} />
+          <TextEditorOverlay
+            session={editSession}
+            scene={runtime.scene}
+            getCamera={getCamera}
+            subscribeCamera={cameraStore.subscribe}
+            keyboardInsetPx={keyboardInsetPx}
+            setCamera={cameraStore.setCamera}
+            getViewportHeight={() => canvasHostRef.current?.clientHeight ?? 0}
+          />
         )}
       </div>
       {runtime && !zenMode.value && !viewOnly.value && (isNarrow ? <BottomToolbar runtime={runtime} onInsertImage={openImagePicker} /> : <Toolbar runtime={runtime} toolLocked={toolLock.value} onToggleLock={() => toolLock.set(!toolLock.value)} onInsertImage={openImagePicker} />)}
@@ -447,7 +462,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {pendingPlacement && <ImagePlacementOverlay placement={pendingPlacement} getCamera={getCamera} />}
       {runtime && <LinkBadgesOverlay scene={runtime.scene} cameraStore={cameraStore} />}
       {runtime && !viewOnly.value && <ImageCropOverlay runtime={runtime} cameraStore={cameraStore} />}
-      {runtime && !viewOnly.value && <TableCellEditorOverlay runtime={runtime} cameraStore={cameraStore} />}
+      {runtime && !viewOnly.value && <TableCellEditorOverlay runtime={runtime} cameraStore={cameraStore} keyboardInsetPx={keyboardInsetPx} />}
       {runtime && contextMenuTriggers.point && !viewOnly.value && (
         <ContextMenu runtime={runtime} screenPoint={contextMenuTriggers.point} variant={contextMenuTriggers.variant} onClose={contextMenuTriggers.close} />
       )}

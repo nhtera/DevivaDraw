@@ -19,11 +19,12 @@
  * Commit/Tab logic is pure and lives in `table-cell-edit-commit.ts` (unit-tested there); this
  * component owns only the session state, positioning, and the history-batch lifecycle.
  */
-import { MAX_TABLE_CELL_CHARS, createCanvasTextMeasurer, sceneToScreen, TABLE_CELL_PADDING, tableCellRect, tableCellText, TEXT_FONT_FAMILY_CSS, DEFAULT_TEXT_LINE_HEIGHT } from "@deviva-draw/engine";
+import { MAX_TABLE_CELL_CHARS, createCanvasTextMeasurer, panCameraByScreenDelta, sceneToScreen, TABLE_CELL_PADDING, tableCellRect, tableCellText, TEXT_FONT_FAMILY_CSS, DEFAULT_TEXT_LINE_HEIGHT } from "@deviva-draw/engine";
 import type { TableElement } from "@deviva-draw/engine";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { buildCellCommit, buildCommitRefit, tabDestination } from "./table-cell-edit-commit";
+import { computeKeyboardPanDelta } from "../browser/visual-viewport-inset";
 import { useCameraVersion, useSceneVersion } from "../runtime/use-live-version";
 import type { CameraStore } from "../runtime/camera-store";
 import type { DevivaRuntime } from "../runtime/runtime-types";
@@ -43,8 +44,8 @@ function sessionTable(runtime: DevivaRuntime, session: CellSession): TableElemen
   return element;
 }
 
-export function TableCellEditorOverlay(props: { runtime: DevivaRuntime; cameraStore: CameraStore }) {
-  const { runtime, cameraStore } = props;
+export function TableCellEditorOverlay(props: { runtime: DevivaRuntime; cameraStore: CameraStore; keyboardInsetPx?: number }) {
+  const { runtime, cameraStore, keyboardInsetPx = 0 } = props;
   const [session, setSession] = useState<CellSession | null>(null);
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -71,6 +72,21 @@ export function TableCellEditorOverlay(props: { runtime: DevivaRuntime; cameraSt
   useEffect(() => {
     if (session) textareaRef.current?.focus();
   }, [session?.elementId, session?.row, session?.col]);
+
+  // Keyboard avoidance, same contract as `use-text-editing.ts`'s: pan the CAMERA (cell + textarea
+  // move together) once per tracked-cell / keyboard change, never per camera move, so it can't fight
+  // a user pan. Geometry read fresh inside the effect.
+  useEffect(() => {
+    if (!session || keyboardInsetPx <= 0) return;
+    const edited = sessionTable(runtime, session);
+    const rect = edited ? tableCellRect(edited, session.row, session.col) : null;
+    if (!edited || !rect) return;
+    const camera = cameraStore.getCamera();
+    const bottomPx = sceneToScreen({ x: edited.x + rect.x, y: edited.y + rect.y + rect.height }, camera).y;
+    const delta = computeKeyboardPanDelta(bottomPx, runtime.getViewportSize().height, keyboardInsetPx);
+    if (delta > 0) cameraStore.setCamera(panCameraByScreenDelta(camera, 0, delta));
+    // Deps are deliberately only (cell, inset): runtime/cameraStore are stable wiring.
+  }, [session?.elementId, session?.row, session?.col, keyboardInsetPx]);
 
   // The element vanished or stopped being editable mid-session (deleted remotely, undo removed it,
   // page switched, restructured under the caret): close, discarding the draft — there is nothing

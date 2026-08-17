@@ -68,7 +68,7 @@ export function PagesPanel(props: PagesPanelProps) {
           // Capped to the viewport (minus the top toolbar band and this panel's own bottom anchor) so a
           // long page list scrolls inside the popover instead of growing up past the window edge; the
           // "+ Add page" row stays pinned below the scroller so it never scrolls out of reach.
-          style={{ ...panelStyle, position: "absolute", bottom: "calc(100% + 6px)", left: 0, minWidth: 180, maxHeight: "calc(100vh - 140px)", padding: 4, display: "flex", flexDirection: "column" }}
+          style={{ ...panelStyle, position: "absolute", bottom: "calc(100% + 6px)", left: 0, minWidth: 180, maxHeight: "calc(100dvh - 140px)", padding: 4, display: "flex", flexDirection: "column" }}
         >
           <div ref={scrollRef} data-testid="pages-scroll" style={{ overflowY: "auto", minHeight: 0, display: "flex", flexDirection: "column" }}>
             {pages.map((page) => (
