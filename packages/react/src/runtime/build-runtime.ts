@@ -154,6 +154,7 @@ export function buildRuntime(options: BuildRuntimeOptions): DevivaRuntime {
     getCamera,
     styleState: tools.styleState,
     selection: tools.selectionState,
+    history: tools.historyStack,
   };
   const detachDoubleClick = attachDoubleClickToEditListener(doubleClickEditOptions);
   runtime.openDoubleClickEdit = (clientX, clientY) => openEditAtClientPoint(doubleClickEditOptions, clientX, clientY);

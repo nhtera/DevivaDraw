@@ -7,9 +7,10 @@
  * tools' own click handling.
  */
 import { screenToScene, startArrowLabelEdit, startBoundTextEdit, startExistingStandaloneTextEdit, startStandaloneTextEdit, topmostElementAt } from "@deviva-draw/engine";
-import type { Camera, Scene, SelectionState, ShapeStyleState, TextEditSession, TextMeasurer, ToolStateMachine } from "@deviva-draw/engine";
+import type { AnyElement, Arrowhead, ArrowElement, Camera, HistoryStack, Scene, SelectionState, ShapeStyleState, TextEditSession, TextMeasurer, ToolStateMachine } from "@deviva-draw/engine";
 import { isCroppableImage } from "../components/image-crop-overlay";
 import { findArrowAt } from "../browser/find-arrow-at-point";
+import { ARROW_ENDPOINT_HIT_PX, findArrowEndpointAt } from "../browser/find-arrow-endpoint-at-point";
 import { findBindableContainerAt } from "../browser/find-bindable-container-at-point";
 import { findStandaloneTextAt } from "../browser/find-standalone-text-at-point";
 import { findTableCellAt } from "../browser/find-table-cell-at-point";
@@ -26,6 +27,25 @@ export interface DoubleClickEditOptions {
   styleState: ShapeStyleState;
   /** Read/written by the group drill-in below — a double-click on a grouped member selects just it. */
   selection: SelectionState;
+  /** Batches the arrowhead toggle below into one undo step. Optional: every other branch here opens an editor that owns its own history, so a host without this simply loses that one gesture. */
+  history?: HistoryStack<AnyElement[]>;
+}
+
+/**
+ * Flips one end of `arrow` between "no head" and a plain arrowhead, as a single undo step.
+ *
+ * Only those two values are cycled even though the style panel offers five: this gesture is the
+ * quick "point it the other way / make it a plain line" affordance, and stepping through bar, dot
+ * and triangle on the way would make the common case take four double-clicks. The panel stays the
+ * way to reach the other three.
+ */
+function toggleArrowheadAt(options: DoubleClickEditOptions, arrow: ArrowElement, end: "start" | "end"): void {
+  const { scene, history } = options;
+  const key = end === "start" ? "startArrowhead" : "endArrowhead";
+  const next: Arrowhead = arrow[key] === "none" ? "arrow" : "none";
+  history?.beginBatch();
+  scene.updateElement(arrow.id, { [key]: next } as Partial<ArrowElement>);
+  history?.endBatch(scene.getElements());
 }
 
 /** Attaches the listener; returns a detach function for the owning effect's cleanup. */
@@ -94,6 +114,14 @@ export function openEditAtClientPoint(options: DoubleClickEditOptions, clientX: 
   }
   const arrowHit = findArrowAt(scene, scenePoint);
   if (arrowHit) {
+    // A double-click on one of the two TIPS toggles that end's arrowhead; anywhere else along the
+    // arrow still opens its label editor. Checked in this order because the tips are a small subset
+    // of the arrow's own hit region — reversing it would make the label unreachable near either end.
+    const end = findArrowEndpointAt(arrowHit, scenePoint, ARROW_ENDPOINT_HIT_PX / camera.zoom);
+    if (end) {
+      toggleArrowheadAt(options, arrowHit, end);
+      return false; // a style change, not a text edit — the touch caller must not raise a keyboard
+    }
     startArrowLabelEdit(scene, editSession, arrowHit.id, textMeasurer);
     return true;
   }

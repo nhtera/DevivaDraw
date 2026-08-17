@@ -61,7 +61,20 @@ export interface UiToggleState {
   setShareDialogState(state: ShareDialogState): void;
 }
 
-/** Async browser-facing persistence/export operations — injected so the pure action definitions never import DOM-only code directly (see `browser/persistence-adapters.ts`). */
+/**
+ * Async browser-facing persistence/export operations — injected so the pure action definitions never
+ * import DOM-only code directly (see `browser/persistence-adapters.ts`).
+ *
+ * Scope of that rule: it exists because these operations are *async, failable, and host-specific* —
+ * a file picker, a download, a network upload — so a host must be able to substitute its own
+ * (the desktop shell does exactly that). It has never covered synchronous, self-guarding preference
+ * storage: `toggle-grid`/`toggle-object-snap` already reach `window.localStorage` inline in
+ * `view-actions.ts`, and the three editor-behavior preferences there import
+ * `browser/editor-preferences.ts` for the same reason. That store is deliberately a module-level
+ * singleton — the engine reads it live through getters threaded into tool deps — so injecting it
+ * per-action would create a second source of truth for a value the engine is already reading
+ * directly. Every one of those paths no-ops without a `window`, so nothing here is DOM-*dependent*.
+ */
 export interface PersistenceOperations {
   newScene(): void;
   openScene(): Promise<void>;

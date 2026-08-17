@@ -5,6 +5,7 @@
  * without importing `selection-tool.ts` itself (which imports them), avoiding a module cycle.
  */
 import type { SceneRect } from "../render/viewport-culling";
+import type { SelectOnMode } from "./marquee-select";
 import type { Scene } from "../scene/scene";
 import type { TextMeasurer } from "../text/text-measurement";
 import type { ShapeToolHistory } from "../tools/drag-shape-tool-base";
@@ -38,4 +39,15 @@ export interface SelectionToolDeps {
    * which is only safe for a host that keeps the whole drawing in view.
    */
   getVisibleSceneRect?(): SceneRect | null;
+  /** How a marquee drag decides what it selects. `"auto"` (the default when omitted) keeps the drag-direction convention — see `marquee-select.ts`'s `SelectOnMode`. */
+  getSelectOnMode?(): SelectOnMode;
+  /**
+   * Whether dragging an arrow endpoint may attach it to a shape. `true` when omitted — binding is
+   * the default behavior, and a host with no preference UI must not silently lose it. Turning it off
+   * never *un*binds anything: existing bindings keep tracking their shapes, since the preference
+   * governs only whether a gesture may create a new one.
+   */
+  getBindingEnabled?(): boolean;
+  /** Whether an endpoint may snap onto a shape's edge midpoints (its connection anchors). `true` when omitted. Independent of `getObjectSnapEnabled` — these are binding anchors, not alignment guides. */
+  getMidpointSnapEnabled?(): boolean;
 }

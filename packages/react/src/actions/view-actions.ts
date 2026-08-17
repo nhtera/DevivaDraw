@@ -4,9 +4,14 @@
  * as everything else — kept intentionally tiny, no dedicated UI beyond a main-menu toggle each).
  */
 import { selectionBoundsOf } from "@deviva-draw/engine";
+import type { SelectOnMode } from "@deviva-draw/engine";
+import { getEditorPreferences, setEditorPreferences } from "../browser/editor-preferences";
 import { writeStoredGrid } from "../preferences/grid-storage";
 import { writeStoredObjectSnap } from "../preferences/object-snap-storage";
 import type { Action, ActionRuntime } from "./action-types";
+
+/** The order the palette entry steps through — same order the menu's segmented control renders. */
+const SELECT_ON_MODES: readonly SelectOnMode[] = ["auto", "wrap", "overlap"];
 
 /** Rotation-aware bounds of the current selection, or `null` when nothing is selected. */
 function selectedBounds(runtime: ActionRuntime) {
@@ -118,6 +123,31 @@ export function buildViewActions(): Action[] {
       labelKey: "action.toggleMinimap",
       icon: "minimap",
       run: (runtime) => runtime.ui.setMinimapVisible(!runtime.ui.getMinimapVisible()),
+    },
+    // The three editor-behavior preferences. None is view-only-allowed: each governs an editing
+    // gesture (marquee, arrow creation, endpoint drag) that view-only forbids outright. They read
+    // and write the `browser/editor-preferences.ts` store rather than `runtime.ui`, because the
+    // engine consumes them through plain getters threaded into tool deps, not through React state.
+    {
+      id: "cycle-select-on-mode",
+      labelKey: "action.cycleSelectOnMode",
+      icon: "select-all",
+      run: () => {
+        const index = SELECT_ON_MODES.indexOf(getEditorPreferences().selectOnMode);
+        setEditorPreferences({ selectOnMode: SELECT_ON_MODES[(index + 1) % SELECT_ON_MODES.length]! });
+      },
+    },
+    {
+      id: "toggle-arrow-binding",
+      labelKey: "action.toggleArrowBinding",
+      icon: "arrow",
+      run: () => setEditorPreferences({ arrowBinding: !getEditorPreferences().arrowBinding }),
+    },
+    {
+      id: "toggle-snap-midpoints",
+      labelKey: "action.toggleSnapMidpoints",
+      icon: "snap",
+      run: () => setEditorPreferences({ snapMidpoints: !getEditorPreferences().snapMidpoints }),
     },
     {
       // Not view-only-allowed: the stats panel's editable fields write straight to the scene.

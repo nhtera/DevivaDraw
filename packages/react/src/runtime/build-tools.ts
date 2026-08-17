@@ -44,6 +44,7 @@ import {
 } from "@deviva-draw/engine";
 import type { AnyElement, Camera, Scene, TextMeasurer } from "@deviva-draw/engine";
 import type { GridState, ObjectSnapState } from "../actions/action-types";
+import { getEditorPreferences } from "../browser/editor-preferences";
 import { readStoredGrid } from "../preferences/grid-storage";
 import { readStoredObjectSnap } from "../preferences/object-snap-storage";
 import { adaptStrokeColorForTheme } from "../theme/canvas-color-inversion";
@@ -177,7 +178,14 @@ export function buildTools(
   const blockArrowUpTool = new BlockArrowTool(shapeToolDeps, "up");
   const blockArrowDownTool = new BlockArrowTool(shapeToolDeps, "down");
   const lineTool = new LineTool({ ...shapeToolDeps, getZoom: () => getCamera().zoom });
-  const arrowTool = new ArrowTool({ ...shapeToolDeps, getZoom: () => getCamera().zoom });
+  // Read through a callback, never captured: the menu writes the preference store directly, so a
+  // change applies to the very next gesture without rebuilding the tool (the wheel-mode precedent).
+  const arrowTool = new ArrowTool({
+    ...shapeToolDeps,
+    getZoom: () => getCamera().zoom,
+    getBindingEnabled: () => getEditorPreferences().arrowBinding,
+    getMidpointSnapEnabled: () => getEditorPreferences().snapMidpoints,
+  });
   const freedrawTool = new FreedrawTool(shapeToolDeps);
   // The highlighter is the freehand tool in "marker" mode — same gesture/style handling, but every
   // stroke it commits is a translucent multiply-blended highlighter (see `FreedrawElement.highlighter`).
@@ -221,6 +229,10 @@ export function buildTools(
     // Snap only to what the user can actually see — an alignment to something off screen has no
     // visible cause. Read live rather than captured: the camera moves mid-drag (scroll, zoom).
     getVisibleSceneRect: () => getVisibleSceneRect(getCamera(), { width: container.clientWidth, height: container.clientHeight }),
+    // Same live-callback contract as the arrow tool's two above.
+    getSelectOnMode: () => getEditorPreferences().selectOnMode,
+    getBindingEnabled: () => getEditorPreferences().arrowBinding,
+    getMidpointSnapEnabled: () => getEditorPreferences().snapMidpoints,
   });
   // The lasso is a free-form selection gesture; it feeds the same selection state as the select tool.
   const lassoTool = new LassoTool({ scene, selection: selectionState });

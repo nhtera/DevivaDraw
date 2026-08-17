@@ -267,3 +267,80 @@ describe("ArrowTool — endpoint binding on create", () => {
     expect(arrow.points.at(-1)?.y).toBeGreaterThan(99); // distance preserved
   });
 });
+
+describe("ArrowTool — binding and midpoint-snap preferences", () => {
+  it("binding disabled: an arrow drawn straight into a shape commits completely unbound", () => {
+    const scene = new Scene();
+    const shape = scene.addElement(createRectangleElement({ x: 200, y: 0, width: 400, height: 400 }));
+    const tool = new ArrowTool({ scene, styleState: new ShapeStyleState(), history: fakeHistory(), getZoom: () => 1, getBindingEnabled: () => false });
+
+    tool.onGestureStart({ x: -300, y: 200 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: 400, y: 200 }, NO_MODIFIERS); // dead centre of the shape
+
+    const arrow = arrowOf(scene);
+    expect(arrow.startBinding ?? null).toBeNull();
+    expect(arrow.endBinding ?? null).toBeNull();
+    // The reciprocal back-ref must not appear either — an unbound arrow leaves no trace on the shape.
+    expect(scene.getElement(shape.id)?.boundElements ?? []).toEqual([]);
+  });
+
+  it("binding disabled: the endpoint stays exactly where it was released (no clip to the outline)", () => {
+    const scene = new Scene();
+    scene.addElement(createRectangleElement({ x: 200, y: 0, width: 200, height: 200 }));
+    const tool = new ArrowTool({ scene, styleState: new ShapeStyleState(), history: fakeHistory(), getZoom: () => 1, getBindingEnabled: () => false });
+
+    tool.onGestureStart({ x: -100, y: 106 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: 197, y: 106 }, NO_MODIFIERS);
+
+    const arrow = arrowOf(scene);
+    const endY = arrow.y + arrow.points.at(-1)!.y;
+    expect(endY).toBeCloseTo(106, 4); // NOT pulled to the anchor row at y=100
+  });
+
+  it("binding enabled by default when the host wires no preference at all", () => {
+    const scene = new Scene();
+    const shape = scene.addElement(createRectangleElement({ x: 200, y: 0, width: 400, height: 400 }));
+    const tool = new ArrowTool({ scene, styleState: new ShapeStyleState(), history: fakeHistory(), getZoom: () => 1 });
+
+    tool.onGestureStart({ x: -300, y: 200 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: 400, y: 200 }, NO_MODIFIERS);
+
+    expect(arrowOf(scene).endBinding?.elementId).toBe(shape.id);
+  });
+
+  it("regression: holding the suppress modifier leaves an end released INSIDE a shape unbound", () => {
+    // `findBindableShapeNear` matches an interior point on a branch that ignores its distance
+    // threshold, so suppressing by passing a zero threshold never actually suppressed this case.
+    // The bind pass is now skipped outright instead.
+    const scene = new Scene();
+    const shape = scene.addElement(createRectangleElement({ x: 200, y: 0, width: 400, height: 400 }));
+    const tool = new ArrowTool({ scene, styleState: new ShapeStyleState(), history: fakeHistory(), getZoom: () => 1 });
+    const suppressed = { ...NO_MODIFIERS, ctrl: true };
+
+    tool.onGestureStart({ x: -300, y: 200 }, suppressed);
+    tool.onGestureEnd({ x: 400, y: 200 }, suppressed); // the shape's dead centre
+
+    const arrow = arrowOf(scene);
+    expect(arrow.endBinding ?? null).toBeNull();
+    expect(scene.getElement(shape.id)?.boundElements ?? []).toEqual([]);
+  });
+
+  it("midpoint snap disabled: the end still BINDS, it just is not pulled onto the edge midpoint", () => {
+    const scene = new Scene();
+    const shape = scene.addElement(createRectangleElement({ x: 200, y: 0, width: 200, height: 200 }));
+    const tool = new ArrowTool({ scene, styleState: new ShapeStyleState(), history: fakeHistory(), getZoom: () => 1, getMidpointSnapEnabled: () => false });
+
+    // Same release point as the "snaps onto the anchor" case above, which lands at y=100 with the
+    // preference on — the two tests together pin the preference's entire observable effect.
+    tool.onGestureStart({ x: -100, y: 106 }, NO_MODIFIERS);
+    tool.onGestureEnd({ x: 197, y: 106 }, NO_MODIFIERS);
+
+    const arrow = arrowOf(scene);
+    expect(arrow.endBinding?.elementId).toBe(shape.id);
+    // Still clipped to the outline (that is what binding does), just not pulled up to the anchor
+    // row at y=100 the way the preference-on case above is.
+    const endY = arrow.y + arrow.points.at(-1)!.y;
+    expect(endY).toBeCloseTo(106, 0);
+    expect(Math.abs(endY - 100)).toBeGreaterThan(4);
+  });
+});

@@ -18,7 +18,7 @@ import { bindArrowEndpoint, unbindArrowEndpoint } from "../bindings/binding-mode
 import { findBindableShapeNear } from "../bindings/binding-scene-sync";
 import { maxBindingDistanceSceneUnits } from "../bindings/binding-thresholds";
 import { resolveBindingHighlight } from "../bindings/binding-highlight";
-import { isBindingSuppressed, previewBoundEndpoint } from "../bindings/preview-bound-endpoint";
+import { isBindingOff, previewBoundEndpoint } from "../bindings/preview-bound-endpoint";
 import { CONNECTION_POINT_SNAP_PX, nearestConnectionAnchor } from "../bindings/shape-connection-points";
 import type { ModifierKeys } from "../input/tool-handler";
 import { pointerRadiusMultiplier } from "../input/pointer-precision";
@@ -166,7 +166,7 @@ export class LinearPointGesture {
     this.highlightId = null;
     this.bindingAnchor = null;
     const end = endOfIndex(this.vertexIndex, points.length);
-    if (!end || isBindingSuppressed(modifiers)) return point;
+    if (!end || isBindingOff(modifiers, this.deps.getBindingEnabled?.())) return point;
 
     const threshold = maxBindingDistanceSceneUnits(this.deps.getZoom(), this.pointerType);
     this.highlightId = resolveBindingHighlight(this.deps.scene.selectableElements(), point, threshold);
@@ -180,6 +180,10 @@ export class LinearPointGesture {
 
   /** The anchor-snap distance in scene units — a screen-space constant (widened for coarse pointers), so a dot is equally easy to hit at any zoom. */
   private connectionSnapRadius(): number {
+    // Zero radius is how "snap to midpoints: off" is expressed — `nearestConnectionAnchor` and
+    // `previewBoundEndpoint` both treat a non-positive radius as "no anchor", so the endpoint still
+    // binds (by focus/gap) but is no longer pulled onto one of the four edge midpoints.
+    if (this.deps.getMidpointSnapEnabled?.() === false) return 0;
     return (CONNECTION_POINT_SNAP_PX * pointerRadiusMultiplier(this.pointerType)) / this.deps.getZoom();
   }
 
@@ -195,7 +199,7 @@ export class LinearPointGesture {
    */
   private commitBinding(arrowId: string, end: "start" | "end", points: readonly Point[], modifiers: ModifierKeys): void {
     const droppedAt = points[this.vertexIndex]!;
-    const threshold = isBindingSuppressed(modifiers) ? 0 : maxBindingDistanceSceneUnits(this.deps.getZoom(), this.pointerType);
+    const threshold = isBindingOff(modifiers, this.deps.getBindingEnabled?.()) ? 0 : maxBindingDistanceSceneUnits(this.deps.getZoom(), this.pointerType);
     const target = threshold > 0 ? findBindableShapeNear(this.deps.scene, droppedAt, threshold) : null;
 
     if (!target) {

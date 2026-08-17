@@ -9,8 +9,7 @@ import type { ModifierKeys } from "../input/tool-handler";
 import type { Point } from "../render/camera";
 import type { SceneRect } from "../render/viewport-culling";
 import { expandToGroupMembers } from "./group-ungroup";
-import { elementsInMarquee, normalizeMarqueeRect } from "./marquee-select";
-import type { MarqueeMode } from "./marquee-select";
+import { elementsInMarquee, normalizeMarqueeRect, resolveMarqueeMode } from "./marquee-select";
 import type { SelectionToolDeps } from "./selection-tool-deps";
 
 export class MarqueeGesture {
@@ -35,10 +34,11 @@ export class MarqueeGesture {
   finish(point: Point, modifiers: ModifierKeys): void {
     if (!this.startPoint) return;
     const rect = normalizeMarqueeRect(this.startPoint, point);
-    // Drag direction picks the mode: right-to-left ("backwards") is the precise "fully enclosed only"
-    // gesture, left-to-right is the forgiving "anything touched" default — the established convention
-    // this genre of app uses.
-    const mode: MarqueeMode = point.x < this.startPoint.x ? "contain" : "intersect";
+    // Drag direction picks the mode by default: right-to-left ("backwards") is the precise "fully
+    // enclosed only" gesture, left-to-right is the forgiving "anything touched" one — the established
+    // convention this genre of app uses. The "select on" preference can override that convention in
+    // either direction; it defaults to `"auto"`, which preserves it exactly.
+    const mode = resolveMarqueeMode(this.deps.getSelectOnMode?.() ?? "auto", point.x < this.startPoint.x);
 
     const expanded = new Set<string>();
     for (const hit of elementsInMarquee(this.deps.scene.selectableElements(), rect, mode)) {

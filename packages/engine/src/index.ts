@@ -279,7 +279,7 @@ export {
 
 export { resolveBindingHighlight, resolveBindingHighlights } from "./bindings/binding-highlight";
 export type { BoundEndpointPreview } from "./bindings/preview-bound-endpoint";
-export { isBindingSuppressed, previewBoundEndpoint } from "./bindings/preview-bound-endpoint";
+export { isBindingOff, isBindingSuppressed, previewBoundEndpoint } from "./bindings/preview-bound-endpoint";
 export { drawBindingHighlights } from "./render/interactive-binding-highlight";
 
 export { BASE_BINDING_DISTANCE, BASE_BINDING_GAP, bindingGapFor, maxBindingDistanceSceneUnits } from "./bindings/binding-thresholds";
@@ -387,8 +387,8 @@ export { SelectionState } from "./selection/selection-state";
 export type { HitTestOptions } from "./selection/hit-test";
 export { hitTestElement, topmostElementAt } from "./selection/hit-test";
 
-export type { MarqueeMode } from "./selection/marquee-select";
-export { elementsInMarquee, normalizeMarqueeRect } from "./selection/marquee-select";
+export type { MarqueeMode, SelectOnMode } from "./selection/marquee-select";
+export { elementsInMarquee, normalizeMarqueeRect, resolveMarqueeMode } from "./selection/marquee-select";
 export { elementsInLasso } from "./selection/lasso-select";
 
 export type { ElementBounds } from "./selection/selection-geometry";

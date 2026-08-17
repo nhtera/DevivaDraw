@@ -281,3 +281,62 @@ describe("LinearPointGesture — midpoint insertion", () => {
     expect(arrow.arrowType).toBe("straight");
   });
 });
+
+describe("LinearPointGesture — binding and midpoint-snap preferences", () => {
+  /** `setup()`'s fixture with the two preference getters overridden. */
+  function setupWith(preferences: { getBindingEnabled?(): boolean; getMidpointSnapEnabled?(): boolean }) {
+    const fixture = setup();
+    const deps = { ...fixture.deps, ...preferences };
+    return { ...fixture, gesture: new LinearPointGesture(deps) };
+  }
+
+  it("binding disabled: an endpoint dragged onto a shape does not bind", () => {
+    const fixture = setupWith({ getBindingEnabled: () => false });
+    dragEndTo(fixture, { x: 395, y: 50 }); // right at shape B's left edge
+
+    const arrow = arrowOf(fixture.scene, fixture.arrow.id);
+    expect(arrow.endBinding).toBeNull();
+    expect(arrow.x + arrow.points.at(-1)!.x).toBeCloseTo(395); // left where dropped, not clipped
+    expectReciprocalBindings(fixture.scene, fixture.arrow.id);
+  });
+
+  it("binding disabled: an endpoint dropped deep INSIDE a shape does not bind either", () => {
+    // The case that made a zero threshold insufficient: `findBindableShapeNear` matches an interior
+    // point on a branch that ignores the threshold entirely.
+    const fixture = setupWith({ getBindingEnabled: () => false });
+    dragEndTo(fixture, { x: 450, y: 50 }); // shape B's dead centre
+
+    expect(arrowOf(fixture.scene, fixture.arrow.id).endBinding).toBeNull();
+    expect(backRefIds(fixture.scene, fixture.shapeB.id)).toEqual([]);
+  });
+
+  it("binding disabled: an end that was already bound is released when dragged", () => {
+    const fixture = setup();
+    dragEndTo(fixture, { x: 395, y: 50 });
+    expect(arrowOf(fixture.scene, fixture.arrow.id).endBinding).not.toBeNull();
+
+    const off = { ...fixture, gesture: new LinearPointGesture({ ...fixture.deps, getBindingEnabled: () => false }) };
+    dragEndTo(off, { x: 395, y: 50 });
+
+    expect(arrowOf(fixture.scene, fixture.arrow.id).endBinding).toBeNull();
+    expectReciprocalBindings(fixture.scene, fixture.arrow.id);
+  });
+
+  it("both getters absent: binding and anchor snapping behave exactly as before the preferences existed", () => {
+    const fixture = setup();
+    dragEndTo(fixture, { x: 397, y: 46 }); // within snap range of shape B's left-edge anchor at (400,50)
+
+    const arrow = arrowOf(fixture.scene, fixture.arrow.id);
+    expect(arrow.endBinding?.elementId).toBe(fixture.shapeB.id);
+    expect(arrow.y + arrow.points.at(-1)!.y).toBeCloseTo(50, 4); // pulled onto the anchor row
+  });
+
+  it("midpoint snap disabled: the end still binds, but is not pulled onto the edge midpoint", () => {
+    const fixture = setupWith({ getMidpointSnapEnabled: () => false });
+    dragEndTo(fixture, { x: 397, y: 46 }); // the same release the case above snaps to y=50
+
+    const arrow = arrowOf(fixture.scene, fixture.arrow.id);
+    expect(arrow.endBinding?.elementId).toBe(fixture.shapeB.id);
+    expect(Math.abs(arrow.y + arrow.points.at(-1)!.y - 50)).toBeGreaterThan(2);
+  });
+});

@@ -16,6 +16,27 @@ import { rotatedCorners } from "./selection-geometry";
 
 export type MarqueeMode = "intersect" | "contain";
 
+/**
+ * What a marquee drag means, as a user preference:
+ *  - `"auto"` (the default) keeps the direction convention above — the drag itself picks the mode.
+ *  - `"wrap"` forces `"contain"` in both directions: only fully-enclosed elements are selected.
+ *  - `"overlap"` forces `"intersect"` in both directions: anything touched is selected.
+ * `"auto"` exists as its own value rather than being spelled as an absent preference so the menu has
+ * three symmetric choices to render, and so the stored preference distinguishes "never chose" from
+ * "chose the directional behavior".
+ */
+export type SelectOnMode = "auto" | "wrap" | "overlap";
+
+/**
+ * The mode a drag resolves to under `preference`. `draggedRightToLeft` is the raw directional signal;
+ * it is ignored entirely by the two forcing modes — which is the point of offering them.
+ */
+export function resolveMarqueeMode(preference: SelectOnMode, draggedRightToLeft: boolean): MarqueeMode {
+  if (preference === "wrap") return "contain";
+  if (preference === "overlap") return "intersect";
+  return draggedRightToLeft ? "contain" : "intersect";
+}
+
 /** Normalizes a possibly-inverted drag rect (e.g. dragged bottom-right to top-left) to non-negative width/height. */
 export function normalizeMarqueeRect(a: { x: number; y: number }, b: { x: number; y: number }): SceneRect {
   return {

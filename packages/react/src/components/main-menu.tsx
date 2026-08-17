@@ -19,6 +19,8 @@ import { useTheme } from "../theme/theme-provider";
 import type { ThemePreference } from "../theme/theme-tokens";
 import { useInputDevicePreference } from "../browser/input-device-preference";
 import type { InputDevicePreference } from "../browser/input-device-preference";
+import { useEditorPreferences } from "../browser/editor-preferences";
+import type { SelectOnMode } from "@deviva-draw/engine";
 import type { DevivaRuntime } from "../runtime/runtime-types";
 
 export interface MainMenuProps {
@@ -70,6 +72,9 @@ const INPUT_DEVICE_OPTIONS: readonly { value: InputDevicePreference["mode"]; ico
   { value: "mouse", icon: "input-mouse" },
 ];
 
+/** What a marquee drag selects. Text-labeled rather than icon-only: "wrap" vs "overlap" has no glyph a user would read correctly without the word. */
+const SELECT_ON_OPTIONS: readonly SelectOnMode[] = ["auto", "wrap", "overlap"];
+
 /** Shared style for the small uppercase-ish section headers (Theme / Language). */
 const sectionLabelStyle = { padding: "6px 8px 2px", fontSize: 11, color: "var(--dd-text-secondary)" } as const;
 
@@ -118,14 +123,15 @@ function MenuLink(props: { href: string; icon: string; children: string; testId:
   );
 }
 
-/** Estimated flyout height used to clamp its top so it stays on-screen: one row per `PREFERENCE_TOGGLES` entry + the input-device section (label + radio row + invert & pen rows). */
-const FLYOUT_HEIGHT_ESTIMATE = PREFERENCE_TOGGLES.length * 34 + 144;
+/** Estimated flyout height used to clamp its top so it stays on-screen: one row per `PREFERENCE_TOGGLES` entry + the input-device section (label + radio row + invert & pen rows) + the select-on section (label + radio row + two toggle rows). */
+const FLYOUT_HEIGHT_ESTIMATE = PREFERENCE_TOGGLES.length * 34 + 144 + 128;
 
 export function MainMenu(props: MainMenuProps) {
   const { runtime, onClose, onOpenShortcuts, onOpenCollab, onOpenExport, onOpenLibrary, onOpenMermaid, onOpenEmbed, shareEnabled } = props;
   const { t, locale, setLocale } = useTranslation();
   const { preference, setPreference } = useTheme();
   const { preference: inputDevice, setPreference: setInputDevice } = useInputDevicePreference();
+  const { preferences: editorPreferences, setPreferences: setEditorPreferences } = useEditorPreferences();
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [prefsOpen, setPrefsOpen] = useState(false);
   const prefsRowRef = useRef<HTMLButtonElement | null>(null);
@@ -394,6 +400,41 @@ export function MainMenu(props: MainMenuProps) {
               onClick={() => setInputDevice({ penOnlyDraw: !inputDevice.penOnlyDraw })}
             >
               {t("inputDevice.penOnlyDraw")}
+            </MenuButton>
+            <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
+            <div style={sectionLabelStyle}>{t("menu.selectOn")}</div>
+            <div style={{ display: "flex", gap: 2, padding: "0 4px 4px" }} role="radiogroup" aria-label={t("menu.selectOn")}>
+              {SELECT_ON_OPTIONS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  data-testid={`main-menu-select-on-${value}`}
+                  title={t(`selectOn.${value}`)}
+                  aria-checked={editorPreferences.selectOnMode === value}
+                  aria-pressed={editorPreferences.selectOnMode === value}
+                  style={{ ...buttonStyle(editorPreferences.selectOnMode === value), flex: 1, justifyContent: "center", padding: "6px 0", fontSize: 11 }}
+                  onClick={() => setEditorPreferences({ selectOnMode: value })}
+                >
+                  {t(`selectOn.${value}`)}
+                </button>
+              ))}
+            </div>
+            <MenuButton
+              testId="main-menu-arrow-binding"
+              icon="arrow"
+              checked={editorPreferences.arrowBinding}
+              onClick={() => setEditorPreferences({ arrowBinding: !editorPreferences.arrowBinding })}
+            >
+              {t("action.toggleArrowBinding")}
+            </MenuButton>
+            <MenuButton
+              testId="main-menu-snap-midpoints"
+              icon="snap"
+              checked={editorPreferences.snapMidpoints}
+              onClick={() => setEditorPreferences({ snapMidpoints: !editorPreferences.snapMidpoints })}
+            >
+              {t("action.toggleSnapMidpoints")}
             </MenuButton>
           </div>,
           popoverPortalHost(prefsRowRef.current),

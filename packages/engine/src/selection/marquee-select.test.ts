@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createArrowElement } from "../elements/arrow-element";
 import { createRectangleElement } from "../elements/shape-elements";
 import { createTextElement } from "../elements/text-element";
-import { elementsInMarquee, normalizeMarqueeRect } from "./marquee-select";
+import { elementsInMarquee, normalizeMarqueeRect, resolveMarqueeMode } from "./marquee-select";
 
 function stored<T extends object>(element: T) {
   return { ...element, version: 1, versionNonce: 1, updated: 1, index: "a" };
@@ -84,5 +84,22 @@ describe("elementsInMarquee", () => {
     // its rotated footprint reaches y ~ 2..42, extending past a marquee that its unrotated bbox would fit inside.
     const rotated = stored(createRectangleElement({ x: 10, y: 20, width: 40, height: 4, angle: Math.PI / 2 }));
     expect(elementsInMarquee([rotated], { x: 0, y: 0, width: 60, height: 25 }, "contain")).toEqual([]);
+  });
+});
+
+describe("resolveMarqueeMode", () => {
+  it('"auto" keeps the drag-direction convention', () => {
+    expect(resolveMarqueeMode("auto", false)).toBe("intersect"); // left-to-right
+    expect(resolveMarqueeMode("auto", true)).toBe("contain"); // right-to-left
+  });
+
+  it('"wrap" forces fully-enclosed selection in BOTH drag directions', () => {
+    expect(resolveMarqueeMode("wrap", false)).toBe("contain");
+    expect(resolveMarqueeMode("wrap", true)).toBe("contain");
+  });
+
+  it('"overlap" forces touched-counts selection in BOTH drag directions', () => {
+    expect(resolveMarqueeMode("overlap", false)).toBe("intersect");
+    expect(resolveMarqueeMode("overlap", true)).toBe("intersect");
   });
 });

@@ -12,7 +12,7 @@
 import { resolveBindingHighlights } from "../bindings/binding-highlight";
 import { findBindableShapeNear } from "../bindings/binding-scene-sync";
 import { maxBindingDistanceSceneUnits } from "../bindings/binding-thresholds";
-import { isBindingSuppressed, previewBoundEndpoint } from "../bindings/preview-bound-endpoint";
+import { isBindingOff, previewBoundEndpoint } from "../bindings/preview-bound-endpoint";
 import { CONNECTION_POINT_SNAP_PX, nearestConnectionAnchor } from "../bindings/shape-connection-points";
 import { createArrowElement } from "../elements/arrow-element";
 import type { ArrowElement, ArrowType } from "../elements/arrow-element";
@@ -35,6 +35,10 @@ export interface ArrowToolDeps {
   getZoom(): number;
   /** Called once an arrow is committed (not on a discarded <2-vertex draft), with its id — see `drag-shape-tool-base.ts`'s `onCreated`. */
   onCreated?: (elementId: string) => void;
+  /** Whether a newly drawn arrow may attach its ends to shapes. `true` when omitted — see `SelectionToolDeps.getBindingEnabled` for why the absent case reads as enabled. */
+  getBindingEnabled?(): boolean;
+  /** Whether an endpoint may snap onto a shape's edge midpoints (its connection anchors). `true` when omitted. */
+  getMidpointSnapEnabled?(): boolean;
 }
 
 const DOUBLE_CLICK_WINDOW_MS = 300;
@@ -75,7 +79,7 @@ export class ArrowTool extends NoOpToolHandler {
 
   /** The anchor `point` would snap to on the nearest bindable shape, or `null` when none is in range — feeds the overlay's "this exact dot" ring. */
   private resolveBindingAnchor(point: Point, modifiers: ModifierKeys): Point | null {
-    if (isBindingSuppressed(modifiers)) return null;
+    if (this.bindingOff(modifiers)) return null;
     const target = findBindableShapeNear(this.deps.scene, point, maxBindingDistanceSceneUnits(this.deps.getZoom(), this.pointerType));
     return target ? (nearestConnectionAnchor(target, point, this.connectionSnapRadius())?.point ?? null) : null;
   }
@@ -101,8 +105,9 @@ export class ArrowTool extends NoOpToolHandler {
   }
 
   private updateHighlight(points: readonly (Point | null)[], modifiers: ModifierKeys): void {
-    // Suppress held means nothing will bind, so nothing should claim it will.
-    if (isBindingSuppressed(modifiers)) {
+    // Nothing will bind means nothing should claim it will — whether that is the modifier escape
+    // hatch or the standing preference.
+    if (this.bindingOff(modifiers)) {
       this.bindingHighlightIds = [];
       return;
     }
@@ -151,7 +156,7 @@ export class ArrowTool extends NoOpToolHandler {
    * preview would show a position the release then corrects.
    */
   private snappedEnds(start: Point, moving: Point, modifiers: ModifierKeys): [Point, Point] {
-    if (isBindingSuppressed(modifiers)) return [start, moving];
+    if (this.bindingOff(modifiers)) return [start, moving];
     const threshold = maxBindingDistanceSceneUnits(this.deps.getZoom(), this.pointerType);
     const snapRadius = this.connectionSnapRadius();
     const startTarget = findBindableShapeNear(this.deps.scene, start, threshold);
@@ -162,8 +167,17 @@ export class ArrowTool extends NoOpToolHandler {
     return [snappedStart, snappedEnd];
   }
 
+  /** Whether this gesture may bind at all — the modifier escape hatch or the standing preference. */
+  private bindingOff(modifiers: ModifierKeys): boolean {
+    return isBindingOff(modifiers, this.deps.getBindingEnabled?.());
+  }
+
   /** The anchor-snap distance in scene units — a screen-space constant (widened for coarse pointers), so a dot is equally easy to hit at any zoom. */
   private connectionSnapRadius(): number {
+    // Zero radius is how "snap to midpoints: off" is expressed — `nearestConnectionAnchor` and
+    // `previewBoundEndpoint` both treat a non-positive radius as "no anchor", so the endpoint still
+    // binds (by focus/gap) but is no longer pulled onto one of the four edge midpoints.
+    if (this.deps.getMidpointSnapEnabled?.() === false) return 0;
     return (CONNECTION_POINT_SNAP_PX * pointerRadiusMultiplier(this.pointerType)) / this.deps.getZoom();
   }
 
@@ -237,14 +251,19 @@ export class ArrowTool extends NoOpToolHandler {
     const arrowType: ArrowType = this.vertices.length === 2 ? "straight" : "curved";
     this.deps.scene.updateElement(elementId, { arrowType } as Partial<ArrowElement>);
 
-    const threshold = isBindingSuppressed(modifiers) ? 0 : maxBindingDistanceSceneUnits(this.deps.getZoom(), this.pointerType);
+    // "Do not bind" has to mean "do not run the bind pass at all", not "run it with a zero
+    // threshold": `findBindableShapeNear` also matches a point that is simply INSIDE a shape's
+    // outline, and that branch ignores the threshold entirely — so an endpoint released in the
+    // middle of a shape would otherwise still attach. `syncElement` above already wrote exactly the
+    // geometry the bind pass writes for an arrow that binds nothing, so skipping it costs nothing.
+    const threshold = maxBindingDistanceSceneUnits(this.deps.getZoom(), this.pointerType);
     // Binding is a *bonus* on top of a committed arrow, never a precondition for one. A geometry gap
     // (a bindable-list / border-formula mismatch) used to throw from here, skipping `endBatch`,
     // `reset` and `onCreated` — leaving the tool wedged mid-gesture with an open history batch, so
     // the next undo behaved unpredictably. Logged rather than swallowed: any such gap must stay
     // visible in the console, it just must not cost the user their arrow.
     try {
-      applyEndpointBindingsOnFinish(this.deps.scene, elementId, this.vertices, threshold, this.connectionSnapRadius());
+      if (!this.bindingOff(modifiers)) applyEndpointBindingsOnFinish(this.deps.scene, elementId, this.vertices, threshold, this.connectionSnapRadius());
     } catch (error) {
       console.error(`arrow-tool: endpoint binding failed for "${elementId}" (arrow committed unbound):`, error);
     }

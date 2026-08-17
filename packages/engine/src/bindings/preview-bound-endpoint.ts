@@ -30,6 +30,19 @@ export function isBindingSuppressed(modifiers: ModifierKeys): boolean {
   return modifiers.ctrl || modifiers.meta;
 }
 
+/**
+ * The full "may this gesture bind?" question: the per-gesture modifier escape hatch above, OR the
+ * standing user preference being switched off. `bindingEnabled` is `undefined` for a host that
+ * exposes no such preference, which reads as enabled — binding is the default behavior and must not
+ * disappear just because a host never wired the option up.
+ *
+ * One helper rather than the same `||` at each of the four call sites (arrow creation ×2, endpoint
+ * drag ×2), so a future third way to suppress binding has exactly one place to be added.
+ */
+export function isBindingOff(modifiers: ModifierKeys, bindingEnabled: boolean | undefined): boolean {
+  return bindingEnabled === false || isBindingSuppressed(modifiers);
+}
+
 export interface BoundEndpointPreview {
   /** Where the endpoint lands once clipped to `target`'s outline and pushed clear of its stroke. */
   point: Point;
