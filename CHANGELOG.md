@@ -4,6 +4,76 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.10.0] — 2026-08-18
+
+### Added
+
+- **Image bytes live in IndexedDB instead of the autosave string.** An origin gets a few megabytes
+  of localStorage for everything it stores, and a base64 data URL inflates what it wraps by about a
+  third — so a single photograph could exhaust the budget and stop autosave dead, while thousands
+  of vector shapes never came close. The document still goes to localStorage; the payloads go to a
+  database keyed by the same content-addressed `fileId` the elements already reference, so nothing
+  about the element model changes. A file's bytes leave the document only once the database has
+  acknowledged them, so a crash between the two writes cannot lose an image — nothing is ever in
+  neither place. No migration: an old autosave restores its inline files as always and the next
+  write moves them across, and a runtime with no working IndexedDB (private mode, a locked-down
+  embedding) keeps the bytes inline exactly as before.
+- **Presentation mode** — frames become slides and the camera walks them: fullscreen (with a
+  chrome-hidden fallback when the browser declines), keyboard navigation (arrows / PageUp /
+  PageDown / Space, Escape to exit), an auto-fading HUD, the laser tool on entry, and a per-frame
+  PNG export scope. Slide order is a numeric prefix in the frame name, else scene order — no schema
+  change, renaming a frame is the whole interaction. Presenting is genuinely read-only, not just
+  chrome-hidden.
+- **A warning when browser storage is full.** A rejected autosave write was the editor's one
+  invisible failure: the board kept taking edits, the canvas looked healthy, and the work was gone
+  at the next reload. The banner names the problem and offers the one action that keeps the work
+  regardless, and clears itself the moment a write lands. Shown in zen mode — hiding a data-loss
+  warning to keep the canvas tidy is the wrong trade.
+- **Zen mode keeps its exits** (toolbar, top bar, and a pill), a **constant-width pen**, a **QR
+  code for the share link**, and **selection, arrow-binding and midpoint-snap preferences**.
+
+### Changed
+
+- **Dragging huge selections is 3× faster.** `Scene.updateElement` notified subscribers once per
+  element, so dragging a 10,000-element selection emitted 10,000 notifications per pointer move —
+  identical work whether it happens once or ten thousand times a frame. Gestures now batch the
+  outward notification (update hooks still run inline, so a bound arrow reroutes as part of the
+  same mutation). Drag-all p95: 25.3 → 10.1 ms at 5k elements, 58.7 → 17.5 ms at 10k.
+- **The export dialog looks like a dialog** — segmented scale control, outlined format actions,
+  full-row hit targets, and native checkboxes that follow the theme.
+
+### Fixed
+
+- **Exported images no longer come out with a grey box where a picture belongs.** Two independent
+  causes, both found by exporting one in a real browser: the dialog rendered the scene without
+  waiting for image data to be read back after boot, and — older, unrelated to where bytes live —
+  an export built a fresh decode cache and encoded the result immediately, so the loading
+  placeholder was what got saved. The live canvas gets away with that because it repaints when the
+  decode lands; a file has no second frame. Affected PNG, PDF and copy-to-clipboard; SVG never was.
+- **Library images survive the board they were saved from.** A library item stores which image it
+  uses, never the image itself, making the library the one owner of file data outside the document
+  — and neither half of the file lifecycle knew about it. Clearing the board and reloading
+  reclaimed the bytes, and the item then placed a broken box while its saved thumbnail went on
+  looking perfect.
+- **The crash-recovery backup keeps its images too.** The `:recovery` slot names its images without
+  carrying them, and nothing reads it programmatically, so collection reclaimed exactly the files
+  the backup still needed — a rescue designed to lose nothing, quietly losing the pictures.
+- **Re-adding a previously collected image stores its bytes again.** Collection deletes rows while
+  the autosave seeds its memory of "already stored" from the same listing; seeded first, that
+  memory named ids the database no longer held, and because ids are content hashes the identical
+  image was skipped as already-stored *and* left out of the document.
+- **Desktop: unsaved-work recovery files keep their images.** The desktop preserved scratch work by
+  copying the raw autosave slot, which is now a reference to data held elsewhere — so the copy lost
+  the images, in the one file whose entire job is rescuing unsaved work. It now writes the same
+  self-contained snapshot Save does, and a current one rather than up to a debounce stale.
+- **The preferences flyout** keeps one-line rows and stays on-screen in a narrow window.
+
+### Package versions
+
+`engine` 0.9.0, `react` 0.10.0, `collab-client` 0.7.0 — all additive at the export level, though
+`PersistenceOperations` gained two required members (`whenFilesReady`, `restoreMissingFiles`), which
+affects anyone implementing that interface rather than calling it. `mcp` stays 0.7.1, unchanged.
+
 ## [0.9.1] — 2026-08-17
 
 ### Fixed

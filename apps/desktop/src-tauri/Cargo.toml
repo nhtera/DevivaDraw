@@ -1,6 +1,6 @@
 [package]
 name = "deviva-draw-desktop"
-version = "0.9.1"
+version = "0.10.0"
 description = "Deviva Draw desktop shell (Tauri v2)"
 edition = "2021"
 publish = false
