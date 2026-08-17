@@ -20,11 +20,26 @@ import {
   restoreAutosave,
   restoreAutosaveDocument,
   Scene,
+  serializeScene,
   startAutosave,
   writeAutosaveDocument,
 } from "@deviva-draw/engine";
 import { DOCUMENT_CEILINGS } from "@deviva-draw/engine";
-import type { AnyElement, AutosaveController, AutosaveWriteCallbacks, Camera, ElementColorAdapter, ExcalidrawSceneImport, ExportScale, MultiPageDocumentV1, SceneDocument, ScenePage } from "@deviva-draw/engine";
+import type {
+  AnyElement,
+  AutosaveController,
+  AutosaveWriteCallbacks,
+  Camera,
+  ElementColorAdapter,
+  ExcalidrawSceneImport,
+  ExportScale,
+  FileStoreLike,
+  MultiPageDocumentV1,
+  SceneDocument,
+  ScenePage,
+} from "@deviva-draw/engine";
+import { createAutosaveFileOffload } from "./autosave-file-offload";
+import type { AutosaveFileOffload } from "./autosave-file-offload";
 import type { AutosaveStatusStore } from "../runtime/autosave-status-store";
 import { adaptBackgroundColorForTheme, adaptStrokeColorForTheme } from "../theme/canvas-color-inversion";
 import type { FileOperationsProvider } from "./file-operations-provider";
@@ -56,10 +71,15 @@ function isOverDocumentSizeCeiling(text: string, source: string): boolean {
  * A console warning alone was the whole handling once, which made a full localStorage a silent way to
  * lose a session's work; the store is what turns it into something the user is actually told about.
  */
-function autosaveWriteCallbacks(status?: AutosaveStatusStore): AutosaveWriteCallbacks {
+function autosaveWriteCallbacks(status?: AutosaveStatusStore, offload?: AutosaveFileOffload | null): AutosaveWriteCallbacks {
   return {
     onQuotaExceeded: (error) => {
       console.warn("deviva-draw: autosave skipped a write — localStorage quota exceeded", error);
+      // A rejection while image data is still moving to its own store is expected and temporary: the
+      // bytes are in this write precisely because they aren't safely elsewhere yet (see
+      // `autosave-file-offload.ts`). Warning here would put "storage is full" on screen at the exact
+      // moment the app is busy making that untrue. The rewrite that follows is the one that counts.
+      if (offload?.settling()) return;
       status?.markQuotaExceeded();
     },
     onError: (error) => console.error("deviva-draw: autosave write failed", error),
@@ -67,9 +87,21 @@ function autosaveWriteCallbacks(status?: AutosaveStatusStore): AutosaveWriteCall
   };
 }
 
-/** Starts localStorage autosave for `scene` — call once per mounted `Scene` instance; `dispose()` on unmount/scene-swap. `storageKey` scopes the save slot (e.g. one per embedded instance); omit to use the package-wide default. `status` receives each write's outcome (see `autosave-status-store.ts`). */
-export function startBrowserAutosave(scene: Scene, storageKey?: string, status?: AutosaveStatusStore): AutosaveController {
-  return startAutosave({ scene, storage: window.localStorage, storageKey, ...autosaveWriteCallbacks(status) });
+/** Starts localStorage autosave for `scene` — call once per mounted `Scene` instance; `dispose()` on unmount/scene-swap. `storageKey` scopes the save slot (e.g. one per embedded instance); omit to use the package-wide default. `status` receives each write's outcome (see `autosave-status-store.ts`); `files`, when given, takes the image payloads out of the localStorage document (see `autosave-file-offload.ts`). */
+export function startBrowserAutosave(scene: Scene, storageKey?: string, status?: AutosaveStatusStore, files?: Promise<FileStoreLike | null>): AutosaveController {
+  let controller: AutosaveController | null = null;
+  const offload = files ? createAutosaveFileOffload({ store: files, getScenes: () => [scene], status, onSettled: () => controller?.flush() }) : null;
+  controller = startAutosave({
+    scene,
+    storage: window.localStorage,
+    storageKey,
+    serialize: () => {
+      offload?.sync();
+      return serializeScene(scene, { includeDeleted: true, excludeFileIds: offload?.persistedIds });
+    },
+    ...autosaveWriteCallbacks(status, offload),
+  });
+  return controller;
 }
 
 /**
@@ -249,7 +281,11 @@ const DOCUMENT_AUTOSAVE_DEBOUNCE_MS = 1000;
  * active scene; `dispose()` on unmount/page-switch and re-start against the new active scene.
  */
 export function startBrowserDocumentAutosave(
-  document: { toDocument(includeDeleted: boolean, activeCamera?: Camera): MultiPageDocumentV1; subscribe(listener: () => void): () => void },
+  document: {
+    toDocument(includeDeleted: boolean, activeCamera?: Camera, excludeFileIds?: ReadonlySet<string>): MultiPageDocumentV1;
+    getScenes(): Scene[];
+    subscribe(listener: () => void): () => void;
+  },
   activeScene: Scene,
   storageKey?: string,
   // The live viewport rides every autosave so a reload reopens where the user was looking — which
@@ -264,14 +300,30 @@ export function startBrowserDocumentAutosave(
   // Receives every write's outcome so the chrome can warn when saving has stopped working — see
   // `autosaveWriteCallbacks` and `autosave-status-store.ts`.
   status?: AutosaveStatusStore,
+  // When given, image payloads are written here instead of into the localStorage document — the
+  // whole point of `autosave-file-offload.ts`. Omit (or pass nothing, as a host with no working
+  // database does) and the bytes stay embedded exactly as they always were.
+  files?: Promise<FileStoreLike | null>,
 ): AutosaveController {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const clearPending = () => {
     if (timer !== null) clearTimeout(timer);
     timer = null;
   };
-  const write = () =>
-    writeAutosaveDocument(window.localStorage, { ...(getDocumentMeta?.() ?? {}), ...document.toDocument(true, camera?.getCamera()) }, { storageKey, ...autosaveWriteCallbacks(status) });
+  // Rewrites the document whenever image data finishes moving out of it — otherwise a session that
+  // pasted a photo and stopped drawing would keep the localStorage copy until some later edit.
+  const offload = files ? createAutosaveFileOffload({ store: files, getScenes: () => document.getScenes(), status, onSettled: () => write() }) : null;
+  const write = () => {
+    // Before serializing, not after: this tick's document may then leave out whatever an earlier
+    // tick's write has since confirmed. Files first also means the acknowledgement can only ever run
+    // ahead of the document that depends on it, never behind.
+    offload?.sync();
+    writeAutosaveDocument(
+      window.localStorage,
+      { ...(getDocumentMeta?.() ?? {}), ...document.toDocument(true, camera?.getCamera(), offload?.persistedIds) },
+      { storageKey, ...autosaveWriteCallbacks(status, offload) },
+    );
+  };
   const schedule = () => {
     clearPending();
     timer = setTimeout(() => {

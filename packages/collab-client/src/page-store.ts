@@ -70,6 +70,11 @@ export class PageStore {
     return this.pages.map((page) => ({ id: page.id, name: page.name }));
   }
 
+  /** Every page's scene, active or not — for whole-document work that isn't serialization (persisting image payloads, counting content). */
+  getScenes(): Scene[] {
+    return this.pages.map((page) => page.scene);
+  }
+
   getActivePageId(): string {
     return this.activeId;
   }
@@ -144,12 +149,15 @@ export class PageStore {
    * exports/files. `activeCamera` is the live viewport of the page currently on screen: the store
    * only holds cameras *parked* on leaving a page, so without it the active page would serialize
    * with a stale (or missing) viewport. Parked here first so the write sees a consistent set.
+   *
+   * `excludeFileIds` is for the autosave path only — see `SerializeSceneOptions.excludeFileIds`;
+   * anything that produces a file a user can open must leave it unset.
    */
-  toDocument(includeDeleted: boolean, activeCamera?: Camera): MultiPageDocumentV1 {
+  toDocument(includeDeleted: boolean, activeCamera?: Camera, excludeFileIds?: ReadonlySet<string>): MultiPageDocumentV1 {
     if (activeCamera) this.saveCameraFor(this.activeId, activeCamera);
     return serializeMultiPageDocument(
       this.pages.map((page) => ({ id: page.id, name: page.name, scene: page.scene, camera: page.camera })),
-      { activePageId: this.activeId, includeDeleted },
+      { activePageId: this.activeId, includeDeleted, excludeFileIds },
     );
   }
 

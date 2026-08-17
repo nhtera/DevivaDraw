@@ -81,12 +81,34 @@ test("an image comes across with its bytes, not as a broken reference", async ({
 
   const scene = await storedScene(page);
   const image = scene.elements.find((element) => element.type === "image")!;
-  const files = (scene.files ?? {}) as Record<string, { dataURL?: string }>;
 
-  // The element's `fileId` resolves to a stored entry holding the actual bytes — an `ImageElement`
-  // whose file never made it across renders as a permanently empty box.
-  expect(Object.keys(files)).toContain(image.fileId as string);
-  expect(files[image.fileId as string]!.dataURL).toBe(PNG);
+  // The element's `fileId` has to resolve to real bytes — an `ImageElement` whose file never made it
+  // across renders as a permanently empty box. The bytes live in the image database rather than in
+  // the autosave document (see `image-files-indexeddb.spec.ts`), so that is where they are checked.
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (fileId) =>
+          new Promise<string | null>((resolve) => {
+            const request = indexedDB.open("devivadraw-files", 1);
+            request.onupgradeneeded = () => {
+              if (!request.result.objectStoreNames.contains("files")) request.result.createObjectStore("files");
+            };
+            request.onsuccess = () => {
+              const database = request.result;
+              const read = database.transaction("files", "readonly").objectStore("files").get(fileId);
+              read.onsuccess = () => {
+                resolve((read.result as { dataURL?: string } | undefined)?.dataURL ?? null);
+                database.close();
+              };
+              read.onerror = () => resolve(null);
+            };
+            request.onerror = () => resolve(null);
+          }),
+        image.fileId as string,
+      ),
+    )
+    .toBe(PNG);
 });
 
 test("a .devivadraw file still opens — the Excalidraw branch did not take over the format check", async ({ page }) => {

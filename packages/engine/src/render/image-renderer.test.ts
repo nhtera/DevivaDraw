@@ -146,6 +146,31 @@ describe("drawElementImage — placeholders", () => {
     expect(ctx.strokeRect).toHaveBeenCalledTimes(1);
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
+
+  // "Not here yet" is not "not coming": a host that keeps its file payloads outside the document
+  // reads them back after the scene is already on screen, and painting a red broken-image box for
+  // those frames announces a failure that isn't happening.
+  it("draws the loading placeholder, not the error one, for a file the host says is on its way", () => {
+    const ctx = fakeCtx();
+    const cache = new ImageDecodeCache<HTMLImageElement>(() => Promise.resolve(FAKE_IMAGE));
+    const element = createImageElement({ x: 0, y: 0, width: 10, height: 10, fileId: "arriving", naturalWidth: 10, naturalHeight: 10 });
+
+    drawElementImage(ctx, element, createCamera(), { getFile: () => undefined, isFilePending: (fileId) => fileId === "arriving" }, cache);
+
+    expect(ctx.fillRect).toHaveBeenCalledTimes(1);
+    expect(ctx.strokeRect).not.toHaveBeenCalled();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it("goes back to the error placeholder for a file the host is not fetching", () => {
+    const ctx = fakeCtx();
+    const cache = new ImageDecodeCache<HTMLImageElement>(() => Promise.resolve(FAKE_IMAGE));
+    const element = createImageElement({ x: 0, y: 0, width: 10, height: 10, fileId: "gone", naturalWidth: 10, naturalHeight: 10 });
+
+    drawElementImage(ctx, element, createCamera(), { getFile: () => undefined, isFilePending: () => false }, cache);
+
+    expect(ctx.strokeRect).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("drawElementImage — shared file across elements", () => {

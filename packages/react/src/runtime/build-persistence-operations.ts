@@ -52,17 +52,29 @@ export interface BuildPersistenceOperationsDeps {
   getFilePath?(): string | null;
   /** Fired when a provider-based open/save establishes (or re-establishes) the document's file identity. */
   onFileIdentity?(identity: { path: string | null; name: string }): void;
+  /**
+   * Resolves once image payloads held outside the document (see `restore-document-files.ts`) have
+   * been read back into the scene. Every operation below that turns the scene into bytes waits on it:
+   * a document restored from storage carries `fileId` references before it carries the images
+   * themselves, and a save or export that ran in that window would quietly produce a file with blank
+   * images in it. Absent ⇒ nothing to wait for (a host managing its own data, or no file store).
+   */
+  whenFilesReady?(): Promise<void>;
 }
 
 export function buildPersistenceOperations(deps: BuildPersistenceOperationsDeps): PersistenceOperations {
-  const { getScene, history, selection, onSceneReplaced, pages, onError, shareApiBaseUrl, fileOperations, getFilePath, onFileIdentity } = deps;
+  const { getScene, history, selection, onSceneReplaced, pages, onError, shareApiBaseUrl, fileOperations, getFilePath, onFileIdentity, whenFilesReady } = deps;
   const reportError = onError ?? ((error: unknown) => console.error("deviva-draw: persistence operation failed", error));
+
+  /** The "don't serialize a half-loaded document" gate — see `whenFilesReady`. Resolved already in the overwhelming majority of calls; it costs a microtask. */
+  const ready = (): Promise<void> => whenFilesReady?.() ?? Promise.resolve();
 
   /** Strips the directory part of a real path for display — a provider path is host-native (`/` or `\`). */
   const fileNameOf = (path: string) => path.split(/[/\\]/).pop() ?? path;
 
   /** The provider save flow with its outcome surfaced — `saveScene` wraps it fire-and-forget; the desktop shell calls it directly (error dialog, Save-As fallback, quit guard). */
   const saveSceneOutcome = async (options?: { saveAs?: boolean }): Promise<SaveDocumentOutcome> => {
+    await ready();
     if (!fileOperations) {
       // Browser hosts have no path identity to surface, but failures still must not escape as
       // unhandled rejections — the File System Access picker throws on cancel and write errors.
@@ -119,16 +131,30 @@ export function buildPersistenceOperations(deps: BuildPersistenceOperationsDeps)
       const outcome = await saveSceneOutcome();
       if (typeof outcome === "object") reportError(new Error(outcome.error));
     },
-    exportPng: () => exportSceneToPngFile(getScene(), EXPORT_PNG_DEFAULT_SCALE).catch(reportError),
-    exportSvg: () => exportSceneToSvgFile(getScene()).catch(reportError),
-    copyAsImage: () => copySceneImageToClipboard(getScene()).catch(reportError),
-    copyAsSvg: () => copySceneSvgToClipboard(getScene()).catch(reportError),
+    exportPng: () =>
+      ready()
+        .then(() => exportSceneToPngFile(getScene(), EXPORT_PNG_DEFAULT_SCALE))
+        .catch(reportError),
+    exportSvg: () =>
+      ready()
+        .then(() => exportSceneToSvgFile(getScene()))
+        .catch(reportError),
+    copyAsImage: () =>
+      ready()
+        .then(() => copySceneImageToClipboard(getScene()))
+        .catch(reportError),
+    copyAsSvg: () =>
+      ready()
+        .then(() => copySceneSvgToClipboard(getScene()))
+        .catch(reportError),
     // Deliberately not `.catch(reportError)`-wrapped like every operation above — see
     // `PersistenceOperations.shareScene`'s doc: the caller (`actions/share-actions.ts`) needs the
     // thrown error to populate `ShareDialogState`'s "error" branch, not just a console log.
     shareScene: (options) => {
       if (!shareApiBaseUrl) return Promise.reject(new Error("deviva-draw: share link service is not configured (missing shareApiBaseUrl)"));
-      return createShareLink({ apiBaseUrl: shareApiBaseUrl, origin: window.location.origin, document: pages ? pages.getDocument() : getScene().toJSON(), expiresAt: options?.expiresAt });
+      return ready().then(() =>
+        createShareLink({ apiBaseUrl: shareApiBaseUrl, origin: window.location.origin, document: pages ? pages.getDocument() : getScene().toJSON(), expiresAt: options?.expiresAt }),
+      );
     },
   };
 }

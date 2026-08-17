@@ -27,8 +27,11 @@ import {
   loadTextFonts,
   Scene,
 } from "@deviva-draw/engine";
-import type { AnyElement, MultiPageDocumentV1, RemoteCursorOverlay, SceneDocument, TextEditSession } from "@deviva-draw/engine";
+import type { AnyElement, FileStoreLike, MultiPageDocumentV1, RemoteCursorOverlay, SceneDocument, TextEditSession } from "@deviva-draw/engine";
 import type { FileOperationsProvider } from "../browser/file-operations-provider";
+import { referencedFileIds } from "@deviva-draw/engine";
+import { openIndexedDbFileStore } from "../browser/indexeddb-file-store";
+import { expectStoredFiles, restoreDocumentFiles } from "./restore-document-files";
 import { documentFromFileText } from "../browser/scene-file-operations";
 import { buildPersistenceOperations } from "./build-persistence-operations";
 import { DocumentStateTracker } from "./document-state-tracker";
@@ -124,6 +127,17 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
   const autosaveStatusRef = useRef<AutosaveStatusStore | null>(null);
   if (autosaveStatusRef.current === null) autosaveStatusRef.current = createAutosaveStatusStore();
   const autosaveStatus = autosaveStatusRef.current;
+  // Image payloads are persisted here instead of inside the autosave document — see
+  // `browser/indexeddb-file-store.ts` for why (a small synchronous store is the wrong home for
+  // megabytes of pixels). Opened once per mount, and never at all for a host that manages its own
+  // data: `initialData` means this component is not the thing responsible for persistence.
+  const fileStoreRef = useRef<Promise<FileStoreLike | null> | null>(null);
+  if (fileStoreRef.current === null && !initialData) fileStoreRef.current = openIndexedDbFileStore();
+  const fileStore = fileStoreRef.current;
+  // Resolves once those payloads are back in their scenes. Held across rebuilds because it gates
+  // saving and exporting, which must not depend on which page happens to be open.
+  const filesRestoredRef = useRef<Promise<void> | null>(null);
+  const stageRef = useRef<CanvasStage | null>(null);
   if (sceneRef.current === null) sceneRef.current = pageStore ? pageStore.getActiveScene() : buildInitialScene(initialData, persistenceKey);
 
   const [runtime, setRuntime] = useState<DevivaRuntime | null>(null);
@@ -175,6 +189,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
 
     const stage = new CanvasStage();
     stage.mount(container);
+    stageRef.current = stage;
     const unsubscribeInvalidate = scene.subscribe(() => stage.staticLayer.invalidate());
     // Dirty tracking, scene half: every element/file/layer mutation on the ACTIVE scene is content.
     // Synchronous by construction (Scene.notify is synchronous) — no debounce between an edit and
@@ -192,6 +207,30 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
       }
       documentState.markContentChanged();
     });
+
+    // Bring back the image payloads the restored document only holds references to, and collect the
+    // ones it no longer mentions. Once per mount, not per rebuild: a page switch or a file open works
+    // on scenes that already carry their own bytes, and collection is only safe on a document nobody
+    // has had a chance to undo anything in yet.
+    if (fileStore && filesRestoredRef.current === null) {
+      const scenes = pageStore ? pageStore.getScenes() : [scene];
+      // Synchronously, ahead of the database open: the first frames are painted in that gap, and an
+      // image whose bytes are merely on their way must not be painted as broken.
+      expectStoredFiles(scenes);
+      filesRestoredRef.current = fileStore
+        .then(async (store) => {
+          if (!store) {
+            for (const pending of scenes) pending.stopExpectingFiles(referencedFileIds(scenes));
+            return;
+          }
+          const { restored } = await restoreDocumentFiles(scenes, store);
+          // A restore is not a scene change (see `restore-document-files.ts`), so nothing repaints on
+          // its own — the canvas has to be told, and via the ref because the stage this mount created
+          // may already have been replaced by a rebuild.
+          if (restored > 0) stageRef.current?.staticLayer.invalidate();
+        })
+        .catch((error: unknown) => console.warn("deviva-draw: could not restore image data — images may be missing until the next save", error));
+    }
 
     // Register the bundled hand-drawn font, then force one repaint so any already-painted text
     // reflows from the fallback sans into the real face once it's ready (a data-URI font settles fast,
@@ -217,8 +256,9 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
               return { originPath: state.path, unsaved: state.dirty };
             },
             autosaveStatus,
+            fileStore ?? undefined,
           )
-        : startBrowserAutosave(scene, persistenceKey, autosaveStatus);
+        : startBrowserAutosave(scene, persistenceKey, autosaveStatus, fileStore ?? undefined);
 
     // Autosave only writes in response to a scene *change*, and a scene that was just opened from a
     // file has none — so without this, opening a document and reloading restored the document from
@@ -260,6 +300,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
           shareApiBaseUrl,
           fileOperations,
           getFilePath: () => documentState.getState().path,
+          whenFilesReady: () => filesRestoredRef.current ?? Promise.resolve(),
           onFileIdentity: (identity) => {
             documentState.markSaved(identity);
             // Re-stamp the autosave slot immediately: a save/open changes originPath/unsaved with

@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { Scene } from "../scene/scene";
 import { bytesToDataURL, computeFileId, FilesMap } from "./files-map";
 
 function bytesFrom(text: string): Uint8Array {
@@ -112,5 +113,41 @@ describe("FilesMap", () => {
       expect(removed).toEqual([]);
       expect(files.size).toBe(1);
     });
+  });
+});
+
+/**
+ * The presentational "these bytes are on their way" mark — see `Scene.expectFiles`. Lives with the
+ * files tests rather than the scene ones because it is about file identity, not scene state, and it
+ * deliberately has none of a mutation's consequences.
+ */
+describe("Scene — expected files", () => {
+  it("reports nothing pending until told", () => {
+    expect(new Scene().isFilePending("a")).toBe(false);
+  });
+
+  it("marks and clears the ids it is given", () => {
+    const scene = new Scene();
+
+    scene.expectFiles(["a", "b"]);
+    expect(scene.isFilePending("a")).toBe(true);
+    expect(scene.isFilePending("b")).toBe(true);
+
+    scene.stopExpectingFiles(["a"]);
+    expect(scene.isFilePending("a")).toBe(false);
+    expect(scene.isFilePending("b")).toBe(true);
+  });
+
+  // It says what a host intends to fetch, which is not a change to the document — a notify here would
+  // mark the document dirty on boot and make the autosave rewrite what it just read.
+  it("does not notify subscribers", () => {
+    const scene = new Scene();
+    const listener = vi.fn();
+    scene.subscribe(listener);
+
+    scene.expectFiles(["a"]);
+    scene.stopExpectingFiles(["a"]);
+
+    expect(listener).not.toHaveBeenCalled();
   });
 });

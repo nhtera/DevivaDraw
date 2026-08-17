@@ -29,6 +29,18 @@ for full-screen, or any container with an explicit width and height.
 By default the component autosaves to `localStorage` and restores on mount -
 zero-config persistence for a standalone page.
 
+Image data does not go there. An origin gets only a few megabytes of
+`localStorage` for everything it stores, and a single photograph, base64-encoded,
+can use all of it - so the document (elements, pages, view state) goes to
+`localStorage` while the image bytes go to an IndexedDB database named
+`devivadraw-files`, keyed by the same content-addressed `fileId` the elements
+reference. Files are read back on mount and collected when nothing refers to
+them any more. If IndexedDB is unavailable - a private-mode refusal, a locked-down
+embedding - the bytes stay in the `localStorage` document, exactly as before.
+
+Saved, exported and shared documents are unaffected: those always embed their
+images, because a file that leaves the app has to stand on its own.
+
 **Multiple instances:** scope each instance's autosave with `persistenceKey`
 so they don't overwrite each other:
 

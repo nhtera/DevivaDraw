@@ -32,6 +32,19 @@ export interface SerializeSceneOptions {
    * paths must never set this — those are the full-fidelity document formats.
    */
   excludeHidden?: boolean;
+  /**
+   * Leaves these files' bytes out of `files`, keeping the elements' `fileId` references intact — for
+   * a host that persists the payloads separately (see `file-store.ts` for why: base64 image bytes are
+   * what exhausts a small synchronous store, and they don't have to live there).
+   *
+   * A SET rather than a flag, deliberately: a file may only be left out once it is *known* to be
+   * stored elsewhere. Excluding one whose separate write hasn't landed yet would mean neither copy
+   * exists, which is how a "storage optimization" turns into data loss. Autosave paths pass the ids
+   * they have confirmation for; every export/save/share path passes nothing, because a document that
+   * leaves this app has to be self-contained to be worth anything. The `files` key itself always
+   * stays present — validation requires it, and every reader expects the shape.
+   */
+  excludeFileIds?: ReadonlySet<string>;
 }
 
 /**
@@ -41,7 +54,7 @@ export interface SerializeSceneOptions {
  * since-deleted image never bloats the output.
  */
 export function serializeScene(scene: Scene, options: SerializeSceneOptions = {}): SceneDocumentV1 {
-  const { includeDeleted = false, appState, excludeHidden = false } = options;
+  const { includeDeleted = false, appState, excludeHidden = false, excludeFileIds } = options;
   const elements = scene.getElements().filter((element) => (includeDeleted || !element.isDeleted) && !(excludeHidden && scene.isElementHidden(element)));
 
   const referencedFileIds = new Set<string>();
@@ -50,6 +63,7 @@ export function serializeScene(scene: Scene, options: SerializeSceneOptions = {}
   }
   const files: SceneDocumentV1["files"] = {};
   for (const fileId of referencedFileIds) {
+    if (excludeFileIds?.has(fileId)) continue;
     const file = scene.getFile(fileId);
     if (file) files[fileId] = { mimeType: file.mimeType, dataURL: file.dataURL, createdAt: file.createdAt };
   }

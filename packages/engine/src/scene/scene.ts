@@ -57,6 +57,8 @@ export class Scene {
   private readonly elements = new Map<string, AnyElement>();
   /** Binary files (images) referenced by `ImageElement.fileId` — stored separately from `elements` on purpose, see `images/files-map.ts`'s module doc. Composed unit, see `scene-files-store.ts`. */
   private readonly filesStore = new SceneFilesStore();
+  /** Files a host has said it is fetching — see `expectFiles`. Presentational only; never part of the document. */
+  private readonly pendingFileIds = new Set<string>();
   /** Ordered layer list, self-initialized with one default layer — see `scene-layers.ts`'s module doc for the hard zero-arg-constructor invariant every `new Scene()` site relies on. */
   private readonly layersStore = new SceneLayersStore();
   private readonly listeners = new Set<SceneListener>();
@@ -178,6 +180,28 @@ export class Scene {
 
   hasFile(fileId: string): boolean {
     return this.filesStore.hasFile(fileId);
+  }
+
+  /**
+   * Marks files as "being fetched" — for a host that keeps its file payloads outside the document
+   * and reads them back after the scene is already on screen (see `persistence/file-store.ts`).
+   * Purely presentational: the renderer draws a loading placeholder instead of the broken-image one
+   * for these ids (`render/image-renderer.ts`), so a restore in progress doesn't look like a failure.
+   * Nothing else reads it, and it deliberately does not notify — announcing an intention is not a
+   * change to the document.
+   */
+  expectFiles(fileIds: Iterable<string>): void {
+    for (const fileId of fileIds) this.pendingFileIds.add(fileId);
+  }
+
+  /** Clears the marks left by `expectFiles`, whether the bytes arrived or turned out not to exist — either way they are no longer on their way. */
+  stopExpectingFiles(fileIds: Iterable<string>): void {
+    for (const fileId of fileIds) this.pendingFileIds.delete(fileId);
+  }
+
+  /** Renderer-facing half of `expectFiles` — see `render/image-renderer.ts`'s `ImageFileLookup`. */
+  isFilePending(fileId: string): boolean {
+    return this.pendingFileIds.has(fileId);
   }
 
   /**

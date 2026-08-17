@@ -156,6 +156,43 @@ describe("serializeScene — export vs autosave soft-delete handling", () => {
     expect(Object.keys(document.files)).toEqual(["used"]);
   });
 
+  // `excludeFileIds` is for a host that persists the bytes elsewhere (see `file-store.ts`): the
+  // reference has to survive, only the payload leaves. A document that dropped the `fileId` too
+  // would have nothing left to look the bytes up by.
+  it("excludeFileIds drops the bytes but keeps the element's reference to them", () => {
+    const scene = new Scene();
+    scene.addFile("used", { mimeType: "image/png", dataURL: "data:image/png;base64,AAAA", createdAt: 2 });
+    scene.addElement(createImageElement({ x: 0, y: 0, width: 5, height: 5, fileId: "used", naturalWidth: 5, naturalHeight: 5 }));
+
+    const document = serializeScene(scene, { excludeFileIds: new Set(["used"]) });
+
+    expect(document.files).toEqual({});
+    expect(document.elements.find((element) => element.type === "image")?.fileId).toBe("used");
+    expect(JSON.stringify(document)).not.toContain("base64");
+  });
+
+  // The set is per-file precisely so a half-migrated document is still whole: whatever the separate
+  // store has not confirmed yet stays embedded, so no file is ever in neither place.
+  it("keeps the bytes of a file that is not in the excluded set", () => {
+    const scene = new Scene();
+    scene.addFile("stored", { mimeType: "image/png", dataURL: "data:image/png;base64,AAAA", createdAt: 1 });
+    scene.addFile("pending", { mimeType: "image/png", dataURL: "data:image/png;base64,BBBB", createdAt: 2 });
+    scene.addElement(createImageElement({ x: 0, y: 0, width: 5, height: 5, fileId: "stored", naturalWidth: 5, naturalHeight: 5 }));
+    scene.addElement(createImageElement({ x: 9, y: 0, width: 5, height: 5, fileId: "pending", naturalWidth: 5, naturalHeight: 5 }));
+
+    const document = serializeScene(scene, { excludeFileIds: new Set(["stored"]) });
+
+    expect(Object.keys(document.files)).toEqual(["pending"]);
+  });
+
+  it("embeds files by default — every export path depends on this and must not have to opt in", () => {
+    const scene = new Scene();
+    scene.addFile("used", { mimeType: "image/png", dataURL: "data:image/png;base64,AAAA", createdAt: 2 });
+    scene.addElement(createImageElement({ x: 0, y: 0, width: 5, height: 5, fileId: "used", naturalWidth: 5, naturalHeight: 5 }));
+
+    expect(Object.keys(serializeScene(scene).files)).toEqual(["used"]);
+  });
+
   it("round-trips the document-level canvas background through serialize/deserialize", () => {
     const scene = new Scene();
     scene.setBackground("#fff3bf");

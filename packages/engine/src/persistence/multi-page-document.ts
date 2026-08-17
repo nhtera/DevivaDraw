@@ -61,6 +61,8 @@ export interface SerializeMultiPageOptions {
   activePageId?: string;
   /** Forwarded to each page's `serializeScene` — autosave keeps tombstones, exports strip them (see `SerializeSceneOptions.includeDeleted`). */
   includeDeleted?: boolean;
+  /** Forwarded to each page's `serializeScene` — see `SerializeSceneOptions.excludeFileIds` for the one kind of caller allowed to set it. */
+  excludeFileIds?: ReadonlySet<string>;
 }
 
 export function serializeMultiPageDocument(pages: readonly ScenePage[], options: SerializeMultiPageOptions = {}): MultiPageDocumentV1 {
@@ -72,6 +74,7 @@ export function serializeMultiPageDocument(pages: readonly ScenePage[], options:
       name: page.name,
       scene: serializeScene(page.scene, {
         includeDeleted: options.includeDeleted,
+        excludeFileIds: options.excludeFileIds,
         appState: page.camera ? { scrollX: page.camera.scrollX, scrollY: page.camera.scrollY, zoom: page.camera.zoom } : undefined,
       }),
     })),

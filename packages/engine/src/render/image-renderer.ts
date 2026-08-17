@@ -17,6 +17,13 @@ import { screenRectOf } from "./rough-shape-geometry";
 /** Narrow lookup `drawElementImage` needs from the files map — a real `Scene` satisfies it structurally, and tests can pass a plain object instead of constructing a full `Scene`. */
 export interface ImageFileLookup {
   getFile(fileId: string): StoredFile | undefined;
+  /**
+   * `true` while this file's bytes are known to be on their way (a host reading them back from
+   * wherever it keeps them — see `persistence/file-store.ts`). Distinguishes "not here yet" from "not
+   * coming", which is the difference between the loading placeholder and the broken one. Optional:
+   * a host that has all its files by the time it draws never implements it.
+   */
+  isFilePending?(fileId: string): boolean;
 }
 
 /**
@@ -88,7 +95,10 @@ export function drawElementImage(
 
   const file = files.getFile(element.fileId);
   if (!file) {
-    drawPlaceholder(ctx, rect, ERROR_FILL, MISSING_FILE_STROKE);
+    // A file still being read back is loading, not broken — drawing the red box for the few frames a
+    // restore takes would announce a failure that isn't happening.
+    if (files.isFilePending?.(element.fileId)) drawPlaceholder(ctx, rect, LOADING_FILL);
+    else drawPlaceholder(ctx, rect, ERROR_FILL, MISSING_FILE_STROKE);
   } else {
     const decoded = decodeCache.get(element.fileId, file.dataURL);
     if (decoded) {

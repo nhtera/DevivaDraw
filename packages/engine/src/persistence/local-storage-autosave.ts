@@ -9,6 +9,7 @@
 import type { Scene } from "../scene/scene";
 import { deserializeMultiPageDocumentLenient } from "./multi-page-document";
 import type { MultiPageDocumentV1, ScenePage } from "./multi-page-document";
+import type { SceneDocumentV1 } from "./scene-schema";
 import { deserializeSceneLenient, serializeScene } from "./serialize-scene";
 
 export interface StorageLike {
@@ -40,6 +41,13 @@ export interface AutosaveOptions {
   onError?: (error: unknown) => void;
   /** Called after a write actually lands. The success half of `onQuotaExceeded`: a warning raised by a failed write can only be *retracted* by evidence that saving works again, and this is that evidence. */
   onWritten?: () => void;
+  /**
+   * Builds the document to write, replacing the default full snapshot. For a host that persists part
+   * of the scene elsewhere and wants it left out of this write — see `file-store.ts`. Called on every
+   * tick, so it also gets to see the latest state of whatever that separate store has accepted;
+   * `writeAutosaveDocument` (the document-level writer) already leaves this decision to its caller.
+   */
+  serialize?: () => SceneDocumentV1;
 }
 
 export interface AutosaveController {
@@ -49,8 +57,15 @@ export interface AutosaveController {
   dispose(): void;
 }
 
-/** `DOMException.name`/`.code` for a storage-quota rejection — the one failure mode this module treats specially (see `AutosaveOptions.onQuotaExceeded`'s doc); every other thrown error goes through `onError` instead. */
-function isQuotaExceededError(error: unknown): boolean {
+/**
+ * `DOMException.name`/`.code` for a storage-quota rejection — the one failure mode this module treats
+ * specially (see `AutosaveOptions.onQuotaExceeded`'s doc); every other thrown error goes through
+ * `onError` instead. Exported because the same distinction has to be made about every other store a
+ * host writes to (an image database, say): "out of room" is a fact worth telling the user about,
+ * where an unexplained failure is a bug worth logging, and the two must not be told apart differently
+ * in two places.
+ */
+export function isQuotaExceededError(error: unknown): boolean {
   return error instanceof DOMException && (error.name === "QuotaExceededError" || error.code === 22 || error.code === 1014);
 }
 
@@ -79,7 +94,7 @@ function commitWrite(storage: StorageLike, storageKey: string, serialized: () =>
 
 /** Subscribes to `scene`'s changes and writes a debounced snapshot to `storage` on every change, coalescing bursts of edits (a drag, a multi-keystroke text edit) into a single write per quiet period rather than one per mutation. */
 export function startAutosave(options: AutosaveOptions): AutosaveController {
-  const { scene, storage, debounceMs = DEFAULT_DEBOUNCE_MS, storageKey = AUTOSAVE_STORAGE_KEY, onQuotaExceeded, onError, onWritten } = options;
+  const { scene, storage, debounceMs = DEFAULT_DEBOUNCE_MS, storageKey = AUTOSAVE_STORAGE_KEY, serialize, onQuotaExceeded, onError, onWritten } = options;
   let timer: ReturnType<typeof setTimeout> | null = null;
 
   const clearPending = () => {
@@ -87,7 +102,8 @@ export function startAutosave(options: AutosaveOptions): AutosaveController {
     timer = null;
   };
 
-  const write = () => commitWrite(storage, storageKey, () => JSON.stringify(serializeScene(scene, { includeDeleted: true })), { onQuotaExceeded, onError, onWritten });
+  const write = () =>
+    commitWrite(storage, storageKey, () => JSON.stringify(serialize ? serialize() : serializeScene(scene, { includeDeleted: true })), { onQuotaExceeded, onError, onWritten });
 
   const unsubscribe = scene.subscribe(() => {
     clearPending();
