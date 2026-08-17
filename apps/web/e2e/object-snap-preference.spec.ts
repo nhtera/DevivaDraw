@@ -94,10 +94,12 @@ test("with snapping on, a drag ignores elements that are scrolled off screen", a
   // The would-be reference is drawn first and far below, so the mover stays the last rectangle in
   // the scene — which is the one `moverX` reads.
   await page.mouse.move(900, 400);
-  await page.mouse.wheel(0, 1400);
+  // Fractional deltas carry the trackpad scroll signature — the default Auto input mode pans them
+  // (an integer >=100 delta reads as a mouse-wheel notch and would zoom instead).
+  await page.mouse.wheel(0, 1400.5);
   await drawBox(page, { left: NEIGHBOUR.left, top: 400, right: NEIGHBOUR.right, bottom: 480 });
   await page.keyboard.press("Escape");
-  await page.mouse.wheel(0, -1400);
+  await page.mouse.wheel(0, -1400.5);
 
   await drawBox(page, MOVER);
   await page.keyboard.press("Escape");

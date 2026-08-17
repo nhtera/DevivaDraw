@@ -28,7 +28,9 @@ async function panFarAway(page: Page): Promise<void> {
   await page.evaluate(() => {
     const canvas = document.querySelector('[data-testid="deviva-draw-canvas-host"] canvas')!;
     for (let i = 0; i < 12; i += 1) {
-      canvas.dispatchEvent(new WheelEvent("wheel", { deltaY: 600, clientX: 700, clientY: 400, bubbles: true, cancelable: true }));
+      // Fractional deltaY = trackpad scroll signature, so the default Auto input mode routes it to
+      // pan (an integer >=100 delta reads as a mouse-wheel notch and would zoom instead).
+      canvas.dispatchEvent(new WheelEvent("wheel", { deltaY: 600.5, clientX: 700, clientY: 400, bubbles: true, cancelable: true }));
     }
   });
 }
