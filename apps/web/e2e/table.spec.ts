@@ -316,3 +316,16 @@ test("reload restores the table exactly (grid + text + sums)", async ({ page }) 
   const after = await storedTable(page);
   expect(after).toEqual(before);
 });
+
+test("typed keystrokes stay in the cell — tool-shortcut letters are not eaten and the tool never switches", async ({ page }) => {
+  // Regression: plain letters used to bubble to the global shortcut resolver (the table session is
+  // not the engine text-edit session, so nothing suppressed it) — "r"/"o"/"l"/"d" switched tools
+  // and were preventDefault'ed out of the draft. `.fill()` bypasses keydowns, so this types.
+  await placeTable(page);
+  const editor = page.getByTestId("table-cell-editor");
+  await expect(editor).toBeFocused();
+  await page.keyboard.type("World rold"); // every letter here is (or contains) a tool shortcut
+  await expect(editor).toHaveValue("World rold");
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("toolbar-select-tool")).toHaveAttribute("aria-pressed", "true");
+});

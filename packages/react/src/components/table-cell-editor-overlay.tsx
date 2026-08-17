@@ -133,17 +133,20 @@ export function TableCellEditorOverlay(props: { runtime: DevivaRuntime; cameraSt
   };
 
   const onKeyDown = (event: ReactKeyboardEvent): void => {
+    // EVERY keystroke belongs to this textarea alone. This session is neither the engine's
+    // text-edit session nor a "chrome overlay", so the global shortcut resolver is NOT suppressed
+    // for it — without this stop, a plain letter bubbles to the window listener, and the
+    // tool-shortcut letters (r, o, l, d, …) get preventDefault'ed — eaten out of the draft — while
+    // switching tools behind the editor. (Escape additionally must not reach the select tool and
+    // clear the selection after the session closes — the editor-close lesson.)
+    event.stopPropagation();
     if (event.key === "Escape") {
-      // Stop the keystroke here: after the session closes, the same Escape must not reach the
-      // select tool and clear the selection (the editor-close lesson).
-      event.stopPropagation();
       commit(false);
       close();
       return;
     }
     if (event.key !== "Tab") return;
     event.preventDefault();
-    event.stopPropagation();
     const destination = tabDestination(table, session.row, session.col, event.shiftKey);
     if (destination.kind === "close") {
       commit(false);
