@@ -27,6 +27,8 @@ import type { ModifierKeys } from "./tool-handler";
 import type { PanZoomTool } from "./pan-zoom-tool";
 import type { ShortcutRegistry } from "./shortcut-registry";
 import type { KeyLikeEvent, WheelLikeEvent } from "./pointer-event-types";
+import { resolveWheelAction, TRACKPAD_WHEEL_BEHAVIOR } from "./wheel-behavior";
+import type { WheelBehaviorPreference } from "./wheel-behavior";
 
 function extractModifiers(event: { shiftKey: boolean; altKey: boolean; ctrlKey: boolean; metaKey: boolean }): ModifierKeys {
   return { shift: event.shiftKey, alt: event.altKey, ctrl: event.ctrlKey, meta: event.metaKey };
@@ -49,6 +51,12 @@ export interface WheelKeyboardControllerOptions {
   getElementRect(): { left: number; top: number };
   /** True while a text-edit session's `<textarea>` overlay owns keyboard input — see the module doc's "Text-editing suppression" section. Optional; omitted/`undefined` behaves as always-`false` (no host wired up text editing yet). */
   isSuppressed?(): boolean;
+  /**
+   * The user's wheel-routing preference, read per event (a callback, not a value, so a live settings
+   * change applies to the next wheel tick without rebuilding the pipeline). Omitted ⇒ the original
+   * trackpad-style behavior, so existing embedders are untouched. See `wheel-behavior.ts`.
+   */
+  getWheelBehavior?(): WheelBehaviorPreference;
 }
 
 export class WheelKeyboardController {
@@ -79,10 +87,12 @@ export class WheelKeyboardController {
 
     const rect = this.options.getElementRect();
     const screenPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-    if (event.ctrlKey || event.metaKey) {
-      this.options.panZoomTool.zoomByWheelDelta(screenPoint, event.deltaY);
+    const preference = this.options.getWheelBehavior?.() ?? TRACKPAD_WHEEL_BEHAVIOR;
+    const action = resolveWheelAction(event, preference);
+    if (action.kind === "zoom") {
+      this.options.panZoomTool.zoomByWheelDelta(screenPoint, action.deltaY);
     } else {
-      this.options.panZoomTool.panByScreenDelta(event.deltaX, event.deltaY);
+      this.options.panZoomTool.panByScreenDelta(action.deltaX, action.deltaY);
     }
   };
 

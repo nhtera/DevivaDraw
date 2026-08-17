@@ -41,8 +41,12 @@ export interface WheelLikeEvent {
   clientY: number;
   deltaX: number;
   deltaY: number;
+  /** DOM `WheelEvent.deltaMode` (0 = pixels, 1 = lines, 2 = pages) — consulted by the wheel-routing device signature in `wheel-behavior.ts`. Optional; absent reads as pixel-mode. */
+  deltaMode?: number;
   ctrlKey: boolean;
   metaKey: boolean;
+  /** Optional for older callers/fakes; absent reads as unshifted. */
+  shiftKey?: boolean;
   preventDefault(): void;
 }
 
