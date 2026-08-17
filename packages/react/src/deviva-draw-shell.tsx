@@ -56,6 +56,7 @@ import { EmbedDialog } from "./components/embed-dialog";
 import { EmbedOverlay } from "./components/embed-overlay";
 import { Minimap } from "./components/minimap";
 import { BackToContentPill } from "./components/back-to-content-pill";
+import { ExitZenPill } from "./components/exit-zen-pill";
 import { useCanvasBackground } from "./runtime/use-live-version";
 import { useAdaptNextShapeStyle } from "./runtime/use-adapt-next-shape-style";
 import { CommandPalette } from "./components/command-palette";
@@ -125,6 +126,8 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const layersPanel = useToggleState(false);
   // Defaults on, preserving the minimap's previous always-visible behavior; the toggle only adds a way out.
   const minimapVisible = useToggleState(true);
+  // Same "defaults on, the toggle is only a way out" contract as the minimap above.
+  const propertiesPanelVisible = useToggleState(true);
   const commandPaletteOpen = useToggleState(false);
   const shortcutsDialogOpen = useToggleState(false);
   const findOpen = useToggleState(false);
@@ -184,6 +187,10 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       setLayersPanelVisible: layersPanel.set,
       getMinimapVisible: minimapVisible.get,
       setMinimapVisible: minimapVisible.set,
+      getPropertiesPanelVisible: propertiesPanelVisible.get,
+      setPropertiesPanelVisible: propertiesPanelVisible.set,
+      getToolLocked: toolLock.get,
+      setToolLocked: toolLock.set,
       getCommandPaletteOpen: commandPaletteOpen.get,
       setCommandPaletteOpen: commandPaletteOpen.set,
       getShortcutsDialogOpen: shortcutsDialogOpen.get,
@@ -352,6 +359,13 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   }, [collab.peers, pageStore, runtime]);
   useCollabCursorTracking({ containerRef: canvasHostRef, getCamera, onCursorMove: collab.updateCursor, active: collab.status === "connected" });
 
+  // Zen mode hides the *panel*-class chrome only — the side/edge surfaces that crowd the drawing
+  // area (properties, pages, library, minimap, layers, hints, empty state). The toolbar, top bar and
+  // the two floating pills stay, so the mode never becomes a trap: whatever the user reaches for
+  // next (a tool, undo, zoom, the menu, the exit pill) is still on screen. Hiding *everything* left
+  // no affordance at all, keyboard-only or otherwise.
+  const panelsHidden = zenMode.value;
+
   // Auto-join a room link exactly once, after the runtime (and thus the scene the session syncs into)
   // exists. Guarded so a re-render or a status change never re-triggers the join mid-session.
   const autoJoinedRef = useRef(false);
@@ -385,23 +399,22 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
           />
         )}
       </div>
-      {runtime && !zenMode.value && !viewOnly.value && (isNarrow ? <BottomToolbar runtime={runtime} onInsertImage={openImagePicker} /> : <Toolbar runtime={runtime} toolLocked={toolLock.value} onToggleLock={() => toolLock.set(!toolLock.value)} onInsertImage={openImagePicker} />)}
-      {runtime && !zenMode.value && !isNarrow && <CanvasHint runtime={runtime} editSession={editSession} />}
-      {runtime && !zenMode.value && <EmptyStateOverlay runtime={runtime} editSession={editSession} />}
-      {runtime && !zenMode.value && (
-        <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} compact={layoutTier === "tablet"} />
-      )}
+      {runtime && !viewOnly.value && (isNarrow ? <BottomToolbar runtime={runtime} onInsertImage={openImagePicker} /> : <Toolbar runtime={runtime} toolLocked={toolLock.value} onToggleLock={() => toolLock.set(!toolLock.value)} onInsertImage={openImagePicker} />)}
+      {runtime && !panelsHidden && !isNarrow && <CanvasHint runtime={runtime} editSession={editSession} />}
+      {runtime && !panelsHidden && <EmptyStateOverlay runtime={runtime} editSession={editSession} />}
+      {runtime && <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} compact={layoutTier === "tablet"} />}
       {/* Tablet tier: the compact top bar's history/zoom controls live bottom-left instead (see TopBarProps.compact), keeping the centered toolbar's whole top row free. */}
-      {runtime && !zenMode.value && layoutTier === "tablet" && <TabletBottomControls runtime={runtime} cameraStore={cameraStore} />}
-      {runtime && !zenMode.value && !isNarrow && (
+      {runtime && layoutTier === "tablet" && <TabletBottomControls runtime={runtime} cameraStore={cameraStore} />}
+      {runtime && !panelsHidden && !isNarrow && (
         <PagesPanel pageStore={pageStore} readOnly={viewOnly.value} onSwitchPage={(id) => parkCameraThen(() => pageStore.setActivePage(id))} onAddPage={() => parkCameraThen(() => pageStore.addPage())} />
       )}
-      {runtime && !zenMode.value && <LibraryToggle open={libraryOpen.value} onToggle={() => libraryOpen.set(!libraryOpen.value)} />}
-      {runtime && !zenMode.value && !viewOnly.value && (isNarrow ? <MobilePropertiesBar runtime={runtime} /> : <PropertiesPanel runtime={runtime} />)}
-      {runtime && !zenMode.value && (
+      {runtime && !panelsHidden && <LibraryToggle open={libraryOpen.value} onToggle={() => libraryOpen.set(!libraryOpen.value)} />}
+      {runtime && !panelsHidden && propertiesPanelVisible.value && !viewOnly.value && (isNarrow ? <MobilePropertiesBar runtime={runtime} /> : <PropertiesPanel runtime={runtime} />)}
+      {runtime && (
         <BackToContentPill runtime={runtime} cameraStore={cameraStore} getViewportSize={() => ({ width: canvasHostRef.current?.clientWidth ?? 0, height: canvasHostRef.current?.clientHeight ?? 0 })} />
       )}
-      {runtime && !zenMode.value && !isNarrow && minimapVisible.value && (
+      {runtime && zenMode.value && <ExitZenPill onExit={() => zenMode.set(false)} />}
+      {runtime && !panelsHidden && !isNarrow && minimapVisible.value && (
         <Minimap runtime={runtime} cameraStore={cameraStore} getViewportSize={() => ({ width: canvasHostRef.current?.clientWidth ?? 0, height: canvasHostRef.current?.clientHeight ?? 0 })} />
       )}
       {runtime && mainMenuOpen.value && (
@@ -456,7 +469,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
           }}
         />
       )}
-      {runtime && initialViewOnly && !zenMode.value && (
+      {runtime && initialViewOnly && !panelsHidden && (
         <ShareViewerBadge viewOnly={viewOnly.value} onEditCopy={() => void runtime.actionRegistry.run("toggle-view-only", runtime)} />
       )}
       {runtime && collabDialogOpen.value && <CollabDialog collab={collab} onClose={() => collabDialogOpen.set(false)} />}
@@ -469,7 +482,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
         <ContextMenu runtime={runtime} screenPoint={contextMenuTriggers.point} variant={contextMenuTriggers.variant} onClose={contextMenuTriggers.close} />
       )}
       {statsPanel.value && runtime && !viewOnly.value && <StatsPanel runtime={runtime} cameraStore={cameraStore} />}
-      {layersPanel.value && runtime && !zenMode.value && !isNarrow && !viewOnly.value && <LayersPanel runtime={runtime} />}
+      {layersPanel.value && runtime && !panelsHidden && !isNarrow && !viewOnly.value && <LayersPanel runtime={runtime} />}
     </div>
   );
 });

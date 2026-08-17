@@ -59,6 +59,8 @@ const PREFERENCE_TOGGLES: readonly {
   { actionId: "toggle-layers", testId: "main-menu-toggle-layers", icon: "layers", labelKey: "action.toggleLayers", isChecked: (runtime) => runtime.ui.getLayersPanelVisible() },
   { actionId: "toggle-minimap", testId: "main-menu-toggle-minimap", icon: "minimap", labelKey: "action.toggleMinimap", isChecked: (runtime) => runtime.ui.getMinimapVisible() },
   { actionId: "toggle-stats", testId: "main-menu-toggle-stats", icon: "stats", labelKey: "action.toggleStats", isChecked: (runtime) => runtime.ui.getStatsPanelVisible() },
+  { actionId: "toggle-properties-panel", testId: "main-menu-toggle-properties-panel", icon: "sliders", labelKey: "action.togglePropertiesPanel", isChecked: (runtime) => runtime.ui.getPropertiesPanelVisible() },
+  { actionId: "toggle-tool-lock", testId: "main-menu-toggle-tool-lock", icon: "lock", labelKey: "action.toggleToolLock", isChecked: (runtime) => runtime.ui.getToolLocked() },
 ];
 
 /** The input-device picker's three wheel-routing modes, mirroring the theme picker's icon-radio shape. */
@@ -116,8 +118,8 @@ function MenuLink(props: { href: string; icon: string; children: string; testId:
   );
 }
 
-/** Estimated flyout height used to clamp its top so it stays on-screen: 7 toggle rows + the input-device section (label + radio row + invert & pen rows). */
-const FLYOUT_HEIGHT_ESTIMATE = 7 * 34 + 144;
+/** Estimated flyout height used to clamp its top so it stays on-screen: one row per `PREFERENCE_TOGGLES` entry + the input-device section (label + radio row + invert & pen rows). */
+const FLYOUT_HEIGHT_ESTIMATE = PREFERENCE_TOGGLES.length * 34 + 144;
 
 export function MainMenu(props: MainMenuProps) {
   const { runtime, onClose, onOpenShortcuts, onOpenCollab, onOpenExport, onOpenLibrary, onOpenMermaid, onOpenEmbed, shareEnabled } = props;
@@ -313,7 +315,7 @@ export function MainMenu(props: MainMenuProps) {
         <CanvasBackgroundRow scene={runtime.scene} />
       </div>
       <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
-      {/* The seven view/preference toggles live in a flyout submenu, keeping the main list short as
+      {/* The view/preference toggles live in a flyout submenu, keeping the main list short as
           settings accumulate. Unlike every other row, a flyout toggle does NOT close the menu —
           flipping several preferences in one visit is the whole point — so these rows re-render via
           the local `bump` instead of relying on the close-and-reopen freshness the plain rows use. */}

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   normalizeCombo,
+  registerChromeToggleShortcuts,
   registerCommandPaletteShortcut,
   registerCoreShortcuts,
   registerFullShortcutMap,
@@ -138,6 +139,40 @@ describe("registerCommandPaletteShortcut", () => {
   });
 });
 
+describe("registerChromeToggleShortcuts", () => {
+  it("registers the four chrome toggles with no internal conflicts", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const registry = new ShortcutRegistry();
+    registerChromeToggleShortcuts(registry);
+
+    expect(warn).not.toHaveBeenCalled();
+    expect(registry.resolve("z", { ...NO_MODIFIERS, alt: true })).toBe("toggle-zen-mode");
+    expect(registry.resolve("r", { ...NO_MODIFIERS, alt: true })).toBe("toggle-view-only");
+    expect(registry.resolve("/", { ...NO_MODIFIERS, alt: true })).toBe("toggle-properties-panel");
+    expect(registry.resolve("q", NO_MODIFIERS)).toBe("toggle-tool-lock");
+  });
+
+  it("also resolves the character some layouts compose for Alt+slash", () => {
+    const registry = new ShortcutRegistry();
+    registerChromeToggleShortcuts(registry);
+
+    expect(registry.resolve("÷", { ...NO_MODIFIERS, alt: true })).toBe("toggle-properties-panel");
+  });
+
+  it("leaves the un-modified letters the tool shortcuts own untouched", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const registry = new ShortcutRegistry();
+    registerToolShortcuts(registry);
+    registerChromeToggleShortcuts(registry);
+
+    // `q` is the only bare letter this function claims — a future tool letter colliding with it
+    // would warn here rather than silently losing one of the two bindings.
+    expect(warn).not.toHaveBeenCalled();
+    expect(registry.resolve("z", NO_MODIFIERS)).toBeUndefined();
+    expect(registry.resolve("r", NO_MODIFIERS)).toBe("rectangle-tool");
+  });
+});
+
 describe("registerFullShortcutMap", () => {
   it("composes every registration function with zero internal conflicts", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -159,5 +194,7 @@ describe("registerFullShortcutMap", () => {
     expect(registry.resolve("'", { ...NO_MODIFIERS, ctrl: true })).toBe("toggle-grid");
     expect(registry.resolve(">", { ...NO_MODIFIERS, meta: true, shift: true })).toBe("increase-font-size");
     expect(registry.resolve("<", { ...NO_MODIFIERS, ctrl: true, shift: true })).toBe("decrease-font-size");
+    expect(registry.resolve("z", { ...NO_MODIFIERS, alt: true })).toBe("toggle-zen-mode");
+    expect(registry.resolve("q", NO_MODIFIERS)).toBe("toggle-tool-lock");
   });
 });

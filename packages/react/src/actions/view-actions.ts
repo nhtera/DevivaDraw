@@ -73,6 +73,7 @@ export function buildViewActions(): Action[] {
       viewOnlyAllowed: true,
       labelKey: "action.toggleZenMode",
       icon: "zen",
+      shortcut: "alt+z",
       run: (runtime) => runtime.ui.setZenMode(!runtime.ui.getZenMode()),
     },
     {
@@ -80,7 +81,28 @@ export function buildViewActions(): Action[] {
       viewOnlyAllowed: true,
       labelKey: "action.toggleViewOnly",
       icon: "view-only",
+      shortcut: "alt+r",
       run: (runtime) => runtime.ui.setViewOnly(!runtime.ui.getViewOnly()),
+    },
+    {
+      // View-only-allowed unlike the layers/stats panels below: hiding or showing the properties
+      // panel changes nothing about the document, and view-only unmounts the panel regardless — so
+      // the toggle only decides what the user sees once they leave view-only.
+      id: "toggle-properties-panel",
+      viewOnlyAllowed: true,
+      labelKey: "action.togglePropertiesPanel",
+      icon: "sliders",
+      shortcut: "alt+/",
+      run: (runtime) => runtime.ui.setPropertiesPanelVisible(!runtime.ui.getPropertiesPanelVisible()),
+    },
+    {
+      // Not view-only-allowed: the lock only governs what happens after a *creation* tool draws
+      // something, and creation tools are exactly what view-only forbids.
+      id: "toggle-tool-lock",
+      labelKey: "action.toggleToolLock",
+      icon: "lock",
+      shortcut: "q",
+      run: (runtime) => runtime.ui.setToolLocked(!runtime.ui.getToolLocked()),
     },
     {
       // Deliberately NOT viewOnlyAllowed even though it's "just a panel toggle": every control the

@@ -130,6 +130,25 @@ export function registerPreferenceShortcuts(registry: ShortcutRegistry): void {
   }
 }
 
+/**
+ * Chrome-visibility toggles that have no tool and no document effect — zen mode, view-only, the
+ * properties panel, and the tool lock. `Alt` prefixes the three panel/mode toggles so none of them
+ * can shadow a bare tool letter; the tool lock takes plain `Q` (the one remaining un-bound letter
+ * adjacent to the tool row, and the binding this genre conventionally uses for "keep the tool
+ * active").
+ *
+ * `alt+/` is registered twice on purpose: on layouts where Alt+slash composes a character, the
+ * browser reports that composed character in `event.key` rather than `/`, so the composed form is
+ * bound to the same action instead of the combo silently doing nothing there.
+ */
+export function registerChromeToggleShortcuts(registry: ShortcutRegistry): void {
+  registry.register("alt+z", "toggle-zen-mode");
+  registry.register("alt+r", "toggle-view-only");
+  registry.register("alt+/", "toggle-properties-panel");
+  registry.register("alt+÷", "toggle-properties-panel");
+  registry.register("q", "toggle-tool-lock");
+}
+
 /** Mirroring the selection — `Shift+H` / `Shift+V`, matching Excalidraw. */
 export function registerFlipShortcuts(registry: ShortcutRegistry): void {
   registry.register("shift+h", "flip-horizontal");
@@ -159,4 +178,5 @@ export function registerFullShortcutMap(registry: ShortcutRegistry): void {
   registerCommandPaletteShortcut(registry);
   registerStyleClipboardShortcuts(registry);
   registerFlipShortcuts(registry);
+  registerChromeToggleShortcuts(registry);
 }

@@ -47,6 +47,12 @@ export interface UiToggleState {
   setLayersPanelVisible(value: boolean): void;
   getMinimapVisible(): boolean;
   setMinimapVisible(value: boolean): void;
+  /** The shape/canvas properties panel (and its phone-tier `MobilePropertiesBar` equivalent) — separately hideable so a user can reclaim the side of the canvas without entering zen mode. */
+  getPropertiesPanelVisible(): boolean;
+  setPropertiesPanelVisible(value: boolean): void;
+  /** The toolbar's "keep the active tool after drawing" lock — the same boolean `build-runtime.ts`'s `getToolLocked` reads, exposed here so the action registry (menu row, palette, `Q`) can flip it too. */
+  getToolLocked(): boolean;
+  setToolLocked(value: boolean): void;
   getCommandPaletteOpen(): boolean;
   setCommandPaletteOpen(value: boolean): void;
   getShortcutsDialogOpen(): boolean;

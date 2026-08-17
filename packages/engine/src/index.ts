@@ -186,6 +186,7 @@ export { PanZoomTool } from "./input/pan-zoom-tool";
 
 export {
   normalizeCombo,
+  registerChromeToggleShortcuts,
   registerCommandPaletteShortcut,
   registerCoreShortcuts,
   registerFullShortcutMap,
