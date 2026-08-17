@@ -31,7 +31,7 @@ import { CanvasHint } from "./components/canvas-hint";
 import { EmptyStateOverlay } from "./components/empty-state-overlay";
 import { ensureChromeStylesheet } from "./components/chrome-stylesheet";
 import { Toolbar } from "./components/toolbar";
-import { TopBar } from "./components/top-bar";
+import { TabletBottomControls, TopBar } from "./components/top-bar";
 import { PropertiesPanel } from "./components/properties-panel";
 import { ContextMenu } from "./components/context-menu";
 import { ImagePlacementOverlay } from "./components/image-placement-overlay";
@@ -389,8 +389,10 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {runtime && !zenMode.value && !isNarrow && <CanvasHint runtime={runtime} editSession={editSession} />}
       {runtime && !zenMode.value && <EmptyStateOverlay runtime={runtime} editSession={editSession} />}
       {runtime && !zenMode.value && (
-        <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} />
+        <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} compact={layoutTier === "tablet"} />
       )}
+      {/* Tablet tier: the compact top bar's history/zoom controls live bottom-left instead (see TopBarProps.compact), keeping the centered toolbar's whole top row free. */}
+      {runtime && !zenMode.value && layoutTier === "tablet" && <TabletBottomControls runtime={runtime} cameraStore={cameraStore} />}
       {runtime && !zenMode.value && !isNarrow && (
         <PagesPanel pageStore={pageStore} readOnly={viewOnly.value} onSwitchPage={(id) => parkCameraThen(() => pageStore.setActivePage(id))} onAddPage={() => parkCameraThen(() => pageStore.addPage())} />
       )}

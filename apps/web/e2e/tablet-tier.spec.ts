@@ -27,14 +27,28 @@ test("desktop layout with touch density on a wide coarse-pointer viewport", asyn
   expect(box.height).toBeGreaterThanOrEqual(44);
 });
 
-test("the toolbar never overlaps the top bar (drops to a second row below the single-row breakpoint)", async ({ page }) => {
-  // At 1024px the touch-sized top bar (~326px) + toolbar (~710px) can't share a row, so the
-  // toolbar moves below it — and the canvas hint follows below the toolbar.
+test("compact chrome: hamburger-only top bar, centered toolbar, history/zoom bottom-left", async ({ page }) => {
+  // The tablet arrangement mirrors the genre convention: the top bar shrinks to just the menu
+  // trigger so the centered toolbar owns the whole top row, and undo/redo + zoom move to a
+  // bottom-left island (whose zoom popover opens upward).
+  const topBarButtons = page.locator('[data-testid="top-bar"] button');
+  await expect(topBarButtons).toHaveCount(1);
+  await expect(page.getByTestId("top-bar-menu")).toBeVisible();
+
   const topBar = (await page.getByTestId("top-bar").boundingBox())!;
   const toolbar = (await page.getByTestId("toolbar").boundingBox())!;
-  expect(toolbar.y).toBeGreaterThanOrEqual(topBar.y + topBar.height);
-  const hint = (await page.getByTestId("canvas-hint").boundingBox())!;
-  expect(hint.y).toBeGreaterThanOrEqual(toolbar.y + toolbar.height);
+  expect(toolbar.x).toBeGreaterThanOrEqual(topBar.x + topBar.width); // same row, no overlap
+
+  const bottomControls = page.getByTestId("tablet-bottom-controls");
+  await expect(bottomControls).toBeVisible();
+  await expect(bottomControls.getByTestId("top-bar-undo")).toBeVisible();
+  const zoomMinHeight = await bottomControls.getByTestId("top-bar-zoom-in").evaluate((element) => getComputedStyle(element).minHeight);
+  expect(zoomMinHeight).toBe("44px");
+
+  await bottomControls.getByTestId("top-bar-zoom-percentage").click();
+  const popover = (await page.getByTestId("zoom-menu-popover").boundingBox())!;
+  const trigger = (await bottomControls.getByTestId("top-bar-zoom-percentage").boundingBox())!;
+  expect(popover.y + popover.height).toBeLessThanOrEqual(trigger.y + 1); // opens upward
 });
 
 test("menu rows grow to touch height", async ({ page }) => {

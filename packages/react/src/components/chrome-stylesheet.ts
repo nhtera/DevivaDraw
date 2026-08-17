@@ -80,6 +80,7 @@ ${ROOT}, ${ROOT} * { scrollbar-width: thin; scrollbar-color: rgba(127, 127, 127,
    its compact visuals and expands the effective hit area with a pseudo-element instead. */
 ${ROOT}[data-dd-density="touch"] [role="toolbar"] button,
 ${ROOT}[data-dd-density="touch"] [data-testid="top-bar"] button,
+${ROOT}[data-dd-density="touch"] [data-testid="tablet-bottom-controls"] button,
 ${ROOT}[data-dd-density="touch"] [data-testid="more-tools-popover"] button,
 ${ROOT}[data-dd-density="touch"] [data-testid="zoom-menu-popover"] button { min-width: 44px; min-height: 44px; }
 ${ROOT}[data-dd-density="touch"] [data-testid="main-menu"] button,
@@ -90,12 +91,13 @@ ${ROOT}[data-dd-density="touch"] [data-testid^="properties-panel"] button { posi
 ${ROOT}[data-dd-density="touch"] [data-testid^="properties-panel"] button::after { content: ""; position: absolute; inset: -7px; }
 /* The 44px toolbar is taller, so the canvas hint below it needs a lower anchor (var read by canvas-hint.tsx). */
 ${ROOT}[data-dd-density="touch"] { --dd-hint-top: 80px; }
-/* Touch-sized top bar (~326px) and centered toolbar (~710px) collide on tablet widths. Wide tablets
-   clamp the toolbar's left edge just past the top bar (max() keeps true centering whenever it fits);
-   below the single-row breakpoint the toolbar drops to its own second row and the hint follows.
-   Vars are read by toolbar.tsx / canvas-hint.tsx. */
-${ROOT}[data-dd-density="touch"] [data-testid="toolbar"] { --dd-toolbar-shift: translateX(max(-50%, calc(336px - 50vw))); }
-@media (max-width: 1119px) {
+/* In the tablet tier the top bar is just the hamburger (history/zoom live bottom-left — see
+   TabletBottomControls), so the centered toolbar owns the top row. max() still clamps its left edge
+   past that small island on the narrowest tablets, and below the single-row breakpoint (portrait
+   iPads) the toolbar drops to a second row with the canvas hint following. Vars are read by
+   toolbar.tsx / canvas-hint.tsx. */
+${ROOT}[data-dd-density="touch"] [data-testid="toolbar"] { --dd-toolbar-shift: translateX(max(-50%, calc(76px - 50vw))); }
+@media (max-width: 853px) {
   ${ROOT}[data-dd-density="touch"] [data-testid="toolbar"] {
     --dd-toolbar-top: calc(74px + env(safe-area-inset-top));
     --dd-toolbar-shift: translateX(-50%);

@@ -21,10 +21,12 @@ const ZOOM_ACTION_IDS: readonly string[] = ["zoom-in", "zoom-out", "zoom-to-fit"
 export interface ZoomMenuProps {
   runtime: DevivaRuntime;
   cameraStore: CameraStore;
+  /** Which side of the trigger the popover opens on. `"up"` for bottom-anchored chrome. Default `"down"`. */
+  placement?: "down" | "up";
 }
 
 export function ZoomMenu(props: ZoomMenuProps) {
-  const { runtime, cameraStore } = props;
+  const { runtime, cameraStore, placement = "down" } = props;
   const { t } = useTranslation();
   useCameraVersion(cameraStore);
   // The zoom-to-selection row enables/disables with the selection, so the menu must re-render with it.
@@ -107,7 +109,9 @@ export function ZoomMenu(props: ZoomMenuProps) {
           role="menu"
           data-testid="zoom-menu-popover"
           className="dd-animate-in"
-          style={{ ...panelStyle, position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 40, padding: 4, minWidth: 210, display: "flex", flexDirection: "column", gap: 2 }}
+          // `up` flips the popover above the trigger — used when this menu lives in bottom-anchored
+          // chrome (the tablet tier's bottom-left controls), same convention as MoreToolsMenu.
+          style={{ ...panelStyle, position: "absolute", ...(placement === "up" ? { bottom: "calc(100% + 8px)" } : { top: "calc(100% + 8px)" }), left: 0, zIndex: 40, padding: 4, minWidth: 210, display: "flex", flexDirection: "column", gap: 2 }}
         >
           {ZOOM_ACTION_IDS.map(renderRow)}
         </div>
