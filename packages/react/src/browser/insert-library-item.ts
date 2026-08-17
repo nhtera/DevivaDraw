@@ -27,5 +27,11 @@ export function insertLibraryElementsAt(runtime: DevivaRuntime, elements: readon
   const newIds = insertElements(runtime.scene, elements, offset);
   runtime.history.endBatch(runtime.scene.getElements());
   if (newIds.length > 0) runtime.selection.selectOnly(newIds);
+
+  // A library item stores which image it uses, never the image itself — the bytes live in the file
+  // store and this scene has no reason to be holding them (a reload, or an item saved from a board
+  // long since cleared). Placement stays synchronous and the images fill in a moment later; until
+  // then they draw as loading rather than broken, because the ids are marked as expected.
+  if (elements.some((element) => element.type === "image")) void runtime.persistence.restoreMissingFiles();
   return newIds;
 }

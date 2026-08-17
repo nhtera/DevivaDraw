@@ -104,6 +104,12 @@ export interface PersistenceOperations {
    * Always present, resolved immediately when there is nothing to wait for.
    */
   whenFilesReady(): Promise<void>;
+  /**
+   * Reads back any image payload the live scene is missing. For elements that arrived from outside
+   * the document — a library item carries `fileId`s but no bytes, and after a reload the scene has
+   * no reason to be holding them. Resolves when the canvas has been told to repaint.
+   */
+  restoreMissingFiles(): Promise<void>;
   exportPng(): Promise<void>;
   exportSvg(): Promise<void>;
   copyAsImage(): Promise<void>;

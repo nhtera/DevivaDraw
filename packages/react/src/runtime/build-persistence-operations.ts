@@ -60,10 +60,12 @@ export interface BuildPersistenceOperationsDeps {
    * images in it. Absent ⇒ nothing to wait for (a host managing its own data, or no file store).
    */
   whenFilesReady?(): Promise<void>;
+  /** Reads back image payloads the live scene is missing — see `PersistenceOperations.restoreMissingFiles`. Absent ⇒ nothing to read from. */
+  restoreMissingFiles?(): Promise<void>;
 }
 
 export function buildPersistenceOperations(deps: BuildPersistenceOperationsDeps): PersistenceOperations {
-  const { getScene, history, selection, onSceneReplaced, pages, onError, shareApiBaseUrl, fileOperations, getFilePath, onFileIdentity, whenFilesReady } = deps;
+  const { getScene, history, selection, onSceneReplaced, pages, onError, shareApiBaseUrl, fileOperations, getFilePath, onFileIdentity, whenFilesReady, restoreMissingFiles } = deps;
   const reportError = onError ?? ((error: unknown) => console.error("deviva-draw: persistence operation failed", error));
 
   /** The "don't serialize a half-loaded document" gate — see `whenFilesReady`. Resolved already in the overwhelming majority of calls; it costs a microtask. */
@@ -100,6 +102,7 @@ export function buildPersistenceOperations(deps: BuildPersistenceOperationsDeps)
   return {
     saveSceneOutcome,
     whenFilesReady: ready,
+    restoreMissingFiles: () => restoreMissingFiles?.() ?? Promise.resolve(),
     newScene: () => resetScene(getScene(), history, selection),
     openScene: async () => {
       try {

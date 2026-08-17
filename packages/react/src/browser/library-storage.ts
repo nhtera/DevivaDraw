@@ -45,6 +45,23 @@ export function loadLibrary(storage: Storage = window.localStorage): LibraryItem
   return safeParse(storage.getItem(LIBRARY_STORAGE_KEY));
 }
 
+/**
+ * Every image file the saved library refers to. The library outlives the board an item was copied
+ * from, so these ids are live data even when no page on the canvas mentions them — without this,
+ * collection (see `runtime/restore-document-files.ts`) would reclaim the bytes behind a library item
+ * the moment the original image left the board, and the item would insert as a broken image while
+ * still showing a perfectly good thumbnail.
+ */
+export function libraryFileIds(storage: Storage = window.localStorage): Set<string> {
+  const ids = new Set<string>();
+  for (const item of loadLibrary(storage)) {
+    for (const element of item.elements) {
+      if (element.type === "image") ids.add(element.fileId);
+    }
+  }
+  return ids;
+}
+
 export function saveLibrary(items: LibraryItem[], storage: Storage = window.localStorage): void {
   try {
     storage.setItem(LIBRARY_STORAGE_KEY, JSON.stringify(items));

@@ -29,11 +29,11 @@ export interface RestoreDocumentFilesResult {
  * identical to the one it just read. Bringing saved bytes back is not an edit. Repainting is
  * therefore the caller's job: invalidate the canvas once this resolves.
  */
-export async function restoreDocumentFiles(scenes: readonly Scene[], store: FileStoreLike): Promise<RestoreDocumentFilesResult> {
-  const restored = await restoreReferencedFiles(scenes, store);
+export async function restoreDocumentFiles(scenes: readonly Scene[], store: FileStoreLike, alsoKeep: Iterable<string> = []): Promise<RestoreDocumentFilesResult> {
+  const restored = await restoreSceneFiles(scenes, store);
   // Recomputed after the restore, not before: `referencedFileIds` is cheap, and reading it here means
   // collection can never race a scene the restore has just changed.
-  const collected = await collectOrphanedFiles(scenes, store);
+  const collected = await collectOrphanedFiles(scenes, store, alsoKeep);
   return { restored, collected };
 }
 
@@ -43,8 +43,11 @@ export async function restoreDocumentFiles(scenes: readonly Scene[], store: File
  * both of which start from a fresh history. Notably NOT after "Reset canvas", which is one undo away
  * from restoring every element it cleared. Returns how many were deleted.
  */
-export async function collectOrphanedFiles(scenes: readonly Scene[], store: FileStoreLike): Promise<number> {
+export async function collectOrphanedFiles(scenes: readonly Scene[], store: FileStoreLike, alsoKeep: Iterable<string> = []): Promise<number> {
   const referenced = referencedFileIds(scenes);
+  // Things outside the document can own a file too — the library keeps items long after the board
+  // they came from is gone (see `browser/library-storage.ts`'s `libraryFileIds`).
+  for (const fileId of alsoKeep) referenced.add(fileId);
   const orphans = (await store.listIds()).filter((fileId) => !referenced.has(fileId));
   if (orphans.length > 0) await store.deleteMany(orphans);
   return orphans.length;
@@ -66,7 +69,13 @@ export function expectStoredFiles(scenes: readonly Scene[]): string[] {
   return missing;
 }
 
-async function restoreReferencedFiles(scenes: readonly Scene[], store: FileStoreLike): Promise<number> {
+/**
+ * Reads back every file the given scenes reference but do not hold, and returns how many arrived.
+ * Boot uses it through `restoreDocumentFiles`; inserting elements that came from outside the
+ * document (a library item, which carries ids but no bytes) needs exactly this half on its own —
+ * with no collection, since mid-session there is no safe moment for that.
+ */
+export async function restoreSceneFiles(scenes: readonly Scene[], store: FileStoreLike): Promise<number> {
   const missing = expectStoredFiles(scenes);
   if (missing.length === 0) return 0;
 
