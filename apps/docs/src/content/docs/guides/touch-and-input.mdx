@@ -1,0 +1,80 @@
+---
+title: Touch, Pen & Devices
+description: Wheel and trackpad routing, stylus and palm handling, and the phone/tablet/desktop layout tiers.
+---
+
+An infinite canvas is only as good as the device pointing at it. The component
+adapts its chrome to the viewport and its pointer, and routes wheel, trackpad,
+finger and stylus input by explicit policy rather than guesswork - all of it
+built in, with one preference for the case a heuristic cannot settle.
+
+## Layout tiers
+
+The chrome has three tiers, picked from viewport size and the *primary
+pointer*, and re-evaluated live - attach or unplug a mouse and the layout
+follows:
+
+| Tier | When | Chrome |
+|---|---|---|
+| **Phone** | Viewport narrower than 768px **or** shorter than 500px | Bottom toolbar and compact properties bar |
+| **Tablet** | Desktop-sized viewport with a coarse primary pointer (an iPad in landscape) | Desktop layout at ≥44px touch targets: hamburger-only top bar, centered toolbar, undo/redo and zoom in a bottom-left island |
+| **Desktop** | Fine pointer | Full-density desktop layout |
+
+The height clause is what routes a *landscape phone* - wide enough to clear the
+width breakpoint, but far too short for the desktop side panel - to the phone
+chrome. An iPad with a trackpad attached reports a fine pointer and gets
+desktop density, which is the right call: that pointer is precise.
+
+On phones and tablets the chrome also clears the home indicator (safe-area
+insets), sizes itself in `dvh` so it survives Safari's collapsing URL bar, pans
+the camera to keep the caret visible when the on-screen keyboard opens, and
+suppresses pull-to-refresh, double-tap zoom and tap flash over the canvas.
+
+## Wheel and trackpad routing
+
+A wheel event carries no reliable "I am a mouse" flag, and the two devices want
+opposite defaults: a trackpad's two-finger scroll should pan, a mouse wheel's
+notch should zoom. **Main menu → Preferences → Input device** settles it -
+*Auto* (the default), *Trackpad*, or *Mouse wheel*, plus *Invert mouse zoom*.
+
+| Mode | Plain wheel | Ctrl/Cmd + wheel | Shift + wheel |
+|---|---|---|---|
+| **Auto** | Mouse notch zooms, trackpad scroll pans | Zoom at cursor | Pan horizontally |
+| **Trackpad** | Pan | Zoom at cursor | Pan horizontally |
+| **Mouse wheel** | Zoom at cursor (invertible) | Mouse notch pans vertically | Pan horizontally |
+
+Two things hold in every mode: **a real trackpad pinch always zooms** (browsers
+report it as a ctrl+wheel event, and only a provable wheel notch is ever allowed
+to do something else), and the decision is made per event with no sticky state,
+so nothing flaps between modes mid-gesture.
+
+The preference is stored per device under `devivadraw:input-device:v1` and
+applies live - no reload.
+
+## Pen, finger and palm
+
+**"Pen draws, finger pans"** (Preferences, opt-in): with a stylus and a drawing
+tool active, a single-finger touch pans the camera instead of drawing. Taps with
+the select tool still select, so nothing else about touch changes.
+
+On regardless of that toggle, because they are correctness rather than
+preference:
+
+- A pen landing preempts a palm that touched down first.
+- A resting palm cannot raise phantom hover after a stroke, or pop the context
+  menu mid-stroke.
+
+**Double-tap edits.** iOS Safari never synthesizes `dblclick` from a double-tap,
+which once left table cells, shape labels, arrow labels and text uneditable by
+touch. The touch layer recognizes double-taps itself and routes them through the
+same edit dispatch as a desktop double-click, with a synchronous focus hand-off
+so iOS raises the keyboard.
+
+## Wiring your own chrome
+
+Hosts that build their own UI on `@deviva-draw/engine` get the same policies as
+pure, additive exports - `resolveWheelAction` and `WheelBehaviorPreference`, the
+pipeline options `getWheelBehavior` and `getTouchDrawPolicy`, and
+`shouldSuppressTouchLongPress` for a host touch layer. Wire them to your own
+preference store, or leave them out and the engine behaves exactly as it did
+before they existed. See [The Engine](/guides/engine/).

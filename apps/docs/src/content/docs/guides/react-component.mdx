@@ -8,7 +8,9 @@ import CanvasDemo from '../../../components/canvas-demo';
 `<DevivaDraw />` is the complete whiteboard: canvas, tools, toolbar, style
 panel, menus, keyboard shortcuts, command palette, touch support. This guide
 covers the embedding contract - how a host app feeds it data, reacts to
-changes, and drives it programmatically. Here it is embedded with an
+changes, and drives it programmatically. For what the shell does on its own,
+see [Presenting](/guides/presenting/) and
+[Touch, Pen & Devices](/guides/touch-and-input/). Here it is embedded with an
 `initialData` document, exactly as described below:
 
 <CanvasDemo client:visible scene="flowchart" />
@@ -23,6 +25,25 @@ import { DevivaDraw } from "@deviva-draw/react";
 
 The component fills whatever sized box you give it - `position: fixed; inset: 0`
 for full-screen, or any container with an explicit width and height.
+
+## Props
+
+Every prop is optional - the component is complete with none of them.
+
+| Prop | What it does |
+|---|---|
+| `initialData` | A saved document to load on mount. Supplying it also turns the built-in autosave off: you are the storage layer. |
+| `persistenceKey` | Scopes the built-in autosave, so several instances can coexist without overwriting each other. |
+| `onChange(elements, files)` | Debounced, after any user-authored scene change - the host integration point. |
+| `theme` | `"light"` / `"dark"`. Omit for the visitor's persisted preference. |
+| `locale` | `"en"` / `"vi"`. Omit for the persisted preference, then the browser language. |
+| `initialViewOnly` | Starts the shell read-only. |
+| `shareApiBaseUrl` | The collab server for share links and live rooms. Omit and both disable themselves. |
+| `initialRoomUrl` | A room URL to auto-join once on mount. Requires `shareApiBaseUrl`. |
+| `fileOperations` | Host-supplied open/save - native dialogs, path identity, save-in-place. See [Desktop App](/guides/desktop/). |
+| `onDocumentStateChange(state)` | Fires synchronously on every document identity/dirty transition (`{path, name, dirty}`). Dirty is content-only: pan, zoom and page switching never set it. |
+| `offlineHints` | Lets online-only entry points (share, collaborate, AI diagrams) show a "requires internet" hint and disable themselves while offline. |
+| `className`, `style` | Standard styling hooks. |
 
 ## Loading and persisting data
 
@@ -40,6 +61,12 @@ embedding - the bytes stay in the `localStorage` document, exactly as before.
 
 Saved, exported and shared documents are unaffected: those always embed their
 images, because a file that leaves the app has to stand on its own.
+
+**When storage fills up** the browser rejects the write, and a canvas that keeps
+accepting edits while saving none of them is the one failure a user cannot see -
+until the next reload. A banner says so for as long as saving is broken, offers
+to save the work to a file, and retracts itself the moment a write lands again.
+It shows even in [zen mode](/guides/presenting/#zen-mode).
 
 **Multiple instances:** scope each instance's autosave with `persistenceKey`
 so they don't overwrite each other:

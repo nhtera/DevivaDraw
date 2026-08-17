@@ -63,6 +63,8 @@ export default defineConfig({
           label: 'Guides',
           items: [
             { label: 'The React Component', slug: 'guides/react-component' },
+            { label: 'Presenting', slug: 'guides/presenting' },
+            { label: 'Touch, Pen & Devices', slug: 'guides/touch-and-input' },
             { label: 'The Engine', slug: 'guides/engine' },
             { label: 'Collaboration', slug: 'guides/collaboration' },
             { label: 'MCP for AI Agents', slug: 'guides/mcp' },

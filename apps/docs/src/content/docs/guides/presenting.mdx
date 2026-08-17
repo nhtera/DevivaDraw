@@ -1,0 +1,96 @@
+---
+title: Presenting
+description: Presentation mode, zen mode, and the laser pointer - turning the board into a talking surface.
+---
+
+The board doubles as a deck. Presentation mode is assembled out of pieces the
+canvas already has - frames become the slides, view-only makes it un-editable
+while you talk, and the laser pointer does the pointing - so there is nothing
+to configure and no separate slide document to keep in sync.
+
+## Presentation mode
+
+Draw frames around whatever you want to show, then **Present** from the main
+menu or the command palette. The action is enabled once the scene has at least
+one frame; the camera then walks the frames one at a time.
+
+### Slide order
+
+Slides follow the frames' own scene order (creation order, unless you have
+restacked them), overridden by a **numeric prefix in the frame's name**:
+
+```text
+1. Intro
+2 Results
+10) Summary
+```
+
+Numbered frames always sort ahead of unnumbered ones - a half-numbered deck is
+a deck part-way through being ordered, and the numbers you typed are the
+stronger signal. Nothing about the document changes: renaming a frame is the
+entire interaction, and a board authored before presentation mode existed
+presents just fine.
+
+### Driving the walk
+
+| Key | Does |
+|---|---|
+| <kbd>→</kbd> / <kbd>PageDown</kbd> / <kbd>Space</kbd> | Next slide |
+| <kbd>←</kbd> / <kbd>PageUp</kbd> | Previous slide |
+| <kbd>Esc</kbd> | Exit |
+
+A heads-up display shows the slide name and position, and fades out on its own
+so it is not in the audience's way.
+
+### What presenting guarantees
+
+- **It is genuinely read-only.** Presenting enters view-only rather than just
+  hiding the chrome, so a stray click cannot nudge a shape mid-sentence.
+- **The laser pointer is selected on entry** - point at things without drawing
+  on them.
+- **Fullscreen where the browser allows it.** A request that is not
+  user-activated, or an iframe without `allow="fullscreen"`, makes the browser
+  decline; the presentation then runs windowed with the chrome hidden and
+  behaves identically otherwise. If you embed the component in an iframe and
+  want real fullscreen, add `allow="fullscreen"` to it.
+
+### Exporting a slide
+
+The export dialog's **Current frame** scope uses this same slide ordering: with
+a frame selected it exports that frame, and with nothing selected it exports the
+deck's first slide. See [Export & Share](/guides/export-embed/).
+
+## Zen mode
+
+<kbd>Alt</kbd>+<kbd>Z</kbd>, or the main menu, hides the panel-class chrome for
+a clean canvas.
+
+Zen keeps its exits - the toolbar and top bar stay, and a pill in the corner
+states the shortcut, so switching it on from a menu never leaves you without a
+way back. <kbd>Esc</kbd> deliberately does *not* leave zen: Escape means
+"deselect / cancel this gesture" everywhere else on the canvas, and overloading
+it would tear the chrome open mid-stroke.
+
+One thing zen never hides: the storage-full warning. Hiding a data-loss
+warning to keep the canvas tidy is the wrong trade. See
+[persistence](/guides/react-component/#loading-and-persisting-data).
+
+Zen is inert while presenting - presentation already owns what chrome is
+visible.
+
+## Laser pointer
+
+The laser tool lives in the toolbar's overflow menu. Its trail is pure
+overlay - it draws on the interactive layer and fades - so it creates no
+elements, takes no history step, and appears in no export or saved document.
+
+## In an embed
+
+All three are part of `<DevivaDraw />` and need no props. They are also
+ordinary registered actions, so a host with its own chrome can dispatch them
+through the [imperative handle](/guides/react-component/#the-imperative-handle):
+
+```tsx
+ref.current.runAction("present");
+ref.current.runAction("toggle-zen-mode");
+```

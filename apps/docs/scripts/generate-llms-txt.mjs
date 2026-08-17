@@ -17,6 +17,8 @@ const pages = [
   'src/content/docs/quick-start.mdx',
   'src/content/docs/installation.mdx',
   'src/content/docs/guides/react-component.mdx',
+  'src/content/docs/guides/presenting.mdx',
+  'src/content/docs/guides/touch-and-input.mdx',
   'src/content/docs/guides/engine.mdx',
   'src/content/docs/guides/collaboration.mdx',
   'src/content/docs/guides/mcp.mdx',
