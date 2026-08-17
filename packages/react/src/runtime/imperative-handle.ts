@@ -13,7 +13,9 @@ import type {
   ExportScale,
   HistoryStack,
   ImageDecodeCache,
+  MultiPageDocumentV1,
   PanZoomTool,
+  SceneDocument,
   SelectionState,
   TextMeasurer,
 } from "@deviva-draw/engine";
@@ -78,6 +80,16 @@ export interface DevivaDrawHandle {
   openDocument(text: string, path: string | null, options?: { preserveCamera?: boolean }): boolean;
   /** Save with the outcome surfaced — see `PersistenceOperations.saveSceneOutcome`. Hosts without provider-backed persistence resolve `"saved"` after the browser save flow. */
   saveDocument(options?: { saveAs?: boolean }): Promise<SaveDocumentOutcome>;
+  /**
+   * The whole live document as a self-contained snapshot — every page, images embedded — in the same
+   * shape `saveDocument` writes. For a host that needs the bytes rather than a save dialog (the
+   * desktop shell's unsaved-work recovery file).
+   *
+   * Read it from here, never from the autosave slot: that slot is a *reference* to image data kept
+   * elsewhere (see `restore-document-files.ts`), so a host that copies it verbatim produces a
+   * document whose images are gone.
+   */
+  getDocument(): MultiPageDocumentV1 | SceneDocument;
 }
 
 /** Injected by `use-deviva-runtime` (which owns the live runtime/pageStore/persistence closures) to implement the document-level handle methods above. */
@@ -85,6 +97,8 @@ export interface DocumentControlDeps {
   runAction(actionId: string): boolean;
   openDocument(text: string, path: string | null, options?: { preserveCamera?: boolean }): boolean;
   saveDocument(options?: { saveAs?: boolean }): Promise<SaveDocumentOutcome>;
+  /** The self-contained document — see `DevivaDrawHandle.getDocument`. */
+  getDocument(): MultiPageDocumentV1 | SceneDocument;
 }
 
 export interface ImperativeHandleDeps {
@@ -108,6 +122,9 @@ export function buildImperativeHandle(deps: ImperativeHandleDeps): DevivaDrawHan
     runAction: (actionId) => documentControl?.runAction(actionId) ?? false,
     openDocument: (text, path, options) => documentControl?.openDocument(text, path, options) ?? false,
     saveDocument: (options) => documentControl?.saveDocument(options) ?? Promise.resolve("canceled" as const),
+    // Falls back to the single live scene when no host wired document control up (test harnesses):
+    // still self-contained, just one page's worth.
+    getDocument: () => documentControl?.getDocument() ?? scene.toJSON(),
     getSceneElements: () => getLiveElements(scene),
     getFiles: () => getLiveFiles(scene),
 

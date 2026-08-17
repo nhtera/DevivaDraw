@@ -3,6 +3,7 @@
  * calls a ref method before `useEffect` has run) — every method is a harmless no-op/empty read rather
  * than `undefined`, so `ref.current.getSceneElements()` never has to be null-checked by the caller.
  */
+import { Scene } from "@deviva-draw/engine";
 import type { DevivaDrawHandle } from "./imperative-handle";
 
 export const NOOP_HANDLE: DevivaDrawHandle = {
@@ -19,4 +20,7 @@ export const NOOP_HANDLE: DevivaDrawHandle = {
   openDocument: () => false, // options ignored — nothing mounted to preserve a camera for
 
   saveDocument: () => Promise.resolve("canceled" as const),
+  // An empty document, not a throw: a host snapshotting before mount should get "nothing was on the
+  // board", which is the truth, rather than an error it has to handle.
+  getDocument: () => new Scene().toJSON(),
 };

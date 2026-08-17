@@ -384,6 +384,9 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
             return true;
           },
           saveDocument: (saveOptions) => builtRuntime.persistence.saveSceneOutcome?.(saveOptions) ?? Promise.resolve("canceled" as const),
+          // Deleted elements stripped, images embedded — the shape a save writes, because every host
+          // that asks for this wants something openable later, not the internal autosave payload.
+          getDocument: () => (pageStore ? pageStore.toDocument(false, cameraStore.getCamera()) : sceneRef.current!.toJSON()),
         },
       }),
     );

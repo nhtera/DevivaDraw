@@ -1,6 +1,7 @@
 import {
   createCamera,
   createFixedWidthTextMeasurer,
+  createImageElement,
   createRectangleElement,
   createRoughGenerator,
   HistoryStack,
@@ -200,5 +201,32 @@ describe("buildImperativeHandle — against a real Scene", () => {
     const scene = new Scene();
     const handle = buildImperativeHandle(buildDeps(scene));
     expect(() => handle.zoomToFit()).not.toThrow();
+  });
+});
+
+/**
+ * `getDocument` exists because image bytes are no longer in the autosave slot: a host that wants a
+ * snapshot of the board (the desktop shell's unsaved-work recovery file) has to ask the editor for
+ * one, not copy that slot. A snapshot missing its images would defeat the whole point of a file
+ * whose job is to rescue work.
+ */
+describe("buildImperativeHandle — getDocument", () => {
+  it("returns a self-contained document, images embedded", () => {
+    const scene = new Scene();
+    scene.addFile("f1", { mimeType: "image/png", dataURL: "data:image/png;base64,AAAA", createdAt: 1 });
+    scene.addElement(createImageElement({ x: 0, y: 0, width: 10, height: 10, fileId: "f1", naturalWidth: 10, naturalHeight: 10 }));
+    const handle = buildImperativeHandle(buildDeps(scene));
+
+    const document = handle.getDocument() as { files: Record<string, { dataURL: string }> };
+
+    expect(document.files.f1?.dataURL).toBe("data:image/png;base64,AAAA");
+  });
+
+  it("delegates to the host's document control when one is wired (multi-page hosts)", () => {
+    const scene = new Scene();
+    const whole = { type: "devivadraw/document", schemaVersion: 1, pages: [] } as never;
+    const handle = buildImperativeHandle({ ...buildDeps(scene), documentControl: { runAction: () => false, openDocument: () => false, saveDocument: () => Promise.resolve("canceled" as const), getDocument: () => whole } });
+
+    expect(handle.getDocument()).toBe(whole);
   });
 });

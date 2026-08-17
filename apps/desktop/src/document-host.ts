@@ -207,7 +207,7 @@ export class DocumentHost {
     const handle = await this.waitForHandle();
     if (!handle) return;
 
-    await this.preserveScratchIfNeeded(file.path);
+    await this.preserveScratchIfNeeded(file.path, handle);
 
     if (!handle.openDocument(file.text, file.path)) {
       await message(`"${file.name}" is not a readable Deviva Draw document.`, { title: "Open Failed", kind: "error" });
@@ -219,10 +219,15 @@ export class DocumentHost {
 
   /**
    * Auto-preserve (no blocking prompt, by design): if the autosave slot holds content that never
-   * had a file (`originPath: null`) or has unsaved edits for a DIFFERENT file, snapshot the raw
-   * slot to a timestamped recovery file in app-data and say so in a dismissible toast.
+   * had a file (`originPath: null`) or has unsaved edits for a DIFFERENT file, snapshot the live
+   * document to a timestamped recovery file in app-data and say so in a dismissible toast.
+   *
+   * The slot decides *whether* to preserve — it carries the `originPath`/`unsaved` markers — but the
+   * editor supplies *what* is written. Those are not the same document: image data lives outside the
+   * autosave slot, so copying the slot verbatim would write a recovery file whose images are gone,
+   * which defeats the point of a file that exists to rescue unsaved work.
    */
-  private async preserveScratchIfNeeded(incomingPath: string): Promise<void> {
+  private async preserveScratchIfNeeded(incomingPath: string, handle: DevivaDrawHandle): Promise<void> {
     try {
       const raw = window.localStorage.getItem(AUTOSAVE_KEY);
       if (!raw) return;
@@ -235,7 +240,7 @@ export class DocumentHost {
 
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       const recoveryPath = await join(await appDataDir(), `recovery-${stamp}.devivadraw`);
-      await invoke("write_allowed_file", { path: recoveryPath, text: raw });
+      await invoke("write_allowed_file", { path: recoveryPath, text: JSON.stringify(handle.getDocument(), null, 2) });
       await invoke("prune_recovery_files", { keep: KEEP_RECOVERY_FILES });
       this.toast(`Unsaved work was preserved to ${recoveryPath.split(/[/\\]/).pop() ?? "a recovery file"} (in the app data folder).`);
     } catch (error) {
