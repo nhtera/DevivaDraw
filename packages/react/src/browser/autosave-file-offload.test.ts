@@ -220,3 +220,63 @@ describe("createAutosaveFileOffload", () => {
     });
   });
 });
+
+/**
+ * Nothing deletes rows inside one session — but another tab's boot collection does, and it decides
+ * what is unreferenced from whatever document *it* loaded. An id wrongly believed stored is the
+ * worst possible state: content-addressed ids mean the same image is then skipped as
+ * already-written and excluded from the document at once, so its bytes are in neither place.
+ */
+describe("verifying what the database still holds", () => {
+  /** The re-check is throttled; every spec here has to get past that window. */
+  const jumpPastThrottle = () => vi.spyOn(performance, "now").mockReturnValue(60_000);
+
+  it("drops ids the database has lost, and asks for a rewrite", async () => {
+    const store = fakeStore({ a: file("data:a") });
+    const onSettled = vi.fn();
+    const offload = offloadFor(Promise.resolve(store), [sceneWithImage("a")], { onSettled });
+    await settle();
+    expect(offload.persistedIds.has("a")).toBe(true);
+    onSettled.mockClear();
+
+    store.data.delete("a"); // another tab collected it
+    jumpPastThrottle();
+    offload.sync();
+    await settle();
+
+    expect(offload.persistedIds.has("a")).toBe(false);
+    expect(onSettled).toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+
+  it("writes the bytes back on the next sync, so the loss is temporary", async () => {
+    const store = fakeStore({ a: file("data:a") });
+    const offload = offloadFor(Promise.resolve(store), [sceneWithImage("a")]);
+    await settle();
+
+    store.data.delete("a");
+    jumpPastThrottle();
+    offload.sync();
+    await settle();
+    offload.sync();
+    await settle();
+
+    expect(store.data.get("a")?.dataURL).toBe("data:a");
+    expect(offload.persistedIds.has("a")).toBe(true);
+    vi.restoreAllMocks();
+  });
+
+  // The check must stay off the busy path: `settling()` gates the storage-full warning, and a
+  // periodic housekeeping read is not a reason to suppress it.
+  it("never reports itself as settling while re-checking", async () => {
+    const store = fakeStore({ a: file("data:a") });
+    const offload = offloadFor(Promise.resolve(store), [sceneWithImage("a")]);
+    await settle();
+
+    jumpPastThrottle();
+    offload.sync();
+
+    expect(offload.settling()).toBe(false);
+    vi.restoreAllMocks();
+  });
+});

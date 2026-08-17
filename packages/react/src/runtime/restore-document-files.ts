@@ -33,8 +33,21 @@ export async function restoreDocumentFiles(scenes: readonly Scene[], store: File
   const restored = await restoreReferencedFiles(scenes, store);
   // Recomputed after the restore, not before: `referencedFileIds` is cheap, and reading it here means
   // collection can never race a scene the restore has just changed.
-  const collected = await collectOrphans(referencedFileIds(scenes), store);
+  const collected = await collectOrphanedFiles(scenes, store);
   return { restored, collected };
+}
+
+/**
+ * Deletes every stored file the given scenes no longer mention. Safe exactly when no undo can bring
+ * a reference back — at boot, and on a whole-document swap (opening a file, loading a share link),
+ * both of which start from a fresh history. Notably NOT after "Reset canvas", which is one undo away
+ * from restoring every element it cleared. Returns how many were deleted.
+ */
+export async function collectOrphanedFiles(scenes: readonly Scene[], store: FileStoreLike): Promise<number> {
+  const referenced = referencedFileIds(scenes);
+  const orphans = (await store.listIds()).filter((fileId) => !referenced.has(fileId));
+  if (orphans.length > 0) await store.deleteMany(orphans);
+  return orphans.length;
 }
 
 /**
@@ -73,8 +86,3 @@ async function restoreReferencedFiles(scenes: readonly Scene[], store: FileStore
   }
 }
 
-async function collectOrphans(referenced: ReadonlySet<string>, store: FileStoreLike): Promise<number> {
-  const orphans = (await store.listIds()).filter((fileId) => !referenced.has(fileId));
-  if (orphans.length > 0) await store.deleteMany(orphans);
-  return orphans.length;
-}

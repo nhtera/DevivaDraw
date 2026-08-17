@@ -186,6 +186,7 @@ function buildTestRuntime(scene: Scene): ActionRuntime {
     },
     theme: { mode: "light", toggleMode: vi.fn() },
     persistence: {
+      whenFilesReady: () => Promise.resolve(),
       newScene: vi.fn(),
       openScene: vi.fn(),
       loadScene: vi.fn(),

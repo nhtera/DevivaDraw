@@ -9,7 +9,8 @@
 
 export type ImageDecodeFn<TImage> = (dataURL: string) => Promise<TImage>;
 
-type CacheEntry<TImage> = { status: "pending" } | { status: "loaded"; image: TImage } | { status: "error" };
+/** A pending entry keeps its in-flight promise so `preload` can await the same decode `get` started, rather than starting a second one. */
+type CacheEntry<TImage> = { status: "pending"; settled: Promise<void> } | { status: "loaded"; image: TImage } | { status: "error" };
 
 /**
  * `get()` is designed to be polled from a per-frame render loop rather than awaited: a render pass
@@ -39,8 +40,13 @@ export class ImageDecodeCache<TImage extends { width: number; height: number }> 
     if (entry?.status === "loaded") return entry.image;
     if (entry) return undefined; // pending or errored — nothing to draw yet either way
 
-    this.entries.set(fileId, { status: "pending" });
-    this.decode(dataURL)
+    this.start(fileId, dataURL);
+    return undefined;
+  }
+
+  /** Kicks off a decode and records it as pending, returning the promise that settles when it lands (either way). */
+  private start(fileId: string, dataURL: string): Promise<void> {
+    const settled = this.decode(dataURL)
       .then((image) => {
         this.entries.set(fileId, { status: "loaded", image });
         this.onSettled?.(fileId);
@@ -49,7 +55,24 @@ export class ImageDecodeCache<TImage extends { width: number; height: number }> 
         this.entries.set(fileId, { status: "error" });
         this.onSettled?.(fileId);
       });
-    return undefined;
+    this.entries.set(fileId, { status: "pending", settled });
+    return settled;
+  }
+
+  /**
+   * Resolves once every requested file has finished decoding (or failed). For a ONE-SHOT render with
+   * no second frame to draw on: an export renders synchronously and encodes the result immediately,
+   * so anything still in flight is baked into the output as a placeholder — a photograph exported as
+   * a grey box. The live canvas needs no such wait; it repaints when `onSettled` fires.
+   */
+  async preload(requests: Iterable<{ fileId: string; dataURL: string }>): Promise<void> {
+    const waits: Promise<void>[] = [];
+    for (const { fileId, dataURL } of requests) {
+      const entry = this.entries.get(fileId);
+      if (entry?.status === "loaded" || entry?.status === "error") continue;
+      waits.push(entry?.status === "pending" ? entry.settled : this.start(fileId, dataURL));
+    }
+    await Promise.all(waits);
   }
 
   status(fileId: string): "pending" | "loaded" | "error" | "unrequested" {

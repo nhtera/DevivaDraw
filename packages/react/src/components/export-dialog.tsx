@@ -54,9 +54,15 @@ export function ExportDialog(props: { runtime: DevivaRuntime; onClose(): void })
   };
   const extras = { darkMode, elements: scopedElements() };
 
+  // Every export goes through here, which is also the one place image data can be waited for: these
+  // buttons render the scene directly rather than through the file actions, so without this a dialog
+  // opened before the board's images have been read back would export blank boxes. See
+  // `PersistenceOperations.whenFilesReady`.
   const run = (task: () => Promise<void>) => {
     setBusy(true);
-    task()
+    runtime.persistence
+      .whenFilesReady()
+      .then(task)
       .catch((error) => console.error("deviva-draw: export failed", error))
       .finally(() => setBusy(false));
   };

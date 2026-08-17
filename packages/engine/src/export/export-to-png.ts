@@ -102,6 +102,18 @@ export async function exportToPng(options: ExportToPngOptions): Promise<Blob> {
   const { camera, pixelWidth, pixelHeight } = computeExportFrame(bounds, scale);
   const target = createRenderTarget(pixelWidth, pixelHeight);
 
+  // Decode every image BEFORE drawing. The render below is synchronous and its output is encoded
+  // immediately, so unlike the live canvas — which draws a placeholder now and repaints when the
+  // decode lands — an export has no second frame: whatever is still in flight is what the file
+  // keeps. Skipping this exported a photograph as a grey box.
+  await imageDecodeCache.preload(
+    elements.flatMap((element) => {
+      if (element.type !== "image") return [];
+      const file = scene.getFile(element.fileId);
+      return file ? [{ fileId: element.fileId, dataURL: file.dataURL }] : [];
+    }),
+  );
+
   renderSceneToCanvas(target.ctx, scene, camera, { width: pixelWidth, height: pixelHeight }, {
     roughCanvas: target.roughCanvas,
     textMeasurer,

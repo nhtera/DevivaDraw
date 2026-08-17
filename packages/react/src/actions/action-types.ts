@@ -96,6 +96,14 @@ export interface PersistenceOperations {
    * fire-and-forget `saveScene`).
    */
   saveSceneOutcome?(options?: { saveAs?: boolean }): Promise<SaveDocumentOutcome>;
+  /**
+   * Resolves once the scene holds every byte it is supposed to — image payloads kept outside the
+   * document have to be read back after boot (see `runtime/restore-document-files.ts`). The
+   * operations below already wait on it; anything ELSE that turns the scene into pixels or bytes
+   * (the export dialog) must await it first, or it can render a blank box where an image belongs.
+   * Always present, resolved immediately when there is nothing to wait for.
+   */
+  whenFilesReady(): Promise<void>;
   exportPng(): Promise<void>;
   exportSvg(): Promise<void>;
   copyAsImage(): Promise<void>;

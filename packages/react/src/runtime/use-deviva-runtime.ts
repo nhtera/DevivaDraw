@@ -31,7 +31,7 @@ import type { AnyElement, FileStoreLike, MultiPageDocumentV1, RemoteCursorOverla
 import type { FileOperationsProvider } from "../browser/file-operations-provider";
 import { referencedFileIds } from "@deviva-draw/engine";
 import { openIndexedDbFileStore } from "../browser/indexeddb-file-store";
-import { expectStoredFiles, restoreDocumentFiles } from "./restore-document-files";
+import { collectOrphanedFiles, expectStoredFiles, restoreDocumentFiles } from "./restore-document-files";
 import { documentFromFileText } from "../browser/scene-file-operations";
 import { buildPersistenceOperations } from "./build-persistence-operations";
 import { DocumentStateTracker } from "./document-state-tracker";
@@ -209,9 +209,8 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
     });
 
     // Bring back the image payloads the restored document only holds references to, and collect the
-    // ones it no longer mentions. Once per mount, not per rebuild: a page switch or a file open works
-    // on scenes that already carry their own bytes, and collection is only safe on a document nobody
-    // has had a chance to undo anything in yet.
+    // ones it no longer mentions. The RESTORE is once per mount: after that, every scene in the
+    // document already carries its own bytes.
     if (fileStore && filesRestoredRef.current === null) {
       const scenes = pageStore ? pageStore.getScenes() : [scene];
       // Synchronously, ahead of the database open: the first frames are painted in that gap, and an
@@ -230,6 +229,16 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
           if (restored > 0) stageRef.current?.staticLayer.invalidate();
         })
         .catch((error: unknown) => console.warn("deviva-draw: could not restore image data — images may be missing until the next save", error));
+    } else if (fileStore) {
+      // COLLECTION, though, runs on every rebuild — and a rebuild is exactly a whole-document swap
+      // (a file opened, a share link loaded, a page switched). The document that was on screen a
+      // moment ago is gone along with its history, so its images cannot be undone back into
+      // existence; waiting for the next boot to notice would leave them on disk for the rest of the
+      // session. "Reset canvas" deliberately does NOT rebuild — an undo can still bring those
+      // elements back, so their bytes wait.
+      void Promise.all([fileStore, filesRestoredRef.current])
+        .then(([store]) => store && collectOrphanedFiles(pageStore ? pageStore.getScenes() : [scene], store))
+        .catch((error: unknown) => console.warn("deviva-draw: could not collect unused image data", error));
     }
 
     // Autosave gets the store only once that restore has finished, and this ordering is load-bearing.

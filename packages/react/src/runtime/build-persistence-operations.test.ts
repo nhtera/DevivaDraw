@@ -159,3 +159,56 @@ describe("buildPersistenceOperations — browser (no provider) save error handli
     expect(onError).toHaveBeenCalledTimes(1);
   });
 });
+
+/**
+ * The load gate. A document restored from storage carries `fileId` references before it carries the
+ * images themselves (see `restore-document-files.ts`), so anything that turns the scene into bytes
+ * has to wait — otherwise a save or export fired in the first milliseconds after boot writes blank
+ * images. `whenFilesReady` is also re-exported on the operations object so the export dialog, which
+ * renders directly rather than through these actions, can wait on the same promise.
+ */
+describe("buildPersistenceOperations — waiting for image data", () => {
+  /** A gate that stays shut until released, so "did it wait?" is observable rather than a race. */
+  function pendingGate() {
+    let release!: () => void;
+    const promise = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return { whenFilesReady: () => promise, release };
+  }
+
+  it("saves nothing until the images are back", async () => {
+    const gate = pendingGate();
+    const provider = makeProvider();
+    const operations = buildPersistenceOperations(makeDeps({ fileOperations: provider, pages: makePages(), whenFilesReady: gate.whenFilesReady }));
+
+    const saving = operations.saveSceneOutcome!();
+    await Promise.resolve();
+    expect(provider.writeFile).not.toHaveBeenCalled();
+
+    gate.release();
+    await saving;
+    expect(provider.writeFile).toHaveBeenCalledTimes(1);
+  });
+
+  it("exposes the same gate for callers that render the scene themselves", async () => {
+    const gate = pendingGate();
+    const operations = buildPersistenceOperations(makeDeps({ whenFilesReady: gate.whenFilesReady }));
+    let ready = false;
+    void operations.whenFilesReady().then(() => {
+      ready = true;
+    });
+
+    await Promise.resolve();
+    expect(ready).toBe(false);
+
+    gate.release();
+    await operations.whenFilesReady();
+    expect(ready).toBe(true);
+  });
+
+  it("resolves immediately when the host has nothing to wait for", async () => {
+    const operations = buildPersistenceOperations(makeDeps());
+    await expect(operations.whenFilesReady()).resolves.toBeUndefined();
+  });
+});

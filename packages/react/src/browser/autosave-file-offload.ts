@@ -18,6 +18,9 @@ import { collectSceneFiles, isQuotaExceededError } from "@deviva-draw/engine";
 import type { FileStoreLike, Scene } from "@deviva-draw/engine";
 import type { AutosaveStatusStore } from "../runtime/autosave-status-store";
 
+/** How often the offload re-checks that the database still holds what it thinks it does — see `verifyStillStored`. Long, because the only thing that invalidates its memory is another tab. */
+const VERIFY_INTERVAL_MS = 30_000;
+
 export interface AutosaveFileOffload {
   /** Files known to be in the separate store — hand this to the serializer as `excludeFileIds`. Grows as writes land. */
   readonly persistedIds: ReadonlySet<string>;
@@ -82,11 +85,43 @@ export function createAutosaveFileOffload(options: AutosaveFileOffloadOptions): 
       offload.sync();
     });
 
+  /**
+   * Re-checks that the database still holds what this offload believes it holds, dropping ids it has
+   * lost. Nothing deletes rows within one session — but another tab's boot collection does, and its
+   * idea of what is referenced comes from whatever document *it* loaded. Since ids are content
+   * hashes, an id wrongly believed stored means the same image is skipped as already-written and
+   * excluded from the document at the same time: bytes in neither place.
+   *
+   * Deliberately not part of `sync`'s busy path: it must not make `settling()` true (that would
+   * suppress genuine storage-full warnings), and it must not run on every tick, so it is throttled.
+   * Dropping an id is self-healing — the next document write embeds those bytes again and the next
+   * sync writes them back.
+   */
+  let lastVerifiedAt = 0;
+  const verifyStillStored = (now: number): void => {
+    if (!store || persistedIds.size === 0 || now - lastVerifiedAt < VERIFY_INTERVAL_MS) return;
+    lastVerifiedAt = now;
+    const target = store;
+    void target
+      .listIds()
+      .then((ids) => {
+        const present = new Set(ids);
+        const lost = [...persistedIds].filter((fileId) => !present.has(fileId));
+        if (lost.length === 0) return;
+        console.warn(`deviva-draw: ${lost.length} image file(s) vanished from the database (another tab?) — writing them again`);
+        for (const fileId of lost) persistedIds.delete(fileId);
+        // Rewrite now, with those bytes back in the document, rather than waiting for an edit.
+        onSettled?.();
+      })
+      .catch((error: unknown) => console.warn("deviva-draw: could not re-check the image file database", error));
+  };
+
   const offload: AutosaveFileOffload = {
     persistedIds,
     settling: () => opening || writing,
     sync() {
       if (!store || writing) return;
+      verifyStillStored(performance.now());
       const scenes = getScenes();
       // Decided synchronously, before `writing` is set: `settling()` is read by the very same
       // autosave tick that calls this, and a `sync` with nothing to write must leave that tick's

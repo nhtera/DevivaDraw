@@ -99,6 +99,7 @@ export function buildPersistenceOperations(deps: BuildPersistenceOperationsDeps)
 
   return {
     saveSceneOutcome,
+    whenFilesReady: ready,
     newScene: () => resetScene(getScene(), history, selection),
     openScene: async () => {
       try {
