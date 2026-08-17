@@ -203,9 +203,13 @@ export type {
   PipelineGlobalTarget,
   PointerEventPipelineOptions,
   PointerLikeEvent,
+  TouchDrawPolicy,
   WheelLikeEvent,
 } from "./input/pointer-event-pipeline";
 export { DEFAULT_POINTER_TYPE, DEFAULT_SIMULATED_PRESSURE, PointerEventPipeline } from "./input/pointer-event-pipeline";
+
+export type { WheelAction, WheelBehaviorInput, WheelBehaviorMode, WheelBehaviorPreference } from "./input/wheel-behavior";
+export { isMouseNotchWheel, resolveWheelAction, TRACKPAD_WHEEL_BEHAVIOR } from "./input/wheel-behavior";
 
 export { createElementTarget, createGlobalTarget } from "./input/dom-event-target-adapter";
 

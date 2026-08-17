@@ -11,6 +11,7 @@ import { ToolStateMachine } from "./tool-state-machine";
 import { PanZoomTool } from "./pan-zoom-tool";
 import { registerCoreShortcuts, ShortcutRegistry } from "./shortcut-registry";
 import { PointerEventPipeline } from "./pointer-event-pipeline";
+import type { PointerEventPipelineOptions } from "./pointer-event-pipeline";
 import type {
   HistoryBatchGuard,
   KeyLikeEvent,
@@ -187,7 +188,7 @@ export class FakeGlobalTarget implements PipelineGlobalTarget {
   }
 }
 
-export function buildHarness(historyStack?: HistoryBatchGuard) {
+export function buildHarness(historyStack?: HistoryBatchGuard, overrides: Partial<PointerEventPipelineOptions> = {}) {
   const element = new FakeElementTarget();
   const globalTarget = new FakeGlobalTarget();
   const cameraState = { camera: createCamera() };
@@ -224,6 +225,7 @@ export function buildHarness(historyStack?: HistoryBatchGuard) {
       "zoom-to-fit": () => panZoomTool.zoomToFit(),
     },
     isEditingTextSuppressed: () => editingSuppressionState.suppressed,
+    ...overrides,
   });
   pipeline.attach();
 
