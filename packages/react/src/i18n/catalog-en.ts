@@ -327,6 +327,9 @@ export const catalogEn = {
   "layers.renameHint": "Double-click to rename",
   "layers.notRedactionHint": "Hiding controls what's shown — shares and files still contain hidden layers.",
   "action.toggleLayers": "Layers panel",
+  "autosave.quotaExceeded": "Browser storage is full — your changes are no longer being saved.",
+  "autosave.saveToFile": "Save to a file",
+
   "share.viewer.editCopy": "Edit a copy",
   "share.viewer.unsavedCopy": "Unsaved copy — save the file to keep your changes",
 

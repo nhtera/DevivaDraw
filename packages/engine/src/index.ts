@@ -464,7 +464,7 @@ export { DOCUMENT_CEILINGS, validateSceneDocument, validateSceneDocumentLenient 
 export type { DeserializeSceneLenientResult, DeserializeSceneResult, SerializeSceneOptions } from "./persistence/serialize-scene";
 export { deserializeScene, deserializeSceneLenient, serializeScene } from "./persistence/serialize-scene";
 
-export type { AutosaveController, AutosaveOptions, RestoreAutosaveOptions, StorageLike } from "./persistence/local-storage-autosave";
+export type { AutosaveController, AutosaveOptions, AutosaveWriteCallbacks, RestoreAutosaveOptions, StorageLike } from "./persistence/local-storage-autosave";
 export { AUTOSAVE_RECOVERY_KEY_SUFFIX, AUTOSAVE_STORAGE_KEY, restoreAutosave, restoreAutosaveDocument, startAutosave, writeAutosaveDocument } from "./persistence/local-storage-autosave";
 export type { DeserializeMultiPageLenientResult, DeserializeMultiPageResult, MultiPageDocumentV1, ScenePage, SerializedPage, SerializeMultiPageOptions } from "./persistence/multi-page-document";
 export { CURRENT_DOCUMENT_SCHEMA_VERSION, deserializeMultiPageDocument, deserializeMultiPageDocumentLenient, generatePageId, MULTI_PAGE_DOCUMENT_TYPE, serializeMultiPageDocument } from "./persistence/multi-page-document";

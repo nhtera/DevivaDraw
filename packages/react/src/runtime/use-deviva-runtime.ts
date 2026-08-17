@@ -43,6 +43,8 @@ import { getLiveElements, getLiveFiles } from "./scene-live-snapshot";
 import type { LiveStoredFile } from "./scene-live-snapshot";
 import { startRenderLoop } from "./start-render-loop";
 import type { CameraStore } from "./camera-store";
+import { createAutosaveStatusStore } from "./autosave-status-store";
+import type { AutosaveStatusStore } from "./autosave-status-store";
 import { useStableCallback } from "./use-stable-ref";
 import type { UiToggleState } from "../actions/action-types";
 import { adaptBackgroundColorForTheme, adaptStrokeColorForTheme } from "../theme/canvas-color-inversion";
@@ -94,6 +96,8 @@ export interface UseDevivaRuntimeResult {
   runtime: DevivaRuntime | null;
   editSession: TextEditSession | null;
   handle: DevivaDrawHandle | null;
+  /** Live "can autosave still save?" signal for the chrome's storage-full warning — see `autosave-status-store.ts`. */
+  autosaveStatus: AutosaveStatusStore;
 }
 
 function buildInitialScene(initialData: SceneDocument | MultiPageDocumentV1 | null | undefined, persistenceKey: string | undefined): Scene {
@@ -114,6 +118,12 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
   const documentStateRef = useRef<DocumentStateTracker | null>(null);
   if (documentStateRef.current === null) documentStateRef.current = new DocumentStateTracker();
   const documentState = documentStateRef.current;
+  // Created here rather than inside the autosave effect so it survives every runtime rebuild (page
+  // swap, file open): "storage is full" is a property of the browser, not of the scene on screen, and
+  // a warning that vanished on a page switch would be a warning the user never gets to act on.
+  const autosaveStatusRef = useRef<AutosaveStatusStore | null>(null);
+  if (autosaveStatusRef.current === null) autosaveStatusRef.current = createAutosaveStatusStore();
+  const autosaveStatus = autosaveStatusRef.current;
   if (sceneRef.current === null) sceneRef.current = pageStore ? pageStore.getActiveScene() : buildInitialScene(initialData, persistenceKey);
 
   const [runtime, setRuntime] = useState<DevivaRuntime | null>(null);
@@ -206,8 +216,9 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
               const state = documentState.getState();
               return { originPath: state.path, unsaved: state.dirty };
             },
+            autosaveStatus,
           )
-        : startBrowserAutosave(scene, persistenceKey);
+        : startBrowserAutosave(scene, persistenceKey, autosaveStatus);
 
     // Autosave only writes in response to a scene *change*, and a scene that was just opened from a
     // file has none — so without this, opening a document and reloading restored the document from
@@ -395,5 +406,5 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
     // precisely so they *don't* need to be stable themselves.
   }, [sceneVersion]);
 
-  return { runtime, editSession, handle };
+  return { runtime, editSession, handle, autosaveStatus };
 }

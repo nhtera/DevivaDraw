@@ -220,4 +220,13 @@ export const MENU_GLYPHS: Record<string, ReactNode> = {
       <path d="M13.2 12.2 C16.6 12.2 16.8 14.3 16.8 16" />
     </>
   ),
+  // Warning triangle — the storage-full banner's mark. Rounded corners so it sits with the rest of
+  // this set rather than reading as a system dialog icon.
+  alert: (
+    <>
+      <path d="M10 3.4 L17.4 16 A1 1 0 0 1 16.5 17.2 H3.5 A1 1 0 0 1 2.6 16 Z" strokeLinejoin="round" />
+      <path d="M10 8 V11.6" strokeLinecap="round" />
+      <circle cx="10" cy="14.2" r="0.5" fill="currentColor" stroke="none" />
+    </>
+  ),
 };

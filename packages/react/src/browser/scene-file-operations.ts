@@ -24,7 +24,8 @@ import {
   writeAutosaveDocument,
 } from "@deviva-draw/engine";
 import { DOCUMENT_CEILINGS } from "@deviva-draw/engine";
-import type { AnyElement, AutosaveController, Camera, ElementColorAdapter, ExcalidrawSceneImport, ExportScale, MultiPageDocumentV1, SceneDocument, ScenePage } from "@deviva-draw/engine";
+import type { AnyElement, AutosaveController, AutosaveWriteCallbacks, Camera, ElementColorAdapter, ExcalidrawSceneImport, ExportScale, MultiPageDocumentV1, SceneDocument, ScenePage } from "@deviva-draw/engine";
+import type { AutosaveStatusStore } from "../runtime/autosave-status-store";
 import { adaptBackgroundColorForTheme, adaptStrokeColorForTheme } from "../theme/canvas-color-inversion";
 import type { FileOperationsProvider } from "./file-operations-provider";
 import { createBrowserExportRenderTarget, createRoughSvgGenerator, pickAndReadFile, saveFile, triggerDownload } from "./persistence-adapters";
@@ -49,15 +50,26 @@ function isOverDocumentSizeCeiling(text: string, source: string): boolean {
   return true;
 }
 
-/** Starts localStorage autosave for `scene` — call once per mounted `Scene` instance; `dispose()` on unmount/scene-swap. `storageKey` scopes the save slot (e.g. one per embedded instance); omit to use the package-wide default. */
-export function startBrowserAutosave(scene: Scene, storageKey?: string): AutosaveController {
-  return startAutosave({
-    scene,
-    storage: window.localStorage,
-    storageKey,
-    onQuotaExceeded: (error) => console.warn("deviva-draw: autosave skipped a write — localStorage quota exceeded", error),
+/**
+ * Console logging plus (when the host wired one up) the status store the storage-full banner reads —
+ * shared by both autosave flavours so a quota failure is reported identically whichever one is running.
+ * A console warning alone was the whole handling once, which made a full localStorage a silent way to
+ * lose a session's work; the store is what turns it into something the user is actually told about.
+ */
+function autosaveWriteCallbacks(status?: AutosaveStatusStore): AutosaveWriteCallbacks {
+  return {
+    onQuotaExceeded: (error) => {
+      console.warn("deviva-draw: autosave skipped a write — localStorage quota exceeded", error);
+      status?.markQuotaExceeded();
+    },
     onError: (error) => console.error("deviva-draw: autosave write failed", error),
-  });
+    onWritten: () => status?.markWritten(),
+  };
+}
+
+/** Starts localStorage autosave for `scene` — call once per mounted `Scene` instance; `dispose()` on unmount/scene-swap. `storageKey` scopes the save slot (e.g. one per embedded instance); omit to use the package-wide default. `status` receives each write's outcome (see `autosave-status-store.ts`). */
+export function startBrowserAutosave(scene: Scene, storageKey?: string, status?: AutosaveStatusStore): AutosaveController {
+  return startAutosave({ scene, storage: window.localStorage, storageKey, ...autosaveWriteCallbacks(status) });
 }
 
 /**
@@ -249,6 +261,9 @@ export function startBrowserDocumentAutosave(
   // shell's `{originPath, unsaved}` marker, so a later external open can tell whether the restored
   // autosave slot is somebody's unsaved scratch work that must be auto-preserved first.
   getDocumentMeta?: () => Record<string, string | boolean | null>,
+  // Receives every write's outcome so the chrome can warn when saving has stopped working — see
+  // `autosaveWriteCallbacks` and `autosave-status-store.ts`.
+  status?: AutosaveStatusStore,
 ): AutosaveController {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const clearPending = () => {
@@ -256,11 +271,7 @@ export function startBrowserDocumentAutosave(
     timer = null;
   };
   const write = () =>
-    writeAutosaveDocument(window.localStorage, { ...(getDocumentMeta?.() ?? {}), ...document.toDocument(true, camera?.getCamera()) }, {
-      storageKey,
-      onQuotaExceeded: (error) => console.warn("deviva-draw: autosave skipped a write — localStorage quota exceeded", error),
-      onError: (error) => console.error("deviva-draw: autosave write failed", error),
-    });
+    writeAutosaveDocument(window.localStorage, { ...(getDocumentMeta?.() ?? {}), ...document.toDocument(true, camera?.getCamera()) }, { storageKey, ...autosaveWriteCallbacks(status) });
   const schedule = () => {
     clearPending();
     timer = setTimeout(() => {

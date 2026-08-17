@@ -34,10 +34,12 @@ export interface AutosaveOptions {
   /** Debounce window between the last scene change and the actual write — default 1s. */
   debounceMs?: number;
   storageKey?: string;
-  /** Called when a write is rejected for exceeding the storage quota — the caller (future UI chrome) decides how to warn the user; this module only guarantees the write itself never throws/crashes the app. */
+  /** Called when a write is rejected for exceeding the storage quota — the caller (the UI chrome that warns the user) decides how to surface it; this module only guarantees the write itself never throws/crashes the app. */
   onQuotaExceeded?: (error: unknown) => void;
   /** Called for any other unexpected write failure — should be rare, a quota error is the only expected failure mode. */
   onError?: (error: unknown) => void;
+  /** Called after a write actually lands. The success half of `onQuotaExceeded`: a warning raised by a failed write can only be *retracted* by evidence that saving works again, and this is that evidence. */
+  onWritten?: () => void;
 }
 
 export interface AutosaveController {
@@ -52,25 +54,32 @@ function isQuotaExceededError(error: unknown): boolean {
   return error instanceof DOMException && (error.name === "QuotaExceededError" || error.code === 22 || error.code === 1014);
 }
 
-function writeSnapshot(
-  scene: Scene,
-  storage: StorageLike,
-  storageKey: string,
-  onQuotaExceeded?: (error: unknown) => void,
-  onError?: (error: unknown) => void,
-): void {
+/** The three ways one write can end, reported to the caller — see each field's doc on `AutosaveOptions`. */
+export interface AutosaveWriteCallbacks {
+  onQuotaExceeded?: (error: unknown) => void;
+  onError?: (error: unknown) => void;
+  onWritten?: () => void;
+}
+
+/**
+ * The one place a persisted snapshot actually reaches storage: serialize is the caller's job, the
+ * never-throw contract and the outcome reporting are this function's. Both autosave flavours (single
+ * scene, whole document) funnel through it so they cannot drift on which failures are swallowed.
+ */
+function commitWrite(storage: StorageLike, storageKey: string, serialized: () => string, callbacks: AutosaveWriteCallbacks): void {
   try {
-    const document = serializeScene(scene, { includeDeleted: true });
-    storage.setItem(storageKey, JSON.stringify(document));
+    storage.setItem(storageKey, serialized());
   } catch (error) {
-    if (isQuotaExceededError(error)) onQuotaExceeded?.(error);
-    else onError?.(error);
+    if (isQuotaExceededError(error)) callbacks.onQuotaExceeded?.(error);
+    else callbacks.onError?.(error);
+    return;
   }
+  callbacks.onWritten?.();
 }
 
 /** Subscribes to `scene`'s changes and writes a debounced snapshot to `storage` on every change, coalescing bursts of edits (a drag, a multi-keystroke text edit) into a single write per quiet period rather than one per mutation. */
 export function startAutosave(options: AutosaveOptions): AutosaveController {
-  const { scene, storage, debounceMs = DEFAULT_DEBOUNCE_MS, storageKey = AUTOSAVE_STORAGE_KEY, onQuotaExceeded, onError } = options;
+  const { scene, storage, debounceMs = DEFAULT_DEBOUNCE_MS, storageKey = AUTOSAVE_STORAGE_KEY, onQuotaExceeded, onError, onWritten } = options;
   let timer: ReturnType<typeof setTimeout> | null = null;
 
   const clearPending = () => {
@@ -78,18 +87,20 @@ export function startAutosave(options: AutosaveOptions): AutosaveController {
     timer = null;
   };
 
+  const write = () => commitWrite(storage, storageKey, () => JSON.stringify(serializeScene(scene, { includeDeleted: true })), { onQuotaExceeded, onError, onWritten });
+
   const unsubscribe = scene.subscribe(() => {
     clearPending();
     timer = setTimeout(() => {
       timer = null;
-      writeSnapshot(scene, storage, storageKey, onQuotaExceeded, onError);
+      write();
     }, debounceMs);
   });
 
   return {
     flush() {
       clearPending();
-      writeSnapshot(scene, storage, storageKey, onQuotaExceeded, onError);
+      write();
     },
     dispose() {
       unsubscribe();
@@ -202,16 +213,7 @@ function restoreWithSalvage<Result extends { ok: true; droppedErrors: string[] }
  * of the single-scene `writeSnapshot` above. Debounce/orchestration lives with the caller (a pages
  * host knows about page switches and page-list edits, which a single `Scene` subscription cannot see).
  */
-export function writeAutosaveDocument(
-  storage: StorageLike,
-  document: MultiPageDocumentV1,
-  options: { storageKey?: string; onQuotaExceeded?: (error: unknown) => void; onError?: (error: unknown) => void } = {},
-): void {
-  const { storageKey = AUTOSAVE_STORAGE_KEY, onQuotaExceeded, onError } = options;
-  try {
-    storage.setItem(storageKey, JSON.stringify(document));
-  } catch (error) {
-    if (isQuotaExceededError(error)) onQuotaExceeded?.(error);
-    else onError?.(error);
-  }
+export function writeAutosaveDocument(storage: StorageLike, document: MultiPageDocumentV1, options: AutosaveWriteCallbacks & { storageKey?: string } = {}): void {
+  const { storageKey = AUTOSAVE_STORAGE_KEY, ...callbacks } = options;
+  commitWrite(storage, storageKey, () => JSON.stringify(document), callbacks);
 }

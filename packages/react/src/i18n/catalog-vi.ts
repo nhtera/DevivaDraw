@@ -327,6 +327,9 @@ export const catalogVi: Record<TranslationKey, string> = {
   "layers.renameHint": "Nhấp đúp để đổi tên",
   "layers.notRedactionHint": "Ẩn chỉ điều khiển những gì hiển thị — chia sẻ và tệp vẫn chứa các lớp ẩn.",
   "action.toggleLayers": "Bảng lớp",
+  "autosave.quotaExceeded": "Bộ nhớ trình duyệt đã đầy — các thay đổi của bạn không còn được lưu.",
+  "autosave.saveToFile": "Lưu ra tệp",
+
   "share.viewer.editCopy": "Chỉnh sửa bản sao",
   "share.viewer.unsavedCopy": "Bản sao chưa được lưu — hãy lưu tệp để giữ thay đổi của bạn",
 

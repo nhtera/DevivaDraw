@@ -57,6 +57,7 @@ import { EmbedOverlay } from "./components/embed-overlay";
 import { Minimap } from "./components/minimap";
 import { BackToContentPill } from "./components/back-to-content-pill";
 import { ExitZenPill } from "./components/exit-zen-pill";
+import { AutosaveQuotaBanner } from "./components/autosave-quota-banner";
 import { PresentationController } from "./components/presentation/presentation-controller";
 import { useCanvasBackground } from "./runtime/use-live-version";
 import { useAdaptNextShapeStyle } from "./runtime/use-adapt-next-shape-style";
@@ -187,7 +188,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const remoteCursorsRef = useRef<RemoteCursorOverlay[]>([]);
   const getRemoteCursors = useCallback(() => remoteCursorsRef.current, []);
 
-  const { runtime, editSession, handle } = useDevivaRuntime({
+  const { runtime, editSession, handle, autosaveStatus } = useDevivaRuntime({
     containerRef: canvasHostRef,
     cameraStore,
     initialData,
@@ -439,6 +440,10 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
         <BackToContentPill runtime={runtime} cameraStore={cameraStore} getViewportSize={() => ({ width: canvasHostRef.current?.clientWidth ?? 0, height: canvasHostRef.current?.clientHeight ?? 0 })} />
       )}
       {runtime && zenMode.value && !presentationActive.value && <ExitZenPill onExit={() => zenMode.set(false)} />}
+      {/* Not gated on `panelsHidden`: zen mode hides chrome the user chose to do without, and nobody
+          chooses to do without being told their work has stopped saving. Presentation is the one
+          exception — the audience is looking at the board, and the presenter's own copy is unharmed. */}
+      {runtime && !presentationActive.value && <AutosaveQuotaBanner status={autosaveStatus} onSave={() => void runtime.actionRegistry.run("save-scene", runtime)} />}
       {runtime && presentationActive.value && (
         <PresentationController
           runtime={runtime}
