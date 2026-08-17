@@ -409,7 +409,10 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       // The tablet tier (`useLayoutTier`): desktop layout, touch-sized targets. The injected
       // chrome stylesheet keys density overrides on this attribute, so no component branches itself.
       data-dd-density={layoutTier === "tablet" ? "touch" : undefined}
-      style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden", ...cssVariables, ...style }}
+      // `colorScheme` is what makes the browser's OWN widgets — checkboxes, selects, the text caret —
+      // follow the app's theme rather than the page's. Without it a dark chrome still renders bright
+      // white checkbox squares, which is exactly where the theme used to visibly break.
+      style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden", colorScheme: mode, ...cssVariables, ...style }}
     >
       <div ref={canvasHostRef} data-testid="deviva-draw-canvas-host" style={{ position: "absolute", inset: 0, background: canvasBackground ?? "var(--dd-canvas-background)" }}>
         {runtime && <EmbedOverlay runtime={runtime} cameraStore={cameraStore} />}

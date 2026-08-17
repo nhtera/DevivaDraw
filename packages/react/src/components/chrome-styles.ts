@@ -79,7 +79,22 @@ export function buttonStyle(active = false): CSSProperties {
   };
 }
 
+/**
+ * A button that has to read as a button on a bare surface — a dialog body, where there is no toolbar
+ * or menu row around it to imply "these are controls". `buttonStyle` is borderless on purpose (it sits
+ * inside chrome that already frames it); alone on a white dialog it renders as plain text, which is
+ * exactly how the export dialog's format row used to look. The background stays unset so the shared
+ * `:hover`/`:active` rules in `chrome-stylesheet.ts` still apply — an inline background would win over
+ * them and kill the hover feedback.
+ */
+export function outlineButtonStyle(): CSSProperties {
+  return { ...buttonStyle(false), border: "1px solid var(--dd-chrome-border)", padding: "8px 10px", fontWeight: 500 };
+}
+
 export const disabledButtonStyle: CSSProperties = { opacity: 0.4, cursor: "default" };
+
+/** Hairline separator between dialog sections — the horizontal counterpart of `dividerStyle`. */
+export const sectionDividerStyle: CSSProperties = { height: 1, background: "var(--dd-chrome-border)", margin: "14px 0" };
 
 export const dividerStyle: CSSProperties = { width: 1, alignSelf: "stretch", background: "var(--dd-chrome-border)", margin: "0 4px" };
 

@@ -273,6 +273,7 @@ export const catalogVi: Record<TranslationKey, string> = {
   "export.title": "Xuất hình ảnh",
   "export.scale": "Tỷ lệ",
   "export.background": "Kèm nền",
+  "export.format": "Định dạng",
 
   "theme.light": "Sáng",
   "theme.dark": "Tối",

@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { frameContainedElementIds } from "@deviva-draw/engine";
 import { orderedSceneFrames } from "./presentation/frame-slide-order";
-import { buttonStyle, dialogOverlayStyle, dialogStyle, labelStyle } from "./chrome-styles";
+import { buttonStyle, dialogOverlayStyle, dialogStyle, disabledButtonStyle, labelStyle, outlineButtonStyle, sectionDividerStyle } from "./chrome-styles";
 import { Icon } from "./icon";
 import {
   copySceneImageToClipboard,
@@ -67,18 +67,22 @@ export function ExportDialog(props: { runtime: DevivaRuntime; onClose(): void })
       .finally(() => setBusy(false));
   };
 
+  // One style for the three format buttons + the copy button, so the action block reads as one row of
+  // peers; `busy` dims them all rather than leaving them looking clickable while an export runs.
+  const actionStyle = { ...outlineButtonStyle(), flex: 1, ...(busy ? disabledButtonStyle : null) };
+
   return (
     <div style={dialogOverlayStyle} onClick={onClose} data-testid="export-dialog-overlay">
       <div style={dialogStyle} onClick={(event) => event.stopPropagation()} role="dialog" aria-label={t("export.title")} data-testid="export-dialog">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <strong>{t("export.title")}</strong>
-          <button type="button" aria-label={t("shortcuts.close")} onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, paddingBottom: 12, marginBottom: 14, borderBottom: "1px solid var(--dd-chrome-border)" }}>
+          <strong style={{ fontSize: 15 }}>{t("export.title")}</strong>
+          <button type="button" aria-label={t("shortcuts.close")} onClick={onClose} style={{ ...buttonStyle(false), padding: 4, margin: -4 }}>
             <Icon name="close" />
           </button>
         </div>
 
         <span style={labelStyle}>{t("export.scale")}</span>
-        <div style={{ display: "flex", gap: 6, margin: "4px 0 12px" }} role="radiogroup" aria-label={t("export.scale")}>
+        <div className="dd-segmented" role="radiogroup" aria-label={t("export.scale")}>
           {SCALES.map((value) => (
             <button
               key={value}
@@ -86,7 +90,7 @@ export function ExportDialog(props: { runtime: DevivaRuntime; onClose(): void })
               role="radio"
               aria-checked={scale === value}
               data-testid={`export-scale-${value}`}
-              style={{ ...buttonStyle(scale === value), flex: 1, justifyContent: "center" }}
+              style={buttonStyle(scale === value)}
               onClick={() => setScale(value)}
             >
               {value}×
@@ -94,39 +98,51 @@ export function ExportDialog(props: { runtime: DevivaRuntime; onClose(): void })
           ))}
         </div>
 
-        <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, cursor: "pointer" }}>
-          <input type="checkbox" data-testid="export-include-background" checked={includeBackground} onChange={(event) => setIncludeBackground(event.target.checked)} />
-          <span>{t("export.background")}</span>
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, cursor: "pointer" }}>
-          <input type="checkbox" data-testid="export-dark-mode" checked={darkMode} onChange={(event) => setDarkMode(event.target.checked)} />
-          <span>{t("export.darkMode")}</span>
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, cursor: selectedCount > 0 ? "pointer" : "default", opacity: selectedCount > 0 ? 1 : 0.5 }}>
-          <input type="checkbox" data-testid="export-only-selected" disabled={selectedCount === 0} checked={onlySelected && selectedCount > 0} onChange={(event) => setOnlySelected(event.target.checked)} />
-          <span>{t("export.onlySelected")}</span>
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <input type="checkbox" data-testid="export-only-frame" disabled={frames.length === 0} checked={onlyFrame && frameElements.length > 0} onChange={(event) => setOnlyFrame(event.target.checked)} />
-          <span>{t("export.currentFrame")}</span>
-        </label>
+        <div style={{ display: "flex", flexDirection: "column", margin: "12px -8px 0" }}>
+          <OptionRow testId="export-include-background" label={t("export.background")} checked={includeBackground} onChange={setIncludeBackground} />
+          <OptionRow testId="export-dark-mode" label={t("export.darkMode")} checked={darkMode} onChange={setDarkMode} />
+          <OptionRow testId="export-only-selected" label={t("export.onlySelected")} disabled={selectedCount === 0} checked={onlySelected && selectedCount > 0} onChange={setOnlySelected} />
+          <OptionRow testId="export-only-frame" label={t("export.currentFrame")} disabled={frames.length === 0} checked={onlyFrame && frameElements.length > 0} onChange={setOnlyFrame} />
+        </div>
 
+        <div style={sectionDividerStyle} />
+
+        <span style={labelStyle}>{t("export.format")}</span>
         <div style={{ display: "flex", gap: 6 }}>
-          <button type="button" disabled={busy} data-testid="export-png" style={{ ...buttonStyle(false), flex: 1, justifyContent: "center" }} onClick={() => run(() => exportSceneToPngFile(scene, scale, background, extras))}>
+          <button type="button" disabled={busy} data-testid="export-png" style={actionStyle} onClick={() => run(() => exportSceneToPngFile(scene, scale, background, extras))}>
             PNG
           </button>
-          <button type="button" disabled={busy} data-testid="export-svg" style={{ ...buttonStyle(false), flex: 1, justifyContent: "center" }} onClick={() => run(() => exportSceneToSvgFile(scene, background, extras))}>
+          <button type="button" disabled={busy} data-testid="export-svg" style={actionStyle} onClick={() => run(() => exportSceneToSvgFile(scene, background, extras))}>
             SVG
           </button>
-          <button type="button" disabled={busy} data-testid="export-pdf" style={{ ...buttonStyle(false), flex: 1, justifyContent: "center" }} onClick={() => run(() => exportScenePdfFile(scene, scale, background ?? (darkMode ? "#1e1e1e" : "#ffffff"), extras))}>
+          <button type="button" disabled={busy} data-testid="export-pdf" style={actionStyle} onClick={() => run(() => exportScenePdfFile(scene, scale, background ?? (darkMode ? "#1e1e1e" : "#ffffff"), extras))}>
             PDF
           </button>
         </div>
-        <button type="button" disabled={busy} data-testid="export-copy" style={{ ...buttonStyle(false), width: "100%", justifyContent: "center", marginTop: 6 }} onClick={() => run(() => copySceneImageToClipboard(scene, background))}>
+        <button type="button" disabled={busy} data-testid="export-copy" style={{ ...actionStyle, width: "100%", marginTop: 6 }} onClick={() => run(() => copySceneImageToClipboard(scene, background))}>
           <Icon name="copy-image" />
           {t("action.copyAsImage")}
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * One export option. The whole row is the click target (the label wraps both the box and its text) and
+ * carries `data-disabled` so the injected stylesheet can skip the hover tint on a row that can't act —
+ * a hover highlight on "Only selected elements" with nothing selected reads as an offer, not a control.
+ */
+function OptionRow(props: { testId: string; label: string; checked: boolean; disabled?: boolean; onChange(next: boolean): void }) {
+  const { testId, label, checked, disabled = false, onChange } = props;
+  return (
+    <label
+      className="dd-check-row"
+      data-disabled={disabled}
+      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 8px", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.45 : 1 }}
+    >
+      <input type="checkbox" data-testid={testId} disabled={disabled} checked={checked} onChange={(event) => onChange(event.target.checked)} style={{ width: 15, height: 15, margin: 0 }} />
+      <span>{label}</span>
+    </label>
   );
 }

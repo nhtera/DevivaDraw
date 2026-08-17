@@ -273,6 +273,7 @@ export const catalogEn = {
   "export.title": "Export image",
   "export.scale": "Scale",
   "export.background": "Include background",
+  "export.format": "Format",
 
   "theme.light": "Light",
   "theme.dark": "Dark",

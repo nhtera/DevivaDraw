@@ -9,6 +9,8 @@
  * no separate "reduce" override needed. Active button backgrounds key on `[aria-pressed="true"]`, which
  * every toggle button in the chrome sets (see `chrome-styles.ts`'s `buttonStyle` doc).
  */
+import { RADIUS } from "./chrome-styles";
+
 const STYLE_ELEMENT_ID = "deviva-draw-chrome-stylesheet";
 
 const ROOT = '[data-testid="deviva-draw-root"]';
@@ -34,6 +36,21 @@ ${ROOT} a.dd-menu-link:hover { background: rgba(127, 127, 127, 0.14); }
 ${ROOT} button[aria-pressed="true"] { background: var(--dd-accent-soft); }
 ${ROOT} button[aria-pressed="true"]:hover:not(:disabled) { background: var(--dd-accent-soft); }
 ${ROOT} :focus-visible { outline: 2px solid var(--dd-accent); outline-offset: 1px; border-radius: 5px; }
+/* Checkboxes/radios follow the theme accent instead of the browser's own blue, which is the one bit of
+   chrome that never matched the dark theme. */
+${ROOT} input[type="checkbox"], ${ROOT} input[type="radio"] { accent-color: var(--dd-accent); }
+/* Segmented control: a row of radio buttons that reads as one control (an inset track with the chosen
+   option as a raised chip), for pick-one-of-a-few choices like the export scale. The chosen chip uses
+   the same --dd-accent-soft tint as every other active button in the chrome, keyed on aria-checked —
+   the radio-role counterpart of the aria-pressed rules above, which a radiogroup must not use. */
+${ROOT} .dd-segmented { display: flex; gap: 2px; padding: 2px; border-radius: ${RADIUS.control + 2}px; background: rgba(127, 127, 127, 0.10); }
+${ROOT} .dd-segmented > button { flex: 1; }
+${ROOT} .dd-segmented > button[aria-checked="true"],
+${ROOT} .dd-segmented > button[aria-checked="true"]:hover:not(:disabled) { background: var(--dd-accent-soft); }
+/* Checkbox rows in dialogs: the whole row is the hit target (the <label> wraps the box and its text),
+   so it needs the row-wide hover a bare label has no way to show. */
+${ROOT} .dd-check-row { border-radius: ${RADIUS.control}px; }
+${ROOT} .dd-check-row:not([data-disabled="true"]):hover { background: rgba(127, 127, 127, 0.10); }
 ${ROOT} [data-testid="text-editor-overlay-textarea"] { outline: none; }
 /* The editor textarea is transparent (the canvas paints the glyphs), so its ::selection is the only
    thing that shows a text selection — e.g. the select-all on double-click-to-edit, matching how
