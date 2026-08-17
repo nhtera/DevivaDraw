@@ -232,6 +232,14 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
         .catch((error: unknown) => console.warn("deviva-draw: could not restore image data — images may be missing until the next save", error));
     }
 
+    // Autosave gets the store only once that restore has finished, and this ordering is load-bearing.
+    // Collection DELETES rows, while autosave seeds its memory of "already stored" from the same
+    // listing: seeded first, that memory names ids the database no longer holds — and since ids are
+    // content hashes, re-adding the very same image is then skipped as already-stored *and* left out
+    // of the document, so its bytes end up in neither place. Waiting costs a few hundred milliseconds
+    // of writing images inline, which is exactly what the pre-settled window is for.
+    const autosaveFileStore = fileStore ? Promise.all([fileStore, filesRestoredRef.current]).then(([store]) => store) : undefined;
+
     // Register the bundled hand-drawn font, then force one repaint so any already-painted text
     // reflows from the fallback sans into the real face once it's ready (a data-URI font settles fast,
     // but not necessarily before the first frame). `cancelled` guards a late resolve after unmount.
@@ -256,9 +264,9 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
               return { originPath: state.path, unsaved: state.dirty };
             },
             autosaveStatus,
-            fileStore ?? undefined,
+            autosaveFileStore,
           )
-        : startBrowserAutosave(scene, persistenceKey, autosaveStatus, fileStore ?? undefined);
+        : startBrowserAutosave(scene, persistenceKey, autosaveStatus, autosaveFileStore);
 
     // Autosave only writes in response to a scene *change*, and a scene that was just opened from a
     // file has none — so without this, opening a document and reloading restored the document from

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import { autosaveText, autosavedElements, clearFileDatabase, insertImage, patchColor, RED_BLUE_PNG, storedFileIds } from "./image-file-store-fixtures";
 
 /**
  * Image bytes live in IndexedDB, not in the localStorage autosave.
@@ -7,111 +7,9 @@ import type { Page } from "@playwright/test";
  * The point of the change is a negative one — the autosave string must NOT contain the pixels — so
  * these specs assert against the real stored payload rather than against any app-reported state. The
  * budget spec is the one that matters most: an image large enough to have ended a session's autosave
- * outright now saves without complaint.
+ * outright now saves without complaint. Lifecycle (collection, re-adding, deletion) is the sibling
+ * file's subject.
  */
-
-const AUTOSAVE_KEY = "devivadraw:autosave:v1";
-const FILE_DATABASE = "devivadraw-files";
-
-/** A 200x100 PNG: left half red, right half blue — big enough to see on the canvas, small enough to paste around. */
-const RED_BLUE_PNG =
-  "iVBORw0KGgoAAAANSUhEUgAAAMgAAABkCAYAAADDhn8LAAACKElEQVR4nO3OoQEAMBCEsN9/6daywSEQ8bl39+IhKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqh/SAkKIT2g5CgENoPQoJCaD8ICQqBD1YGrNb1yxc1AAAAAElFTkSuQmCC";
-
-/** Empties the file database without deleting it — a delete would block on the page's own open connection. */
-async function clearFileDatabase(page: Page): Promise<void> {
-  await page.evaluate(
-    (databaseName) =>
-      new Promise<void>((resolve) => {
-        const request = indexedDB.open(databaseName, 1);
-        request.onupgradeneeded = () => {
-          if (!request.result.objectStoreNames.contains("files")) request.result.createObjectStore("files");
-        };
-        request.onsuccess = () => {
-          const database = request.result;
-          const transaction = database.transaction("files", "readwrite");
-          transaction.objectStore("files").clear();
-          transaction.oncomplete = () => {
-            database.close();
-            resolve();
-          };
-          transaction.onerror = () => resolve();
-        };
-        request.onerror = () => resolve();
-      }),
-    FILE_DATABASE,
-  );
-}
-
-async function storedFileIds(page: Page): Promise<string[]> {
-  return page.evaluate(
-    (databaseName) =>
-      new Promise<string[]>((resolve) => {
-        const request = indexedDB.open(databaseName, 1);
-        request.onupgradeneeded = () => {
-          if (!request.result.objectStoreNames.contains("files")) request.result.createObjectStore("files");
-        };
-        request.onsuccess = () => {
-          const database = request.result;
-          const keys = database.transaction("files", "readonly").objectStore("files").getAllKeys();
-          keys.onsuccess = () => {
-            resolve(keys.result.map(String));
-            database.close();
-          };
-          keys.onerror = () => resolve([]);
-        };
-        request.onerror = () => resolve([]);
-      }),
-    FILE_DATABASE,
-  );
-}
-
-const autosaveText = (page: Page) => page.evaluate((key) => localStorage.getItem(key) ?? "", AUTOSAVE_KEY);
-
-/** The active page's live (non-deleted) elements, read straight out of the autosaved document. */
-async function autosavedElements(page: Page): Promise<Array<{ type: string; fileId?: string }>> {
-  return page.evaluate((key) => {
-    const raw = localStorage.getItem(key);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as { pages?: Array<{ id: string; scene: { elements: Array<{ type: string; fileId?: string; isDeleted?: boolean }> } }>; activePageId?: string };
-    const scene = parsed.pages ? (parsed.pages.find((entry) => entry.id === parsed.activePageId) ?? parsed.pages[0]!).scene : (parsed as unknown as { elements: [] });
-    return (scene.elements as Array<{ type: string; fileId?: string; isDeleted?: boolean }>).filter((element) => !element.isDeleted);
-  }, AUTOSAVE_KEY);
-}
-
-async function insertImage(page: Page, base64: string): Promise<void> {
-  const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("toolbar-image").click()]);
-  await chooser.setFiles({ name: "swatch.png", mimeType: "image/png", buffer: Buffer.from(base64, "base64") });
-  const viewport = page.viewportSize()!;
-  await expect(async () => {
-    await page.mouse.move(viewport.width / 2 - 1, viewport.height / 2);
-    await page.mouse.move(viewport.width / 2, viewport.height / 2);
-    await expect(page.getByTestId("image-placement-ghost")).toBeVisible({ timeout: 200 });
-  }).toPass();
-  await page.mouse.click(viewport.width / 2, viewport.height / 2);
-  await expect.poll(async () => (await autosavedElements(page)).some((element) => element.type === "image")).toBe(true);
-}
-
-/** Mean colour of a patch of the static canvas layer — proof the image is really drawn, not just referenced. */
-async function patchColor(page: Page, x: number, y: number): Promise<{ r: number; g: number; b: number }> {
-  return page.evaluate(
-    ([px, py]) => {
-      const canvas = document.querySelector('[data-testid="deviva-draw-canvas-host"]')!.querySelectorAll("canvas")[0]!;
-      const dpr = window.devicePixelRatio || 1;
-      const data = canvas.getContext("2d")!.getImageData(Math.round(px! * dpr), Math.round(py! * dpr), Math.round(6 * dpr), Math.round(6 * dpr)).data;
-      let r = 0;
-      let g = 0;
-      let b = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        r += data[i]!;
-        g += data[i + 1]!;
-        b += data[i + 2]!;
-      }
-      const pixels = data.length / 4;
-      return { r: r / pixels, g: g / pixels, b: b / pixels };
-    },
-    [x, y],
-  );
-}
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -151,6 +49,11 @@ test("brings the image back on reload", async ({ page }) => {
   expect(right.r).toBeLessThan(100);
 });
 
+// Found in a live browser, not by a unit test, because it lives in the seam between two boot-time
+// jobs: collection deletes rows, and the autosave's memory of "already stored" is seeded from the
+// same list. Seeded first, that memory names ids the database no longer has — so re-adding the same
+// image (identical bytes ⇒ identical content-addressed id) is skipped as already-stored AND left out
+// of the document. The bytes end up in neither place and the image is broken for good.
 test("an image far larger than the localStorage budget saves without a storage warning", async ({ page }) => {
   // 1600x1600 of random noise — genuinely incompressible, so the PNG is several megabytes and its
   // base64 form larger still, comfortably past the ~5 MB an origin gets for localStorage. A patterned
@@ -220,33 +123,3 @@ test("saving to a file still embeds the bytes, so the file stands on its own", a
 // Deleting is not the same as being gone: the autosave keeps tombstones so a delete survives a
 // reload, and a tombstoned image is still a reference. Collecting its bytes would leave the
 // restored element pointing at nothing — the same rule `Scene.pruneOrphanedFiles` documents.
-test("keeps the bytes of a deleted image, which is still one undo from coming back", async ({ page }) => {
-  await insertImage(page, RED_BLUE_PNG);
-  await expect.poll(() => storedFileIds(page)).toHaveLength(1);
-
-  await page.keyboard.press("ControlOrMeta+a");
-  await page.keyboard.press("Delete");
-  await expect.poll(async () => (await autosavedElements(page)).length).toBe(0);
-  await page.reload();
-  await expect(page.getByTestId("deviva-draw-root")).toBeVisible();
-
-  expect(await storedFileIds(page)).toHaveLength(1);
-});
-
-test("collects the stored bytes once the document no longer mentions them at all", async ({ page }) => {
-  await insertImage(page, RED_BLUE_PNG);
-  await expect.poll(() => storedFileIds(page)).toHaveLength(1);
-
-  // "Reset canvas" clears the elements outright, tombstones included — the state in which the file
-  // really is unreachable.
-  page.on("dialog", (dialog) => void dialog.accept());
-  await page.getByTestId("top-bar-menu").click();
-  await page.getByTestId("main-menu-reset").click();
-  await expect.poll(async () => (await autosavedElements(page)).length).toBe(0);
-
-  // Collection runs at boot, the one moment nothing can be undone back into existence.
-  await page.reload();
-  await expect(page.getByTestId("deviva-draw-root")).toBeVisible();
-
-  await expect.poll(() => storedFileIds(page)).toHaveLength(0);
-});
