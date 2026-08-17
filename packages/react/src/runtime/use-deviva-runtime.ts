@@ -32,7 +32,7 @@ import type { FileOperationsProvider } from "../browser/file-operations-provider
 import { referencedFileIds } from "@deviva-draw/engine";
 import { openIndexedDbFileStore } from "../browser/indexeddb-file-store";
 import { collectOrphanedFiles, expectStoredFiles, restoreDocumentFiles, restoreSceneFiles } from "./restore-document-files";
-import { libraryFileIds } from "../browser/library-storage";
+import { retainedFileIds } from "../browser/retained-file-ids";
 import { documentFromFileText } from "../browser/scene-file-operations";
 import { buildPersistenceOperations } from "./build-persistence-operations";
 import { DocumentStateTracker } from "./document-state-tracker";
@@ -223,7 +223,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
             for (const pending of scenes) pending.stopExpectingFiles(referencedFileIds(scenes));
             return;
           }
-          const { restored } = await restoreDocumentFiles(scenes, store, libraryFileIds());
+          const { restored } = await restoreDocumentFiles(scenes, store, retainedFileIds(persistenceKey));
           // A restore is not a scene change (see `restore-document-files.ts`), so nothing repaints on
           // its own — the canvas has to be told, and via the ref because the stage this mount created
           // may already have been replaced by a rebuild.
@@ -238,7 +238,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
       // session. "Reset canvas" deliberately does NOT rebuild — an undo can still bring those
       // elements back, so their bytes wait.
       void Promise.all([fileStore, filesRestoredRef.current])
-        .then(([store]) => store && collectOrphanedFiles(pageStore ? pageStore.getScenes() : [scene], store, libraryFileIds()))
+        .then(([store]) => store && collectOrphanedFiles(pageStore ? pageStore.getScenes() : [scene], store, retainedFileIds(persistenceKey)))
         .catch((error: unknown) => console.warn("deviva-draw: could not collect unused image data", error));
     }
 

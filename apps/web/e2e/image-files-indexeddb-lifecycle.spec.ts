@@ -111,3 +111,29 @@ test("collects the previous document's images as soon as another document is ope
   // No reload: the swap itself is what collects.
   await expect.poll(() => storedFileIds(page)).toHaveLength(0);
 });
+
+/**
+ * The crash-recovery backup: when an autosave fails to restore cleanly, the raw payload is copied to
+ * a `:recovery` slot so nothing is lost to the overwrite that follows. That payload names its images
+ * without carrying them, and nothing reads the slot programmatically — so if collection reclaimed
+ * those files, a rescue designed to lose nothing would quietly lose the pictures.
+ */
+test("keeps the images a crash-recovery backup still names", async ({ page }) => {
+  await insertImage(page, RED_BLUE_PNG);
+  await expect.poll(() => storedFileIds(page)).toHaveLength(1);
+  const fileId = (await storedFileIds(page))[0]!;
+
+  // Park the real document in the recovery slot, then leave the live slot with nothing referencing
+  // the image — the state a salvaged restore produces.
+  await page.evaluate(() => {
+    const raw = localStorage.getItem("devivadraw:autosave:v1")!;
+    localStorage.setItem("devivadraw:autosave:v1:recovery", raw);
+    const document = JSON.parse(raw) as { pages: Array<{ scene: { elements: unknown[] } }> };
+    document.pages[0]!.scene.elements = [];
+    localStorage.setItem("devivadraw:autosave:v1", JSON.stringify(document));
+  });
+  await page.reload();
+  await expect(page.getByTestId("deviva-draw-root")).toBeVisible();
+
+  await expect.poll(() => storedFileIds(page)).toEqual([fileId]);
+});
