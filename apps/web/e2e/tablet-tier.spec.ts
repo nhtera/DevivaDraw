@@ -27,6 +27,16 @@ test("desktop layout with touch density on a wide coarse-pointer viewport", asyn
   expect(box.height).toBeGreaterThanOrEqual(44);
 });
 
+test("the toolbar never overlaps the top bar (drops to a second row below the single-row breakpoint)", async ({ page }) => {
+  // At 1024px the touch-sized top bar (~326px) + toolbar (~710px) can't share a row, so the
+  // toolbar moves below it — and the canvas hint follows below the toolbar.
+  const topBar = (await page.getByTestId("top-bar").boundingBox())!;
+  const toolbar = (await page.getByTestId("toolbar").boundingBox())!;
+  expect(toolbar.y).toBeGreaterThanOrEqual(topBar.y + topBar.height);
+  const hint = (await page.getByTestId("canvas-hint").boundingBox())!;
+  expect(hint.y).toBeGreaterThanOrEqual(toolbar.y + toolbar.height);
+});
+
 test("menu rows grow to touch height", async ({ page }) => {
   await page.getByTestId("top-bar-menu").click();
   // Computed style, not boundingBox: isMobile's visual-viewport scaling shrinks measured boxes by a

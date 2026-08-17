@@ -73,7 +73,12 @@ export function Toolbar(props: ToolbarProps) {
       // More popover's z-index *inside* the toolbar — the later-painted `CanvasHint` (also a transformed
       // sibling) would then bleed over the open popover. A z-index here ranks the whole toolbar subtree
       // (popover included) above that hint. See `more-tools-menu.tsx`.
-      style={{ ...panelStyle, display: "flex", alignItems: "center", gap: 2, padding: 5, position: "absolute", top: "calc(12px + env(safe-area-inset-top))", left: "50%", transform: "translateX(-50%)", zIndex: 20 }}
+      data-testid="toolbar"
+      // Anchor + shift are var-driven so the touch-density stylesheet can keep this centered bar
+      // clear of the (also-grown) top bar on tablets: wide tablets clamp the left edge, narrower
+      // ones drop the whole bar to a second row. The var always resolves to a transform, so the
+      // stacking-context reasoning above still holds. See chrome-stylesheet.ts.
+      style={{ ...panelStyle, display: "flex", alignItems: "center", gap: 2, padding: 5, position: "absolute", top: "var(--dd-toolbar-top, calc(12px + env(safe-area-inset-top)))", left: "50%", transform: "var(--dd-toolbar-shift, translateX(-50%))", zIndex: 20 }}
     >
       <button
         type="button"

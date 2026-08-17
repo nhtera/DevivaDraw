@@ -90,6 +90,18 @@ ${ROOT}[data-dd-density="touch"] [data-testid^="properties-panel"] button { posi
 ${ROOT}[data-dd-density="touch"] [data-testid^="properties-panel"] button::after { content: ""; position: absolute; inset: -7px; }
 /* The 44px toolbar is taller, so the canvas hint below it needs a lower anchor (var read by canvas-hint.tsx). */
 ${ROOT}[data-dd-density="touch"] { --dd-hint-top: 80px; }
+/* Touch-sized top bar (~326px) and centered toolbar (~710px) collide on tablet widths. Wide tablets
+   clamp the toolbar's left edge just past the top bar (max() keeps true centering whenever it fits);
+   below the single-row breakpoint the toolbar drops to its own second row and the hint follows.
+   Vars are read by toolbar.tsx / canvas-hint.tsx. */
+${ROOT}[data-dd-density="touch"] [data-testid="toolbar"] { --dd-toolbar-shift: translateX(max(-50%, calc(336px - 50vw))); }
+@media (max-width: 1119px) {
+  ${ROOT}[data-dd-density="touch"] [data-testid="toolbar"] {
+    --dd-toolbar-top: calc(74px + env(safe-area-inset-top));
+    --dd-toolbar-shift: translateX(-50%);
+  }
+  ${ROOT}[data-dd-density="touch"] { --dd-hint-top: 140px; }
+}
 
 /* An edge-anchored sidebar slides in from its own edge. The shared .dd-animate-in pop-in scales the
    whole element, which on a full-height panel reads as the entire sidebar shrinking away from the
