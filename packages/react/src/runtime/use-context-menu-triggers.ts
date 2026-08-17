@@ -65,6 +65,9 @@ export function useContextMenuTriggers(
       // runtime is built): the pipeline knows which touches are a resting palm around a pen stroke
       // or a finger mid-camera-pan, neither of which may pop the context menu.
       shouldSuppressLongPress: (pointerId) => runtimeRef.current?.pipeline?.shouldSuppressTouchLongPress(pointerId) ?? false,
+      // Touch double-tap routes into the same double-click-to-edit dispatch the desktop dblclick
+      // uses (table cells, labels, standalone text) — iOS never synthesizes dblclick from taps.
+      onDoubleTap: (clientPoint) => runtimeRef.current?.openDoubleClickEdit(clientPoint.x, clientPoint.y) ?? false,
     });
     touchAdapter.attach();
 

@@ -18,7 +18,7 @@ import type { PersistenceOperations, UiToggleState } from "../actions/action-typ
 import type { ThemeMode } from "../theme/theme-tokens";
 import { buildTools } from "./build-tools";
 import type { BuiltTools } from "./build-tools";
-import { attachDoubleClickToEditListener } from "./double-click-edit";
+import { attachDoubleClickToEditListener, openEditAtClientPoint } from "./double-click-edit";
 import { shouldSuppressGlobalShortcuts } from "./should-suppress-global-shortcuts";
 import { PAN_TOOL_NAME, resolveTouchDrawPolicy, SELECT_TOOL_NAME, TEXT_TOOL_NAME } from "./tool-names";
 import type { DevivaRuntime } from "./runtime-types";
@@ -89,9 +89,11 @@ export function buildRuntime(options: BuildRuntimeOptions): DevivaRuntime {
     theme: { get mode() { return getThemeMode(); }, toggleMode: toggleThemeMode },
     persistence,
     actionRegistry,
-    // `PointerEventPipeline` is assigned right below — TypeScript needs a placeholder to satisfy the
-    // interface within this single object literal; overwritten before this function returns.
+    // `PointerEventPipeline` and `openDoubleClickEdit` are assigned right below — TypeScript needs
+    // placeholders to satisfy the interface within this single object literal; both overwritten
+    // before this function returns.
     pipeline: undefined as unknown as PointerEventPipeline,
+    openDoubleClickEdit: () => false,
     getMarqueeRect: () => tools.selectionTool.getMarqueeRect(),
     getSnapGuides: () => tools.selectionTool.getSnapGuides(),
     getPendingEraseIds: () => tools.eraserTool.getPendingEraseIds(),
@@ -140,7 +142,9 @@ export function buildRuntime(options: BuildRuntimeOptions): DevivaRuntime {
   pipeline.attach();
   runtime.pipeline = pipeline;
 
-  const detachDoubleClick = attachDoubleClickToEditListener({
+  // One options object for both entry points into double-click-to-edit: the native dblclick
+  // listener (desktop) and `runtime.openDoubleClickEdit` (the touch layer's double-tap).
+  const doubleClickEditOptions = {
     container,
     scene,
     toolStateMachine: tools.toolStateMachine,
@@ -150,7 +154,9 @@ export function buildRuntime(options: BuildRuntimeOptions): DevivaRuntime {
     getCamera,
     styleState: tools.styleState,
     selection: tools.selectionState,
-  });
+  };
+  const detachDoubleClick = attachDoubleClickToEditListener(doubleClickEditOptions);
+  runtime.openDoubleClickEdit = (clientX, clientY) => openEditAtClientPoint(doubleClickEditOptions, clientX, clientY);
 
   runtime.dispose = () => {
     detachDoubleClick();

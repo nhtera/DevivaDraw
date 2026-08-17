@@ -19,6 +19,7 @@
  */
 import type { Camera } from "@deviva-draw/engine";
 import { hasMovedPastLongPressThreshold, LONG_PRESS_DURATION_MS, shouldFireLongPress } from "./long-press-detector";
+import { isDoubleTap, isTap } from "./double-tap-detector";
 import { computeTouchPanZoomCamera, touchCentroid, touchSpread } from "./touch-gesture-math";
 
 interface ScreenPoint {
@@ -41,6 +42,17 @@ export interface TouchGestureAdapterOptions {
    * Optional; omitted behaves as always-`false` (long-press always allowed, the pre-pen behavior).
    */
   shouldSuppressLongPress?(pointerId: number): boolean;
+  /**
+   * Fired when two quick single-finger taps land close together — the touch stand-in for `dblclick`,
+   * which iOS Safari never synthesizes from double-taps (so double-tap-to-edit would simply not
+   * exist on iPads without this). `clientPoint` is in client coordinates (the same frame `dblclick`
+   * reports). Return `true` when a TEXT editor opened as a result: the adapter then synchronously
+   * focuses its hidden keyboard-bootstrap input while still inside the gesture's event dispatch —
+   * iOS only shows the on-screen keyboard for focus taken *during* a user gesture, and the real
+   * textarea mounts a React render later, which is too late on its own. The bootstrap input holds
+   * the keyboard open until the editor's own focus() takes over.
+   */
+  onDoubleTap?(clientPoint: ScreenPoint): boolean;
 }
 
 export class TouchGestureAdapter {
@@ -50,6 +62,12 @@ export class TouchGestureAdapter {
   private longPressTimer: ReturnType<typeof setTimeout> | null = null;
   private longPressPointerId: number | null = null;
   private longPressStartPoint: ScreenPoint | null = null;
+  /** Per-pointer down info for tap recognition; `multi` is sticky once a second finger ever joined. */
+  private readonly tapDownInfo = new Map<number, { clientPoint: ScreenPoint; downMs: number; multi: boolean }>();
+  /** The last completed single tap, awaiting a possible second one. */
+  private lastTap: { clientPoint: ScreenPoint; upMs: number } | null = null;
+  /** See `onDoubleTap`'s doc — focused synchronously in the gesture so iOS shows the keyboard for the editor that is about to mount. */
+  private keyboardBootstrapInput: HTMLInputElement | null = null;
 
   constructor(options: TouchGestureAdapterOptions) {
     this.options = options;
@@ -82,6 +100,15 @@ export class TouchGestureAdapter {
     // Focus loss mid-gesture (app switch, system dialog) can swallow up/cancel entirely — drop all
     // tracked touches rather than risk the same stale-touch poisoning.
     window.addEventListener("blur", this.handleWindowBlur);
+    // Off-screen but focusable (never display:none — iOS refuses to focus those). See `onDoubleTap`.
+    if (this.options.onDoubleTap) {
+      const input = document.createElement("input");
+      input.setAttribute("aria-hidden", "true");
+      input.tabIndex = -1;
+      input.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;border:0;padding:0;pointer-events:none;";
+      (element.parentElement ?? document.body).appendChild(input);
+      this.keyboardBootstrapInput = input;
+    }
   }
 
   detach(): void {
@@ -94,6 +121,10 @@ export class TouchGestureAdapter {
     this.clearLongPressTimer();
     this.touches.clear();
     this.twoFingerLast = null;
+    this.tapDownInfo.clear();
+    this.lastTap = null;
+    this.keyboardBootstrapInput?.remove();
+    this.keyboardBootstrapInput = null;
   }
 
   private screenPointFor(event: PointerEvent): ScreenPoint {
@@ -130,6 +161,9 @@ export class TouchGestureAdapter {
     if (event.pointerType !== "touch") return;
     const point = this.screenPointFor(event);
     this.touches.set(event.pointerId, point);
+    this.tapDownInfo.set(event.pointerId, { clientPoint: { x: event.clientX, y: event.clientY }, downMs: Date.now(), multi: this.touches.size > 1 });
+    // A second finger joining retroactively disqualifies the first as a tap too (pinch, not taps).
+    if (this.touches.size > 1) for (const info of this.tapDownInfo.values()) info.multi = true;
 
     if (this.touches.size === 1) {
       if (!this.options.shouldSuppressLongPress?.(event.pointerId)) this.armLongPressTimer(event.pointerId, point);
@@ -178,11 +212,31 @@ export class TouchGestureAdapter {
     if (this.longPressPointerId === event.pointerId) this.clearLongPressTimer();
     this.touches.delete(event.pointerId);
     if (this.touches.size < 2) this.twoFingerLast = null;
+    const downInfo = this.tapDownInfo.get(event.pointerId);
+    this.tapDownInfo.delete(event.pointerId);
+    if (event.type !== "pointerup" || !downInfo) return; // a canceled touch is never a tap
+
+    const upMs = Date.now();
+    const clientPoint = { x: event.clientX, y: event.clientY };
+    if (!isTap(downInfo.downMs, upMs, downInfo.clientPoint, clientPoint, downInfo.multi) || this.options.shouldSuppressLongPress?.(event.pointerId)) {
+      this.lastTap = null; // a drag/hold between taps breaks the sequence
+      return;
+    }
+    if (this.lastTap && isDoubleTap(this.lastTap.upMs, this.lastTap.clientPoint, upMs, clientPoint)) {
+      this.lastTap = null;
+      // Still inside the pointerup dispatch: if a text editor opened, grab focus NOW so the
+      // on-screen keyboard appears — see `onDoubleTap`'s doc for the iOS focus-timing contract.
+      if (this.options.onDoubleTap?.(clientPoint)) this.keyboardBootstrapInput?.focus({ preventScroll: true });
+      return;
+    }
+    this.lastTap = { clientPoint, upMs };
   };
 
   private readonly handleWindowBlur = (): void => {
     this.clearLongPressTimer();
     this.touches.clear();
     this.twoFingerLast = null;
+    this.tapDownInfo.clear();
+    this.lastTap = null;
   };
 }

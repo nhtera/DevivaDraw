@@ -23,6 +23,8 @@ export interface DevivaRuntime extends ActionRuntime {
   getHoverPoint(): Point | null;
   /** The pointer cursor the canvas should show right now for the active tool (move/resize/rotate feedback from the select tool, grab for the hand tool, crosshair for creation tools) — the render loop applies it each frame. */
   getCursor(): string;
+  /** Runs the double-click-to-edit dispatch at a client point — the touch layer's double-tap calls this, since iOS never synthesizes `dblclick` from double-taps. Returns `true` when a text editor opened (see `double-click-edit.ts`). */
+  openDoubleClickEdit(clientX: number, clientY: number): boolean;
   /** Detaches the pointer pipeline, the double-click listener, and the binding/bound-text sync hooks — call from the owning effect's cleanup. */
   dispose(): void;
 }
