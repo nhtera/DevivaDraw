@@ -186,7 +186,7 @@ export function buildTools(
     getBindingEnabled: () => getEditorPreferences().arrowBinding,
     getMidpointSnapEnabled: () => getEditorPreferences().snapMidpoints,
   });
-  const freedrawTool = new FreedrawTool(shapeToolDeps);
+  const freedrawTool = new FreedrawTool({ ...shapeToolDeps, getConstantWidth: () => getEditorPreferences().constantWidthPen });
   // The highlighter is the freehand tool in "marker" mode — same gesture/style handling, but every
   // stroke it commits is a translucent multiply-blended highlighter (see `FreedrawElement.highlighter`).
   const highlighterTool = new FreedrawTool({ ...shapeToolDeps, highlighter: true });

@@ -55,7 +55,8 @@
     "@deviva-draw/collab-client": "workspace:*",
     "@deviva-draw/engine": "workspace:*",
     "jspdf": "^4.2.1",
-    "mermaid": "^11.16.1"
+    "mermaid": "^11.16.1",
+    "qrcode-generator": "^2.0.4"
   },
   "peerDependencies": {
     "react": "^19.0.0",

@@ -131,3 +131,48 @@ describe("drawElementFreedraw", () => {
     expect(ctx.rotate).not.toHaveBeenCalled();
   });
 });
+
+describe("computeFreedrawOutline — constant-width strokes", () => {
+  /**
+   * Half-widths of the ink band along a stroke drawn straight down the `y = 0` axis: for such a
+   * stroke every outline vertex's `|y|` IS the band's half-width at that `x`. Measured this way
+   * rather than by pairing outline vertices, because `getStroke`'s closed loop does not order its
+   * two sides as mirror indices — the round end caps interleave, which pairs unrelated vertices.
+   *
+   * The `x` range is trimmed to the stroke's interior so those same end caps (which taper to a
+   * point by design, at any pressure) never enter the measurement.
+   */
+  function interiorHalfWidths(outline: Array<[number, number]>, fromX: number, toX: number): number[] {
+    return outline.filter(([x]) => x >= fromX && x <= toX).map(([, y]) => Math.abs(y));
+  }
+
+  /** A straight horizontal stroke, so every sample's ink band is perpendicular to the same axis. */
+  function straightStroke(pressures: number[], simulatePressure: boolean) {
+    return createFreedrawElement({
+      x: 0,
+      y: 0,
+      strokeWidth: 4,
+      simulatePressure,
+      points: pressures.map((pressure, index) => [index * 20, 0, pressure] as [number, number, number]),
+    });
+  }
+
+  it("varying recorded pressure produces a visibly varying width (the behavior the preference removes)", () => {
+    const outline = computeFreedrawOutline(straightStroke([0.05, 0.35, 0.7, 1, 0.4, 0.1], false), createCamera());
+    const widths = interiorHalfWidths(outline, 30, 70);
+
+    expect(widths.length).toBeGreaterThan(2);
+    expect(Math.max(...widths) - Math.min(...widths)).toBeGreaterThan(0.5);
+  });
+
+  it("the constant-width recipe (neutral pressure everywhere + simulation off) produces a uniform band", () => {
+    // Exactly what `FreedrawTool` commits with the preference on: every sample at the neutral
+    // pressure, `simulatePressure: false`.
+    const pressures = Array.from({ length: 6 }, () => 0.5);
+    const outline = computeFreedrawOutline(straightStroke(pressures, false), createCamera());
+    const widths = interiorHalfWidths(outline, 30, 70);
+
+    expect(widths.length).toBeGreaterThan(2);
+    expect(Math.max(...widths) - Math.min(...widths)).toBeLessThan(0.05);
+  });
+});

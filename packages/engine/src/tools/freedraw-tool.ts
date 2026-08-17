@@ -35,6 +35,22 @@ export interface FreedrawToolDeps {
   onCreated?: (elementId: string) => void;
   /** When `true`, every stroke this tool commits is a highlighter mark (see `FreedrawElement.highlighter`) — the one difference between the freehand and highlighter tools, so both share this one class. */
   highlighter?: boolean;
+  /**
+   * "Constant-width pen": when this returns `true`, a new stroke ignores pressure entirely and
+   * renders at one uniform width.
+   *
+   * Both halves are required, and neither is sufficient alone. Every sample is recorded at the
+   * neutral `DEFAULT_SIMULATED_PRESSURE` (a varying recorded pressure would vary the width, since
+   * ink strokes carry a non-zero `thinning`), AND the element is committed with
+   * `simulatePressure: false` — because with simulation ON the renderer discards recorded pressure
+   * and derives width from stroke *velocity* instead, so pinning pressure alone would still produce
+   * a stroke that thins where the hand moved fast. This is the same recipe the highlighter already
+   * uses for its constant nib.
+   *
+   * Applies at record time, to new strokes only: an existing element's samples are already stored,
+   * and re-interpreting them would silently rewrite drawings the user made under the old setting.
+   */
+  getConstantWidth?(): boolean;
 }
 
 interface AbsoluteSample {
@@ -62,9 +78,15 @@ export class FreedrawTool extends NoOpToolHandler {
     this.deps = deps;
   }
 
+  /** The pressure to record for a sample — the device's own, or the neutral constant while the constant-width preference is on. See `getConstantWidth`. */
+  private pressureFor(pressure?: number): number {
+    if (this.deps.getConstantWidth?.()) return DEFAULT_SIMULATED_PRESSURE;
+    return pressure ?? DEFAULT_SIMULATED_PRESSURE;
+  }
+
   override onGestureStart(point: Point, modifiers: ModifierKeys, pressure?: number, pointerType?: string): void {
-    const simulatePressure = NO_REAL_PRESSURE_POINTER_TYPES.has(pointerType ?? "mouse");
-    const firstSample: AbsoluteSample = { x: point.x, y: point.y, pressure: pressure ?? DEFAULT_SIMULATED_PRESSURE };
+    const simulatePressure = this.deps.getConstantWidth?.() ? false : NO_REAL_PRESSURE_POINTER_TYPES.has(pointerType ?? "mouse");
+    const firstSample: AbsoluteSample = { x: point.x, y: point.y, pressure: this.pressureFor(pressure) };
     this.absolutePoints = [firstSample];
     this.deps.history.beginBatch();
 
@@ -87,7 +109,7 @@ export class FreedrawTool extends NoOpToolHandler {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `pointerType` kept to match `ToolHandler`'s signature (only relevant at gesture start, see `onGestureStart`)
   override onGestureMove(point: Point, modifiers: ModifierKeys, pressure?: number, pointerType?: string): void {
     if (!this.elementId) return;
-    this.absolutePoints.push({ x: point.x, y: point.y, pressure: pressure ?? DEFAULT_SIMULATED_PRESSURE });
+    this.absolutePoints.push({ x: point.x, y: point.y, pressure: this.pressureFor(pressure) });
     this.syncElement();
   }
 
@@ -97,7 +119,7 @@ export class FreedrawTool extends NoOpToolHandler {
       this.reset();
       return;
     }
-    this.absolutePoints.push({ x: point.x, y: point.y, pressure: pressure ?? DEFAULT_SIMULATED_PRESSURE });
+    this.absolutePoints.push({ x: point.x, y: point.y, pressure: this.pressureFor(pressure) });
 
     // A tap with no movement at all still commits — as a single-point dot (see module doc) — rather
     // than the zero-size-discard rule the drag-shape tools use; a tap is a deliberate mark, not an

@@ -150,6 +150,12 @@ export function buildViewActions(): Action[] {
       run: () => setEditorPreferences({ snapMidpoints: !getEditorPreferences().snapMidpoints }),
     },
     {
+      id: "toggle-constant-width-pen",
+      labelKey: "action.toggleConstantWidthPen",
+      icon: "pencil",
+      run: () => setEditorPreferences({ constantWidthPen: !getEditorPreferences().constantWidthPen }),
+    },
+    {
       // Not view-only-allowed: the stats panel's editable fields write straight to the scene.
       id: "toggle-stats",
       labelKey: "action.toggleStats",

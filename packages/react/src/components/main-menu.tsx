@@ -124,7 +124,7 @@ function MenuLink(props: { href: string; icon: string; children: string; testId:
 }
 
 /** Estimated flyout height used to clamp its top so it stays on-screen: one row per `PREFERENCE_TOGGLES` entry + the input-device section (label + radio row + invert & pen rows) + the select-on section (label + radio row + two toggle rows). */
-const FLYOUT_HEIGHT_ESTIMATE = PREFERENCE_TOGGLES.length * 34 + 144 + 128;
+const FLYOUT_HEIGHT_ESTIMATE = PREFERENCE_TOGGLES.length * 34 + 144 + 162;
 
 export function MainMenu(props: MainMenuProps) {
   const { runtime, onClose, onOpenShortcuts, onOpenCollab, onOpenExport, onOpenLibrary, onOpenMermaid, onOpenEmbed, shareEnabled } = props;
@@ -400,6 +400,14 @@ export function MainMenu(props: MainMenuProps) {
               onClick={() => setInputDevice({ penOnlyDraw: !inputDevice.penOnlyDraw })}
             >
               {t("inputDevice.penOnlyDraw")}
+            </MenuButton>
+            <MenuButton
+              testId="main-menu-constant-width-pen"
+              icon="pencil"
+              checked={editorPreferences.constantWidthPen}
+              onClick={() => setEditorPreferences({ constantWidthPen: !editorPreferences.constantWidthPen })}
+            >
+              {t("action.toggleConstantWidthPen")}
             </MenuButton>
             <div style={{ height: 1, background: "var(--dd-chrome-border)", margin: "4px 0" }} />
             <div style={sectionLabelStyle}>{t("menu.selectOn")}</div>

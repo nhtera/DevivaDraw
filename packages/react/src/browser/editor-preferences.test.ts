@@ -25,21 +25,21 @@ describe("parseEditorPreferences", () => {
   });
 
   it("defaults preserve the pre-preference behavior (directional marquee, binding on, midpoint snap on)", () => {
-    expect(DEFAULT_EDITOR_PREFERENCES).toEqual({ selectOnMode: "auto", arrowBinding: true, snapMidpoints: true });
+    expect(DEFAULT_EDITOR_PREFERENCES).toEqual({ selectOnMode: "auto", arrowBinding: true, snapMidpoints: true, constantWidthPen: false });
   });
 
   it("round-trips a valid stored value", () => {
-    const stored = { selectOnMode: "wrap", arrowBinding: false, snapMidpoints: false };
+    const stored = { selectOnMode: "wrap", arrowBinding: false, snapMidpoints: false, constantWidthPen: true };
     expect(parseEditorPreferences(JSON.stringify(stored))).toEqual(stored);
   });
 
   it("falls back per-field, so one bad field never discards the others", () => {
     const raw = JSON.stringify({ selectOnMode: "sideways", arrowBinding: false, snapMidpoints: "yes" });
-    expect(parseEditorPreferences(raw)).toEqual({ selectOnMode: "auto", arrowBinding: false, snapMidpoints: true });
+    expect(parseEditorPreferences(raw)).toEqual({ selectOnMode: "auto", arrowBinding: false, snapMidpoints: true, constantWidthPen: false });
   });
 
   it("upgrades a value stored before a field existed", () => {
-    expect(parseEditorPreferences(JSON.stringify({ selectOnMode: "overlap" }))).toEqual({ selectOnMode: "overlap", arrowBinding: true, snapMidpoints: true });
+    expect(parseEditorPreferences(JSON.stringify({ selectOnMode: "overlap" }))).toEqual({ selectOnMode: "overlap", arrowBinding: true, snapMidpoints: true, constantWidthPen: false });
   });
 
   it.each([
@@ -56,7 +56,7 @@ describe("parseEditorPreferences", () => {
 describe("editor preferences storage round-trip", () => {
   it("writes and reads back the same value under the versioned key", () => {
     const storage = fakeStorage();
-    const preferences = { selectOnMode: "overlap", arrowBinding: false, snapMidpoints: true } as const;
+    const preferences = { selectOnMode: "overlap", arrowBinding: false, snapMidpoints: true, constantWidthPen: true } as const;
 
     writeStoredEditorPreferences(storage, preferences);
     expect(storage.values[EDITOR_PREFERENCES_STORAGE_KEY]).toBeDefined();
