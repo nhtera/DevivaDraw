@@ -17,6 +17,7 @@ import type { Camera, SceneRect } from "@deviva-draw/engine";
 import { buttonStyle, panelStyle, Z_LAYER } from "../chrome-styles";
 import { orderFramesAsSlides, orderedSceneFrames } from "./frame-slide-order";
 import type { Slide } from "./frame-slide-order";
+import { useSuspendedSelection } from "./use-suspended-selection";
 import { Icon } from "../icon";
 import { useTranslation } from "../../i18n/use-translation";
 import { useSceneVersion } from "../../runtime/use-live-version";
@@ -75,6 +76,9 @@ export function PresentationController(props: PresentationControllerProps) {
   const [slides, setSlides] = useState<Slide[]>(() => slidesOf(runtime));
   const [index, setIndex] = useState(0);
   const animationRef = useRef<number | null>(null);
+
+  // Selection handles are editor state and would otherwise be drawn over the slides — see the hook.
+  useSuspendedSelection(runtime);
 
   useEffect(() => {
     const next = slidesOf(runtime);

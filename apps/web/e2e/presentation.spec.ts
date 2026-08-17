@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { AUTOSAVE_KEY, loadDeck, startPresenting } from "./presentation-fixtures";
 
 /**
  * Presentation mode: frames walked as slides.
@@ -8,79 +9,6 @@ import type { Page } from "@playwright/test";
  * document's parked viewport — which is also proof the walk moves the *real* camera rather than
  * painting a separate overlay view.
  */
-
-const AUTOSAVE_KEY = "devivadraw:autosave:v1";
-
-/** Three frames, deliberately out of scene order relative to their numeric prefixes. */
-function threeFrameDocument(): unknown {
-  const frame = (id: string, name: string, x: number, index: string) => ({
-    id,
-    type: "frame",
-    name,
-    x,
-    y: 0,
-    width: 400,
-    height: 300,
-    angle: 0,
-    strokeColor: "#1e1e1e",
-    backgroundColor: "transparent",
-    fillStyle: "solid",
-    strokeWidth: 1,
-    strokeStyle: "solid",
-    roughness: 1,
-    opacity: 100,
-    roundness: null,
-    seed: 1,
-    groupIds: [],
-    frameId: null,
-    boundElements: null,
-    link: null,
-    locked: false,
-    index,
-    version: 1,
-    versionNonce: 1,
-    updated: 1,
-    isDeleted: false,
-  });
-  return {
-    type: "devivadraw/document",
-    schemaVersion: 1,
-    activePageId: "p1",
-    pages: [
-      {
-        id: "p1",
-        name: "Deck",
-        scene: {
-          type: "devivadraw/scene",
-          schemaVersion: 1,
-          // Scene order is C, A, B; the numeric prefixes must reorder them to A, B, C.
-          elements: [frame("f-c", "3. Third", 2000, "a003"), frame("f-a", "1. First", 0, "a001"), frame("f-b", "2. Second", 1000, "a002")],
-          files: {},
-          appState: { scrollX: 0, scrollY: 0, zoom: 1 },
-        },
-      },
-    ],
-  };
-}
-
-async function loadDeck(page: Page, doc: unknown = threeFrameDocument()): Promise<void> {
-  await page.goto("/");
-  await page.evaluate(
-    ({ key, document }) => {
-      localStorage.clear();
-      localStorage.setItem(key, JSON.stringify(document));
-    },
-    { key: AUTOSAVE_KEY, document: doc },
-  );
-  await page.reload();
-  await expect(page.getByTestId("deviva-draw-root")).toBeVisible();
-}
-
-async function startPresenting(page: Page): Promise<void> {
-  await page.getByTestId("top-bar-menu").click();
-  await page.getByTestId("main-menu-present").click();
-  await expect(page.getByTestId("presentation-hud")).toBeVisible();
-}
 
 /** The parked camera from the autosaved document (waits out the autosave debounce). */
 async function parkedCamera(page: Page): Promise<{ scrollX: number; scrollY: number; zoom: number }> {
