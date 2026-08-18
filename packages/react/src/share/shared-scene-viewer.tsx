@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { deserializeMultiPageDocument, parseShareUrl, serializeMultiPageDocument } from "@deviva-draw/engine";
 import type { MultiPageDocumentV1 } from "@deviva-draw/engine";
+import { chromeFontFamily } from "../components/chrome-styles";
 import { fetchAndDecryptSharedScene } from "../browser/share-link-client";
 import type { FetchSharedSceneErrorReason } from "../browser/share-link-client";
 import { DevivaDrawShell } from "../deviva-draw-shell";
@@ -59,7 +60,9 @@ function CenteredNotice(props: { children: string; alert?: boolean }) {
     <div
       role={props.alert ? "alert" : undefined}
       data-testid="shared-scene-viewer-notice"
-      style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui, sans-serif", fontSize: 14, padding: 24, textAlign: "center" }}
+      // Renders instead of the shell, so it is outside the app root the chrome stylesheet's font rule
+      // scopes to — it states the shared chrome stack itself rather than inheriting the host page's.
+      style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: chromeFontFamily, fontSize: 14, padding: 24, textAlign: "center" }}
     >
       {props.children}
     </div>

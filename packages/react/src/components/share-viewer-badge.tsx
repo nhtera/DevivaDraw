@@ -26,7 +26,7 @@ export function ShareViewerBadge(props: ShareViewerBadgeProps) {
         <button
           type="button"
           data-testid="share-viewer-edit-copy"
-          style={{ ...panelStyle, ...buttonStyle(false), display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontFamily: chromeFontFamily }}
+          style={{ ...panelStyle, ...buttonStyle(false), display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13 }}
           onClick={onEditCopy}
         >
           <Icon name="cursor" size={13} />

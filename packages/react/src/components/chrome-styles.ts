@@ -39,7 +39,12 @@ export const Z_LAYER = {
   dialog: 100,
 } as const;
 
-/** One font stack for all chrome text, so panels/buttons/hints stay visually consistent. */
+/**
+ * One font stack for all chrome text, so panels/buttons/hints stay visually consistent. The chrome
+ * stylesheet declares it on the app root, so anything inside it — including `fontFamily: "inherit"`
+ * below — resolves to this stack without the host page needing a font rule of its own; restate it only
+ * for the rare surface that renders *outside* that root.
+ */
 export const chromeFontFamily = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 
 export const panelStyle: CSSProperties = {
@@ -75,6 +80,8 @@ export function buttonStyle(active = false): CSSProperties {
     color: "var(--dd-text-primary)",
     fontWeight: active ? 600 : 400,
     fontSize: 13,
+    // Inherits rather than restating the stack, so a button placed on a surface with its own face
+    // (a monospace block, say) follows it; the root font rule makes this the chrome stack elsewhere.
     fontFamily: "inherit",
   };
 }

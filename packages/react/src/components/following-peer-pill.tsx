@@ -9,7 +9,7 @@
  * Bottom-left, because the zen pill owns bottom-right and the share-viewer badge owns bottom-centre;
  * all three can legitimately be on screen at once.
  */
-import { buttonStyle, chromeFontFamily, panelStyle, Z_LAYER } from "./chrome-styles";
+import { buttonStyle, panelStyle, Z_LAYER } from "./chrome-styles";
 import { Icon } from "./icon";
 import { useTranslation } from "../i18n/use-translation";
 
@@ -34,7 +34,7 @@ export function FollowingPeerPill(props: FollowingPeerPillProps) {
         className="dd-animate-in"
         title={label}
         aria-label={label}
-        style={{ ...panelStyle, ...buttonStyle(false), display: "flex", alignItems: "center", gap: 8, width: "auto", height: "auto", padding: "8px 14px", fontFamily: chromeFontFamily, fontSize: 13 }}
+        style={{ ...panelStyle, ...buttonStyle(false), display: "flex", alignItems: "center", gap: 8, width: "auto", height: "auto", padding: "8px 14px", fontSize: 13 }}
         onClick={onStop}
       >
         <span style={{ width: 10, height: 10, borderRadius: "50%", background: peerColor, flexShrink: 0 }} />

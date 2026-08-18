@@ -203,3 +203,35 @@ test("the link popover is fully visible, not clipped by the properties panel's s
   await page.getByTestId("link-input").fill("https://example.com");
   await expect(page.getByTestId("link-input")).toHaveValue("https://example.com");
 });
+
+/**
+ * The chrome's font, asserted across every rendered element rather than one component at a time: the
+ * host page ships no global font rule (this app's `index.html` has no stylesheet at all), so anything
+ * that inherits from the document — a floating pill that is itself the panel, an unstyled `<button>`,
+ * a `<select>` taking its UA font — falls back to the browser's default serif and reads as a stray
+ * document paragraph rather than UI. The exit-zen pill did exactly that.
+ */
+test("every chrome surface renders in the chrome font, never the browser's default serif", async ({ page }) => {
+  await drawArrow(page);
+  await page.getByTestId("top-bar-menu").click();
+  await expect(page.getByTestId("main-menu")).toBeVisible();
+
+  const strayFonts = await page.evaluate(() => {
+    const root = document.querySelector('[data-testid="deviva-draw-root"]')!;
+    const out: string[] = [];
+    for (const node of root.querySelectorAll("*")) {
+      const font = getComputedStyle(node as HTMLElement).fontFamily;
+      // Deliberate faces are named stacks; only an unset one lands on a bare UA serif.
+      if (!/sans-serif|monospace/i.test(font)) out.push(`${node.tagName}[${(node as HTMLElement).dataset.testid ?? ""}] ${font}`);
+    }
+    return out;
+  });
+  expect(strayFonts).toEqual([]);
+
+  // Same again for the one surface that survives zen, which is where the defect showed.
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Alt+z");
+  const pill = page.getByTestId("exit-zen-pill");
+  await expect(pill).toBeVisible();
+  expect(await pill.evaluate((node) => getComputedStyle(node).fontFamily)).toMatch(/sans-serif/);
+});

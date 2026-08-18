@@ -9,13 +9,22 @@
  * no separate "reduce" override needed. Active button backgrounds key on `[aria-pressed="true"]`, which
  * every toggle button in the chrome sets (see `chrome-styles.ts`'s `buttonStyle` doc).
  */
-import { RADIUS } from "./chrome-styles";
+import { chromeFontFamily, RADIUS } from "./chrome-styles";
 
 const STYLE_ELEMENT_ID = "deviva-draw-chrome-stylesheet";
 
 const ROOT = '[data-testid="deviva-draw-root"]';
 
 const CHROME_CSS = `
+/* The chrome's font stack, declared once on the root so every descendant inherits it — including the
+   bare elements that set no font of their own. A host page need not ship any global font rule (the web
+   app ships none), so anything left inheriting from the document fell back to the browser's default
+   serif: the zen-mode and back-to-content pills (buttons that *are* the panel, whose inherited
+   font-family reached past the chrome to the page) and every unstyled control, such as the
+   comment pin's reply count. The second rule is the one browsers need explicitly: form controls do not
+   inherit fonts, they take a UA font unless told otherwise. Family only — sizes stay per-component. */
+${ROOT} { font-family: ${chromeFontFamily}; }
+${ROOT} button, ${ROOT} input, ${ROOT} textarea, ${ROOT} select { font-family: inherit; }
 /* Chrome labels are UI, not content: without this a canvas-wide select-all (Cmd+A, which selects every
    *element*) also drags the browser's own text selection across every panel label and menu item, leaving
    the whole UI highlighted blue until the next click. Inputs opt back in below — they are the only places
