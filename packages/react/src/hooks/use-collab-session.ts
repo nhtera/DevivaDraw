@@ -15,7 +15,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CollabSession, createPageStoreCollabAdapter } from "@deviva-draw/collab-client";
-import type { CollabConnectionStatus, CollabPagesAdapter, RemotePeerPresence } from "@deviva-draw/collab-client";
+import type { CollabConnectionStatus, CollabPagesAdapter, CollabRole, PresenceViewport, RemotePeerPresence } from "@deviva-draw/collab-client";
 import type { Scene } from "@deviva-draw/engine";
 import { randomGuestColor, randomGuestName } from "./random-collab-identity";
 import type { PageStore } from "../pages/page-store";
@@ -38,7 +38,12 @@ export type CollabErrorReason = "not-configured" | "start-failed" | "join-failed
 
 export interface UseCollabSessionResult {
   status: CollabConnectionStatus;
+  /** The link for this session in the local user's own role — the editor link when they started it, the link they joined with otherwise. */
   roomUrl: string | null;
+  /** The read-only link for this session. Only the peer that started it holds one: a viewer cannot hand out rights they do not have, and an editor who joined by link was never given the viewer token. */
+  viewerUrl: string | null;
+  /** What the local user may do in this room. `editor` while disconnected. */
+  role: CollabRole;
   peers: RemotePeerPresence[];
   error: CollabErrorReason;
   startSession(): Promise<void>;
@@ -50,6 +55,16 @@ export interface UseCollabSessionResult {
   sendReaction(emoji: string): void;
   /** Raises or lowers the local user's hand for every peer. Sticky until changed or the session ends. */
   setHandRaised(raised: boolean): void;
+  /** Publishes where this client is looking, so peers following it can match. See `use-follow-peer-camera.ts`. */
+  setLocalViewport(viewport: PresenceViewport | null): void;
+  /** Starts (or with `null` stops) following a peer's camera. */
+  follow(peerId: string | null): void;
+  /** The peer currently being followed, or `null`. Cleared automatically when that peer leaves. */
+  followedPeerId: string | null;
+  /** The followed peer's latest viewport — `null` when not following, or while they have not published one yet. */
+  followedViewport: PresenceViewport | null;
+  /** The local user's active page id in a multi-page host, `null` otherwise. Exposed so the peer list can tell which peers are on this page and therefore followable. */
+  localPageId: string | null;
 }
 
 export function useCollabSession(options: UseCollabSessionOptions): UseCollabSessionResult {
@@ -63,8 +78,15 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
 
   const [status, setStatus] = useState<CollabConnectionStatus>("disconnected");
   const [roomUrl, setRoomUrl] = useState<string | null>(null);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+  const [role, setRole] = useState<CollabRole>("editor");
   const [peers, setPeers] = useState<RemotePeerPresence[]>([]);
   const [error, setError] = useState<CollabErrorReason>(null);
+  const [followedPeerId, setFollowedPeerId] = useState<string | null>(null);
+  // Mirrors the page store's active page. Tracked as state, not read on demand, because following has
+  // to react when EITHER side changes pages — a peer's move arrives via `peers`, the local user's does
+  // not arrive at all unless something re-renders on it.
+  const [localPageId, setLocalPageId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!sessionAnchor) return;
@@ -86,12 +108,14 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
     let unsubscribeActivePage: (() => void) | null = null;
     if (pageStore) {
       session.setLocalPage(pageStore.getActivePageId());
+      setLocalPageId(pageStore.getActivePageId());
       let lastActive = pageStore.getActivePageId();
       unsubscribeActivePage = pageStore.subscribe(() => {
         const active = pageStore.getActivePageId();
         if (active === lastActive) return;
         lastActive = active;
         session.setLocalPage(active);
+        setLocalPageId(active);
       });
     }
 
@@ -102,6 +126,8 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
       sessionRef.current = null;
       setStatus("disconnected");
       setRoomUrl(null);
+      setViewerUrl(null);
+      setRole("editor");
       setPeers([]);
     };
     // Keyed on the anchor ALONE, deliberately: with a page store, `scene` changes on every page
@@ -116,8 +142,10 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
       return;
     }
     try {
-      const url = await session.startSession(apiBaseUrl, window.location.origin);
-      setRoomUrl(url);
+      const links = await session.startSession(apiBaseUrl, window.location.origin);
+      setRoomUrl(links.editorUrl);
+      setViewerUrl(links.viewerUrl);
+      setRole(session.currentRole);
       setError(null);
     } catch (caught) {
       console.error("deviva-draw: collab startSession failed", caught);
@@ -135,6 +163,10 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
       try {
         await session.joinSession(apiBaseUrl, url);
         setRoomUrl(url);
+        // A joiner holds one link and one role — it cannot offer the other link, since only the peer
+        // that started the session was ever handed the second token.
+        setViewerUrl(null);
+        setRole(session.currentRole);
         setError(null);
       } catch (caught) {
         console.error("deviva-draw: collab joinSession failed", caught);
@@ -147,6 +179,8 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
   const leaveSession = useCallback(() => {
     sessionRef.current?.disconnect();
     setRoomUrl(null);
+    setViewerUrl(null);
+    setRole("editor");
     setError(null);
   }, []);
 
@@ -162,5 +196,57 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
     sessionRef.current?.setHandRaised(raised);
   }, []);
 
-  return { status, roomUrl, peers, error, startSession, joinSession, leaveSession, updateCursor, sendReaction, setHandRaised };
+  const setLocalViewport = useCallback((viewport: PresenceViewport | null) => {
+    sessionRef.current?.setLocalViewport(viewport);
+  }, []);
+
+  // React state is what re-renders the dialog and the pill, so it holds the followed peer; the session
+  // is told too, keeping `CollabSession.currentFollowedPeerId` honest for non-React consumers (the MCP
+  // bridge) rather than leaving two sources of truth that disagree.
+  const follow = useCallback((peerId: string | null) => {
+    sessionRef.current?.follow(peerId);
+    setFollowedPeerId(peerId);
+  }, []);
+
+  // Two ways a follow stops being followable, both ending the same way.
+  //
+  // The peer left: keeping it would leave the local view frozen on their last frame with a pill
+  // claiming it is still tracking someone.
+  //
+  // The peer is now on a different page: their viewport describes a camera over *that* page's
+  // content, and applying it here would swing this user's canvas to coordinates belonging to a page
+  // they are not looking at — a jump to somewhere blank, with no visible cause. Clearing is right
+  // rather than auto-switching pages: a page switch is a document navigation the user did not ask
+  // for, and follow mode has no mandate to move them around the document.
+  useEffect(() => {
+    if (followedPeerId === null) return;
+    if (canFollow(peers.find((peer) => peer.peerId === followedPeerId), localPageId)) return;
+    sessionRef.current?.follow(null);
+    setFollowedPeerId(null);
+  }, [peers, followedPeerId, localPageId]);
+
+  // Derived from `peers` rather than read through `CollabSession.getFollowedViewport()`: `peers` is the
+  // value that actually re-renders on a presence update, so reading the session would hand the camera
+  // hook a viewport one render stale.
+  const followedViewport = followedPeerId === null ? null : (peers.find((peer) => peer.peerId === followedPeerId)?.viewport ?? null);
+
+  return { status, roomUrl, viewerUrl, role, peers, error, startSession, joinSession, leaveSession, updateCursor, sendReaction, setHandRaised, setLocalViewport, follow, followedPeerId, followedViewport, localPageId };
+}
+
+/**
+ * Whether `peer` is something this client can coherently follow right now.
+ *
+ * Exported and pure so the one rule has a single home and a test: the dialog uses it to disable a
+ * Follow button that would immediately undo itself, and the hook uses it to end a follow that has
+ * stopped making sense.
+ *
+ * A peer with no `pageId` at all is followable. That is a peer running a single-scene or pre-pages
+ * build, and it is the same "absent means everywhere" reading the shell already applies to their
+ * cursor — treating unknown as mismatched would make older peers permanently unfollowable.
+ */
+export function canFollow(peer: RemotePeerPresence | undefined, localPageId: string | null): boolean {
+  if (!peer) return false;
+  if (peer.viewport === null) return false; // never published a viewport — nothing to follow
+  if (peer.pageId === undefined || localPageId === null) return true;
+  return peer.pageId === localPageId;
 }

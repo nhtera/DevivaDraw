@@ -20,9 +20,20 @@ afterEach(() => {
   for (const cleanup of cleanups.splice(0)) cleanup();
 });
 
+/**
+ * Stands in for the relay's `POST /room`. The fake relay is sockets only, and `startSession` otherwise
+ * makes a real HTTP request. Token shape matches the server's (`{role}.{mac}`) because that prefix is
+ * what decides a session's local role.
+ */
+let mintedRooms = 0;
+function fakeCreateRoom(): Promise<{ roomId: string; editorToken: string; viewerToken: string }> {
+  const roomId = `room-${++mintedRooms}`;
+  return Promise.resolve({ roomId, editorToken: `editor.mac-${roomId}`, viewerToken: `viewer.mac-${roomId}` });
+}
+
 /** A simulated user's browser tab: a plain `CollabSession` on the same fake relay. */
 function makeBrowserPeer(relay: FakeCollabRelay, scene: Scene, name = "Tien"): CollabSession {
-  const peer = new CollabSession({ scene, userName: name, userColor: "#e8590c", createSocket: () => relay.createSocket() });
+  const peer = new CollabSession({ scene, userName: name, userColor: "#e8590c", createSocket: () => relay.createSocket(), createRoom: fakeCreateRoom });
   cleanups.push(() => peer.disconnect());
   return peer;
 }
@@ -36,9 +47,9 @@ function makeBridge(relay: FakeCollabRelay): LiveSessionBridge {
 
 /** Starts a room from the "browser" side and returns its shareable link (key in the fragment). */
 async function startRoom(peer: CollabSession): Promise<string> {
-  const url = await peer.startSession(API, ORIGIN);
+  const { editorUrl } = await peer.startSession(API, ORIGIN);
   await waitUntil(() => peer.connectionStatus === "connected");
-  return url;
+  return editorUrl;
 }
 
 describe("LiveSessionBridge", () => {
@@ -207,9 +218,10 @@ describe("LiveSessionBridge", () => {
       userName: "Tien",
       userColor: "#e8590c",
       createSocket: () => relay.createSocket(),
+      createRoom: fakeCreateRoom,
     });
     cleanups.push(() => browserPeer.disconnect());
-    const roomUrl = await browserPeer.startSession(API, ORIGIN);
+    const { editorUrl: roomUrl } = await browserPeer.startSession(API, ORIGIN);
     await waitUntil(() => browserPeer.connectionStatus === "connected");
 
     const bridge = new LiveSessionBridge({ apiBaseUrl: API, createSocket: () => relay.createSocket(), connectTimeoutMs: 2_000, pageAdoptTimeoutMs: 2_000 });
@@ -239,9 +251,10 @@ describe("LiveSessionBridge", () => {
       userName: "Tien",
       userColor: "#e8590c",
       createSocket: () => relay.createSocket(),
+      createRoom: fakeCreateRoom,
     });
     cleanups.push(() => browserPeer.disconnect());
-    const roomUrl = await browserPeer.startSession(API, ORIGIN);
+    const { editorUrl: roomUrl } = await browserPeer.startSession(API, ORIGIN);
     await waitUntil(() => browserPeer.connectionStatus === "connected");
 
     const bridge = new LiveSessionBridge({ apiBaseUrl: API, createSocket: () => relay.createSocket(), connectTimeoutMs: 2_000, pageAdoptTimeoutMs: 2_000 });
@@ -268,9 +281,10 @@ describe("LiveSessionBridge", () => {
       userName: "Tien",
       userColor: "#e8590c",
       createSocket: () => relay.createSocket(),
+      createRoom: fakeCreateRoom,
     });
     cleanups.push(() => browserPeer.disconnect());
-    const roomUrl = await browserPeer.startSession(API, ORIGIN);
+    const { editorUrl: roomUrl } = await browserPeer.startSession(API, ORIGIN);
     await waitUntil(() => browserPeer.connectionStatus === "connected");
 
     const bridge = makeBridge(relay);

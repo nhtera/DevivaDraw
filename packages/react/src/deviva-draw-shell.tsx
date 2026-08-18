@@ -26,6 +26,7 @@ import { useImageFilePicker } from "./hooks/use-image-file-picker";
 import { shouldSuppressGlobalShortcuts } from "./runtime/should-suppress-global-shortcuts";
 import { useCollabCursorTracking } from "./hooks/use-collab-cursor-tracking";
 import { useCollabSession } from "./hooks/use-collab-session";
+import { useFollowPeerCamera, usePublishLocalViewport } from "./hooks/use-follow-peer-camera";
 import { TextEditorOverlay } from "./components/text-editor-overlay";
 import { CanvasHint } from "./components/canvas-hint";
 import { EmptyStateOverlay } from "./components/empty-state-overlay";
@@ -59,6 +60,8 @@ import { EmbedOverlay } from "./components/embed-overlay";
 import { Minimap } from "./components/minimap";
 import { BackToContentPill } from "./components/back-to-content-pill";
 import { ExitZenPill } from "./components/exit-zen-pill";
+import { CollabViewerBadge } from "./components/collab-viewer-badge";
+import { FollowingPeerPill } from "./components/following-peer-pill";
 import { AutosaveQuotaBanner } from "./components/autosave-quota-banner";
 import { PresentationController } from "./components/presentation/presentation-controller";
 import { useCanvasBackground } from "./runtime/use-live-version";
@@ -158,7 +161,13 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   // View-only is either the user's own toggle or presentation's temporary override. Derived rather
   // than written on enter (`viewOnly.set(true)`), so leaving presentation restores whatever the
   // user's own setting was without this component having to remember it.
-  const presentationViewOnly = viewOnly.value || presentationActive.value;
+  // Joining with a viewer link is the third source of view-only. It is mirrored into local state (set
+  // by an effect once `useCollabSession` has run, further down) rather than read from `collab` here,
+  // because that hook needs `runtime.scene` and so cannot be called this early — the same call-order
+  // independence `remoteCursorsRef` exists for. The relay is the actual boundary; this only keeps the
+  // UI honest instead of letting a viewer draw into a void.
+  const collabViewer = useToggleState(false);
+  const presentationViewOnly = viewOnly.value || presentationActive.value || collabViewer.value;
   const commandPaletteOpen = useToggleState(false);
   const shortcutsDialogOpen = useToggleState(false);
   const findOpen = useToggleState(false);
@@ -173,7 +182,10 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   // listeners before the runtime exists but hit-tests the scene only at right-click time.
   // Stable identity (both inputs are ref-backed getters), so the runtime can hold it forever while
   // always reading the current values — same contract as `useToggleState`'s own `get`.
-  const getEffectiveViewOnly = useCallback(() => viewOnly.get() || presentationActive.get(), [viewOnly, presentationActive]);
+  const getEffectiveViewOnly = useCallback(
+    () => viewOnly.get() || presentationActive.get() || collabViewer.get(),
+    [viewOnly, presentationActive, collabViewer],
+  );
   const runtimeForContextMenuRef = useRef<DevivaRuntime | null>(null);
   const contextMenuTriggers = useContextMenuTriggers(canvasHostRef, cameraStore, runtimeForContextMenuRef);
 
@@ -406,6 +418,21 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   }, [collab.peers, pageStore, runtime]);
   useCollabCursorTracking({ containerRef: canvasHostRef, getCamera, onCursorMove: collab.updateCursor, active: collab.status === "connected" });
 
+  // Follow mode's two halves: publish this client's view for peers who follow it, and drive the local
+  // camera from whoever this client follows. Any local camera gesture breaks the follow (`onBreak`) —
+  // that rule lives in the hook, not in the pan/zoom handlers; see `use-follow-peer-camera.ts`.
+  const collabFollow = collab.follow;
+  usePublishLocalViewport({ cameraStore, getViewportSize, publish: collab.setLocalViewport, active: collab.status === "connected" });
+  const stopFollowing = useCallback(() => collabFollow(null), [collabFollow]);
+  useFollowPeerCamera({ cameraStore, getViewportSize, viewport: collab.followedViewport, onBreak: stopFollowing });
+  const followedPeer = collab.peers.find((peer) => peer.peerId === collab.followedPeerId) ?? null;
+
+  const collabRole = collab.role;
+  const setCollabViewer = collabViewer.set;
+  useEffect(() => {
+    setCollabViewer(collabRole === "viewer");
+  }, [collabRole, setCollabViewer]);
+
   // Zen mode hides the *panel*-class chrome only — the side/edge surfaces that crowd the drawing
   // area (properties, pages, library, minimap, layers, hints, empty state). The toolbar, top bar and
   // the two floating pills stay, so the mode never becomes a trap: whatever the user reaches for
@@ -455,8 +482,12 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {runtime && !presentationActive.value && <TopBar runtime={runtime} cameraStore={cameraStore} onOpenMainMenu={() => mainMenuOpen.set(true)} compact={layoutTier === "tablet"} />}
       {/* Tablet tier: the compact top bar's history/zoom controls live bottom-left instead (see TopBarProps.compact), keeping the centered toolbar's whole top row free. */}
       {runtime && !presentationActive.value && layoutTier === "tablet" && <TabletBottomControls runtime={runtime} cameraStore={cameraStore} />}
+      {/* `readOnly` takes the derived flag, not the raw toggle: a collaboration viewer must not be able
+          to add or delete pages either. Their page edits would never reach the room (the relay drops a
+          viewer's snapshots, which is what carries the page manifest), so allowing them locally would
+          silently fork the document out from under them. */}
       {runtime && !panelsHidden && !isNarrow && (
-        <PagesPanel pageStore={pageStore} readOnly={viewOnly.value} onSwitchPage={(id) => parkCameraThen(() => pageStore.setActivePage(id))} onAddPage={() => parkCameraThen(() => pageStore.addPage())} />
+        <PagesPanel pageStore={pageStore} readOnly={presentationViewOnly} onSwitchPage={(id) => parkCameraThen(() => pageStore.setActivePage(id))} onAddPage={() => parkCameraThen(() => pageStore.addPage())} />
       )}
       {runtime && !panelsHidden && <LibraryToggle open={libraryOpen.value} onToggle={() => libraryOpen.set(!libraryOpen.value)} />}
       {runtime && !panelsHidden && propertiesPanelVisible.value && !presentationViewOnly && (isNarrow ? <MobilePropertiesBar runtime={runtime} /> : <PropertiesPanel runtime={runtime} />)}
@@ -464,6 +495,10 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
         <BackToContentPill runtime={runtime} cameraStore={cameraStore} getViewportSize={() => ({ width: canvasHostRef.current?.clientWidth ?? 0, height: canvasHostRef.current?.clientHeight ?? 0 })} />
       )}
       {runtime && zenMode.value && !presentationActive.value && <ExitZenPill onExit={() => zenMode.set(false)} />}
+      {/* Presenting drives the camera itself, which would break the follow on the first slide anyway —
+          so the pill is not rendered there rather than flashing on screen for one frame. */}
+      {runtime && followedPeer && !presentationActive.value && <FollowingPeerPill peerName={followedPeer.name} peerColor={followedPeer.color} onStop={stopFollowing} />}
+      {runtime && collabViewer.value && !presentationActive.value && <CollabViewerBadge />}
       {/* Not gated on `panelsHidden`: zen mode hides chrome the user chose to do without, and nobody
           chooses to do without being told their work has stopped saving. Presentation is the one
           exception — the audience is looking at the board, and the presenter's own copy is unharmed. */}

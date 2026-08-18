@@ -91,7 +91,7 @@ export class LiveSessionBridge {
     } catch {
       throw new ToolError('not a valid room link — expected a URL like "https://draw.deviva.app/room/{id}#key=…"');
     }
-    const result = parseRoomUrl(parsed.pathname, parsed.hash);
+    const result = parseRoomUrl(parsed.pathname, parsed.hash, parsed.search);
     if (!result.ok) throw new ToolError(`invalid room link: ${result.error}`);
 
     const agentName = name ?? DEFAULT_AGENT_NAME;

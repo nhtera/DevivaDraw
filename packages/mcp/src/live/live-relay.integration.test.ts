@@ -12,7 +12,7 @@ import type { ChildProcess } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCommentMessage, createCommentThread, createRectangleElement, Scene } from "@deviva-draw/engine";
-import { CollabSession } from "@deviva-draw/collab-client";
+import { buildRoomWebSocketUrl, CollabSession, encryptEnvelope, importRoomKey, parseRoomUrl } from "@deviva-draw/collab-client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { SceneSession } from "../scene-session";
 import { LiveSessionBridge } from "./live-session-bridge";
@@ -71,7 +71,7 @@ describe.runIf(enabled)("live bridge against a real wrangler-dev relay", () => {
     const browserScene = new Scene();
     const browserPeer = new CollabSession({ scene: browserScene, userName: "Tien", userColor: "#e8590c" });
     try {
-      const roomUrl = await browserPeer.startSession(API, "https://draw.example");
+      const { editorUrl: roomUrl } = await browserPeer.startSession(API, "https://draw.example");
       await waitUntil(() => browserPeer.connectionStatus === "connected", 15_000);
 
       const bridge = new LiveSessionBridge({ apiBaseUrl: API });
@@ -109,7 +109,7 @@ describe.runIf(enabled)("live bridge against a real wrangler-dev relay", () => {
     const peerA = new CollabSession({ scene: sceneA, userName: "Ann", userColor: "#e8590c" });
     const peerB = new CollabSession({ scene: sceneB, userName: "Bo", userColor: "#1971c2" });
     try {
-      const roomUrl = await peerA.startSession(API, "https://draw.example");
+      const { editorUrl: roomUrl } = await peerA.startSession(API, "https://draw.example");
       await waitUntil(() => peerA.connectionStatus === "connected", 15_000);
       await peerB.joinSession(API, roomUrl);
       await waitUntil(() => peerB.connectionStatus === "connected", 15_000);
@@ -157,7 +157,7 @@ describe.runIf(enabled)("live bridge against a real wrangler-dev relay", () => {
     const peerB = new CollabSession({ scene: new Scene(), userName: "Bo", userColor: "#1971c2" });
     const seenBy = (session: CollabSession, name: string) => session.presence.list().find((peer) => peer.name === name);
     try {
-      const roomUrl = await peerA.startSession(API, "https://draw.example");
+      const { editorUrl: roomUrl } = await peerA.startSession(API, "https://draw.example");
       await waitUntil(() => peerA.connectionStatus === "connected", 15_000);
       await peerB.joinSession(API, roomUrl);
       await waitUntil(() => peerB.connectionStatus === "connected", 15_000);
@@ -196,6 +196,93 @@ describe.runIf(enabled)("live bridge against a real wrangler-dev relay", () => {
       peerB.disconnect();
     }
   }, 60_000);
+  /**
+   * Room roles, end to end against the real Durable Object.
+   *
+   * This is the only place the role rule can honestly be proved. The client's own guard
+   * (`collab-session.test.ts`) shows a well-behaved viewer does not send element deltas — but the
+   * whole point of the feature is what happens when a viewer is NOT well-behaved, and that answer
+   * lives in the relay. So this test skips the client entirely for the attack: it opens a raw
+   * WebSocket with the viewer token and writes a correctly-encrypted `element-delta` frame straight
+   * onto the wire, which is exactly what someone with devtools open can do.
+   *
+   * It is here rather than in the web e2e suite for the same reason the reaction test is: that
+   * suite's dev server runs Vite alone, with no relay behind it.
+   */
+  it("lets a viewer comment but silently drops its hand-crafted element-delta", async () => {
+    const editorScene = new Scene();
+    const viewerScene = new Scene();
+    const editor = new CollabSession({ scene: editorScene, userName: "Ed", userColor: "#e8590c" });
+    const viewer = new CollabSession({ scene: viewerScene, userName: "Vi", userColor: "#1971c2" });
+    let rawSocket: WebSocket | undefined;
+    try {
+      const links = await editor.startSession(API, "https://draw.example");
+      await waitUntil(() => editor.connectionStatus === "connected", 15_000);
+      await viewer.joinSession(API, links.viewerUrl);
+      await waitUntil(() => viewer.connectionStatus === "connected", 15_000);
+      expect(viewer.currentRole).toBe("viewer");
+      expect(editor.currentRole).toBe("editor");
+
+      // The editor's own work still reaches the viewer — read-only means it cannot write, not that it
+      // is cut off. This also proves the viewer's socket is genuinely in the room.
+      const drawn = editorScene.addElement(createRectangleElement({ x: 1, y: 2, width: 3, height: 4 }));
+      await waitUntil(() => viewerScene.getElement(drawn.id) !== undefined, 15_000);
+
+      // Guest commenting: the feature the viewer role exists for.
+      const thread = viewerScene.addCommentThread(createCommentThread({ anchor: { kind: "point", x: 5, y: 5 }, authorId: "v", authorName: "Vi" }))!;
+      viewerScene.addCommentMessage(createCommentMessage({ threadId: thread.id, body: "typo here?", authorId: "v", authorName: "Vi" }));
+      await waitUntil(() => editorScene.getCommentMessages(thread.id).length === 1, 15_000);
+      expect(editorScene.getCommentMessages(thread.id)[0]!.body).toBe("typo here?");
+
+      // The attack: a raw socket carrying the viewer token, sending a perfectly well-formed,
+      // correctly-encrypted element delta. Nothing about this frame is malformed — only its sender's
+      // role makes it inadmissible, which is the distinction the relay has to be making.
+      const parsed = parseRoomUrl(new URL(links.viewerUrl).pathname, new URL(links.viewerUrl).hash, new URL(links.viewerUrl).search);
+      if (!parsed.ok) throw new Error(parsed.error);
+      const roomKey = await importRoomKey(parsed.value.keyBase64Url);
+      const smuggled = createRectangleElement({ x: 500, y: 500, width: 10, height: 10 });
+      rawSocket = new WebSocket(buildRoomWebSocketUrl(API, parsed.value.roomId, parsed.value.token));
+      await waitUntil(() => rawSocket!.readyState === WebSocket.OPEN, 15_000);
+      // Encrypted and framed exactly as `flushElementDeltas` would — the frame is indistinguishable
+      // from an editor's, which is the point: only the sender's role can make it inadmissible.
+      rawSocket.send(JSON.stringify(await encryptEnvelope(roomKey, "element-delta", { element: smuggled })));
+
+      // Nothing arrives. Proved by a round trip that DOES arrive afterwards: waiting on an absence is
+      // otherwise just a sleep, and would pass even if the relay were merely slow.
+      const marker = editorScene.addElement(createRectangleElement({ x: 7, y: 7, width: 1, height: 1 }));
+      await waitUntil(() => viewerScene.getElement(marker.id) !== undefined, 15_000);
+      expect(editorScene.getElement(smuggled.id), "the relay must drop a viewer's element-delta").toBeUndefined();
+      expect(viewerScene.getElement(smuggled.id)).toBeUndefined();
+    } finally {
+      rawSocket?.close();
+      editor.disconnect();
+      viewer.disconnect();
+    }
+  }, 60_000);
+
+  it("still accepts a room link with no role token at all, as an editor", async () => {
+    const hostScene = new Scene();
+    const legacyScene = new Scene();
+    const host = new CollabSession({ scene: hostScene, userName: "Host", userColor: "#e8590c" });
+    const legacy = new CollabSession({ scene: legacyScene, userName: "Legacy", userColor: "#1971c2" });
+    try {
+      const { editorUrl } = await host.startSession(API, "https://draw.example");
+      await waitUntil(() => host.connectionStatus === "connected", 15_000);
+
+      // A link as it looked before roles existed: same room, same key, `?t=` stripped off.
+      const withoutToken = new URL(editorUrl);
+      withoutToken.search = "";
+      await legacy.joinSession(API, withoutToken.toString());
+      await waitUntil(() => legacy.connectionStatus === "connected", 15_000);
+      expect(legacy.currentRole).toBe("editor");
+
+      const drawn = legacyScene.addElement(createRectangleElement({ x: 3, y: 3, width: 2, height: 2 }));
+      await waitUntil(() => hostScene.getElement(drawn.id) !== undefined, 15_000);
+    } finally {
+      host.disconnect();
+      legacy.disconnect();
+    }
+  }, 60_000);
 });
 
 // Keep the file from being an empty suite when the guard is off.
@@ -203,4 +290,6 @@ describe.runIf(!enabled)("live relay integration (disabled)", () => {
   it("is skipped without DEVIVA_MCP_INTEGRATION=1", () => {
     expect(enabled).toBe(false);
   });
+
 });
+

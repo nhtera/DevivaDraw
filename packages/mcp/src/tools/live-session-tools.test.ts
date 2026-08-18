@@ -43,9 +43,16 @@ interface Harness {
 async function makeHarness(): Promise<Harness> {
   const relay = new FakeCollabRelay();
   const browserScene = new Scene();
-  const browserPeer = new CollabSession({ scene: browserScene, userName: "Tien", userColor: "#e8590c", createSocket: () => relay.createSocket() });
+  const browserPeer = new CollabSession({
+    scene: browserScene,
+    userName: "Tien",
+    userColor: "#e8590c",
+    createSocket: () => relay.createSocket(),
+    // Sockets-only fake relay: `startSession` would otherwise make a real `POST /room` request.
+    createRoom: () => Promise.resolve({ roomId: "room-tools", editorToken: "editor.mac", viewerToken: "viewer.mac" }),
+  });
   cleanups.push(() => browserPeer.disconnect());
-  const roomUrl = await browserPeer.startSession(API, "https://draw.example");
+  const { editorUrl: roomUrl } = await browserPeer.startSession(API, "https://draw.example");
   await waitUntil(() => browserPeer.connectionStatus === "connected");
 
   const bridge = new LiveSessionBridge({ apiBaseUrl: API, createSocket: () => relay.createSocket(), connectTimeoutMs: 2_000, pageAdoptTimeoutMs: 250 });

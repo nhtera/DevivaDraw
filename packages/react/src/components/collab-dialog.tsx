@@ -12,6 +12,7 @@ import { Icon } from "./icon";
 import { LinkQrCode } from "./link-qr-code";
 import type { TranslationKey } from "../i18n/catalog-en";
 import { useTranslation } from "../i18n/use-translation";
+import { canFollow } from "../hooks/use-collab-session";
 import type { CollabErrorReason, UseCollabSessionResult } from "../hooks/use-collab-session";
 import { useOfflineHint } from "../hooks/use-online";
 
@@ -30,13 +31,14 @@ export function CollabDialog(props: CollabDialogProps) {
   const { collab, onClose } = props;
   const { t } = useTranslation();
   const [joinUrl, setJoinUrl] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"editor" | "viewer" | null>(null);
 
-  const copyLink = async (url: string) => {
+  // Which link was copied, so two copy buttons cannot both flash "Copied".
+  const copyLink = async (url: string, which: "editor" | "viewer") => {
     try {
       await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopied(which);
+      setTimeout(() => setCopied(null), 2000);
     } catch {
       // Soft failure — the link is still visible and manually selectable below (see `share-dialog.tsx`).
     }
@@ -101,7 +103,13 @@ export function CollabDialog(props: CollabDialogProps) {
 
         {collab.status === "connected" && collab.roomUrl && (
           <>
+            {collab.viewerUrl && (
+              <label style={labelStyle} htmlFor="collab-editor-url">
+                {t("collab.dialog.editorLink")}
+              </label>
+            )}
             <input
+              id="collab-editor-url"
               type="text"
               readOnly
               value={collab.roomUrl}
@@ -110,23 +118,72 @@ export function CollabDialog(props: CollabDialogProps) {
               onFocus={(event) => event.currentTarget.select()}
             />
             <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-              <button type="button" onClick={() => void copyLink(collab.roomUrl!)} data-testid="collab-dialog-copy">
-                {copied ? t("share.dialog.copied") : t("share.dialog.copy")}
+              <button type="button" onClick={() => void copyLink(collab.roomUrl!, "editor")} data-testid="collab-dialog-copy">
+                {copied === "editor" ? t("share.dialog.copied") : t("share.dialog.copy")}
               </button>
               <button type="button" onClick={collab.leaveSession} data-testid="collab-dialog-leave">
                 {t("collab.dialog.leave")}
               </button>
             </div>
+
+            {/* The viewer link is a secondary row, not a second equal choice: "copy the link" should stay
+                one obvious action, with the read-only variant available to whoever wants it. Only the peer
+                that started the session has one to offer. */}
+            {collab.viewerUrl && (
+              <div style={{ marginTop: 10 }}>
+                <label style={labelStyle} htmlFor="collab-viewer-url">
+                  {t("collab.dialog.viewerLink")}
+                </label>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input
+                    id="collab-viewer-url"
+                    type="text"
+                    readOnly
+                    value={collab.viewerUrl}
+                    style={inputStyle}
+                    data-testid="collab-dialog-viewer-link"
+                    onFocus={(event) => event.currentTarget.select()}
+                  />
+                  <button type="button" onClick={() => void copyLink(collab.viewerUrl!, "viewer")} data-testid="collab-dialog-copy-viewer">
+                    {copied === "viewer" ? t("share.dialog.copied") : t("share.dialog.copy")}
+                  </button>
+                </div>
+                <p style={{ ...labelStyle, marginTop: 4 }}>{t("collab.dialog.linksHint")}</p>
+              </div>
+            )}
+
+            {collab.role === "viewer" && (
+              <p role="status" data-testid="collab-dialog-viewer-role" style={{ fontSize: 12, color: "var(--dd-text-secondary)" }}>
+                {t("collab.role.viewerHint")}
+              </p>
+            )}
             {/* The room link is long and typed by nobody: scanning it is how a phone joins the session. */}
             <LinkQrCode url={collab.roomUrl} label={t("collab.dialog.qrLabel")} testId="collab-qr" />
             <p style={labelStyle}>{t("collab.dialog.peersLabel", { count: collab.peers.length })}</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {collab.peers.map((peer) => (
-                <div key={peer.peerId} style={{ display: "flex", alignItems: "center", gap: 6, opacity: peer.idle ? 0.5 : 1 }} data-testid="collab-dialog-peer">
-                  <span style={{ ...buttonStyle(false), width: 10, height: 10, padding: 0, borderRadius: "50%", background: peer.color }} />
-                  <span>{peer.name}</span>
-                </div>
-              ))}
+              {collab.peers.map((peer) => {
+                const followed = collab.followedPeerId === peer.peerId;
+                return (
+                  <div key={peer.peerId} style={{ display: "flex", alignItems: "center", gap: 6, opacity: peer.idle ? 0.5 : 1 }} data-testid="collab-dialog-peer">
+                    <span style={{ ...buttonStyle(false), width: 10, height: 10, padding: 0, borderRadius: "50%", background: peer.color }} />
+                    <span style={{ flex: 1 }}>{peer.name}</span>
+                    {/* Not every peer can be followed: one that has never published a viewport (an older
+                        client) has nothing to follow, and one on another page would swing this canvas to
+                        coordinates from a page nobody here is looking at. Both cases disable the button
+                        rather than offering a mode that would immediately undo itself. */}
+                    <button
+                      type="button"
+                      onClick={() => collab.follow(followed ? null : peer.peerId)}
+                      disabled={!followed && !canFollow(peer, collab.localPageId)}
+                      aria-pressed={followed}
+                      data-testid="collab-dialog-follow"
+                      style={{ fontSize: 12, padding: "2px 8px" }}
+                    >
+                      {t(followed ? "collab.follow.stop" : "collab.follow.follow")}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </>
         )}
