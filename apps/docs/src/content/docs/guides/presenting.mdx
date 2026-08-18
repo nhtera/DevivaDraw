@@ -37,10 +37,49 @@ presents just fine.
 |---|---|
 | <kbd>→</kbd> / <kbd>PageDown</kbd> / <kbd>Space</kbd> | Next slide |
 | <kbd>←</kbd> / <kbd>PageUp</kbd> | Previous slide |
+| <kbd>N</kbd> | Show / hide presenter notes |
 | <kbd>Esc</kbd> | Exit |
+
+<kbd>N</kbd> is the note tool's letter in the editor. Presentation claims it
+only while you are presenting and hands it straight back on exit.
 
 A heads-up display shows the slide name and position, and fades out on its own
 so it is not in the audience's way.
+
+### Presenter notes
+
+Select a frame and write into **Presenter notes** in the properties panel. While
+presenting, <kbd>N</kbd> (or the notes button in the HUD) shows the current
+slide's notes in a strip above the controls.
+
+Notes live on the frame element itself, so they undo, redo, sync over
+collaboration, and travel in the saved file like anything else you draw. A board
+saved by an older build simply has none.
+
+One limit worth stating plainly: notes are hidden from the *canvas*, not from
+the *screen*. Anyone looking at the screen you are presenting from - a mirrored
+projector, a shared tab, a screen recording - sees them. A separate presenter
+window on a second display is what would fix that, and does not exist yet.
+
+### Reactions and raised hands
+
+In a live [collaboration](/guides/collaboration/) session, the presentation HUD
+offers a row of emoji and a raise-hand toggle. A reaction floats up from the
+sender's cursor on every peer's screen and fades; the presenter sees a list of
+who currently has a hand up.
+
+Both ride the presence channel, which makes them **ephemeral by construction**:
+they are never saved, never merged into the document, vanish when the peer
+leaves, and are not replayed to someone who joins later. A reaction is sent once
+and never retried - if a packet is lost, that reaction simply never happened,
+which is the right outcome for something that would be stale by the time a retry
+arrived.
+
+### Joining from a phone
+
+The collaboration dialog shows a QR code for the live room. The code is rendered
+locally, never by an image service, because the room URL carries the room's
+decryption key in its fragment.
 
 ### What presenting guarantees
 
@@ -59,6 +98,25 @@ so it is not in the audience's way.
 The export dialog's **Current frame** scope uses this same slide ordering: with
 a frame selected it exports that frame, and with nothing selected it exports the
 deck's first slide. See [Export & Share](/guides/export-embed/).
+
+### Exporting the whole deck
+
+The same dialog's **Slides** block writes every frame out at once, in slide
+order:
+
+- **PPTX** - one slide per frame, each a full-bleed image of that frame. The
+  writer is in-house (a ZIP of OOXML parts), so this costs no dependency. PPTX
+  has a single deck-wide slide size, taken from your first frame's aspect ratio;
+  frames of a different shape are letterboxed into it rather than cropped.
+- **PDF** - one page per frame. PDF sizes pages independently, so a
+  mixed-aspect deck keeps every frame at its own shape here.
+
+Slides carry the picture, not editable shapes: a faithful translation of every
+element type into a foreign shape format is a different project, and a deck of
+images is what showing the work actually needs. Presenter notes are not written
+into the exported file.
+
+Both actions are offered only once the scene has a frame.
 
 ## Zen mode
 

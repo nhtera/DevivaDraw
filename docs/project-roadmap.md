@@ -30,7 +30,8 @@ These are settled; revisit only with explicit maintainer sign-off:
 | **Comment threads** | ✅ done | Anchored, resolvable threads with per-message records; sync over the encrypted room, round-trip through files/autosave/share links, and stay out of exports and undo. |
 | **Multi-page documents** | ✅ done | Pages panel, per-page cameras, page-list manifest synced with the same LWW discipline as elements. |
 | **Layers** | ✅ done | Ordered layer list per page with visibility/lock gating across render, hit-test, export, and search. |
-| **Presentation mode** | ✅ done | Frames walked as slides: fullscreen, laser pointer, view-only lockdown, keyboard navigation. |
+| **Presentation mode** | ✅ done | Frames walked as slides: fullscreen, laser pointer, view-only lockdown, keyboard navigation, per-frame presenter notes, and ephemeral audience reactions / raised hands over presence. |
+| **Deck export** | ✅ done | Every frame out as a `.pptx` (in-house ZIP + OOXML writer, no Office dependency) or a multi-page PDF, in slide order. |
 | **Desktop app** | ✅ done | Tauri v2 shell with real file open/save and full offline operation. |
 | **AI agents (MCP)** | ✅ done | MCP server + worker exposing the scene to agents, including joining a live room. |
 | **React library** | ✅ done | `<DevivaDraw/>` component, hooks, and scene-read API for embedding. |

@@ -15,6 +15,20 @@ Deviva Draw ships two collaboration surfaces, both **end-to-end encrypted**:
 Try both at [draw.deviva.app](https://draw.deviva.app) - the Share and
 Collaborate actions in the main menu.
 
+## Joining from a phone
+
+While a room is live, the Collaborate dialog shows a QR code for it alongside
+the link. The code is encoded locally, never through an image service - a room
+URL carries its own decryption key in the fragment, so handing it to a third
+party to render would give away the secret the encryption exists to protect.
+
+## Reactions and raised hands
+
+In [presentation mode](/guides/presenting/#reactions-and-raised-hands), peers
+can send emoji reactions and raise a hand. Both ride the presence channel rather
+than the document channel, so they are never persisted, never merged, and vanish
+with the peer who sent them.
+
 ## Comment threads
 
 Press `c` (or pick the comment tool from **More tools**) and click the canvas to

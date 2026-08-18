@@ -45,10 +45,15 @@ MIT license.
 - **Comment threads** — pin a conversation to a shape or to any point, reply,
   resolve, delete; pins ride their shape through move/resize/rotate, and threads
   sync live over the same encrypted room.
+- **Present from the board** — frames become slides, with per-frame presenter
+  notes only you can see, emoji reactions and a raised hand from the audience,
+  and a QR code so a phone joins the room without typing a link.
 - **End-to-end-encrypted share links** — share a read-only snapshot; the
   decryption key lives only in the URL fragment and never reaches the backend.
 - **Persistence & export** — local autosave, `.devivadraw` files, PNG (with the
-  scene embedded for re-import) and SVG export, copy-as-image.
+  scene embedded for re-import) and SVG export, copy-as-image, and a deck export
+  to `.pptx` or a multi-page PDF (one slide per frame, written from scratch — no
+  Office library).
 - **Polish** — light / dark / system theming, i18n (English + Vietnamese),
   keyboard shortcuts, command palette, zen & view-only modes, mobile support.
 
