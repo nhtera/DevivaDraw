@@ -117,7 +117,18 @@ export function CollabDialog(props: CollabDialogProps) {
           </>
         )}
 
-        {collab.status === "connecting" && <p data-testid="collab-dialog-connecting">{t("collab.dialog.connecting")}</p>}
+        {/* Connecting is a state a session can sit in — a reconnect after a drop, a relay that is slow
+            to answer — and it used to render nothing but this line. That left no control at all: no
+            leave, no start, no join. A user whose host stopped was stuck watching a spinner with
+            nothing to press. Whatever else is true, there is always a way out of a live session. */}
+        {collab.status === "connecting" && (
+          <>
+            <p data-testid="collab-dialog-connecting">{t("collab.dialog.connecting")}</p>
+            <button type="button" onClick={() => (hosting.isHosting ? void hosting.stop() : collab.leaveSession())} data-testid="collab-dialog-cancel">
+              {t("collab.dialog.leave")}
+            </button>
+          </>
+        )}
 
         {collab.status === "connected" && collab.roomUrl && (
           <>

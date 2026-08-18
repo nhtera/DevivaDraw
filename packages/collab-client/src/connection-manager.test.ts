@@ -199,3 +199,117 @@ describe("ConnectionManager", () => {
     expect(manager.isOpen).toBe(false);
   });
 });
+
+/**
+ * When retrying stops.
+ *
+ * This is the behaviour a tester found missing on the first two-machine run of local-network hosting:
+ * the host stopped, and the other machine sat on "Connecting…" forever, retrying a room that no
+ * longer existed. Reconnecting is right for a dropped network and wrong for a finished room, and the
+ * close code is what tells them apart.
+ */
+describe("ConnectionManager — when it stops trying", () => {
+  let sockets: FakeSocket[];
+  let manager: ConnectionManager;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    sockets = [];
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function createManager(onGiveUp = vi.fn(), maxReconnectAttempts?: number) {
+    manager = new ConnectionManager({
+      url: "wss://collab.example/room/r1",
+      createSocket: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket;
+      },
+      onMessage: vi.fn(),
+      onGiveUp,
+      initialBackoffMs: 100,
+      maxBackoffMs: 1_000,
+      maxReconnectAttempts,
+    });
+    return onGiveUp;
+  }
+
+  it("stops for good when the relay says it is going away — a host that stopped hosting", () => {
+    const onGiveUp = createManager();
+    manager.connect();
+    sockets[0]!.open();
+
+    sockets[0]!.simulateServerClose(1001);
+    vi.advanceTimersByTime(10_000);
+
+    expect(sockets).toHaveLength(1);
+    expect(onGiveUp).toHaveBeenCalledWith("room-closed");
+  });
+
+  it.each([1008, 1009])("stops for good when refused with code %i — a fresh socket would be refused too", (code) => {
+    const onGiveUp = createManager();
+    manager.connect();
+    sockets[0]!.open();
+
+    sockets[0]!.simulateServerClose(code);
+    vi.advanceTimersByTime(10_000);
+
+    expect(sockets).toHaveLength(1);
+    expect(onGiveUp).toHaveBeenCalledWith("refused");
+  });
+
+  it("keeps retrying a rate-limit close, which is the one that explicitly means try again later", () => {
+    const onGiveUp = createManager();
+    manager.connect();
+    sockets[0]!.open();
+
+    sockets[0]!.simulateServerClose(1013);
+    vi.advanceTimersByTime(10_000);
+
+    expect(sockets.length).toBeGreaterThan(1);
+    expect(onGiveUp).not.toHaveBeenCalled();
+  });
+
+  it("keeps retrying an abnormal close, which is what a dropped network looks like", () => {
+    const onGiveUp = createManager();
+    manager.connect();
+    sockets[0]!.open();
+
+    sockets[0]!.simulateServerClose(1006);
+    vi.advanceTimersByTime(1_000);
+
+    expect(sockets).toHaveLength(2);
+    expect(onGiveUp).not.toHaveBeenCalled();
+  });
+
+  it("gives up once the attempts run out, rather than retrying forever", () => {
+    const onGiveUp = createManager(vi.fn(), 3);
+    manager.connect();
+    sockets[0]!.open();
+
+    // Every attempt fails the same way a machine that has left the network does.
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      sockets.at(-1)!.simulateServerClose(1006);
+      vi.advanceTimersByTime(10_000);
+    }
+
+    expect(sockets).toHaveLength(4); // the original plus three retries
+    expect(onGiveUp).toHaveBeenCalledWith("unreachable");
+    expect(onGiveUp).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not report giving up when the caller disconnected on purpose", () => {
+    const onGiveUp = createManager();
+    manager.connect();
+    sockets[0]!.open();
+
+    manager.disconnect();
+    vi.advanceTimersByTime(10_000);
+
+    expect(onGiveUp).not.toHaveBeenCalled();
+  });
+});

@@ -223,8 +223,12 @@ async fn run_peer(socket: tokio_tungstenite::WebSocketStream<TcpStream>, room_id
             _ = stopping.changed() => {
                 // Hosting stopped. Close politely so the peer's client reports a closed session
                 // rather than a network error it will try to reconnect through.
+                // `Away` (1001), not an empty close frame. An empty one reaches the peer as "no
+                // status received", which is indistinguishable from the network dropping — so the
+                // client would reconnect, and keep reconnecting, to a relay that has deliberately
+                // stopped. The room is gone; the peer needs to be told that, not left guessing.
                 if let Some(sender) = state.rooms().get(&room_id).and_then(|room| room.peers.get(&peer_id)) {
-                    let _ = sender.try_send(Message::Close(None));
+                    let _ = sender.try_send(Message::Close(Some(CloseFrame { code: CloseCode::Away, reason: "hosting stopped".into() })));
                 }
                 break;
             }
@@ -630,19 +634,28 @@ mod tests {
             assert_eq!(next_of_type(&mut carol, "snapshot").await["ciphertext"], "whole-board");
         }
 
+        /// The peer must be able to tell "the host stopped" from "the network hiccuped" — otherwise a
+        /// client reconnects forever to a room that no longer exists, which is what a tester saw.
         #[tokio::test]
-        async fn stopping_the_host_disconnects_everyone() {
+        async fn stopping_the_host_closes_every_peer_with_going_away() {
             let (port, state, shutdown) = start_relay().await;
             let mut alice = join_as_editor(port, &state).await;
 
             drop(shutdown);
-            // `serve` returning drops the listener and every connection task's handle.
-            let closed = tokio::time::timeout(Duration::from_secs(5), async {
-                while let Some(Ok(_)) = alice.next().await {}
-            })
-            .await;
 
-            assert!(closed.is_ok(), "the socket should have closed when hosting stopped");
+            let close = tokio::time::timeout(Duration::from_secs(5), async {
+                while let Some(Ok(message)) = alice.next().await {
+                    if let Message::Close(frame) = message {
+                        return frame;
+                    }
+                }
+                None
+            })
+            .await
+            .expect("the socket should have closed when hosting stopped");
+
+            let frame = close.expect("the close must carry a code, not be an empty frame");
+            assert_eq!(frame.code, CloseCode::Away);
         }
 
         #[tokio::test]

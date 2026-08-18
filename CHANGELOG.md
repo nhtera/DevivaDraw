@@ -4,6 +4,23 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.11.2] — 2026-08-18
+
+### Fixed
+
+- **A session whose host stopped now ends, instead of reconnecting forever.** The relay closed peers
+  with an empty close frame, which reaches a client as "no status received" — indistinguishable from
+  the network dropping. So the client did what it should do for a dropped network: retry, and keep
+  retrying, a room that had deliberately stopped existing. It now closes with "going away", and the
+  client stops for good on that and on the codes that mean it was refused. Reconnecting still happens
+  for the cases it is actually for: an abnormal close, or a rate-limit close, which explicitly means
+  try again later.
+- **Reconnecting gives up eventually.** There was no attempt limit at all, so a room that was never
+  coming back was retried indefinitely, at a spinner the user could not dismiss.
+- **The collaboration dialog always offers a way out of a live session.** While connecting it
+  rendered a single line of text and no controls — no leave, no start, no join — so a user whose
+  session was stuck had nothing to press and could not start or join another.
+
 ## [0.11.1] — 2026-08-18
 
 ### Fixed

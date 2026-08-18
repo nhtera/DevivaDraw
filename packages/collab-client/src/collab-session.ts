@@ -295,6 +295,14 @@ export class CollabSession {
       onClose: () => {
         if (!this.tornDown) this.setStatus("connecting");
       },
+      // The room is not coming back: the host stopped, this client was refused, or the attempts ran
+      // out. Reported as a real disconnect rather than a permanent "connecting", so the UI can offer
+      // the session as over instead of showing a spinner with nothing behind it.
+      onGiveUp: () => {
+        if (this.tornDown) return;
+        this.presence.clear();
+        this.setStatus("disconnected");
+      },
       onMessage: (data) => void this.dispatchInbound(data),
       initialBackoffMs: this.initialBackoffMs,
       maxBackoffMs: this.maxBackoffMs,
