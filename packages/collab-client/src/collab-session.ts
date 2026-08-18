@@ -176,6 +176,16 @@ export class CollabSession {
     this.presenceBroadcaster.setLocalViewport(viewport);
   }
 
+  /** Sends a one-shot emoji reaction to every peer. Lossy and unretried — see `PresenceBroadcaster.sendReaction`. */
+  sendReaction(emoji: string): void {
+    this.presenceBroadcaster.sendReaction(emoji);
+  }
+
+  /** Raises or lowers the local user's hand for every peer to see. */
+  setHandRaised(raised: boolean): void {
+    this.presenceBroadcaster.setHandRaised(raised);
+  }
+
   /** Follow-mode: `peerId` (or `null` to stop) whose viewport `getFollowedViewport` reports — the caller applies it to the local camera on presence updates. */
   follow(peerId: string | null): void {
     this.followedPeerId = peerId;

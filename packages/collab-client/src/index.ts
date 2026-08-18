@@ -31,8 +31,8 @@ export { isPlausibleManifest, remoteManifestWins } from "./pages-adapter";
 export type { InboundMessageDeps } from "./inbound-message-handler";
 export { handleInboundMessage } from "./inbound-message-handler";
 
-export type { PresenceListener, PresencePayload, PresenceViewport, RemotePeerPresence } from "./presence-state";
-export { isPlausiblePresencePayload, PresenceStore, throttle } from "./presence-state";
+export type { PresenceListener, PresencePayload, PresenceReaction, PresenceViewport, RemotePeerPresence } from "./presence-state";
+export { isPlausiblePresencePayload, MAX_REACTION_EMOJI_LENGTH, PresenceStore, REACTION_EMOJIS, throttle } from "./presence-state";
 
 export type { BuildRoomUrlOptions, ParsedRoomUrl, ParseRoomUrlErrorReason, ParseRoomUrlResult } from "./room-url";
 export { buildRoomUrl, buildRoomWebSocketUrl, parseRoomUrl } from "./room-url";

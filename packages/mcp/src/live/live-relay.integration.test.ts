@@ -139,6 +139,63 @@ describe.runIf(enabled)("live bridge against a real wrangler-dev relay", () => {
       peerB.disconnect();
     }
   }, 60_000);
+
+  /**
+   * Reactions and raised hands over the real relay.
+   *
+   * They ride PRESENCE, not a document channel, and that is exactly what needs proving end to end: a
+   * reaction is sent once and never retried, so if it did not survive one real round trip it would
+   * simply never appear. The receiving assertions are also the only way to check the two properties
+   * the sender cannot demonstrate about itself — that a reaction stops being broadcast after one
+   * send, and that a raised hand keeps riding every broadcast until it is lowered.
+   *
+   * This lives here rather than in the web e2e suite because that suite's dev server runs Vite alone;
+   * two real peers need a real relay, which is what this file already stands up.
+   */
+  it("delivers a reaction once and a raised hand until it is lowered", async () => {
+    const peerA = new CollabSession({ scene: new Scene(), userName: "Ann", userColor: "#e8590c" });
+    const peerB = new CollabSession({ scene: new Scene(), userName: "Bo", userColor: "#1971c2" });
+    const seenBy = (session: CollabSession, name: string) => session.presence.list().find((peer) => peer.name === name);
+    try {
+      const roomUrl = await peerA.startSession(API, "https://draw.example");
+      await waitUntil(() => peerA.connectionStatus === "connected", 15_000);
+      await peerB.joinSession(API, roomUrl);
+      await waitUntil(() => peerB.connectionStatus === "connected", 15_000);
+
+      // Presence only exists once a peer has broadcast something, so establish the channel first.
+      peerA.updateCursor({ x: 1, y: 1 });
+      peerB.updateCursor({ x: 2, y: 2 });
+      await waitUntil(() => seenBy(peerB, "Ann") !== undefined && seenBy(peerA, "Bo") !== undefined, 15_000);
+
+      // A raised hand is sticky: it must still be there after an unrelated later broadcast.
+      peerA.setHandRaised(true);
+      await waitUntil(() => seenBy(peerB, "Ann")?.handRaised === true, 15_000);
+      peerA.updateCursor({ x: 5, y: 5 });
+      await waitUntil(() => seenBy(peerB, "Ann")?.point?.x === 5, 15_000);
+      expect(seenBy(peerB, "Ann")!.handRaised, "a raised hand must survive later presence updates").toBe(true);
+
+      // A reaction reaches the other peer...
+      peerA.sendReaction("🎉");
+      await waitUntil(() => seenBy(peerB, "Ann")?.reaction?.emoji === "🎉", 15_000);
+      const firstAt = seenBy(peerB, "Ann")!.reaction!.at;
+
+      // ...and is gone from the NEXT broadcast, so a receiver never re-animates it.
+      peerA.updateCursor({ x: 9, y: 9 });
+      await waitUntil(() => seenBy(peerB, "Ann")?.point?.x === 9, 15_000);
+      expect(seenBy(peerB, "Ann")!.reaction, "a reaction must ride exactly one broadcast").toBeUndefined();
+
+      // A second reaction is a distinct event, which is what the receiver de-duplicates on.
+      peerA.sendReaction("🎉");
+      await waitUntil(() => seenBy(peerB, "Ann")?.reaction !== undefined, 15_000);
+      expect(seenBy(peerB, "Ann")!.reaction!.at).toBeGreaterThan(firstAt);
+
+      peerA.setHandRaised(false);
+      await waitUntil(() => seenBy(peerB, "Ann")?.handRaised === undefined, 15_000);
+    } finally {
+      peerA.disconnect();
+      peerB.disconnect();
+    }
+  }, 60_000);
 });
 
 // Keep the file from being an empty suite when the guard is off.

@@ -14,6 +14,27 @@ export interface PresenceViewport {
   zoom: number;
 }
 
+/**
+ * A one-shot emoji reaction. `at` is the SENDER's clock, used only as an identity for the reaction
+ * (de-duplicating the repeats that ride the next few throttled presence broadcasts) — never to decide
+ * whether it is recent. Receivers age reactions against their own clock from the moment they first see
+ * one, so a peer with a badly-set clock cannot make a reaction stick forever or never appear at all.
+ */
+export interface PresenceReaction {
+  emoji: string;
+  at: number;
+}
+
+/**
+ * Emoji are multi-code-point (skin tones, ZWJ sequences, variation selectors), so the cap is generous
+ * in characters while still being a cap: presence is the one channel here that is otherwise unbounded
+ * in content, and an unbounded string on it is a trivial abuse vector.
+ */
+export const MAX_REACTION_EMOJI_LENGTH = 16;
+
+/** The reactions the UI offers. Not a validation whitelist — a peer may send any short string, and rendering it as text is safe — but it is what this client will ever send. */
+export const REACTION_EMOJIS = ["👍", "❤️", "😂", "🎉", "👏", "❓"] as const;
+
 /** The decrypted, still-untrusted wire shape of an inbound presence update. */
 export interface PresencePayload {
   name: string;
@@ -23,6 +44,10 @@ export interface PresencePayload {
   viewport: PresenceViewport | null;
   /** Which page the peer is on (multi-page sessions) — absent/`undefined` from single-scene peers, which renderers treat as "every page". */
   pageId?: string;
+  /** The peer's most recent reaction, if any. Ephemeral like the rest of presence: it is never persisted, never merged, and disappears with the peer. */
+  reaction?: PresenceReaction;
+  /** Whether the peer is asking to speak. A sticky flag (unlike `reaction`) — it stays until the peer lowers it or leaves. */
+  handRaised?: boolean;
 }
 
 /** A peer's presence as the local UI renders it — `idle` is computed fresh on every `list()` call, not stored. */
@@ -44,7 +69,16 @@ export function isPlausiblePresencePayload(value: unknown): value is PresencePay
   if (p.point !== null && !isPoint(p.point)) return false;
   if (p.viewport !== null && !isViewport(p.viewport)) return false;
   if (p.pageId !== undefined && typeof p.pageId !== "string") return false;
+  if (p.handRaised !== undefined && typeof p.handRaised !== "boolean") return false;
+  if (p.reaction !== undefined && !isReaction(p.reaction)) return false;
   return true;
+}
+
+function isReaction(value: unknown): value is PresenceReaction {
+  if (typeof value !== "object" || value === null) return false;
+  const reaction = value as Record<string, unknown>;
+  if (typeof reaction.emoji !== "string" || reaction.emoji.length === 0 || reaction.emoji.length > MAX_REACTION_EMOJI_LENGTH) return false;
+  return typeof reaction.at === "number" && Number.isFinite(reaction.at);
 }
 
 function isPoint(value: unknown): value is { x: number; y: number } {

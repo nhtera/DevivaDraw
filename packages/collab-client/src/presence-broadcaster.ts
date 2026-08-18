@@ -8,8 +8,8 @@
  * moving.
  */
 import { sendPresenceUpdate } from "./outbound-sync";
-import type { PresencePayload, PresenceViewport } from "./presence-state";
-import { throttle } from "./presence-state";
+import type { PresencePayload, PresenceReaction, PresenceViewport } from "./presence-state";
+import { MAX_REACTION_EMOJI_LENGTH, throttle } from "./presence-state";
 
 export interface PresenceSendDeps {
   roomKey: CryptoKey;
@@ -29,6 +29,10 @@ export class PresenceBroadcaster {
   private lastSelectedElementIds: string[] = [];
   private lastViewport: PresenceViewport | null = null;
   private lastPageId: string | null = null;
+  /** A reaction waiting to go out. One-shot: cleared once a send is attempted over a live connection — so it rides exactly one broadcast rather than repeating on every later cursor move. "Attempted", not "delivered": if that send throws, the reaction is gone, which is the same lossiness a dropped packet has and is deliberate (see `sendReaction`). */
+  private pendingReaction: PresenceReaction | null = null;
+  /** Sticky, unlike a reaction — it rides every broadcast until lowered, so a peer joining mid-session still sees the hand. */
+  private handRaised = false;
   private readonly throttledSend: (point: { x: number; y: number } | null) => void;
 
   constructor(private readonly options: PresenceBroadcasterOptions) {
@@ -60,6 +64,29 @@ export class PresenceBroadcaster {
     void this.send(this.lastPoint);
   }
 
+  /**
+   * Sends a one-shot emoji reaction, bypassing the throttle so it lands within a tick rather than
+   * whenever the pointer next happens to move.
+   *
+   * Lossy by design: it rides exactly one presence broadcast and is not retransmitted, which is the
+   * whole reason it can ride presence instead of needing a delivery-guaranteed wire type. A peer that
+   * misses the packet simply never saw that reaction — the correct outcome for something that would
+   * be stale by the time a retry arrived, and what keeps a late joiner from replaying a backlog.
+   */
+  sendReaction(emoji: string): void {
+    const trimmed = emoji.slice(0, MAX_REACTION_EMOJI_LENGTH);
+    if (trimmed === "") return;
+    this.pendingReaction = { emoji: trimmed, at: Date.now() };
+    void this.send(this.lastPoint);
+  }
+
+  /** Raises or lowers the local user's hand. Republished immediately: a raised hand that waited for the next pointer move would be an ask nobody heard. */
+  setHandRaised(raised: boolean): void {
+    if (this.handRaised === raised) return;
+    this.handRaised = raised;
+    void this.send(this.lastPoint);
+  }
+
   /** Resends whatever presence state was last known, bypassing the throttle — called after a reconnect (see `collab-session.ts`'s `onReconnect` wiring) so other peers see this client's current cursor/selection/viewport immediately instead of waiting for the next `updateCursor` call. */
   republish(): void {
     void this.send(this.lastPoint);
@@ -71,11 +98,17 @@ export class PresenceBroadcaster {
     this.lastSelectedElementIds = [];
     this.lastViewport = null;
     this.lastPageId = null;
+    this.pendingReaction = null;
+    this.handRaised = false;
   }
 
   private async send(point: { x: number; y: number } | null): Promise<void> {
     const sendDeps = this.options.getSendDeps();
+    // Nothing to send to right now — and crucially, a pending reaction is NOT consumed here: it waits
+    // for a send that can actually reach someone rather than being silently thrown away.
     if (!sendDeps) return;
+    const reaction = this.pendingReaction;
+    this.pendingReaction = null;
     const payload: PresencePayload = {
       name: this.options.userName,
       color: this.options.userColor,
@@ -83,6 +116,8 @@ export class PresenceBroadcaster {
       selectedElementIds: this.lastSelectedElementIds,
       viewport: this.lastViewport,
       ...(this.lastPageId !== null ? { pageId: this.lastPageId } : {}),
+      ...(reaction ? { reaction } : {}),
+      ...(this.handRaised ? { handRaised: true } : {}),
     };
     await sendPresenceUpdate(sendDeps, payload);
   }

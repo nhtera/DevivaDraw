@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { isPlausiblePresencePayload, PresenceStore, throttle } from "./presence-state";
+import { isPlausiblePresencePayload, MAX_REACTION_EMOJI_LENGTH, PresenceStore, throttle } from "./presence-state";
 
 const VALID_PAYLOAD = { name: "Alice", color: "#ff0000", point: { x: 1, y: 2 }, selectedElementIds: ["a", "b"], viewport: null };
 
@@ -15,6 +15,26 @@ describe("isPlausiblePresencePayload", () => {
       expect(isPlausiblePresencePayload(value)).toBe(false);
     },
   );
+
+  it("accepts an absent reaction/hand — every payload written before those fields existed", () => {
+    expect(isPlausiblePresencePayload({ ...VALID_PAYLOAD, reaction: undefined, handRaised: undefined })).toBe(true);
+  });
+
+  it("accepts a well-formed reaction and raised hand", () => {
+    expect(isPlausiblePresencePayload({ ...VALID_PAYLOAD, reaction: { emoji: "🎉", at: 1000 }, handRaised: true })).toBe(true);
+  });
+
+  it.each([
+    { ...VALID_PAYLOAD, handRaised: "yes" },
+    { ...VALID_PAYLOAD, reaction: { emoji: "🎉" } },
+    { ...VALID_PAYLOAD, reaction: { emoji: 1, at: 1 } },
+    { ...VALID_PAYLOAD, reaction: { emoji: "", at: 1 } },
+    { ...VALID_PAYLOAD, reaction: { emoji: "🎉", at: Number.NaN } },
+    // The abuse case the cap exists for: presence is otherwise unbounded in content.
+    { ...VALID_PAYLOAD, reaction: { emoji: "x".repeat(MAX_REACTION_EMOJI_LENGTH + 1), at: 1 } },
+  ])("rejects a malformed reaction/hand: %j", (value) => {
+    expect(isPlausiblePresencePayload(value)).toBe(false);
+  });
 });
 
 describe("PresenceStore", () => {

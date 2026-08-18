@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { decryptEnvelope, generateRoomKey, importRoomKey } from "./message-codec";
 import { PresenceBroadcaster } from "./presence-broadcaster";
 import type { PresenceSendDeps } from "./presence-broadcaster";
+import { MAX_REACTION_EMOJI_LENGTH } from "./presence-state";
 
 async function freshSendDeps(send: (data: string) => boolean): Promise<PresenceSendDeps> {
   const roomKey = await importRoomKey(await generateRoomKey());
@@ -113,5 +114,108 @@ describe("PresenceBroadcaster", () => {
     broadcaster.republish();
     await vi.waitFor(() => expect(sendB).toHaveBeenCalledOnce());
     expect(sendA).toHaveBeenCalledOnce();
+  });
+});
+
+describe("PresenceBroadcaster reactions and raised hand", () => {
+  /** Every payload this broadcaster has sent so far, decrypted in send order. */
+  async function sentPayloads(send: ReturnType<typeof vi.fn>, deps: PresenceSendDeps): Promise<Record<string, unknown>[]> {
+    const payloads: Record<string, unknown>[] = [];
+    for (const call of send.mock.calls) {
+      const decrypted = await decryptEnvelope(deps.roomKey, JSON.parse(call[0] as string), { compress: false });
+      if (decrypted.ok) payloads.push(decrypted.payload as Record<string, unknown>);
+    }
+    return payloads;
+  }
+
+  it("sends a reaction immediately rather than waiting for the next pointer move", async () => {
+    const send = vi.fn<(data: string) => boolean>(() => true);
+    const sendDeps = await freshSendDeps(send);
+    const broadcaster = new PresenceBroadcaster({ userName: "Ann", userColor: "#f00", throttleMs: 10_000, getSendDeps: () => sendDeps });
+
+    broadcaster.sendReaction("🎉");
+    await vi.waitFor(() => expect(send).toHaveBeenCalledOnce());
+    expect((await sentPayloads(send, sendDeps))[0]!.reaction).toEqual({ emoji: "🎉", at: expect.any(Number) });
+  });
+
+  it("clears a reaction after it is sent, so it does not repeat on every later broadcast", async () => {
+    const send = vi.fn<(data: string) => boolean>(() => true);
+    const sendDeps = await freshSendDeps(send);
+    const broadcaster = new PresenceBroadcaster({ userName: "Ann", userColor: "#f00", throttleMs: 0, getSendDeps: () => sendDeps });
+
+    broadcaster.sendReaction("👍");
+    await vi.waitFor(() => expect(send).toHaveBeenCalledOnce());
+    broadcaster.republish();
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+
+    const payloads = await sentPayloads(send, sendDeps);
+    expect(payloads[0]!.reaction).toBeDefined();
+    expect(payloads[1]!.reaction).toBeUndefined();
+  });
+
+  it("keeps a reaction pending when there is nothing to send over, rather than dropping it", async () => {
+    const send = vi.fn<(data: string) => boolean>(() => true);
+    const sendDeps = await freshSendDeps(send);
+    let connected = false;
+    const broadcaster = new PresenceBroadcaster({ userName: "Ann", userColor: "#f00", throttleMs: 0, getSendDeps: () => (connected ? sendDeps : null) });
+
+    broadcaster.sendReaction("👏");
+    await Promise.resolve();
+    expect(send).not.toHaveBeenCalled();
+
+    connected = true;
+    broadcaster.republish();
+    await vi.waitFor(() => expect(send).toHaveBeenCalledOnce());
+    expect((await sentPayloads(send, sendDeps))[0]!.reaction).toMatchObject({ emoji: "👏" });
+  });
+
+  it("keeps a raised hand on every broadcast until it is lowered", async () => {
+    const send = vi.fn<(data: string) => boolean>(() => true);
+    const sendDeps = await freshSendDeps(send);
+    const broadcaster = new PresenceBroadcaster({ userName: "Ann", userColor: "#f00", throttleMs: 0, getSendDeps: () => sendDeps });
+
+    broadcaster.setHandRaised(true);
+    await vi.waitFor(() => expect(send).toHaveBeenCalledOnce());
+    broadcaster.republish();
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+    broadcaster.setHandRaised(false);
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(3));
+
+    const payloads = await sentPayloads(send, sendDeps);
+    expect(payloads[0]!.handRaised).toBe(true);
+    expect(payloads[1]!.handRaised).toBe(true);
+    expect(payloads[2]!.handRaised).toBeUndefined();
+  });
+
+  it("ignores an empty reaction and caps an over-long one instead of putting it on the wire", async () => {
+    const send = vi.fn<(data: string) => boolean>(() => true);
+    const sendDeps = await freshSendDeps(send);
+    const broadcaster = new PresenceBroadcaster({ userName: "Ann", userColor: "#f00", throttleMs: 0, getSendDeps: () => sendDeps });
+
+    broadcaster.sendReaction("");
+    await Promise.resolve();
+    expect(send).not.toHaveBeenCalled();
+
+    broadcaster.sendReaction("x".repeat(500));
+    await vi.waitFor(() => expect(send).toHaveBeenCalledOnce());
+    expect(((await sentPayloads(send, sendDeps))[0]!.reaction as { emoji: string }).emoji).toHaveLength(MAX_REACTION_EMOJI_LENGTH);
+  });
+
+  it("does not re-send a reaction after reset", async () => {
+    const send = vi.fn<(data: string) => boolean>(() => true);
+    const sendDeps = await freshSendDeps(send);
+    let connected = false;
+    const broadcaster = new PresenceBroadcaster({ userName: "Ann", userColor: "#f00", throttleMs: 0, getSendDeps: () => (connected ? sendDeps : null) });
+
+    broadcaster.sendReaction("❤️");
+    broadcaster.setHandRaised(true);
+    broadcaster.reset();
+    connected = true;
+    broadcaster.republish();
+    await vi.waitFor(() => expect(send).toHaveBeenCalledOnce());
+
+    const payload = (await sentPayloads(send, sendDeps))[0]!;
+    expect(payload.reaction).toBeUndefined();
+    expect(payload.handRaised).toBeUndefined();
   });
 });
