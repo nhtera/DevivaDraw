@@ -20,6 +20,7 @@ import { deleteSelection } from "./delete-selection";
 import { groupSelection, ungroupSelection } from "./group-ungroup";
 import { lockSelection, unlockSelection } from "./selection-lock";
 import type { SelectionState } from "./selection-state";
+import { translateElements } from "./translate-elements";
 import { bringForward, bringToFront, sendBackward, sendToBack } from "./z-order-ops";
 
 export interface SelectionKeyboardDeps {
@@ -69,10 +70,10 @@ function nudgeSelection(deps: SelectionKeyboardDeps, key: string, shiftHeld: boo
     // ever reroute it back); nudged together with its bound shape, both travel in lockstep and the
     // binding survives.
     dropArrowBindingsMovingAlone(deps.scene, ids);
-    for (const id of ids) {
-      const element = deps.scene.getElement(id);
-      if (element) deps.scene.updateElement(id, { x: element.x + direction[0] * step, y: element.y + direction[1] * step });
-    }
+    // Snapshot first, translate second: `translateElements` needs the pre-nudge geometry of every
+    // element to stay immune to the binding reroutes each write triggers — see its module doc.
+    const originals = ids.map((id) => deps.scene.getElement(id)).filter((element) => element !== undefined);
+    translateElements(deps.scene, originals, direction[0] * step, direction[1] * step);
   });
 }
 

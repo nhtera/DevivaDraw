@@ -18,6 +18,7 @@ import type { SceneRect } from "../render/viewport-culling";
 import { elementBounds } from "./selection-geometry";
 import type { SelectionToolDeps } from "./selection-tool-deps";
 import { computeGridSnap, computeObjectSnap } from "./snapping";
+import { translateElements } from "./translate-elements";
 import type { SnapGuide } from "./snapping";
 
 /**
@@ -115,9 +116,7 @@ export class MoveGesture {
     // One notification for the whole selection, not one per element: this runs on every pointer
     // move, and a large selection made the per-element dispatch the dominant cost of the drag.
     const moving = this.originalElements;
-    this.deps.scene.batch(() => {
-      for (const [id, original] of moving) this.deps.scene.updateElement(id, { x: original.x + dx, y: original.y + dy });
-    });
+    this.deps.scene.batch(() => translateElements(this.deps.scene, moving.values(), dx, dy));
   }
 
   /**
