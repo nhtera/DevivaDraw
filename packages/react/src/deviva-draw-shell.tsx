@@ -65,6 +65,7 @@ import { ExitZenPill } from "./components/exit-zen-pill";
 import { CollabViewerBadge } from "./components/collab-viewer-badge";
 import { FollowingPeerPill } from "./components/following-peer-pill";
 import { AutosaveQuotaBanner } from "./components/autosave-quota-banner";
+import { TopBannerStack } from "./components/top-banner-stack";
 import { PresentationController } from "./components/presentation/presentation-controller";
 import { useCanvasBackground } from "./runtime/use-live-version";
 import { useAdaptNextShapeStyle } from "./runtime/use-adapt-next-shape-style";
@@ -532,7 +533,13 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {/* Not gated on `panelsHidden`: zen mode hides chrome the user chose to do without, and nobody
           chooses to do without being told their work has stopped saving. Presentation is the one
           exception — the audience is looking at the board, and the presenter's own copy is unharmed. */}
-      {runtime && !presentationActive.value && <AutosaveQuotaBanner status={autosaveStatus} onSave={() => void runtime.actionRegistry.run("save-scene", runtime)} />}
+      {/* One band, one stack — see `top-banner-stack.tsx` for why these no longer place themselves. */}
+      <TopBannerStack>
+        {runtime && !presentationActive.value && <AutosaveQuotaBanner status={autosaveStatus} onSave={() => void runtime.actionRegistry.run("save-scene", runtime)} />}
+        {/* Rendered here rather than beside the dialog: a session usually ends while the dialog is
+            closed, and a notice nobody can see is not a notice. */}
+        {collab.endedReason !== null && <SessionEndedNotice reason={collab.endedReason} onDismiss={collab.dismissEnded} />}
+      </TopBannerStack>
       {runtime && presentationActive.value && (
         <PresentationController
           runtime={runtime}
@@ -600,9 +607,6 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {runtime && initialViewOnly && !panelsHidden && (
         <ShareViewerBadge viewOnly={viewOnly.value} onEditCopy={() => void runtime.actionRegistry.run("toggle-view-only", runtime)} />
       )}
-      {/* Outside the dialog on purpose: a session usually ends while the dialog is closed, and a
-          notice nobody can see is not a notice. */}
-      {collab.endedReason !== null && <SessionEndedNotice reason={collab.endedReason} onDismiss={collab.dismissEnded} />}
       {runtime && collabDialogOpen.value && <CollabDialog collab={collab} hosting={hosting} onJoin={joinRoom} onClose={() => collabDialogOpen.set(false)} />}
       {runtime && commandPaletteOpen.value && <CommandPalette runtime={runtime} onClose={() => commandPaletteOpen.set(false)} />}
       {pendingPlacement && <ImagePlacementOverlay placement={pendingPlacement} getCamera={getCamera} />}

@@ -4,6 +4,19 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.11.4] — 2026-08-18
+
+### Changed
+
+- **The "session ended" notice reads as a warning.** In plain chrome it looked like a toolbar and was
+  easy to take for a status line, when what it reports is that work is still being accepted and is
+  going nowhere. It now uses the same danger-toned border and alert glyph as the storage warning,
+  which is the same shape of problem.
+- **Canvas-wide messages share one band instead of placing themselves.** Two independently-positioned
+  banners overlapped whenever both were true at once — storage filling up during a long session is
+  exactly when that session is also likely to end — so they now stack in a fixed order and any number
+  can be on screen at once.
+
 ## [0.11.3] — 2026-08-18
 
 ### Fixed

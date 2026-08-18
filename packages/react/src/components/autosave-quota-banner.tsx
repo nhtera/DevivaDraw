@@ -12,9 +12,11 @@
  * to find it in the menu.
  *
  * Shown even in zen mode — hiding a data-loss warning to keep the canvas tidy is the wrong trade.
+ *
+ * Positioned by `top-banner-stack.tsx`, not by itself, so it can share the band with other messages.
  */
 import { useEffect, useReducer } from "react";
-import { buttonStyle, chromeFontFamily, panelStyle, Z_LAYER } from "./chrome-styles";
+import { buttonStyle, chromeFontFamily, panelStyle } from "./chrome-styles";
 import { Icon } from "./icon";
 import { useTranslation } from "../i18n/use-translation";
 import type { AutosaveStatusStore } from "../runtime/autosave-status-store";
@@ -41,21 +43,16 @@ export function AutosaveQuotaBanner(props: AutosaveQuotaBannerProps) {
       role="alert"
       style={{
         ...panelStyle,
-        position: "absolute",
-        top: 120,
-        left: "50%",
-        transform: "translateX(-50%)",
         display: "flex",
         alignItems: "center",
         gap: 10,
         padding: "8px 12px",
         width: "auto",
         height: "auto",
-        maxWidth: "min(560px, calc(100% - 32px))",
         borderColor: "var(--dd-danger, #c0392b)",
         fontFamily: chromeFontFamily,
         fontSize: 13,
-        zIndex: Z_LAYER.dialog,
+        pointerEvents: "auto",
       }}
     >
       <span style={{ display: "inline-flex", flex: "none", color: "var(--dd-danger, #c0392b)" }}>

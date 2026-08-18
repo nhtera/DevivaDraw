@@ -14,8 +14,14 @@
  *
  * Dismissible, and only dismissible — offering "reconnect" would be a button that cannot keep its
  * promise, since by this point the client has already established there is nothing to reconnect to.
+ *
+ * Styled as a warning, in the same language `autosave-quota-banner.tsx` uses — danger-toned border
+ * and alert glyph — because the consequence is the same shape: work continues to look fine while
+ * going nowhere. In plain chrome it read as an ordinary toolbar and was easy to take for a status
+ * line. Positioned by `top-banner-stack.tsx` rather than by itself, so it shares the band with the
+ * storage warning instead of landing on top of it.
  */
-import { buttonStyle, chromeFontFamily, panelStyle, Z_LAYER } from "./chrome-styles";
+import { buttonStyle, chromeFontFamily, panelStyle } from "./chrome-styles";
 import { Icon } from "./icon";
 import type { GiveUpReason } from "@deviva-draw/collab-client";
 import type { TranslationKey } from "../i18n/catalog-en";
@@ -32,19 +38,38 @@ export function SessionEndedNotice(props: { reason: GiveUpReason; onDismiss(): v
   const { t } = useTranslation();
 
   return (
-    <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: Z_LAYER.menu }}>
-      <div
-        data-testid="session-ended-notice"
-        role="status"
-        className="dd-animate-in"
-        style={{ ...panelStyle, display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", fontSize: 13, fontFamily: chromeFontFamily }}
+    <div
+      data-testid="session-ended-notice"
+      role="alert"
+      className="dd-animate-in"
+      style={{
+        ...panelStyle,
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "8px 12px",
+        width: "auto",
+        height: "auto",
+        borderColor: "var(--dd-danger, #c0392b)",
+        fontSize: 13,
+        fontFamily: chromeFontFamily,
+        pointerEvents: "auto",
+      }}
+    >
+      <span style={{ display: "inline-flex", flex: "none", color: "var(--dd-danger, #c0392b)" }}>
+        <Icon name="alert" size={14} />
+      </span>
+      <span>{t(REASON_KEY[reason])}</span>
+      <button
+        type="button"
+        aria-label={t("shortcuts.close")}
+        title={t("shortcuts.close")}
+        onClick={onDismiss}
+        style={{ ...buttonStyle(false), flex: "none", width: 24, height: 24, padding: 0 }}
+        data-testid="session-ended-dismiss"
       >
-        <Icon name="users" size={14} />
-        <span>{t(REASON_KEY[reason])}</span>
-        <button type="button" aria-label={t("shortcuts.close")} title={t("shortcuts.close")} onClick={onDismiss} style={{ ...buttonStyle(false), width: 22, height: 22, padding: 0 }} data-testid="session-ended-dismiss">
-          <Icon name="close" size={12} />
-        </button>
-      </div>
+        <Icon name="close" size={12} />
+      </button>
     </div>
   );
 }
