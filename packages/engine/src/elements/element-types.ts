@@ -47,7 +47,7 @@ export { createArrowElement, DEFAULT_ARROW_TYPE, DEFAULT_END_ARROWHEAD, DEFAULT_
 export type { FreedrawElement, FreedrawElementCreationInput, FreedrawPoint } from "./freedraw-element";
 export { createFreedrawElement } from "./freedraw-element";
 export type { FrameElement, FrameElementCreationInput } from "./frame-element";
-export { createFrameElement } from "./frame-element";
+export { createFrameElement, MAX_FRAME_NOTES_LENGTH } from "./frame-element";
 export type { NoteElement } from "./note-element";
 export { createNoteElement, DEFAULT_NOTE_BACKGROUND } from "./note-element";
 export type { ImageElement, ImageElementCreationInput } from "./image-element";

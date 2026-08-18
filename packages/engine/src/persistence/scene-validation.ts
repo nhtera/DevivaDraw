@@ -77,6 +77,8 @@ const ELEMENT_TYPES = [
 const MAX_TABLE_ROWS = 64;
 const MAX_TABLE_COLS = 16;
 const MAX_TABLE_CELL_CHARS = 4000;
+/** Literal duplicate of `elements/frame-element.ts`'s MAX_FRAME_NOTES_LENGTH, same convention as the table caps above; change both together. */
+const MAX_FRAME_NOTES_LENGTH = 4000;
 /** A table band size: finite and strictly positive — a zero/negative column or row is degenerate geometry. */
 const isPositiveFiniteNumber = (value: unknown): value is number => isFiniteNumber(value) && value > 0;
 const BLOCK_ARROW_DIRECTIONS = ["left", "right", "up", "down"] as const;
@@ -209,6 +211,12 @@ function validateTypeSpecificFields(raw: Record<string, unknown>, index: number)
     }
     case "frame": {
       if (!isString(raw.name)) return `${label}.name must be a string`;
+      // Presenter notes: optional, so absent is valid (every frame authored before the field existed),
+      // but present-and-wrong is rejected rather than coerced — the same stance the table cell cap takes.
+      if (raw.notes !== undefined) {
+        if (!isString(raw.notes)) return `${label}.notes must be a string`;
+        if (raw.notes.length > MAX_FRAME_NOTES_LENGTH) return `${label}.notes must be at most ${MAX_FRAME_NOTES_LENGTH} characters`;
+      }
       return null;
     }
     case "table": {

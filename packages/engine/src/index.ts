@@ -21,7 +21,7 @@ export { createArrowElement, DEFAULT_ARROW_TYPE, DEFAULT_END_ARROWHEAD, DEFAULT_
 export type { FreedrawElement, FreedrawElementCreationInput, FreedrawPoint } from "./elements/freedraw-element";
 export { createFreedrawElement } from "./elements/freedraw-element";
 export type { FrameElement, FrameElementCreationInput } from "./elements/frame-element";
-export { createFrameElement } from "./elements/frame-element";
+export { createFrameElement, MAX_FRAME_NOTES_LENGTH } from "./elements/frame-element";
 export type {
   BlockArrowDirection,
   BlockArrowElement,
