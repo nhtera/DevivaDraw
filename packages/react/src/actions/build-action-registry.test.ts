@@ -84,6 +84,25 @@ describe("buildActionRegistry", () => {
     expect(shortcutRegistry.resolve("g", { shift: false, alt: false, ctrl: false, meta: true })).toBeUndefined();
   });
 
+  /**
+   * The inverse of the test above, and the one that actually catches a typo: a shortcut registered
+   * to an action id that does not exist resolves to nothing and fails SILENTLY — the menu still
+   * advertises the key, and pressing it does nothing. Caught exactly that during live browser
+   * testing (`alt+c` was bound to "toggle-comments-panel" while the action is "toggle-comments").
+   */
+  it("every action id the engine ShortcutRegistry binds actually exists in the action registry", () => {
+    const actionRegistry = buildActionRegistry();
+    const shortcutRegistry = new ShortcutRegistry();
+    registerFullShortcutMap(shortcutRegistry);
+
+    const missing = shortcutRegistry
+      .entries()
+      .filter(([, actionId]) => actionRegistry.get(actionId) === undefined)
+      .map(([combo, actionId]) => `${combo} -> ${actionId}`);
+
+    expect(missing, "these shortcuts are bound to action ids that do not exist").toEqual([]);
+  });
+
   it('registers "share-scene" by default (bare call, no options — matches every pre-gating call site)', () => {
     expect(buildActionRegistry().get("share-scene")).toBeDefined();
   });
@@ -175,6 +194,8 @@ function buildTestRuntime(scene: Scene): ActionRuntime {
       setPresentationActive: vi.fn(),
       getLayersPanelVisible: () => false,
       setLayersPanelVisible: vi.fn(),
+      getCommentsPanelVisible: () => false,
+      setCommentsPanelVisible: vi.fn(),
       getStatsPanelVisible: () => false,
       setStatsPanelVisible: vi.fn(),
       getCommandPaletteOpen: () => false,

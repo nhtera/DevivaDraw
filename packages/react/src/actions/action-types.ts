@@ -45,6 +45,9 @@ export interface UiToggleState {
   setStatsPanelVisible(value: boolean): void;
   getLayersPanelVisible(): boolean;
   setLayersPanelVisible(value: boolean): void;
+  /** The comments panel — every thread on the page, including the resolved and page-anchored ones that have no canvas pin. */
+  getCommentsPanelVisible(): boolean;
+  setCommentsPanelVisible(value: boolean): void;
   getMinimapVisible(): boolean;
   setMinimapVisible(value: boolean): void;
   /** The shape/canvas properties panel (and its phone-tier `MobilePropertiesBar` equivalent) — separately hideable so a user can reclaim the side of the canvas without entering zen mode. */

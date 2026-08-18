@@ -127,6 +127,17 @@ export function buildViewActions(): Action[] {
       run: (runtime) => runtime.ui.setLayersPanelVisible(!runtime.ui.getLayersPanelVisible()),
     },
     {
+      // Viewer-allowed, unlike the layers panel: reading a conversation is not editing the document,
+      // and a read-only surface still wants the panel (it is the only way to reach a page-anchored or
+      // resolved thread). The composer's own gating is the popover's `readOnly` prop.
+      id: "toggle-comments",
+      viewOnlyAllowed: true,
+      labelKey: "action.toggleComments",
+      icon: "comment",
+      shortcut: "alt+c",
+      run: (runtime) => runtime.ui.setCommentsPanelVisible(!runtime.ui.getCommentsPanelVisible()),
+    },
+    {
       id: "toggle-minimap",
       viewOnlyAllowed: true,
       labelKey: "action.toggleMinimap",

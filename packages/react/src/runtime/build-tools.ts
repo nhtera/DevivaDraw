@@ -9,6 +9,7 @@ import {
   BlockArrowTool,
   BucketFillTool,
   CheckBoxTool,
+  CommentTool,
   CloudTool,
   computeElementsBounds,
   createCanvasTextMeasurer,
@@ -45,6 +46,7 @@ import {
 import type { AnyElement, Camera, Scene, TextMeasurer } from "@deviva-draw/engine";
 import type { GridState, ObjectSnapState } from "../actions/action-types";
 import { getEditorPreferences } from "../browser/editor-preferences";
+import { getCommentAuthor } from "../components/comments/comment-author";
 import { readStoredGrid } from "../preferences/grid-storage";
 import { readStoredObjectSnap } from "../preferences/object-snap-storage";
 import { adaptStrokeColorForTheme } from "../theme/canvas-color-inversion";
@@ -58,6 +60,7 @@ import {
   BUCKET_FILL_TOOL_NAME,
   CHECK_BOX_TOOL_NAME,
   CLOUD_TOOL_NAME,
+  COMMENT_TOOL_NAME,
   DIAMOND_TOOL_NAME,
   ELLIPSE_TOOL_NAME,
   ERASER_TOOL_NAME,
@@ -198,6 +201,24 @@ export function buildTools(
   const bucketFillTool = new BucketFillTool({ scene, styleState, history: historyStack, getZoom: () => getCamera().zoom });
   // The laser pointer is purely ephemeral overlay chrome (no scene/history/style at all).
   const laserTool = new LaserTool();
+  // Comments are records parallel to elements, so this tool takes no style/history — only the scene
+  // and who is commenting. A placed pin opens its composer and hands back to the select tool (unless
+  // the tool lock is on), the same "place then immediately use it" flow the sticky note has.
+  //
+  // The open request travels as a window `CustomEvent`, the mechanism the table tool already uses to
+  // ask chrome to start editing a just-placed element — the alternative (threading another callback
+  // through this function's positional signature) buys nothing. rAF-deferred for the same reason:
+  // this fires in the tick the pin committed, before the shell's listener is necessarily attached.
+  const commentTool = new CommentTool({
+    scene,
+    author: () => getCommentAuthor(),
+    onThreadCreated: (thread) => {
+      if (!getToolLocked()) toolStateMachine.setTool(SELECT_TOOL_NAME);
+      requestAnimationFrame(() => {
+        window.dispatchEvent(new CustomEvent("deviva:comment-thread-open", { detail: { threadId: thread.id } }));
+      });
+    },
+  });
   // The frame tool creates named region elements (no shared shape style — a frame's look is fixed chrome).
   const frameTool = new FrameTool({ scene, history: historyStack, onCreated: onShapeCreated });
 
@@ -274,6 +295,7 @@ export function buildTools(
       [ERASER_TOOL_NAME]: eraserTool,
       [BUCKET_FILL_TOOL_NAME]: bucketFillTool,
       [LASER_TOOL_NAME]: laserTool,
+      [COMMENT_TOOL_NAME]: commentTool,
       [LASSO_TOOL_NAME]: lassoTool,
       [FRAME_TOOL_NAME]: frameTool,
     },

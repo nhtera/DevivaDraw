@@ -59,6 +59,7 @@ const PREFERENCE_TOGGLES: readonly {
   { actionId: "toggle-zen-mode", testId: "main-menu-toggle-zen-mode", icon: "zen", labelKey: "action.toggleZenMode", isChecked: (runtime) => runtime.ui.getZenMode() },
   { actionId: "toggle-view-only", testId: "main-menu-toggle-view-only", icon: "view-only", labelKey: "action.toggleViewOnly", isChecked: (runtime) => runtime.ui.getViewOnly() },
   { actionId: "toggle-layers", testId: "main-menu-toggle-layers", icon: "layers", labelKey: "action.toggleLayers", isChecked: (runtime) => runtime.ui.getLayersPanelVisible() },
+  { actionId: "toggle-comments", testId: "main-menu-toggle-comments", icon: "comment", labelKey: "action.toggleComments", isChecked: (runtime) => runtime.ui.getCommentsPanelVisible() },
   { actionId: "toggle-minimap", testId: "main-menu-toggle-minimap", icon: "minimap", labelKey: "action.toggleMinimap", isChecked: (runtime) => runtime.ui.getMinimapVisible() },
   { actionId: "toggle-stats", testId: "main-menu-toggle-stats", icon: "stats", labelKey: "action.toggleStats", isChecked: (runtime) => runtime.ui.getStatsPanelVisible() },
   { actionId: "toggle-properties-panel", testId: "main-menu-toggle-properties-panel", icon: "sliders", labelKey: "action.togglePropertiesPanel", isChecked: (runtime) => runtime.ui.getPropertiesPanelVisible() },

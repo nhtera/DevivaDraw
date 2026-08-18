@@ -45,6 +45,8 @@ import { ShareDialog } from "./components/share-dialog";
 import { runShareScene } from "./actions/share-actions";
 import { ShareViewerBadge } from "./components/share-viewer-badge";
 import { LayersPanel } from "./components/layers-panel";
+import { CommentsCanvasLayer } from "./components/comments/comments-canvas-layer";
+import { CommentsPanel } from "./components/comments/comments-panel";
 import { CollabDialog } from "./components/collab-dialog";
 import { ShortcutsDialog } from "./components/shortcuts-dialog";
 import { FindPanel } from "./components/find-panel";
@@ -111,6 +113,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   // reduced-motion-aware transitions) — see `chrome-stylesheet.ts`.
   useEffect(() => ensureChromeStylesheet(), []);
 
+
   // Owned here (not by `useDevivaRuntime`) so `useContextMenuTriggers` below — which needs a live
   // `CameraStore` to feed its `TouchGestureAdapter` — can be constructed *before* the runtime exists;
   // see `use-deviva-runtime.ts`'s `cameraStore` option doc.
@@ -126,6 +129,22 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const viewOnly = useToggleState(initialViewOnly ?? false);
   const statsPanel = useToggleState(false);
   const layersPanel = useToggleState(false);
+  const commentsPanel = useToggleState(false);
+  // Which thread's popover is open. Not a toggle: it is an id, and it must survive a re-render caused
+  // by the very mutation the popover just made.
+  const openCommentThreadId = useValueState<string | null>(null);
+  // A just-placed comment pin asks the chrome to open its composer, the same window-event mechanism
+  // the table tool uses to start editing a just-placed cell (`runtime/build-tools.ts`). Kept here in
+  // the shell — not inside the canvas layer — because the shell owns which thread is open, and the
+  // pin can be placed while the layer is showing no threads at all.
+  useEffect(() => {
+    const onOpenRequest = (event: Event) => {
+      const threadId = (event as CustomEvent<{ threadId?: unknown }>).detail?.threadId;
+      if (typeof threadId === "string") openCommentThreadId.set(threadId);
+    };
+    window.addEventListener("deviva:comment-thread-open", onOpenRequest);
+    return () => window.removeEventListener("deviva:comment-thread-open", onOpenRequest);
+  }, [openCommentThreadId]);
   // Defaults on, preserving the minimap's previous always-visible behavior; the toggle only adds a way out.
   const minimapVisible = useToggleState(true);
   // Same "defaults on, the toggle is only a way out" contract as the minimap above.
@@ -207,6 +226,8 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       setStatsPanelVisible: statsPanel.set,
       getLayersPanelVisible: layersPanel.get,
       setLayersPanelVisible: layersPanel.set,
+      getCommentsPanelVisible: commentsPanel.get,
+      setCommentsPanelVisible: commentsPanel.set,
       getMinimapVisible: minimapVisible.get,
       setMinimapVisible: minimapVisible.set,
       getPropertiesPanelVisible: propertiesPanelVisible.get,
@@ -524,6 +545,21 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       )}
       {statsPanel.value && runtime && !presentationViewOnly && <StatsPanel runtime={runtime} cameraStore={cameraStore} />}
       {layersPanel.value && runtime && !panelsHidden && !isNarrow && !presentationViewOnly && <LayersPanel runtime={runtime} />}
+      {/* `panelsHidden` covers both: an audience is not looking at review notes, and zen mode is a
+          deliberate "hide the annotations too" working mode. Still rendered in view-only, though —
+          reading a conversation is not editing the document (the popover's own `readOnly` handles that). */}
+      {runtime && !panelsHidden && (
+        <CommentsCanvasLayer
+          scene={runtime.scene}
+          cameraStore={cameraStore}
+          openThreadId={openCommentThreadId.value}
+          onOpenThread={openCommentThreadId.set}
+          readOnly={presentationViewOnly}
+        />
+      )}
+      {commentsPanel.value && runtime && !panelsHidden && !isNarrow && (
+        <CommentsPanel runtime={runtime} onOpenThread={(threadId) => openCommentThreadId.set(threadId)} />
+      )}
     </div>
   );
 });

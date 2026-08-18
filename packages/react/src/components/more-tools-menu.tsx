@@ -34,6 +34,7 @@ export const MORE_TOOL_IDS: readonly string[] = [
   "table-tool",
   "laser-tool",
   "lasso-tool",
+  "comment-tool",
 ];
 
 export interface MoreToolsMenuProps {

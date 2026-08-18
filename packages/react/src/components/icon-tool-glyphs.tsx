@@ -119,6 +119,13 @@ export const TOOL_GLYPHS: Record<string, ReactNode> = {
       <path d="M3 9 H17 M9.5 4 V16" />
     </>
   ),
+  // A speech bubble with a tail: the comment tool and every comment affordance in the chrome.
+  comment: (
+    <path
+      d="M3.5 5 A1.5 1.5 0 0 1 5 3.5 H15 A1.5 1.5 0 0 1 16.5 5 V12 A1.5 1.5 0 0 1 15 13.5 H8.5 L5 17 V13.5 A1.5 1.5 0 0 1 3.5 12 Z"
+      strokeLinejoin="round"
+    />
+  ),
   // A downward chevron: the "More tools" overflow toggle (the popover opens below the top toolbar).
   more: <path d="M5 8 L10 13 L15 8" strokeLinecap="round" strokeLinejoin="round" />,
 };

@@ -15,6 +15,8 @@ export const ARROW_TOOL_NAME = "arrow";
 export const ERASER_TOOL_NAME = "eraser";
 export const BUCKET_FILL_TOOL_NAME = "bucket-fill";
 export const LASER_TOOL_NAME = "laser";
+/** Drops a comment pin. Not in `DRAW_CAPABLE_TOOL_NAMES`: it places chrome, not content, so a finger tap should keep placing pins rather than pan. */
+export const COMMENT_TOOL_NAME = "comment";
 export const HIGHLIGHTER_TOOL_NAME = "highlighter";
 export const TRIANGLE_TOOL_NAME = "triangle";
 export const HEXAGON_TOOL_NAME = "hexagon";

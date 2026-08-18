@@ -16,7 +16,7 @@ import { useEffect, useReducer } from "react";
 import type { Scene, SelectionState, ToolStateMachine } from "@deviva-draw/engine";
 import type { CameraStore } from "./camera-store";
 
-/** Bumps on every scene mutation — covers element add/update/delete, undo/redo (`loadElementsSnapshot` notifies too), and file changes. */
+/** Bumps on every scene mutation — covers element add/update/delete, undo/redo (`loadElementsSnapshot` notifies too), file changes, layer-list changes, and comment mutations (every composed store notifies through the one `Scene` signal). */
 export function useSceneVersion(scene: Scene): number {
   const [version, dispatch] = useReducer((count: number) => count + 1, 0);
   useEffect(() => scene.subscribe(() => dispatch()), [scene]);
