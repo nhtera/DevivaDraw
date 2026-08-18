@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod file_io;
+mod lan_relay;
 mod launch;
 
 use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
@@ -26,6 +27,7 @@ fn main() {
         .manage(file_io::AllowedPaths::default())
         .manage(file_io::WatchRegistry::default())
         .manage(launch::PendingOpens::default())
+        .manage(lan_relay::LanHostState::default())
         .invoke_handler(tauri::generate_handler![
             file_io::pick_open_file,
             file_io::pick_save_path,
@@ -36,6 +38,10 @@ fn main() {
             launch::frontend_ready,
             launch::prompt_unsaved,
             launch::prune_recovery_files,
+            lan_relay::start_lan_relay,
+            lan_relay::stop_lan_relay,
+            lan_relay::lan_relay_port,
+            lan_relay::lan_host_addresses,
         ])
         // OS drag-drop is handled SHELL-side (never a JS-invokable ungated read): the drop event
         // itself is the user's trust grant, and only Rust can observe it happened.

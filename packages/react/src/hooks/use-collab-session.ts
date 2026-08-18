@@ -15,7 +15,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CollabSession, createPageStoreCollabAdapter } from "@deviva-draw/collab-client";
-import type { CollabConnectionStatus, CollabPagesAdapter, CollabRole, PresenceViewport, RemotePeerPresence } from "@deviva-draw/collab-client";
+import type { CollabConnectionStatus, CollabPagesAdapter, CollabRole, MintedRoom, PresenceViewport, RemotePeerPresence } from "@deviva-draw/collab-client";
 import type { Scene } from "@deviva-draw/engine";
 import { randomGuestColor, randomGuestName } from "./random-collab-identity";
 import type { PageStore } from "../pages/page-store";
@@ -47,6 +47,13 @@ export interface UseCollabSessionResult {
   peers: RemotePeerPresence[];
   error: CollabErrorReason;
   startSession(): Promise<void>;
+  /**
+   * Starts a session on a relay this machine is hosting (`lan-host-controller.ts`). Unlike
+   * `startSession` it needs no configured `apiBaseUrl` — that is the entire point, since a hosted
+   * room works with no internet at all — and the links it produces name the relay explicitly, because
+   * a peer has no other way to learn an address that did not exist a minute ago.
+   */
+  hostSession(relayBaseUrl: string, room: MintedRoom): Promise<void>;
   joinSession(url: string): Promise<void>;
   leaveSession(): void;
   /** Publishes the local user's cursor position (scene coordinates); throttled internally by `CollabSession`. A no-op while no session is connected. */
@@ -153,6 +160,27 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
     }
   }, [apiBaseUrl]);
 
+  const hostSession = useCallback(async (relayBaseUrl: string, room: MintedRoom) => {
+    const session = sessionRef.current;
+    if (!session) {
+      setError("not-configured");
+      return;
+    }
+    try {
+      // The relay is both the endpoint and the link's origin here: a self-hosted room has no separate
+      // web app in front of it, so the address that serves the socket is the address on the link.
+      const links = await session.startSession(relayBaseUrl, relayBaseUrl, { room, relayBaseUrl });
+      setRoomUrl(links.editorUrl);
+      setViewerUrl(links.viewerUrl);
+      setRole(session.currentRole);
+      setError(null);
+    } catch (caught) {
+      console.error("deviva-draw: collab hostSession failed", caught);
+      setError("start-failed");
+      throw caught;
+    }
+  }, []);
+
   const joinSession = useCallback(
     async (url: string) => {
       const session = sessionRef.current;
@@ -230,7 +258,7 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
   // hook a viewport one render stale.
   const followedViewport = followedPeerId === null ? null : (peers.find((peer) => peer.peerId === followedPeerId)?.viewport ?? null);
 
-  return { status, roomUrl, viewerUrl, role, peers, error, startSession, joinSession, leaveSession, updateCursor, sendReaction, setHandRaised, setLocalViewport, follow, followedPeerId, followedViewport, localPageId };
+  return { status, roomUrl, viewerUrl, role, peers, error, startSession, hostSession, joinSession, leaveSession, updateCursor, sendReaction, setHandRaised, setLocalViewport, follow, followedPeerId, followedViewport, localPageId };
 }
 
 /**

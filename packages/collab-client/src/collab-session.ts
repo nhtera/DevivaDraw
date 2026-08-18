@@ -34,6 +34,18 @@ export type CollabConnectionStatus = "disconnected" | "connecting" | "connected"
 /** What this client may do in the room it is connected to. Reflects the token it holds; the relay is the authority (see `apps/collab-server`'s `room-connection-registry.ts`). */
 export type CollabRole = "editor" | "viewer";
 
+export interface StartSessionOptions {
+  /**
+   * A room minted somewhere other than `POST /room`. The desktop app's LAN host mints its room in
+   * Rust, where that relay's token secret lives and never leaves — so there is no request to make, and
+   * requiring one would mean the app needed permission to speak HTTP to a local address purely to ask
+   * itself for a room id.
+   */
+  room?: MintedRoom;
+  /** Written into both links so a peer opening one knows which relay to connect to. Only for a self-hosted room; omitted for the configured relay, whose address every client already holds. */
+  relayBaseUrl?: string;
+}
+
 /** The two links a fresh session produces. They address the same room with the same key — only the role token differs. */
 export interface RoomLinks {
   editorUrl: string;
@@ -153,22 +165,32 @@ export class CollabSession {
    * to sign against. The key is still generated locally and still travels only in the URL fragment,
    * so what the server learns by minting a room is exactly what it learned before: a random string.
    */
-  async startSession(apiBaseUrl: string, origin: string): Promise<RoomLinks> {
-    const room = await (this.createRoom ? this.createRoom(apiBaseUrl) : requestRoom(apiBaseUrl));
+  async startSession(apiBaseUrl: string, origin: string, options: StartSessionOptions = {}): Promise<RoomLinks> {
+    const room = options.room ?? (await (this.createRoom ? this.createRoom(apiBaseUrl) : requestRoom(apiBaseUrl)));
     const keyBase64Url = await generateRoomKey();
     await this.connectToRoom(apiBaseUrl, room.roomId, keyBase64Url, room.editorToken);
+    const { relayBaseUrl } = options;
     return {
-      editorUrl: buildRoomUrl({ origin, roomId: room.roomId, keyBase64Url, token: room.editorToken }),
-      viewerUrl: buildRoomUrl({ origin, roomId: room.roomId, keyBase64Url, token: room.viewerToken }),
+      editorUrl: buildRoomUrl({ origin, roomId: room.roomId, keyBase64Url, token: room.editorToken, relayBaseUrl }),
+      viewerUrl: buildRoomUrl({ origin, roomId: room.roomId, keyBase64Url, token: room.viewerToken, relayBaseUrl }),
     };
   }
 
-  /** Joins an existing session from a room URL another peer shared (`room-url.ts`'s scheme). Throws on a URL that doesn't parse — the caller (UI layer) surfaces that as a validation error. */
+  /**
+   * Joins an existing session from a room URL another peer shared (`room-url.ts`'s scheme). Throws on a
+   * URL that doesn't parse — the caller (UI layer) surfaces that as a validation error.
+   *
+   * A link to a self-hosted room names its own relay, and that wins over `apiBaseUrl`: the whole point
+   * of such a link is that it reaches a machine this client had no way to know about. `room-url.ts`
+   * has already restricted that field to local-network addresses, so the override cannot redirect this
+   * client somewhere arbitrary.
+   */
   async joinSession(apiBaseUrl: string, roomUrl: string): Promise<void> {
     const parsed = new URL(roomUrl);
     const result = parseRoomUrl(parsed.pathname, parsed.hash, parsed.search);
     if (!result.ok) throw new Error(`collab-session: ${result.error}`);
-    await this.connectToRoom(apiBaseUrl, result.value.roomId, result.value.keyBase64Url, result.value.token);
+    const { roomId, keyBase64Url, token, relayBaseUrl } = result.value;
+    await this.connectToRoom(relayBaseUrl ?? apiBaseUrl, roomId, keyBase64Url, token);
   }
 
   /**

@@ -11,4 +11,22 @@ reproduced in distribution bundles as required.
 | perfect-freehand | MIT | Pressure-sensitive freehand ink strokes | in use |
 | fractional-indexing | CC0 | Stable ordering keys for element z-index | in use |
 
+## Desktop app (Rust crates)
+
+Linked into the Tauri shell (`apps/desktop/src-tauri`). Everything below the Tauri
+framework itself is for the LAN relay, which lets the desktop app host a
+collaboration room on a local network with no internet.
+
+| Crate | License | Purpose | Status |
+|---|---|---|---|
+| tauri (+ official plugins) | MIT OR Apache-2.0 | Desktop shell, windowing, updater, dialogs | in use |
+| serde / serde_json | MIT OR Apache-2.0 | Command payloads; relay frame parsing | in use |
+| base64 | MIT OR Apache-2.0 | Encoding for file bridge and role tokens | in use |
+| tokio | MIT | Async runtime for the LAN relay | in use |
+| tokio-tungstenite | MIT | WebSocket transport for the LAN relay | in use |
+| futures-util | MIT OR Apache-2.0 | Stream/sink adapters over the relay socket | in use |
+| hmac / sha2 | MIT OR Apache-2.0 | HMAC-SHA256 room role tokens (`lan_relay/tokens.rs`) | in use |
+| uuid | MIT OR Apache-2.0 | Room ids, peer ids, per-session token secret | in use |
+| if-addrs | MIT OR Apache-2.0 | Enumerating this machine's private addresses | in use |
+
 Update this file whenever a runtime dependency is added or removed.

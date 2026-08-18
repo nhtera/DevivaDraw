@@ -3,6 +3,7 @@ import { DevivaDraw } from "@deviva-draw/react";
 import type { DevivaDrawHandle } from "@deviva-draw/react";
 import { createDesktopFileOperations } from "./desktop-file-operations";
 import { DocumentHost } from "./document-host";
+import { lanHost } from "./lan-host";
 import { SHARE_API_BASE_URL } from "./share-api-config";
 
 // One provider + one host for the app's lifetime — watchers/menu/recents key off ids and OS
@@ -14,7 +15,9 @@ const documentHost = new DocumentHost(fileOperations);
  * Desktop shell — the editor and nothing else. Unlike the web app there are no `/s/` or `/room/`
  * routes: share links and collab invites are URLs that belong in a browser, and the shell's
  * navigation policy (see `src-tauri/src/main.rs`) sends any external URL to the system browser.
- * The in-editor Share/Collaborate dialogs still work when online, same as the web app.
+ * The in-editor Share/Collaborate dialogs still work when online, same as the web app — and unlike
+ * the web app, Collaborate can also *host* a room on the local network with no internet at all
+ * (`lan-host.ts`), which is the one collaboration path that needs no server.
  *
  * `DocumentHost` owns everything document-shaped around the editor: window title + dirty dot,
  * the native menu (dispatching through the editor's own action registry), recents, external
@@ -32,6 +35,7 @@ export function App() {
     <DevivaDraw
       ref={editorRef}
       shareApiBaseUrl={SHARE_API_BASE_URL}
+      lanHost={lanHost}
       fileOperations={fileOperations}
       onDocumentStateChange={documentHost.onDocumentStateChange}
       offlineHints

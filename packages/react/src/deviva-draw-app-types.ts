@@ -2,6 +2,7 @@
 import type { AnyElement, MultiPageDocumentV1, SceneDocument } from "@deviva-draw/engine";
 import type { CSSProperties } from "react";
 import type { FileOperationsProvider } from "./browser/file-operations-provider";
+import type { LanHostController } from "./browser/lan-host-controller";
 import type { DocumentState } from "./runtime/document-state-tracker";
 import type { Locale } from "./i18n/locale-storage";
 import type { ThemeMode } from "./theme/theme-tokens";
@@ -33,6 +34,8 @@ export interface DevivaDrawProps {
   fileOperations?: FileOperationsProvider;
   /** Fired synchronously on every document identity/dirty transition (`{path, name, dirty}`) — the desktop shell's title bar, macOS documentEdited dot, recents, and unsaved-close guard all hang off this. Dirty is content-only: pan/zoom and page switching never set it. */
   onDocumentStateChange?(state: DocumentState): void;
+  /** Lets this editor host a collaboration room on the local network — desktop-only, since hosting means listening on a TCP port. Omit (the browser default) and no hosting UI renders at all. See `browser/lan-host-controller.ts`. */
+  lanHost?: LanHostController;
   /** Lets online-only entry points (Share, Collaborate, Mermaid AI) render a "requires internet" hint and disable themselves while `navigator.onLine` is false — set by the desktop shell. Omit (the browser default) and those surfaces render exactly as before, hint code inert. */
   offlineHints?: boolean;
   className?: string;

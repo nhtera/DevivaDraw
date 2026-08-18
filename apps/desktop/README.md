@@ -28,6 +28,30 @@ pnpm --filter @deviva-draw/desktop dev     # vite dev server + native window, ho
 pnpm --filter @deviva-draw/desktop build   # dmg/nsis/appimage+deb per host OS (unsigned locally)
 ```
 
+## Hosting a room on your own network
+
+Collaborate -> **Host on this network** runs the relay inside this app instead of on a server, so a
+workshop, classroom, or air-gapped team can draw together with no internet at all. The app binds a
+port (default `7373`), mints the room and its editor/viewer links, and publishes one of the machine's
+private addresses; a second Deviva Draw desktop app on the same network joins by pasting that link.
+
+Three things are worth knowing before the first attempt:
+
+- **Peers join from the desktop app.** A page served over HTTPS cannot open the unencrypted socket a
+  LAN room uses, so a web browser cannot join one. Opening the link in a browser returns a page
+  saying exactly that rather than failing silently.
+- **The OS will ask.** macOS prompts for local-network access on first host, and Windows raises a
+  firewall dialog. A denial surfaces in the dialog as a permission error, not as a hang.
+- **Nothing is stored.** The relay keeps the room in memory only, never writes scene bytes to disk,
+  and its token secret is random per hosting session. Stopping hosting closes every connection and
+  ends the room; the durable copy of the board is the host's own document, as always.
+
+The host machine relays ciphertext it cannot read: the room's encryption key lives in the link's
+fragment and never reaches the relay, exactly as with the hosted server. The relay implements the
+same numbered decisions as the Worker relay - see
+[Collab Relay Protocol](../../docs/collab-relay-protocol.md) - and lives in
+`src-tauri/src/lan_relay/`.
+
 ## Security model (why there is no `fs` capability)
 
 The WebView gets **no JS-side filesystem grant at all**. Every path-based read/write goes through

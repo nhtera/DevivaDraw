@@ -26,7 +26,7 @@ These are settled; revisit only with explicit maintainer sign-off:
 | **UI & polish** | ✅ done | Full toolbar + overflow menu, style panel, command palette, shortcuts, light/dark/system theming, i18n (EN/VI), zen & view-only modes, mobile. |
 | **Extended tool set** | ✅ done | Triangle/hexagon/star, cloud/heart, x-box/check-box, block arrows, sticky notes, frames, tables (editable text grids), highlighter, lasso select. |
 | **Share links** | ✅ done | End-to-end-encrypted, read-only snapshots stored as R2 blobs; key stays in the URL fragment. |
-| **Live collaboration** | ✅ done | Real-time multiplayer + presence cursors over Cloudflare Durable Objects, follow-a-peer's-camera, and relay-enforced editor/viewer links — a viewer's edits are dropped by the server, not merely hidden by the client. |
+| **Live collaboration** | ✅ done | Real-time multiplayer + presence cursors over Cloudflare Durable Objects, follow-a-peer's-camera, and relay-enforced editor/viewer links — a viewer's edits are dropped by the server, not merely hidden by the client. The desktop app can host a room on a local network, so a session needs no internet at all. |
 | **Comment threads** | ✅ done | Anchored, resolvable threads with per-message records; sync over the encrypted room, round-trip through files/autosave/share links, and stay out of exports and undo. |
 | **Multi-page documents** | ✅ done | Pages panel, per-page cameras, page-list manifest synced with the same LWW discipline as elements. |
 | **Layers** | ✅ done | Ordered layer list per page with visibility/lock gating across render, hit-test, export, and search. |

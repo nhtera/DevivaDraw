@@ -152,6 +152,25 @@ The wire protocol itself lives in
 the React package wraps it, and you only reach for it directly when building a
 non-React client (the MCP server's live-session peer does exactly that).
 
+## Collaborating with no internet
+
+The desktop app can host a room itself. Open **Collaborate** and choose **Host on
+this network**: the app runs the relay on your own machine, mints the usual
+editor and viewer links, and publishes an address on your local network. Peers on
+that network join by pasting the link. No server, no account, no internet - a
+workshop or a classroom behind an air gap collaborates exactly like everyone
+else.
+
+Peers join from the **desktop app**, not a browser. A local-network room is
+reached over an unencrypted connection, and a web page served over HTTPS is not
+allowed to open one; opening the link in a browser shows a page saying so rather
+than failing quietly.
+
+The machine doing the hosting still cannot read the board. The room key travels
+in the link's fragment between people and never reaches the relay - the same
+guarantee as the hosted server, on a very different transport. Nothing is written
+to disk, and stopping hosting closes every connection and ends the room.
+
 ## Self-hosting the relay
 
 The collab server is part of the open-source repo (`apps/collab-server`, a

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Merged into the macOS app bundle by the Tauri bundler.
+
+  macOS 15 gates local-network access behind a system prompt, and the prompt shows this string. The
+  app needs it because "Host on this network" (src-tauri/src/lan_relay/) runs a collaboration relay
+  on this machine and connects to it over the local network. Without the key the prompt appears with
+  no explanation at all, which is the difference between a user granting access and a user assuming
+  the app is doing something it should not be.
+-->
+<plist version="1.0">
+  <dict>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>Deviva Draw needs local network access to host a collaboration room on this network, so people nearby can draw with you without using the internet.</string>
+  </dict>
+</plist>

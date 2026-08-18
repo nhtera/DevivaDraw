@@ -17,6 +17,7 @@ packages/react          @deviva-draw/react — <DevivaDraw/> component, hooks, U
 packages/collab-client  @deviva-draw/collab-client — WS sync, E2E crypto, presence
 apps/web                Standalone web app — Vite + React SPA
 apps/collab-server      Cloudflare Worker: Durable Objects rooms + R2 share blobs
+apps/desktop            Tauri v2 shell — native files, menus, LAN room hosting
 ```
 
 ## Element model
@@ -89,6 +90,12 @@ the role to `RoomConnectionRegistry`, which drops a viewer's `element-delta` and
 `comment-delta`. That is a decision about a message's *type*, never its content —
 the relay still cannot read anything it routes, and the token secret is unrelated
 to the room key, which never leaves the URL fragment.
+
+The same protocol has a second implementation in
+`apps/desktop/src-tauri/src/lan_relay/` (Rust), which lets the desktop app host a
+room on a local network with no internet. Both cite one specification,
+`docs/collab-relay-protocol.md`, whose rules `R1`…`R7` name the cases in both
+test suites — the mechanism that keeps two relays from becoming two protocols.
 
 ## Dependencies (production)
 

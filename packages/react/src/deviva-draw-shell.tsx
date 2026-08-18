@@ -27,6 +27,7 @@ import { useImageFilePicker } from "./hooks/use-image-file-picker";
 import { shouldSuppressGlobalShortcuts } from "./runtime/should-suppress-global-shortcuts";
 import { useCollabCursorTracking } from "./hooks/use-collab-cursor-tracking";
 import { useCollabSession } from "./hooks/use-collab-session";
+import { useLanHosting } from "./hooks/use-lan-hosting";
 import { useFollowPeerCamera, usePublishLocalViewport } from "./hooks/use-follow-peer-camera";
 import { TextEditorOverlay } from "./components/text-editor-overlay";
 import { CanvasHint } from "./components/canvas-hint";
@@ -86,7 +87,7 @@ import type { ShareDialogState } from "./actions/action-types";
 import type { DevivaDrawProps } from "./deviva-draw-app-types";
 
 export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(function DevivaDrawShell(props, ref) {
-  const { initialData, persistenceKey, onChange, className, style, initialViewOnly, shareApiBaseUrl, initialRoomUrl, fileOperations, onDocumentStateChange } = props;
+  const { initialData, persistenceKey, onChange, className, style, initialViewOnly, shareApiBaseUrl, initialRoomUrl, fileOperations, onDocumentStateChange, lanHost } = props;
   const canvasHostRef = useRef<HTMLDivElement | null>(null);
 
   // The document's page list, seeded once: host-supplied `initialData` wraps into a single page
@@ -406,6 +407,9 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   // `apiBaseUrl` doc) rather than introducing a second, near-identical prop.
   const canvasBackground = useCanvasBackground(runtime?.scene ?? null);
   const collab = useCollabSession({ scene: runtime?.scene ?? null, pageStore, apiBaseUrl: shareApiBaseUrl });
+  // Hosting is a peer of the session, not a mode of it: it must survive the dialog closing, and it is
+  // the one collaboration path that works with no `shareApiBaseUrl` and no internet at all.
+  const hosting = useLanHosting({ lanHost, hostSession: collab.hostSession, leaveSession: collab.leaveSession });
   useEffect(() => {
     // Only cursors on the locally-active page reach the canvas — a peer's `pageId` is `undefined`
     // when they run a pre-pages build, which renders everywhere rather than nowhere.
@@ -577,7 +581,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {runtime && initialViewOnly && !panelsHidden && (
         <ShareViewerBadge viewOnly={viewOnly.value} onEditCopy={() => void runtime.actionRegistry.run("toggle-view-only", runtime)} />
       )}
-      {runtime && collabDialogOpen.value && <CollabDialog collab={collab} onClose={() => collabDialogOpen.set(false)} />}
+      {runtime && collabDialogOpen.value && <CollabDialog collab={collab} hosting={hosting} onClose={() => collabDialogOpen.set(false)} />}
       {runtime && commandPaletteOpen.value && <CommandPalette runtime={runtime} onClose={() => commandPaletteOpen.set(false)} />}
       {pendingPlacement && <ImagePlacementOverlay placement={pendingPlacement} getCamera={getCamera} />}
       {runtime && <LinkBadgesOverlay scene={runtime.scene} cameraStore={cameraStore} />}

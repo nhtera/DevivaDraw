@@ -9,17 +9,33 @@
 import { useState } from "react";
 import { buttonStyle, dialogOverlayStyle, dialogStyle, inputStyle, labelStyle } from "./chrome-styles";
 import { Icon } from "./icon";
+import { CollabHostSection } from "./collab-host-section";
 import { LinkQrCode } from "./link-qr-code";
 import type { TranslationKey } from "../i18n/catalog-en";
 import { useTranslation } from "../i18n/use-translation";
 import { canFollow } from "../hooks/use-collab-session";
 import type { CollabErrorReason, UseCollabSessionResult } from "../hooks/use-collab-session";
+import type { UseLanHostingResult } from "../hooks/use-lan-hosting";
 import { useOfflineHint } from "../hooks/use-online";
 
 export interface CollabDialogProps {
   collab: UseCollabSessionResult;
+  /** Hosting state from `useLanHosting`; its `supported` flag decides whether any hosting UI renders. Optional so an application already rendering this dialog directly keeps compiling — omitting it simply means no hosting, which is what every host but the desktop app does anyway. */
+  hosting?: UseLanHostingResult;
   onClose(): void;
 }
+
+/** What an application that supplied no hosting capability sees: a feature that is simply not there. */
+const NO_HOSTING: UseLanHostingResult = {
+  supported: false,
+  addresses: [],
+  addressesRead: false,
+  isHosting: false,
+  error: null,
+  refresh: async () => {},
+  start: async () => {},
+  stop: async () => {},
+};
 
 const ERROR_KEY: Record<NonNullable<CollabErrorReason>, TranslationKey> = {
   "not-configured": "collab.error.notConfigured",
@@ -29,6 +45,7 @@ const ERROR_KEY: Record<NonNullable<CollabErrorReason>, TranslationKey> = {
 
 export function CollabDialog(props: CollabDialogProps) {
   const { collab, onClose } = props;
+  const hosting = props.hosting ?? NO_HOSTING;
   const { t } = useTranslation();
   const [joinUrl, setJoinUrl] = useState("");
   const [copied, setCopied] = useState<"editor" | "viewer" | null>(null);
@@ -96,6 +113,7 @@ export function CollabDialog(props: CollabDialogProps) {
                 {t("collab.dialog.join")}
               </button>
             </div>
+            {hosting.supported && <CollabHostSection hosting={hosting} />}
           </>
         )}
 
@@ -121,8 +139,10 @@ export function CollabDialog(props: CollabDialogProps) {
               <button type="button" onClick={() => void copyLink(collab.roomUrl!, "editor")} data-testid="collab-dialog-copy">
                 {copied === "editor" ? t("share.dialog.copied") : t("share.dialog.copy")}
               </button>
-              <button type="button" onClick={collab.leaveSession} data-testid="collab-dialog-leave">
-                {t("collab.dialog.leave")}
+              {/* Leaving a room hosted here stops the relay too — a listening port with nobody on it is
+                  not a state the host has any other way to get out of. */}
+              <button type="button" onClick={() => (hosting.isHosting ? void hosting.stop() : collab.leaveSession())} data-testid="collab-dialog-leave">
+                {t(hosting.isHosting ? "collab.host.stop" : "collab.dialog.leave")}
               </button>
             </div>
 
@@ -152,6 +172,11 @@ export function CollabDialog(props: CollabDialogProps) {
               </div>
             )}
 
+            {hosting.isHosting && (
+              <p role="status" data-testid="collab-dialog-hosting" style={{ fontSize: 12, color: "var(--dd-text-secondary)" }}>
+                {t("collab.host.hosting")} {t("collab.host.desktopOnly")}
+              </p>
+            )}
             {collab.role === "viewer" && (
               <p role="status" data-testid="collab-dialog-viewer-role" style={{ fontSize: 12, color: "var(--dd-text-secondary)" }}>
                 {t("collab.role.viewerHint")}

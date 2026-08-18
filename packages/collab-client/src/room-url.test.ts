@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRoomUrl, buildRoomWebSocketUrl, parseRoomUrl, roleClaimedByToken } from "./room-url";
+import { buildRoomUrl, buildRoomWebSocketUrl, parseRoomUrl, readRelayBaseUrl, roleClaimedByToken } from "./room-url";
 
 describe("buildRoomUrl / parseRoomUrl", () => {
   it("round trips a room id and key through the URL fragment", () => {
@@ -8,7 +8,7 @@ describe("buildRoomUrl / parseRoomUrl", () => {
 
     const parsed = new URL(url);
     const result = parseRoomUrl(parsed.pathname, parsed.hash);
-    expect(result).toEqual({ ok: true, value: { roomId: "room-123", keyBase64Url: "abc_-XYZ", token: null } });
+    expect(result).toEqual({ ok: true, value: { roomId: "room-123", keyBase64Url: "abc_-XYZ", token: null, relayBaseUrl: null } });
   });
 
   it("strips a trailing slash from the origin", () => {
@@ -35,8 +35,8 @@ describe("buildRoomUrl / parseRoomUrl", () => {
   });
 
   it("accepts a fragment with or without a leading #", () => {
-    expect(parseRoomUrl("/room/r1", "key=k1")).toEqual({ ok: true, value: { roomId: "r1", keyBase64Url: "k1", token: null } });
-    expect(parseRoomUrl("/room/r1", "#key=k1")).toEqual({ ok: true, value: { roomId: "r1", keyBase64Url: "k1", token: null } });
+    expect(parseRoomUrl("/room/r1", "key=k1")).toEqual({ ok: true, value: { roomId: "r1", keyBase64Url: "k1", token: null, relayBaseUrl: null } });
+    expect(parseRoomUrl("/room/r1", "#key=k1")).toEqual({ ok: true, value: { roomId: "r1", keyBase64Url: "k1", token: null, relayBaseUrl: null } });
   });
 });
 
@@ -62,14 +62,14 @@ describe("role tokens in a room URL", () => {
     const parsed = new URL(url);
     expect(parseRoomUrl(parsed.pathname, parsed.hash, parsed.search)).toEqual({
       ok: true,
-      value: { roomId: "r1", keyBase64Url: "k1", token: "viewer.mac" },
+      value: { roomId: "r1", keyBase64Url: "k1", token: "viewer.mac", relayBaseUrl: null },
     });
   });
 
   it("reads no token when the caller does not pass the query — a pre-roles link parses as tokenless", () => {
     const url = buildRoomUrl({ origin: "https://draw.deviva.app", roomId: "r1", keyBase64Url: "k1", token: "viewer.mac" });
     const parsed = new URL(url);
-    expect(parseRoomUrl(parsed.pathname, parsed.hash)).toEqual({ ok: true, value: { roomId: "r1", keyBase64Url: "k1", token: null } });
+    expect(parseRoomUrl(parsed.pathname, parsed.hash)).toEqual({ ok: true, value: { roomId: "r1", keyBase64Url: "k1", token: null, relayBaseUrl: null } });
   });
 
   it("carries the token onto the WebSocket URL, which is the only place it is of any use", () => {
@@ -88,3 +88,43 @@ describe("role tokens in a room URL", () => {
   });
 });
 
+describe("a self-hosted room's relay", () => {
+  it("rides in the query beside the token, leaving the key alone in the fragment", () => {
+    const url = buildRoomUrl({ origin: "http://192.168.1.5:7373", roomId: "r1", keyBase64Url: "k1", token: "editor.mac", relayBaseUrl: "http://192.168.1.5:7373" });
+
+    const parsed = new URL(url);
+    expect(parsed.hash).toBe("#key=k1");
+    expect(parseRoomUrl(parsed.pathname, parsed.hash, parsed.search)).toEqual({
+      ok: true,
+      value: { roomId: "r1", keyBase64Url: "k1", token: "editor.mac", relayBaseUrl: "http://192.168.1.5:7373" },
+    });
+  });
+
+  it("is absent from a link to the configured relay, which needs no such field", () => {
+    const url = buildRoomUrl({ origin: "https://draw.deviva.app", roomId: "r1", keyBase64Url: "k1", token: "editor.mac" });
+    expect(url).toBe("https://draw.deviva.app/room/r1?t=editor.mac#key=k1");
+  });
+
+  it("accepts every address a local network actually uses", () => {
+    for (const host of ["http://192.168.1.5:7373", "http://10.0.0.7:7373", "http://172.16.0.1:7373", "http://172.31.255.254:7373", "http://169.254.3.4:7373", "http://127.0.0.1:7373", "http://localhost:7373"]) {
+      expect(readRelayBaseUrl(host)).toBe(new URL(host).origin);
+    }
+  });
+
+  /**
+   * The field is an instruction from a pasted link, so this is the test that matters: a hostile link
+   * must not be able to point this client's socket at a host of its choosing. It cannot read a board
+   * either way — the relay only ever holds ciphertext — but opening the connection at all is not
+   * something a whiteboard should do on a stranger's say-so.
+   */
+  it("ignores any address that is not on a local network, falling back to the configured relay", () => {
+    for (const host of ["https://evil.example", "http://8.8.8.8", "http://203.0.113.9:7373", "http://172.15.0.1", "http://172.32.0.1", "http://192.167.0.1", "http://192.169.0.1", "ftp://192.168.1.5", "javascript:alert(1)", "not a url", ""]) {
+      expect(readRelayBaseUrl(host)).toBeNull();
+    }
+    expect(readRelayBaseUrl(null)).toBeNull();
+  });
+
+  it("rejects octets that only look numeric", () => {
+    expect(readRelayBaseUrl("http://192.168.1.999")).toBeNull();
+  });
+});

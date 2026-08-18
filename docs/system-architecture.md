@@ -264,6 +264,42 @@ Splitting "may comment" out of the single view-only flag is the follow-up.
 A connection presenting no token at all is an editor, which is what every room
 link created before roles existed looks like.
 
+## Two relays, one protocol
+
+There are two implementations of the room relay, and they are two *deployments*
+of one protocol rather than two protocols:
+
+| Implementation | Where | Runs on |
+|---|---|---|
+| Worker relay | `apps/collab-server/src/room-connection-registry.ts` | Cloudflare Workers + Durable Objects |
+| LAN relay | `apps/desktop/src-tauri/src/lan_relay/registry.rs` | the desktop app, on the host's own machine |
+
+The second exists so a room can have no internet in it at all — a workshop, a
+classroom, an air-gapped team. It is affordable to ship because the relay was
+always content-blind: the hostable part is a table of routing decisions, not a
+service.
+
+Two implementations of one protocol is also the obvious way to end up with two
+subtly different protocols, so the decisions are specified once, in
+[Collab Relay Protocol](./collab-relay-protocol.md), as numbered rules `R1`…`R7`
+(type whitelist, rate limit, size cap, broadcast-except-sender, snapshot fast
+path, snapshot slow path, role gate). Both files cite it, and both test suites
+name their cases after it — so a drift surfaces as a failing numbered case
+instead of as a room that behaves differently depending on who hosts it. Adding
+behaviour to one relay without a rule in the spec is a review failure.
+
+The structural guarantee survives the move: the LAN relay contains no cipher and
+no scene-key material either, so the laptop hosting a board cannot read it. The
+one deliberate difference is durability — the Worker persists its snapshot to R2,
+while the LAN relay keeps it in memory and never writes scene bytes to disk,
+because the host's own document is the durable copy.
+
+A LAN room is joined over plain `ws://`, which is safe for the same reason the
+whole design is: the transport carries no plaintext to protect. The consequence
+is that a page served over HTTPS cannot open that socket (mixed content), so LAN
+peers join from the desktop app — stated in the hosting UI rather than left to be
+found as a silent failure.
+
 ## Diagram: mutation → render flow
 
 ```
@@ -281,3 +317,4 @@ tool handler (onGestureEnd)
 
 - [Codebase Summary](./codebase-summary.md)
 - [Code Standards](./code-standards.md)
+- [Collab Relay Protocol](./collab-relay-protocol.md)
