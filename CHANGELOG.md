@@ -4,6 +4,18 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.11.1] — 2026-08-18
+
+### Fixed
+
+- **Joining a room from the Collaborate dialog no longer leaves you with a duplicate page.** Adopting
+  the room's pages was wired into the one join path a room *URL* takes, so joining by pasting a link
+  into the dialog skipped it and the joiner kept its own untouched starter page beside the room's —
+  two pages, both named "Page 1". Invisible in the browser, where a room is a route, and unavoidable
+  in the desktop app, where pasting into the dialog is the only way to join. Adoption now belongs to
+  joining itself rather than to whoever triggered it, so the answer is the same however the join
+  started.
+
 ## [0.11.0] — 2026-08-18
 
 Everything Excalidraw+ and tldraw charge for that a whiteboard can give away without accounts,

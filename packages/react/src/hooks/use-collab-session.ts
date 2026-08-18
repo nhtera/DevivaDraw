@@ -14,7 +14,7 @@
  * dispose-on-unmount).
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CollabSession, createPageStoreCollabAdapter } from "@deviva-draw/collab-client";
+import { adoptRoomPages, CollabSession, createPageStoreCollabAdapter } from "@deviva-draw/collab-client";
 import type { CollabConnectionStatus, CollabPagesAdapter, CollabRole, MintedRoom, PresenceViewport, RemotePeerPresence } from "@deviva-draw/collab-client";
 import type { Scene } from "@deviva-draw/engine";
 import { randomGuestColor, randomGuestName } from "./random-collab-identity";
@@ -188,6 +188,10 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
         setError("not-configured");
         return;
       }
+      // Captured BEFORE connecting: afterwards the room's pages and this client's own are
+      // indistinguishable in the store.
+      const preJoinPageIds = pageStore ? new Set(pageStore.getPages().map((page) => page.id)) : null;
+      const preJoinActiveId = pageStore?.getActivePageId() ?? null;
       try {
         await session.joinSession(apiBaseUrl, url);
         setRoomUrl(url);
@@ -196,12 +200,21 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
         setViewerUrl(null);
         setRole(session.currentRole);
         setError(null);
+        // Adoption belongs to joining, not to whoever triggered the join. It used to live at the one
+        // call site that had it — the auto-join a room URL performs — which quietly meant that
+        // joining by pasting a link into the dialog skipped it, and every such joiner kept its own
+        // untouched starter page beside the room's. That is invisible in a browser, where a room is
+        // a route, and unavoidable in the desktop app, where pasting into the dialog is the ONLY way
+        // to join. Doing it here makes the answer the same however the join started.
+        if (pageStore && preJoinPageIds && preJoinActiveId !== null) {
+          await adoptRoomPages(pageStore, { preJoinPageIds, preJoinActiveId });
+        }
       } catch (caught) {
         console.error("deviva-draw: collab joinSession failed", caught);
         setError("join-failed");
       }
     },
-    [apiBaseUrl],
+    [apiBaseUrl, pageStore],
   );
 
   const leaveSession = useCallback(() => {

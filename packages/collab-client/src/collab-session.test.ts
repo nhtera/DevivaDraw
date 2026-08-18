@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createRectangleElement, Scene } from "@deviva-draw/engine";
+import { adoptRoomPages } from "./adopt-room-pages";
 import { CollabSession } from "./collab-session";
+import { PageStore } from "./page-store";
+import { createPageStoreCollabAdapter } from "./page-store-adapter";
 import { generateRoomKey } from "./message-codec";
 import type { WebSocketLike } from "./connection-manager";
 
@@ -120,6 +123,22 @@ let mintedRooms = 0;
 function fakeCreateRoom(): Promise<{ roomId: string; editorToken: string; viewerToken: string }> {
   const roomId = `room-${++mintedRooms}`;
   return Promise.resolve({ roomId, editorToken: `editor.mac-${roomId}`, viewerToken: `viewer.mac-${roomId}` });
+}
+
+/** A multi-page peer, the way both the browser shell and the headless bridge run one. */
+function makePagedSession(relay: FakeRoomRelay, store: PageStore, name: string): CollabSession {
+  const session = new CollabSession({
+    scene: store.getActiveScene(),
+    pages: createPageStoreCollabAdapter(store),
+    userName: name,
+    userColor: "#123456",
+    createSocket: () => relay.createSocket(),
+    createRoom: fakeCreateRoom,
+    initialBackoffMs: 10,
+    maxBackoffMs: 30,
+  });
+  sessions.push(session);
+  return session;
 }
 
 function makeSession(relay: FakeRoomRelay, scene: Scene, name: string): CollabSession {
@@ -330,5 +349,36 @@ describe("CollabSession — end-to-end over an in-memory relay", () => {
     await session.joinSession("http://collab.example", `https://draw.example/room/room-legacy#key=${await generateRoomKey()}`);
     await waitUntil(() => session.connectionStatus === "connected");
     expect(session.currentRole).toBe("editor");
+  });
+});
+
+/**
+ * The page list a peer ends up with after joining somebody else's room.
+ *
+ * The unit tests for `adoptRoomPages` simulate the room's pages arriving by calling `addPage`; this
+ * drives the real thing — manifest sync over the relay — because the failure this guards against was
+ * not in the helper at all. It shipped in v0.11.0: adoption was wired into the one join path a room
+ * *URL* takes, so joining by pasting a link into the dialog skipped it entirely and the joiner kept
+ * its own untouched starter page beside the room's. Invisible on the web, where a room is a route;
+ * unavoidable on the desktop, where pasting into the dialog is the only way to join.
+ */
+describe("a peer joining somebody else's room", () => {
+  it("ends up with the room's pages, not the room's plus its own starter page", async () => {
+    const relay = new FakeRoomRelay();
+    const hostStore = PageStore.fresh();
+    const hostPageId = hostStore.getActivePageId();
+    hostStore.getActiveScene().addElement(createRectangleElement({ x: 0, y: 0, width: 10, height: 10 }));
+    const host = makePagedSession(relay, hostStore, "Host");
+    const links = await host.startSession("http://relay.test", "http://app.test");
+
+    const joinerStore = PageStore.fresh();
+    const joinerStarterId = joinerStore.getActivePageId();
+    const preJoinPageIds = new Set(joinerStore.getPages().map((page) => page.id));
+    const joiner = makePagedSession(relay, joinerStore, "Joiner");
+    await joiner.joinSession("http://relay.test", links.editorUrl);
+    await adoptRoomPages(joinerStore, { preJoinPageIds, preJoinActiveId: joinerStarterId, timeoutMs: 2_000 });
+
+    expect(joinerStore.getPages().map((page) => page.id)).toEqual([hostPageId]);
+    expect(joinerStore.getActivePageId()).toBe(hostPageId);
   });
 });
