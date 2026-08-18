@@ -9,7 +9,7 @@
  * failures reference the room id at most. The key lives only inside `CollabSession`'s in-memory
  * `CryptoKey` for the lifetime of the connection.
  */
-import { CollabSession, createPageStoreCollabAdapter, parseRoomUrl } from "@deviva-draw/collab-client";
+import { adoptRoomPages, CollabSession, createPageStoreCollabAdapter, parseRoomUrl } from "@deviva-draw/collab-client";
 import type { CollabConnectionStatus, PageListEntry, PageStore, WebSocketLike } from "@deviva-draw/collab-client";
 import { ToolError } from "../tools/tool-types";
 
@@ -57,7 +57,6 @@ export interface LiveSessionStatus {
 
 const DEFAULT_API_BASE_URL = "https://collab-draw.deviva.app";
 const DEFAULT_CONNECT_TIMEOUT_MS = 15_000;
-const DEFAULT_PAGE_ADOPT_TIMEOUT_MS = 2_500;
 const DEFAULT_AGENT_NAME = "Claude (agent)";
 /** Fixed presence accent — deliberately outside the web app's default collaborator palette. */
 const AGENT_COLOR = "#7048e8";
@@ -128,7 +127,7 @@ export class LiveSessionBridge {
     try {
       await collab.joinSession(this.resolveApiBaseUrl(), url);
       await this.waitForConnected();
-      await this.adoptRoomPages(store, preJoinPageIds, preJoinActiveId);
+      await adoptRoomPages(store, { preJoinPageIds, preJoinActiveId, timeoutMs: this.options.pageAdoptTimeoutMs });
       collab.setLocalPage(store.getActivePageId());
     } catch (error) {
       this.disconnect();
@@ -171,35 +170,6 @@ export class LiveSessionBridge {
       pages: this.session.pageStore.getPages(),
       activePageId: this.session.pageStore.getActivePageId(),
     };
-  }
-
-  /**
-   * Post-join page hygiene, using only ordinary local `PageStore` operations (never merge-code
-   * changes): when two fresh single-page documents meet, the manifest union deliberately keeps
-   * both pages side by side — correct for two users' boards, but for THIS peer it would mean the
-   * agent keeps drawing on its own empty page while the user watches a different one. So once the
-   * room's page list arrives (bounded wait — the room may genuinely be empty), if the agent still
-   * has only its untouched original page it hops onto the room's first page and deletes its own
-   * empty one, leaving the user's board exactly as they had it. An agent that drew before
-   * connecting keeps the documented both-boards union.
-   */
-  private async adoptRoomPages(store: PageStore, preJoinPageIds: Set<string>, preJoinActiveId: string): Promise<void> {
-    const roomPages = () => store.getPages().filter((page) => !preJoinPageIds.has(page.id));
-    const timeoutMs = this.options.pageAdoptTimeoutMs ?? DEFAULT_PAGE_ADOPT_TIMEOUT_MS;
-    const start = Date.now();
-    while (roomPages().length === 0) {
-      // Wholesale manifest adoption may have replaced the list (and tombstoned the agent's page)
-      // already — that IS the adopted state, nothing left to do.
-      if (!store.getPages().some((page) => page.id === preJoinActiveId)) return;
-      if (Date.now() - start > timeoutMs) return; // empty room — the agent's page is the board
-      await new Promise((resolve) => setTimeout(resolve, 25));
-    }
-    const ownOriginalPage = store.getPages().filter((page) => preJoinPageIds.has(page.id));
-    const originalScene = store.getSceneById(preJoinActiveId);
-    const originalUntouched = ownOriginalPage.length === 1 && ownOriginalPage[0]!.id === preJoinActiveId && originalScene !== null && [...originalScene.elementsUnsorted()].length === 0;
-    if (!originalUntouched) return;
-    store.setActivePage(roomPages()[0]!.id);
-    store.removePage(preJoinActiveId);
   }
 
   private resolveApiBaseUrl(): string {

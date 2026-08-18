@@ -23,6 +23,8 @@ export type { CollabPagesAdapter, PagesManifest, PagesManifestEntry } from "./pa
 export type { PageListEntry, PageStoreListener } from "./page-store";
 export { PageStore } from "./page-store";
 export { createPageStoreCollabAdapter } from "./page-store-adapter";
+export { adoptRoomPages, DEFAULT_PAGE_ADOPT_TIMEOUT_MS } from "./adopt-room-pages";
+export type { AdoptRoomPagesOptions } from "./adopt-room-pages";
 export { mergeRemoteComments, mergeRemoteCommentMessage, mergeRemoteCommentThread, parseRemoteCommentMessage, parseRemoteCommentThread } from "./comments-adapter";
 export { isPlausibleLayersManifest } from "./layers-adapter";
 export type { LayersManifest } from "./layers-adapter";

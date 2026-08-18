@@ -18,6 +18,7 @@ import { createCamera, deserializeMultiPageDocument } from "@deviva-draw/engine"
 import type { RemoteCursorOverlay } from "@deviva-draw/engine";
 import { restoreBrowserAutosaveDocument } from "./browser/scene-file-operations";
 import { useKeyboardInsetPx } from "./browser/visual-viewport-inset";
+import { adoptRoomPages } from "@deviva-draw/collab-client";
 import { PageStore } from "./pages/page-store";
 import { useDocumentFileDrop } from "./hooks/use-document-file-drop";
 import { useLibraryDrop } from "./hooks/use-library-drop";
@@ -447,8 +448,14 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   useEffect(() => {
     if (!initialRoomUrl || !runtime || autoJoinedRef.current) return;
     autoJoinedRef.current = true;
-    void joinSession(initialRoomUrl);
-  }, [initialRoomUrl, runtime, joinSession]);
+    // Captured BEFORE the join: afterwards the room's pages and this client's own are
+    // indistinguishable in the store. Without the adoption step, this client's untouched starter
+    // page rides the manifest union into the room — leaving a stray empty page on everyone else's
+    // board, and landing this user on their own blank page instead of the board they opened.
+    const preJoinPageIds = new Set(pageStore.getPages().map((page) => page.id));
+    const preJoinActiveId = pageStore.getActivePageId();
+    void joinSession(initialRoomUrl).then(() => adoptRoomPages(pageStore, { preJoinPageIds, preJoinActiveId }));
+  }, [initialRoomUrl, runtime, joinSession, pageStore]);
 
   return (
     <div
