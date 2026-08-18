@@ -503,7 +503,7 @@ export { CURRENT_DOCUMENT_SCHEMA_VERSION, deserializeMultiPageDocument, deserial
 export type { ExportFrame, ExportScale } from "./export/export-geometry";
 export { computeExportBounds, computeExportFrame, DEFAULT_EXPORT_PADDING, EmptyExportSelectionError, EXPORT_SCALES } from "./export/export-geometry";
 
-export { readTextChunk, writeTextChunk } from "./export/png-chunk-writer";
+export { readPngPixelSize, readTextChunk, writeTextChunk } from "./export/png-chunk-writer";
 
 export type { CreateExportRenderTarget, ExportRenderTarget, ExportToPngOptions } from "./export/export-to-png";
 export { exportToPng, readEmbeddedSceneData, SCENE_DATA_PNG_KEYWORD } from "./export/export-to-png";
@@ -515,6 +515,9 @@ export { buildEmbedSvgFragment, buildFreedrawSvgFragment, buildImageSvgFragment,
 
 export { escapeXmlAttribute, escapeXmlText } from "./export/svg-escape";
 
+export type { PptxExportOptions, PptxSlideInput } from "./export/export-to-pptx";
+export { EMU_PER_INCH, exportFramesToPptx, letterbox, slideSizeEmu } from "./export/export-to-pptx";
+export { ZipWriter } from "./export/zip-writer";
 export type { ExportToSvgOptions } from "./export/export-to-svg";
 export { exportToSvg, readEmbeddedSceneDataFromSvg } from "./export/export-to-svg";
 

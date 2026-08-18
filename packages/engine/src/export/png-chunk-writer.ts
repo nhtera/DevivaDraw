@@ -9,6 +9,8 @@
  * only ever validates/handles Latin-1 bytes and knows nothing about base64 or JSON.
  */
 
+import { crc32 } from "./crc32";
+
 const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10] as const;
 
 function readUint32BE(bytes: Uint8Array, offset: number): number {
@@ -17,23 +19,6 @@ function readUint32BE(bytes: Uint8Array, offset: number): number {
 
 function writeUint32BE(value: number): Uint8Array {
   return new Uint8Array([(value >>> 24) & 0xff, (value >>> 16) & 0xff, (value >>> 8) & 0xff, value & 0xff]);
-}
-
-/** Standard PNG/zlib CRC32 lookup table, built once at module load. */
-const CRC_TABLE = (() => {
-  const table = new Uint32Array(256);
-  for (let n = 0; n < 256; n += 1) {
-    let c = n;
-    for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    table[n] = c >>> 0;
-  }
-  return table;
-})();
-
-function crc32(bytes: Uint8Array): number {
-  let crc = 0xffffffff;
-  for (const byte of bytes) crc = CRC_TABLE[(crc ^ byte) & 0xff]! ^ (crc >>> 8);
-  return (crc ^ 0xffffffff) >>> 0;
 }
 
 function assertPngSignature(bytes: Uint8Array): void {
@@ -136,4 +121,26 @@ export function readTextChunk(pngBytes: Uint8Array, keyword: string): string | n
   } catch {
     return null;
   }
+}
+
+/**
+ * The image's pixel dimensions, read out of the `IHDR` chunk (always the first chunk, immediately
+ * after the signature). Returns `null` for anything that is not a PNG or is truncated before its
+ * header — the same never-throw contract `readTextChunk` follows.
+ *
+ * Exists so a caller can learn what it is actually about to place without decoding the image: the
+ * slide exporter needs the true rendered size, not the nominal size it asked for, and creating an
+ * `Image` to find that out would drag a DOM dependency into a path that has none.
+ */
+export function readPngPixelSize(pngBytes: Uint8Array): { width: number; height: number } | null {
+  try {
+    assertPngSignature(pngBytes);
+  } catch {
+    return null;
+  }
+  // 8 signature bytes + 4 length + 4 type ⇒ IHDR data starts at 16, width then height as uint32 BE.
+  if (pngBytes.length < 24) return null;
+  const width = readUint32BE(pngBytes, 16);
+  const height = readUint32BE(pngBytes, 20);
+  return width > 0 && height > 0 ? { width, height } : null;
 }
