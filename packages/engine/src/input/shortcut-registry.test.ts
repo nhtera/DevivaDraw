@@ -196,5 +196,21 @@ describe("registerFullShortcutMap", () => {
     expect(registry.resolve("<", { ...NO_MODIFIERS, ctrl: true, shift: true })).toBe("decrease-font-size");
     expect(registry.resolve("z", { ...NO_MODIFIERS, alt: true })).toBe("toggle-zen-mode");
     expect(registry.resolve("q", NO_MODIFIERS)).toBe("toggle-tool-lock");
+    expect(registry.resolve("c", NO_MODIFIERS)).toBe("comment-tool");
+    expect(registry.resolve("c", { ...NO_MODIFIERS, alt: true })).toBe("toggle-comments");
+  });
+
+  /**
+   * The composed-character bindings. On a Mac layout Option+the-base-key composes a different
+   * character, and the browser reports THAT in `event.key` — so a binding registered only under its
+   * base key silently never fires there while the menu still advertises the shortcut. Each such
+   * binding must resolve under both forms; this test is what keeps a new one from forgetting.
+   */
+  it("resolves the Option-composed form of every alt binding that composes on a Mac layout", () => {
+    const registry = new ShortcutRegistry();
+    registerFullShortcutMap(registry);
+
+    expect(registry.resolve("÷", { ...NO_MODIFIERS, alt: true })).toBe("toggle-properties-panel");
+    expect(registry.resolve("ç", { ...NO_MODIFIERS, alt: true })).toBe("toggle-comments");
   });
 });

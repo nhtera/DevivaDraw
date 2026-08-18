@@ -80,6 +80,14 @@ export function serializeScene(scene: Scene, options: SerializeSceneOptions = {}
     document.layers = scene.getLayers();
     document.activeLayerId = scene.getActiveLayerId();
   }
+  // Comments ride every save path under the same "only when non-empty" rule, so a scene that never
+  // had a comment stays byte-identical to pre-comments output. Tombstoned threads/messages are
+  // included deliberately (unlike elements' `includeDeleted`): a comment deletion that vanished on
+  // save could be out-voted by a peer's stale copy and resurrect the thread.
+  if (scene.hasComments()) {
+    document.comments = scene.getAllCommentThreads();
+    document.commentMessages = scene.getAllCommentMessages();
+  }
   return document;
 }
 
@@ -198,6 +206,9 @@ function buildSceneFromDocument(document: SceneDocumentV1): Scene {
   // absent/empty list keeps the constructor's default layer (`replaceLayers` refuses empties — the
   // hostile-input guard). `activeLayerId` is a soft default only (see the schema doc).
   if (document.layers !== undefined) scene.replaceLayers(document.layers, document.activeLayerId);
+  if (document.comments !== undefined || document.commentMessages !== undefined) {
+    scene.replaceComments(document.comments ?? [], document.commentMessages ?? []);
+  }
   for (const [fileId, file] of Object.entries(document.files)) scene.restoreFile(fileId, file);
   for (const element of document.elements) scene.restoreElement(element);
   if (document.appState?.background !== undefined) scene.setBackground(document.appState.background);

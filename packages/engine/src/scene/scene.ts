@@ -16,6 +16,8 @@ import { liveFileIds, SceneFilesStore } from "./scene-files-store";
 import type { StoredFile } from "./scene-files-store";
 import { SceneLayersStore } from "./scene-layers";
 import type { LayersManifest, SceneLayer } from "./scene-layers";
+import { SceneCommentsStore } from "../comments/comments-store";
+import type { CommentAnchor, CommentMessage, CommentThread } from "../comments/comment-types";
 import { freezeElement, touch } from "./scene-mutations";
 
 export type { StoredFile } from "./scene-files-store";
@@ -61,6 +63,8 @@ export class Scene {
   private readonly pendingFileIds = new Set<string>();
   /** Ordered layer list, self-initialized with one default layer — see `scene-layers.ts`'s module doc for the hard zero-arg-constructor invariant every `new Scene()` site relies on. */
   private readonly layersStore = new SceneLayersStore();
+  /** Comment threads and messages — records parallel to elements, never elements; see `comments/comments-store.ts`'s module doc. Composed unit, same as files and layers. */
+  private readonly commentsStore = new SceneCommentsStore();
   private readonly listeners = new Set<SceneListener>();
   /** Domain-specific post-mutation middleware — see `registerUpdateHook`. Empty by default: `Scene` itself knows nothing about bindings, bound text, or any other cross-element relationship. */
   private readonly updateHooks = new Set<SceneUpdateHook>();
@@ -396,6 +400,120 @@ export class Scene {
   /** Wholesale LWW adoption of a peer's layers manifest — see `SceneLayersStore.applyRemoteManifest` for the win rule and the deliberate no-union divergence from pages. Notifies on adoption (which also re-runs the selection prune and repaints). */
   applyRemoteLayersManifest(manifest: LayersManifest): boolean {
     const adopted = this.layersStore.applyRemoteManifest(manifest);
+    if (adopted) this.notify();
+    return adopted;
+  }
+
+  // ---- Comments --------------------------------------------------------------------------------
+  // Thin, notifying facades over `SceneCommentsStore` (which never notifies itself — the Scene owns
+  // the change signal, same as for files and layers). Comment mutations are deliberately NOT part of
+  // undo history (the layer-list / canvas-background precedent): a conversation is not document
+  // geometry, and an undo that silently retracted someone's reply would be worse than no undo.
+  // Comments never appear in `getElements()`, so no renderer, exporter, selection, or z-order path
+  // has to learn that they exist.
+
+  /** Live threads (soft-deleted ones excluded). Copies. */
+  getCommentThreads(): CommentThread[] {
+    return this.commentsStore.getThreads();
+  }
+
+  /** Every thread including tombstones — the serialization and collab-snapshot path, which must carry deletions so they can still win a merge. */
+  getAllCommentThreads(): CommentThread[] {
+    return this.commentsStore.getAllThreads();
+  }
+
+  getCommentThread(id: string): CommentThread | undefined {
+    return this.commentsStore.getThread(id);
+  }
+
+  /** Live messages of one thread, in creation order. */
+  getCommentMessages(threadId: string): CommentMessage[] {
+    return this.commentsStore.getMessages(threadId);
+  }
+
+  getAllCommentMessages(): CommentMessage[] {
+    return this.commentsStore.getAllMessages();
+  }
+
+  getCommentMessage(id: string): CommentMessage | undefined {
+    return this.commentsStore.getMessage(id);
+  }
+
+  addCommentThread(thread: CommentThread): CommentThread | null {
+    const stored = this.commentsStore.addThread(thread);
+    if (stored) this.notify();
+    return stored;
+  }
+
+  addCommentMessage(message: CommentMessage): CommentMessage | null {
+    const stored = this.commentsStore.addMessage(message);
+    if (stored) this.notify();
+    return stored;
+  }
+
+  /** Author-only — see `SceneCommentsStore.editMessage` for why the rule lives in the store rather than only in the UI. */
+  editCommentMessage(id: string, body: string, authorId: string): CommentMessage | null {
+    const stored = this.commentsStore.editMessage(id, body, authorId);
+    if (stored) this.notify();
+    return stored;
+  }
+
+  setCommentThreadResolved(threadId: string, resolved: boolean): CommentThread | null {
+    const stored = this.commentsStore.setResolved(threadId, resolved);
+    if (stored) this.notify();
+    return stored;
+  }
+
+  setCommentThreadAnchor(threadId: string, anchor: CommentAnchor): CommentThread | null {
+    const stored = this.commentsStore.setAnchor(threadId, anchor);
+    if (stored) this.notify();
+    return stored;
+  }
+
+  deleteCommentThread(threadId: string): CommentThread | null {
+    const stored = this.commentsStore.deleteThread(threadId);
+    if (stored) this.notify();
+    return stored;
+  }
+
+  deleteCommentMessage(id: string, authorId: string): CommentMessage | null {
+    const stored = this.commentsStore.deleteMessage(id, authorId);
+    if (stored) this.notify();
+    return stored;
+  }
+
+  /** Renames one author across their own records; returns what changed so a collab host can flush exactly those deltas. */
+  renameCommentAuthor(authorId: string, authorName: string): { threads: CommentThread[]; messages: CommentMessage[] } {
+    const changed = this.commentsStore.renameAuthor(authorId, authorName);
+    if (changed.threads.length > 0 || changed.messages.length > 0) this.notify();
+    return changed;
+  }
+
+  /** Replaces every comment record from a deserialized document. */
+  replaceComments(threads: readonly CommentThread[], messages: readonly CommentMessage[]): void {
+    this.commentsStore.replaceAll(threads, messages);
+    this.notify();
+  }
+
+  /** O(1) monotonic comment-mutation counter — lets hot-path subscribers skip work on the (vastly more frequent) element-only notifies. */
+  getCommentsVersion(): number {
+    return this.commentsStore.getVersion();
+  }
+
+  /** False for a scene that has never held a comment — serialization omits the arrays then, keeping such scenes byte-identical to pre-comments output. */
+  hasComments(): boolean {
+    return !this.commentsStore.isEmpty();
+  }
+
+  /** LWW adoption of a peer's comment thread — see `SceneCommentsStore.applyRemoteThread` for the win rule and why the winner lands byte-for-byte. */
+  applyRemoteCommentThread(thread: CommentThread): boolean {
+    const adopted = this.commentsStore.applyRemoteThread(thread);
+    if (adopted) this.notify();
+    return adopted;
+  }
+
+  applyRemoteCommentMessage(message: CommentMessage): boolean {
+    const adopted = this.commentsStore.applyRemoteMessage(message);
     if (adopted) this.notify();
     return adopted;
   }

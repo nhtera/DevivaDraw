@@ -45,6 +45,11 @@ export class ShortcutRegistry {
   }
 
   /** Resolves a raw key event to its bound action name, or `undefined` if nothing is bound to it. */
+  /** Every registered `[combo, actionId]` pair — lets a host cross-check that each bound action id actually exists in its own action registry (a shortcut pointing at a typo'd id resolves to nothing and fails silently). */
+  entries(): [string, string][] {
+    return [...this.bindings.entries()];
+  }
+
   resolve(key: string, modifiers: ModifierKeys): string | undefined {
     return this.bindings.get(normalizeCombo(key, modifiers));
   }
@@ -79,8 +84,8 @@ export function registerCoreShortcuts(registry: ShortcutRegistry): void {
 /**
  * No-modifier letter shortcuts for every remaining tool, matching this genre's conventional
  * mnemonics: R/O/D/L for rectangle/ellipse("oval")/diamond/line, P for the pencil (freehand), T for
- * text, A for arrow, E for eraser. `V` is the second common binding for the select tool alongside
- * `registerCoreShortcuts`'s `1`.
+ * text, A for arrow, E for eraser, C for comment. `V` is the second common binding for the select
+ * tool alongside `registerCoreShortcuts`'s `1`.
  */
 export function registerToolShortcuts(registry: ShortcutRegistry): void {
   registry.register("v", "select-tool");
@@ -96,6 +101,7 @@ export function registerToolShortcuts(registry: ShortcutRegistry): void {
   registry.register("f", "frame-tool");
   registry.register("n", "note-tool");
   registry.register("b", "bucket-fill-tool");
+  registry.register("c", "comment-tool");
 }
 
 /**
@@ -146,6 +152,11 @@ export function registerChromeToggleShortcuts(registry: ShortcutRegistry): void 
   registry.register("alt+r", "toggle-view-only");
   registry.register("alt+/", "toggle-properties-panel");
   registry.register("alt+÷", "toggle-properties-panel");
+  registry.register("alt+c", "toggle-comments");
+  // Same composed-character problem `alt+/` has below: on a Mac layout Option+C composes "ç", which
+  // is what the browser reports in `event.key`, so the bare combo alone would silently never fire
+  // there while the menu still advertised ⌥C.
+  registry.register("alt+ç", "toggle-comments");
   registry.register("q", "toggle-tool-lock");
 }
 

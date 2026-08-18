@@ -10,6 +10,7 @@
 import type { AnyElement } from "../elements/element-types";
 import { CURRENT_SCHEMA_VERSION, SCENE_DOCUMENT_TYPE } from "./scene-schema";
 import type { SceneDocumentV1, SerializedAppState, SerializedLayer, SerializedStoredFile } from "./scene-schema";
+import { validateCommentRecords } from "./comment-validation";
 
 export type ValidationResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -295,7 +296,9 @@ function validateAppState(raw: unknown): ValidationResult<SerializedAppState | u
  * rejected instead of just "something went wrong".
  */
 /** The envelope shape both validators require before looking at any entry: a plain object tagged with the document type, at the current (post-migration) schema version, with `elements`/`files` containers of the right kind. Shared so a future envelope change can't drift between the strict and lenient paths — both reconstruction sites below MUST carry every field this picks, or an addition silently drops on one path (the layers field's original design-review risk). */
-function validateEnvelope(raw: unknown): ValidationResult<{ elements: unknown[]; files: Record<string, unknown>; appState: unknown; layers: unknown; activeLayerId: unknown }> {
+function validateEnvelope(
+  raw: unknown,
+): ValidationResult<{ elements: unknown[]; files: Record<string, unknown>; appState: unknown; layers: unknown; activeLayerId: unknown; comments: unknown; commentMessages: unknown }> {
   if (!isPlainObject(raw)) return fail("scene document must be a JSON object");
   if (raw.type !== SCENE_DOCUMENT_TYPE) return fail(`scene document "type" must be "${SCENE_DOCUMENT_TYPE}"`);
   if (raw.schemaVersion !== CURRENT_SCHEMA_VERSION) {
@@ -306,7 +309,7 @@ function validateEnvelope(raw: unknown): ValidationResult<{ elements: unknown[];
     return fail(`scene document has ${raw.elements.length} elements — the ${DOCUMENT_CEILINGS.maxElements}-element ceiling protects against hostile documents`);
   }
   if (!isPlainObject(raw.files)) return fail('scene document "files" must be an object');
-  return ok({ elements: raw.elements, files: raw.files, appState: raw.appState, layers: raw.layers, activeLayerId: raw.activeLayerId });
+  return ok({ elements: raw.elements, files: raw.files, appState: raw.appState, layers: raw.layers, activeLayerId: raw.activeLayerId, comments: raw.comments, commentMessages: raw.commentMessages });
 }
 
 /** Hostile-input ceiling for a persisted layer list — mirrors `scene-layers.ts`'s `MAX_LAYERS`; duplicated as a literal so this module keeps zero scene-implementation imports. */
@@ -380,6 +383,12 @@ export function validateSceneDocument(raw: unknown): ValidationResult<SceneDocum
     document.layers = layersResult.layers;
     if (isString(envelope.value.activeLayerId)) document.activeLayerId = envelope.value.activeLayerId;
   }
+  // Comments follow the layers policy exactly (see `comment-validation.ts`): entry-level salvage,
+  // but on the strict path any dropped entry is reported as a hard failure to honour the contract.
+  const commentsResult = validateCommentRecords(envelope.value.comments, envelope.value.commentMessages);
+  if (commentsResult.errors.length > 0) return fail(commentsResult.errors[0]!);
+  if (commentsResult.threads) document.comments = commentsResult.threads;
+  if (commentsResult.messages) document.commentMessages = commentsResult.messages;
   return ok(document);
 }
 
@@ -434,5 +443,11 @@ export function validateSceneDocumentLenient(raw: unknown): ValidationResult<Len
     document.layers = layersResult.layers;
     if (isString(envelope.value.activeLayerId)) document.activeLayerId = envelope.value.activeLayerId;
   }
+  // Comments salvage entry-by-entry like layers and elements — a corrupt thread drops with a reason,
+  // the rest of the conversation loads.
+  const commentsResult = validateCommentRecords(envelope.value.comments, envelope.value.commentMessages);
+  droppedErrors.push(...commentsResult.errors);
+  if (commentsResult.threads) document.comments = commentsResult.threads;
+  if (commentsResult.messages) document.commentMessages = commentsResult.messages;
   return ok({ document, droppedErrors });
 }

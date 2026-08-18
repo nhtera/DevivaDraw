@@ -10,6 +10,7 @@
  * `scene-validation.ts` instead of being misread as a corrupt scene of some schema version.
  */
 import type { AnyElement } from "../elements/element-types";
+import type { CommentMessage, CommentThread } from "../comments/comment-types";
 
 /** Fixed envelope discriminator — see the module doc. Never changes across schema versions. */
 export const SCENE_DOCUMENT_TYPE = "devivadraw/scene";
@@ -68,6 +69,19 @@ export interface SceneDocumentV1 {
   layers?: SerializedLayer[];
   /** The layer new elements land on — a soft default seeded on load, never authoritative for collab peers. */
   activeLayerId?: string;
+  /**
+   * Comment threads — ADDITIVE and written only when the scene holds at least one comment record,
+   * exactly like `layers?`, so a scene that never had a comment serializes byte-identically to a
+   * pre-comments build. Absent ⇒ no comments. Soft-deleted threads ARE written: a tombstone that
+   * did not survive a save/reload could be out-voted by a peer's stale copy and resurrect.
+   *
+   * Typed as the engine's own record types (a type-only import, erased at build time) rather than a
+   * hand-mirrored shape, on the same reasoning as `elements: AnyElement[]` above: these are model
+   * types, not implementation details of a store.
+   */
+  comments?: CommentThread[];
+  /** Comment messages, flat and keyed to their thread by `threadId` — per-message records so two concurrent replies both survive a merge (see `comments/comment-types.ts`). Written under the same non-empty rule as `comments`. */
+  commentMessages?: CommentMessage[];
 }
 
 /**

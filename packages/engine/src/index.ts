@@ -102,6 +102,27 @@ export type { ElementUpdate, SceneListener, SceneUpdateHook, StoredFile } from "
 export { Scene } from "./scene/scene";
 export { DEFAULT_LAYER_NAME, MAX_LAYERS } from "./scene/scene-layers";
 export type { LayersManifest, SceneLayer } from "./scene/scene-layers";
+export type { LwwRecord } from "./scene/lww-record";
+export { lwwRecordWins } from "./scene/lww-record";
+
+export type { CommentAnchor, CommentMessage, CommentMessageCreationInput, CommentThread, CommentThreadCreationInput } from "./comments/comment-types";
+export {
+  clampAuthorName,
+  clampBody,
+  createCommentMessage,
+  createCommentThread,
+  MAX_COMMENT_AUTHOR_NAME_LENGTH,
+  MAX_COMMENT_BODY_LENGTH,
+  MAX_COMMENT_MESSAGES,
+  MAX_COMMENT_MESSAGES_PER_THREAD,
+  MAX_COMMENT_THREADS,
+} from "./comments/comment-types";
+export type { CommentToolDeps } from "./tools/comment-tool";
+export { CommentTool } from "./tools/comment-tool";
+export type { CommentAnchorElementSource } from "./comments/comment-anchor";
+export { anchorForElementPoint, isOrphanedAnchor, resolveCommentAnchor } from "./comments/comment-anchor";
+/** Exported for the collab client's wire validator: the document reader and the network reader must apply the identical shape rules and caps, or the two disagree about what is legal. */
+export { validateCommentAnchor, validateCommentMessage, validateCommentThread } from "./persistence/comment-validation";
 
 export { findTextMatches } from "./scene/find-text-matches";
 
