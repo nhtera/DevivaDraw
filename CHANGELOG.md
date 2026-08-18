@@ -4,6 +4,19 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.11.5] — 2026-08-19
+
+### Fixed
+
+- **A table keeps the size you drag it to.** Every commit — finishing a resize, dragging a column
+  edge, typing in a cell, changing the font — re-measured the text and rebuilt each row's height from
+  that alone, which threw away the size the user had just chosen. A table dragged taller snapped back
+  to its text minimum the moment the pointer lifted, and simply typing a word repacked a fresh grid
+  from 120px tall to 93px. Worse, once it collapsed the resize handles moved out from under the
+  cursor, so the next drag caught nothing at all. Rows now only grow to fit their text, never shrink
+  to it. Making a table smaller still works and still compacts it: the drag scales the rows down
+  first, and the text fit then grows back only what the text genuinely needs.
+
 ## [0.11.4] — 2026-08-18
 
 ### Changed

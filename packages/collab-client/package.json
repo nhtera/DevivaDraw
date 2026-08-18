@@ -1,6 +1,6 @@
 {
   "name": "@deviva-draw/collab-client",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "Realtime sync client for Deviva Draw: WebSocket transport, E2E crypto, presence, conflict resolution",
   "type": "module",
   "license": "MIT",

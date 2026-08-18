@@ -750,7 +750,7 @@ dependencies = [
 
 [[package]]
 name = "deviva-draw-desktop"
-version = "0.11.1"
+version = "0.11.5"
 dependencies = [
  "base64 0.22.1",
  "futures-util",
