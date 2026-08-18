@@ -173,4 +173,35 @@ describe("ResizeGesture — table row re-fit at finish", () => {
     expect(restoredTable.columnWidths).toEqual([200]);
     expect(restoredTable.rowHeights).toEqual([40]);
   });
+
+  it("keeps the height a table was dragged to instead of collapsing it back to the text minimum", async () => {
+    const { createTableElement } = await import("../elements/table-element");
+    const { createFixedWidthTextMeasurer } = await import("../text/text-measurement");
+
+    const scene = new Scene();
+    // A 3-row table whose one short word fits in the minimum row height — the pre-fix commit-time
+    // re-fit recomputed rows from text alone, so every drag snapped the table back to ~its minimum.
+    const table = scene.addElement(
+      createTableElement({ x: 0, y: 0, columnWidths: [200], rowHeights: [40, 40, 40], cells: [["", "", ""], ["", "", ""], ["sss", "", ""]], fontSize: 20 }),
+    );
+    const gesture = new ResizeGesture({
+      scene,
+      selection: new SelectionState(),
+      history: new HistoryStack<AnyElement[]>(scene.getElements()),
+      clipboard: new InternalClipboard(),
+      getZoom: () => 1,
+      textMeasurer: createFixedWidthTextMeasurer(10),
+    });
+    const frame = buildSelectionFrame([table])!;
+
+    gesture.begin(frame, "se", grabPointFor(frame, "se"));
+    gesture.apply({ x: 400, y: 480 }, NO_MODIFIERS); // drag the corner out: 2x wider, 4x taller
+    gesture.finish();
+
+    const resized = scene.getElement(table.id)!;
+    if (resized.type !== "table") throw new Error("expected a table");
+    expect(resized.height).toBe(480);
+    expect(resized.rowHeights).toEqual([160, 160, 160]);
+    expect(resized.width).toBe(400);
+  });
 });

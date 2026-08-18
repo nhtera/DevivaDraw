@@ -152,16 +152,28 @@ describe("table-layout — fitRowHeightsToText", () => {
     expect(fit).not.toBeNull();
     // Wrap width 100 - 2*padding = 88 → 8 chars per line → 20 chars = 3 lines = 75px + padding*2.
     expect(fit!.rowHeights[0]).toBe(75 + TABLE_CELL_PADDING * 2);
-    expect(fit!.rowHeights[1]).toBe(MIN_ROW_HEIGHT);
+    // The empty row keeps its current 30 — the fit grows, so it never pulls a row down to MIN_ROW_HEIGHT.
+    expect(fit!.rowHeights[1]).toBe(30);
+    expect(fit!.rowHeights[1]!).toBeGreaterThanOrEqual(MIN_ROW_HEIGHT);
     expect(fit!.height).toBe(fit!.rowHeights.reduce((a, b) => a + b, 0));
   });
 
-  it("shrinks a row back when text is deleted (floored at the minimum) and returns null when nothing changes", () => {
-    const el = table({ columnWidths: [100], rowHeights: [200], cells: [[""]] });
-    const fit = fitRowHeightsToText(el, measurer);
-    expect(fit!.rowHeights).toEqual([MIN_ROW_HEIGHT]);
-    const settled = { ...el, rowHeights: [MIN_ROW_HEIGHT], height: MIN_ROW_HEIGHT };
-    expect(fitRowHeightsToText(settled, measurer)).toBeNull();
+  it("never shrinks a row below its current height — a user-sized table keeps the size it was dragged to", () => {
+    // The regression: a hand-sized 200-tall row holding text that only needs the minimum. A fit that
+    // recomputed from text alone would collapse it to MIN_ROW_HEIGHT on every commit, so a table
+    // dragged taller could never stay taller.
+    const el = table({ columnWidths: [100], rowHeights: [200], cells: [["ab"]] });
+    expect(fitRowHeightsToText(el, measurer)).toBeNull();
+    const empty = table({ columnWidths: [100], rowHeights: [200], cells: [[""]] });
+    expect(fitRowHeightsToText(empty, measurer)).toBeNull();
+  });
+
+  it("still lets a shrinking resize compact rows — the scaled-down heights are the floor, not the pre-drag ones", () => {
+    // What a resize drag hands the fit: `scaleTableGrid` has already scaled the bands down, so the
+    // fit only grows back what the text needs (here: nothing).
+    const scaled = table({ columnWidths: [100], rowHeights: [MIN_ROW_HEIGHT], cells: [[""]] });
+    expect(fitRowHeightsToText(scaled, measurer)).toBeNull();
+    expect(tableRowHeights(scaled)).toEqual([MIN_ROW_HEIGHT]);
   });
 });
 

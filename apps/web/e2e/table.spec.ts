@@ -99,7 +99,7 @@ test("double-click edits exactly the clicked cell; a long text grows only its ro
   const table = await storedTable(page);
   expect(table.cells[1]![1]).toContain("longer cell text");
   expect(table.rowHeights[1]!).toBeGreaterThan(40); // its row grew
-  expect(table.rowHeights[0]).toBe(28); // empty rows settle at the minimum on re-fit (shrink-to-fit, by design)
+  expect(table.rowHeights[0]).toBe(40); // untouched rows keep their height — the re-fit only grows, never repacks
   expect(table.height).toBeCloseTo(table.rowHeights.reduce((a, b) => a + b, 0), 1);
 });
 
@@ -155,10 +155,54 @@ test("corner-handle resize scales the whole grid and one undo restores it", asyn
   let table = await storedTable(page);
   expect(table.width).toBeGreaterThan(400);
   expect(table.width).toBeCloseTo(table.columnWidths.reduce((a, b) => a + b, 0), 1);
+  // HEIGHT too, not just width: the commit-time row re-fit runs on the height axis only, so a
+  // width-only assertion is exactly what let a "snaps back to the text minimum" regression through.
+  expect(table.height).toBeGreaterThan(180);
+  expect(table.height).toBeCloseTo(table.rowHeights.reduce((a, b) => a + b, 0), 1);
 
   await page.keyboard.press(process.platform === "darwin" ? "Meta+z" : "Control+z");
   table = await storedTable(page);
   expect(table.width).toBeCloseTo(360, 1);
+  expect(table.height).toBeCloseTo(120, 1);
+});
+
+test("a hand-sized table keeps its height when a cell is edited — text fit grows rows, never shrinks them", async ({ page }) => {
+  await placeTable(page);
+  await page.getByTestId("table-cell-editor").fill("sss");
+  await page.keyboard.press("Escape");
+  // Typing alone must not repack the grid: short text fits the default row height as-is.
+  expect((await storedTable(page)).height).toBeCloseTo(120, 1);
+
+  // Drag the SE corner well out, then edit another cell — the size the user chose has to survive the commit.
+  await page.mouse.click(650, 350);
+  await page.mouse.move(836, 416);
+  await page.mouse.down();
+  await page.mouse.move(950, 560);
+  await page.mouse.move(1010, 640); // stays inside the 1280x720 viewport, handles included
+  await page.mouse.up();
+  const enlarged = await storedTable(page);
+  expect(enlarged.height).toBeGreaterThan(300);
+
+  await page.mouse.dblclick(700, 420);
+  await expect(page.getByTestId("table-cell-editor")).toBeVisible();
+  await page.getByTestId("table-cell-editor").fill("hello");
+  await page.keyboard.press("Escape");
+
+  const afterEdit = await storedTable(page);
+  expect(afterEdit.height).toBeCloseTo(enlarged.height, 1);
+  expect(afterEdit.rowHeights).toEqual(enlarged.rowHeights);
+
+  // ...and shrinking still compacts it: the fit grows back only what the text needs.
+  await page.mouse.click(700, 420);
+  // The SE handle sits SELECTION_PADDING_PX (6) outside the element rect; at zoom 1 scene == screen coords.
+  await page.mouse.move(afterEdit.x + afterEdit.width + 6, afterEdit.y + afterEdit.height + 6);
+  await page.mouse.down();
+  await page.mouse.move(900, 500);
+  await page.mouse.move(760, 400);
+  await page.mouse.up();
+  const shrunk = await storedTable(page);
+  expect(shrunk.height).toBeLessThan(150);
+  expect(shrunk.height).toBeCloseTo(shrunk.rowHeights.reduce((a, b) => a + b, 0), 1);
 });
 
 test("duplicate is fully independent: editing the copy never touches the original", async ({ page }) => {

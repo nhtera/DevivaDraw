@@ -201,10 +201,16 @@ export interface TableRowFitResult {
 }
 
 /**
- * Re-wraps every cell against its column width and grows each row to fit its tallest cell (floored at
- * `MIN_ROW_HEIGHT` — rows never shrink below the minimum, and a row does shrink back when text is
- * deleted, unlike bound-text's grow-only rule: a table's height budget is per-row, so reclaiming it
- * keeps the grid compact). Returns `null` when nothing changes, so callers can skip a no-op update.
+ * Re-wraps every cell against its column width and GROWS each row to fit its tallest cell — floored
+ * at both `MIN_ROW_HEIGHT` and the row's CURRENT height, so a row is only ever pushed taller, never
+ * pulled shorter (bound-text's grow-only rule). That floor is load-bearing, not a nicety: every
+ * caller runs this at commit time on top of a size the user just chose (a whole-table resize drag, a
+ * column drag, a cell edit, a font change), and a fit that recomputed row heights from text alone
+ * would throw that choice away — a table dragged taller would snap back to its text minimum the
+ * moment the pointer lifted. Row height therefore shrinks only where the user asks for it: a resize
+ * drag (`scaleTableGrid` scales the bands down, and this pass then grows back only what the text
+ * genuinely needs, so a table with short text still compacts all the way to `MIN_ROW_HEIGHT`) or a
+ * structure edit. Returns `null` when nothing changes, so callers can skip a no-op update.
  * Deliberately NOT run per-frame during drags (see the plan's perf decision) — call it at gesture
  * finish and cell/structure commits.
  */
@@ -227,7 +233,7 @@ export function fitRowHeightsToText(element: TableGridFields, measurer: TextMeas
       const metrics = measureWrappedText(text, { measurer, fontCss, fontSizePx: fontSize, lineHeightMultiplier: DEFAULT_TEXT_LINE_HEIGHT, maxWidth });
       tallest = Math.max(tallest, metrics.totalHeightPx + TABLE_CELL_PADDING * 2);
     }
-    const required = Math.max(MIN_ROW_HEIGHT, tallest);
+    const required = Math.max(MIN_ROW_HEIGHT, currentHeight, tallest);
     if (required !== currentHeight) changed = true;
     return required;
   });
