@@ -81,6 +81,15 @@ Cloudflare Worker backend: Durable Objects host per-room collaboration sessions;
 R2 stores encrypted share-link blobs. `ALLOWED_ORIGINS` gates cross-origin
 access.
 
+Each connection carries a role. `POST /room` mints a room id plus an editor and
+a viewer token (`room-role-token.ts`, an HMAC over `{roomId}|{role}`); the
+Durable Object verifies the token presented on the WebSocket upgrade and hands
+the role to `RoomConnectionRegistry`, which drops a viewer's `element-delta` and
+`snapshot` frames while still relaying its `presence`, `snapshot-request` and
+`comment-delta`. That is a decision about a message's *type*, never its content —
+the relay still cannot read anything it routes, and the token secret is unrelated
+to the room key, which never leaves the URL fragment.
+
 ## Dependencies (production)
 
 | Package | Dep | Purpose |

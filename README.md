@@ -42,6 +42,9 @@ MIT license.
   align/distribute, group/ungroup, z-ordering, snapping, grid, undo/redo.
 - **Live collaboration** — real-time multiplayer with presence cursors over
   Cloudflare Durable Objects, with the session key never sent to the server.
+  Follow a peer's camera with one click, and hand out a read-only viewer link
+  whose limits the relay enforces rather than merely displaying — a hand-crafted
+  edit frame from a viewer is dropped by the server, with no account anywhere.
 - **Comment threads** — pin a conversation to a shape or to any point, reply,
   resolve, delete; pins ride their shape through move/resize/rotate, and threads
   sync live over the same encrypted room.

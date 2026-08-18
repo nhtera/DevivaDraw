@@ -233,6 +233,37 @@ remote edits to a page that isn't on screen). In collaboration, element
 deltas carry their `pageId` inside the encrypted payload and the page list
 syncs as an LWW manifest riding on snapshots — the relay never changed.
 
+## Room roles: why the permission lives in the relay
+
+A live room's read-only link is enforced by `apps/collab-server`, not by the
+browser. The reasoning is the same one that puts the encryption key in the URL
+fragment: a guarantee has to hold against the person holding the client. A
+client-side "you are a viewer" flag is defeated by opening devtools and sending
+an `element-delta` by hand, so the check sits at the one place every frame must
+pass through.
+
+`POST /room` mints two tokens for a room — `{role}.{HMAC(secret, roomId|role)}`.
+A client can present one and cannot forge one, and the Worker verifies by
+recomputing rather than by storing anything, so a room stays a pure Durable
+Object with no side table. The role prefix travels in the clear so the client can
+render itself read-only; editing it only makes the MAC fail. The token rides the
+query string precisely because the fragment is the half a server never sees: the
+room key must stay hidden from the relay, and the token must reach it.
+
+Enforcement is still content-blind. `RoomConnectionRegistry` decides from the
+message's `type` alone — `element-delta` and `snapshot` are refused from a
+viewer, `presence`, `snapshot-request` and `comment-delta` are relayed — so the
+relay learns nothing about a frame it rejects that it did not already know about
+one it accepts. A viewer who can comment but not edit is the point: guest
+commenting with no account, on a room whose contents the server cannot read. The
+browser client does not yet reach that half — it gives a viewer the existing
+read-only chrome, which hides the comment tool with every other tool — so today
+the capability is exercised by non-browser clients and by the integration test.
+Splitting "may comment" out of the single view-only flag is the follow-up.
+
+A connection presenting no token at all is an editor, which is what every room
+link created before roles existed looks like.
+
 ## Diagram: mutation → render flow
 
 ```

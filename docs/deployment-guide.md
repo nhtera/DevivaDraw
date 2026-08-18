@@ -88,8 +88,34 @@ links and collaboration.
    migration is declared in `wrangler.jsonc`). The `run` is required, not
    stylistic: `pnpm deploy` is a built-in pnpm command that copies a workspace
    package into a directory, and it shadows the package's own deploy script.
-3. Add your web app's production origin to `ALLOWED_ORIGINS` in
+3. Provision the room-token secret once:
+   `wrangler secret put ROOM_TOKEN_SECRET` (any long random string —
+   `openssl rand -base64 32` is fine). It signs the role tokens that decide
+   whether a live-room connection may write; see
+   `apps/collab-server/src/room-role-token.ts`.
+
+   **Without it the Worker fails closed**: `POST /room` returns 500 and no new
+   collaboration session can be started. That is deliberate — minting unsigned
+   tokens would make read-only viewer links verify trivially, so a missing secret
+   is a visible failure rather than a silently defeated permission check. Existing
+   rooms and share links are unaffected.
+
+   This secret has nothing to do with scene encryption. A room's decryption key is
+   generated in the browser and lives only in the URL fragment, which is never sent
+   to any server; rotating `ROOM_TOKEN_SECRET` invalidates outstanding *links*, not
+   any data. Local development needs no setup: `apps/collab-server/.dev.vars`
+   carries a committed placeholder that `wrangler dev` reads and `wrangler deploy`
+   never uploads.
+4. Add your web app's production origin to `ALLOWED_ORIGINS` in
    `apps/collab-server/src/index.ts` if it differs from the default.
+
+### Collab worker routes
+
+| Route | Purpose |
+|---|---|
+| `POST /room` | Mints a room id plus its editor and viewer tokens. Rate-limited per IP. |
+| `GET /room/{id}?t={token}` | WebSocket upgrade. The token decides the connection's role; a request with no token connects as an editor, so links created before roles existed keep working. |
+| `PUT/GET/DELETE /blobs/{id}` | Share-link ciphertext blobs. |
 
 ## Continuous integration & deployment
 
@@ -176,8 +202,13 @@ single package's version.
 - **Hand-drawn font.** The engine ships OS font stacks; a licensed/commissioned
   hand-drawn font drops into `text/font-loading.ts` sources with no call-site
   changes.
-- **Follow mode.** Following a peer's viewport exists in the collab client but is
-  not yet wired into the React chrome.
+- **Room roles are enforced by the relay, not the client.** A viewer's
+  `element-delta` and `snapshot` frames are dropped in
+  `room-connection-registry.ts`; its `presence`, `snapshot-request` and
+  `comment-delta` are relayed. A client-side flag would be defeated by opening
+  devtools, so the browser's read-only chrome is a courtesy on top of the real
+  boundary — `packages/mcp/src/live/live-relay.integration.test.ts` asserts that
+  boundary by writing a hand-crafted delta straight onto a viewer's socket.
 
 ## See also
 

@@ -15,6 +15,55 @@ Deviva Draw ships two collaboration surfaces, both **end-to-end encrypted**:
 Try both at [draw.deviva.app](https://draw.deviva.app) - the Share and
 Collaborate actions in the main menu.
 
+## Editor and viewer links
+
+Starting a session produces **two** links to the same room. The editor link is
+the primary one; the viewer link, in a secondary row below it, joins read-only.
+
+A viewer sees the board live, has a cursor other people can see, and can be
+followed or follow - they simply cannot change what is on the canvas.
+
+A viewer's *comments* are accepted by the relay: the permission is deliberately
+"may comment, may not edit", which is guest commenting with no account anywhere,
+on a board the server itself cannot read. **The editor UI does not yet expose it**
+- a viewer's chrome is the existing read-only chrome, which hides the comment tool
+along with every other tool, so today only a non-browser client (the MCP peer) can
+actually post as a viewer. Reaching it from the app needs commenting to become a
+permission of its own rather than riding the single read-only flag; that is a
+tracked follow-up, not a property of the wire protocol.
+
+The limit is real, not cosmetic. The two links carry the same room key and differ
+only in a signed token, and the **relay** is what refuses a viewer's edits - a
+viewer who opens devtools and crafts an edit frame by hand gets the same answer as
+one who clicks around, because the check does not live in the browser. What the
+relay checks is only the *kind* of message, never its contents; it still cannot
+decrypt anything it forwards. Rooms shared before this existed keep working, and
+join as editors.
+
+Only the person who started the session holds a viewer link to give out - a peer
+who joined by link was handed one role and cannot mint the other.
+
+## Following someone
+
+Each peer in the Collaborate dialog has a **Follow** button. While following, your
+canvas tracks their camera and a pill in the bottom-left names who you are
+following, with one click to stop.
+
+Any camera move of your own - a pan, a wheel zoom, the zoom menu, back-to-content -
+ends the follow immediately. Following should never fight your own hands, so
+reaching for the canvas is itself the exit; the pill is there for when you would
+rather click.
+
+Follow clears itself when the peer you were following leaves, when the session
+ends, or when either of you moves to a different page - their view describes a
+camera over that page's content, and applying it here would swing your canvas to
+somewhere blank. Following does not switch your page for you: navigating the
+document is your call, not the person you are watching.
+
+Peers you cannot coherently follow - one on another page, or one running an older
+build that publishes no viewport - have their button disabled rather than a
+button that does nothing.
+
 ## Joining from a phone
 
 While a room is live, the Collaborate dialog shows a QR code for it alongside
