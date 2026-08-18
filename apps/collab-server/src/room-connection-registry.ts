@@ -9,11 +9,17 @@
  * bare `{type: "snapshot-request"}` signal or an opaque `{type, iv, ciphertext}` envelope whose
  * `iv`/`ciphertext` it only ever copies verbatim between connections — there is no `SubtleCrypto`/key
  * material anywhere in this file. Its only decisions are: is this connection over its per-connection
- * rate limit, does `type` look like one of the five known message kinds, and (for `snapshot-request`)
- * does a stored snapshot already exist to answer immediately versus asking another connected peer to
- * produce one.
+ * rate limit, does `type` look like one of the five known message kinds, is this connection's role
+ * allowed to send that kind, and (for `snapshot-request`) does a stored snapshot already exist to
+ * answer immediately versus asking another connected peer to produce one.
+ *
+ * That role check is the one place read-only sharing is actually enforced. A client-side "you are a
+ * viewer" flag is decoration — a viewer can open devtools and send whatever frame they like — so the
+ * boundary has to be here, and it is still a decision about a message's *type*, never its content: the
+ * relay learns no more about a rejected `element-delta` than about an accepted one.
  */
 import type { RateLimiter } from "./rate-limit";
+import type { RoomRole } from "./room-role-token";
 
 /** The subset of the DOM/Workers `WebSocket` interface this registry actually uses — a real accepted `WebSocket` satisfies it structurally. */
 export interface RoomSocket {
@@ -27,6 +33,16 @@ export interface RoomSocket {
  * has no idea a comment differs from a shape.
  */
 const KNOWN_MESSAGE_TYPES = new Set(["element-delta", "comment-delta", "presence", "snapshot", "snapshot-request"]);
+
+/**
+ * The message kinds a `viewer` connection may send. Everything absent from this set — `element-delta`
+ * and `snapshot`, the two that change what the room's document says — is dropped from a viewer.
+ *
+ * `comment-delta` is deliberately in: a viewer who can comment but not edit is the whole point of the
+ * role, and it is the feature that otherwise needs accounts to ship. `presence` is in so a viewer still
+ * has a cursor and can be followed, and `snapshot-request` so they can load the board at all.
+ */
+const VIEWER_ALLOWED_TYPES = new Set(["comment-delta", "presence", "snapshot-request"]);
 
 /**
  * Hard cap on a single inbound WebSocket frame — a basic abuse/memory guard mirroring
@@ -54,8 +70,13 @@ export interface RoomConnectionRegistryOptions {
   onSnapshotReceived?(raw: string): void;
 }
 
+interface Connection {
+  socket: RoomSocket;
+  role: RoomRole;
+}
+
 export class RoomConnectionRegistry {
-  private readonly connections = new Map<string, RoomSocket>();
+  private readonly connections = new Map<string, Connection>();
   private readonly limiter: RateLimiter;
   private readonly onSnapshotReceived?: (raw: string) => void;
   /** The latest full-state `snapshot` message seen this DO instance's lifetime, already peerId-stamped and ready to unicast verbatim to the next `snapshot-request`. Seeded from R2 on cold start by `room-durable-object.ts`; never populated by decrypting anything here. */
@@ -75,9 +96,15 @@ export class RoomConnectionRegistry {
     this.latestSnapshot = raw;
   }
 
-  /** Registers a newly-accepted connection and announces it to every existing member — returns the fresh `peerId` assigned to it (an opaque per-connection id, never client-supplied, so it carries no identity information the E2E encryption model would otherwise protect). */
-  join(peerId: string, socket: RoomSocket): void {
-    this.connections.set(peerId, socket);
+  /**
+   * Registers a newly-accepted connection and announces it to every existing member. `peerId` is an
+   * opaque per-connection id, never client-supplied, so it carries no identity information the E2E
+   * encryption model would otherwise protect. `role` comes from a verified token (see
+   * `room-role-token.ts`) and defaults to `editor` — the role every link created before this feature
+   * existed has, so those links keep working exactly as they did.
+   */
+  join(peerId: string, socket: RoomSocket, role: RoomRole = "editor"): void {
+    this.connections.set(peerId, { socket, role });
     this.broadcastExcept(peerId, JSON.stringify({ type: "peer-joined", peerId }));
   }
 
@@ -99,11 +126,11 @@ export class RoomConnectionRegistry {
    */
   handleMessage(peerId: string, raw: string): void {
     if (!this.limiter.allow(peerId)) {
-      this.connections.get(peerId)?.close(1013, "rate limit exceeded");
+      this.connections.get(peerId)?.socket.close(1013, "rate limit exceeded");
       return;
     }
     if (raw.length > MAX_MESSAGE_LENGTH) {
-      this.connections.get(peerId)?.close(1009, "message too large");
+      this.connections.get(peerId)?.socket.close(1009, "message too large");
       return;
     }
 
@@ -114,6 +141,11 @@ export class RoomConnectionRegistry {
       return;
     }
     if (!isRoutableMessage(parsed)) return;
+    // Dropped silently, not closed: a viewer client that still sends element deltas is out of date or
+    // buggy, not hostile, and closing its socket would put it in a reconnect loop instead of letting
+    // it keep the read-only session it is entitled to. A genuinely hostile viewer learns nothing from
+    // the drop either way, since the frame simply never reaches anyone.
+    if (!this.maySend(peerId, parsed.type)) return;
 
     if (parsed.type === "snapshot-request") {
       this.handleSnapshotRequest(peerId);
@@ -132,17 +164,24 @@ export class RoomConnectionRegistry {
   }
 
   /** Fast path: answer directly from the cached snapshot if one exists. Slow path: no snapshot has ever been seen this room's lifetime (or since the last cold start before R2 seeding), so ask every *other* connected peer to publish a fresh one — one of them will answer via a normal `snapshot` message, handled by the broadcast branch above. */
+  /** Whether `peerId`'s role permits sending `type`. An unknown peer (already gone) may send nothing. */
+  private maySend(peerId: string, type: string): boolean {
+    const connection = this.connections.get(peerId);
+    if (!connection) return false;
+    return connection.role === "editor" || VIEWER_ALLOWED_TYPES.has(type);
+  }
+
   private handleSnapshotRequest(requesterId: string): void {
     if (this.latestSnapshot) {
-      this.connections.get(requesterId)?.send(this.latestSnapshot);
+      this.connections.get(requesterId)?.socket.send(this.latestSnapshot);
       return;
     }
     this.broadcastExcept(requesterId, JSON.stringify({ type: "snapshot-request" }));
   }
 
   private broadcastExcept(excludedPeerId: string, raw: string): void {
-    for (const [peerId, socket] of this.connections) {
-      if (peerId !== excludedPeerId) socket.send(raw);
+    for (const [peerId, connection] of this.connections) {
+      if (peerId !== excludedPeerId) connection.socket.send(raw);
     }
   }
 }

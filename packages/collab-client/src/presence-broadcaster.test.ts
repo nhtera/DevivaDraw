@@ -34,13 +34,12 @@ describe("PresenceBroadcaster", () => {
     await Promise.resolve(); // let the internal (immediately-resolving) async send settle
   });
 
-  it("setLocalSelection/setLocalViewport ride along with the next cursor send", async () => {
+  it("setLocalSelection rides along with the next cursor send rather than sending on its own", async () => {
     const send = vi.fn<(data: string) => boolean>(() => true);
     const sendDeps = await freshSendDeps(send);
     const broadcaster = new PresenceBroadcaster({ userName: "Bob", userColor: "#00ff00", throttleMs: 100, getSendDeps: () => sendDeps });
 
     broadcaster.setLocalSelection(["el-1", "el-2"]);
-    broadcaster.setLocalViewport({ x: 10, y: 20, zoom: 1.5 });
     broadcaster.updateCursor({ x: 5, y: 5 });
     await vi.waitFor(() => expect(send).toHaveBeenCalledOnce());
 
@@ -48,8 +47,36 @@ describe("PresenceBroadcaster", () => {
     const decrypted = await decryptEnvelope(sendDeps.roomKey, envelope, { compress: false });
     expect(decrypted).toEqual({
       ok: true,
-      payload: { name: "Bob", color: "#00ff00", point: { x: 5, y: 5 }, selectedElementIds: ["el-1", "el-2"], viewport: { x: 10, y: 20, zoom: 1.5 } },
+      payload: { name: "Bob", color: "#00ff00", point: { x: 5, y: 5 }, selectedElementIds: ["el-1", "el-2"], viewport: null },
     });
+  });
+
+  it("setLocalViewport publishes on its own — a wheel zoom moves no pointer, and a follower must still see it", async () => {
+    const send = vi.fn<(data: string) => boolean>(() => true);
+    const sendDeps = await freshSendDeps(send);
+    const broadcaster = new PresenceBroadcaster({ userName: "Bob", userColor: "#00ff00", throttleMs: 100, getSendDeps: () => sendDeps });
+
+    broadcaster.setLocalViewport({ x: 10, y: 20, zoom: 1.5 });
+    await vi.waitFor(() => expect(send).toHaveBeenCalledOnce());
+
+    const envelope = JSON.parse(send.mock.calls[0]![0] as string);
+    const decrypted = await decryptEnvelope(sendDeps.roomKey, envelope, { compress: false });
+    expect(decrypted).toEqual({
+      ok: true,
+      payload: { name: "Bob", color: "#00ff00", point: null, selectedElementIds: [], viewport: { x: 10, y: 20, zoom: 1.5 } },
+    });
+  });
+
+  it("setLocalViewport ignores an unchanged viewport — a re-render that recomputes the same numbers costs no broadcast", async () => {
+    const send = vi.fn<(data: string) => boolean>(() => true);
+    const sendDeps = await freshSendDeps(send);
+    const broadcaster = new PresenceBroadcaster({ userName: "Bob", userColor: "#00ff00", throttleMs: 100, getSendDeps: () => sendDeps });
+
+    broadcaster.setLocalViewport({ x: 10, y: 20, zoom: 1.5 });
+    await vi.waitFor(() => expect(send).toHaveBeenCalledOnce());
+    broadcaster.setLocalViewport({ x: 10, y: 20, zoom: 1.5 });
+    await new Promise((resolve) => setTimeout(resolve, 150)); // past the throttle's trailing edge
+    expect(send).toHaveBeenCalledOnce();
   });
 
   it("republish resends the last known point immediately, bypassing the throttle window", async () => {

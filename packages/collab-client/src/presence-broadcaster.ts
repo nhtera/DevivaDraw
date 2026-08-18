@@ -52,8 +52,19 @@ export class PresenceBroadcaster {
     this.lastSelectedElementIds = selectedElementIds;
   }
 
+  /**
+   * Publishes the local user's visible region (see `PresenceViewport`) for follow-mode.
+   *
+   * Unlike `setLocalSelection`, this does NOT just wait for the next cursor broadcast to carry it:
+   * a wheel zoom, a keyboard pan, or a zoom-menu jump moves the view without moving the pointer, and
+   * a follower whose camera only updated when the presenter happened to twitch the mouse would sit
+   * on a stale view for as long as the presenter kept still. It goes through the same cursor throttle
+   * rather than a second one, so a drag-pan (which fires both) still costs one broadcast per tick.
+   */
   setLocalViewport(viewport: PresenceViewport | null): void {
+    if (sameViewport(this.lastViewport, viewport)) return;
     this.lastViewport = viewport;
+    this.throttledSend(this.lastPoint);
   }
 
   /** Which page the local user is looking at — rides with the next broadcast so peers can keep foreign-page cursors off their canvas. `null` in single-scene sessions (the field is simply absent on the wire). */
@@ -121,4 +132,10 @@ export class PresenceBroadcaster {
     };
     await sendPresenceUpdate(sendDeps, payload);
   }
+}
+
+/** Cheap equality so a re-render that recomputes an identical viewport costs no broadcast. */
+function sameViewport(a: PresenceViewport | null, b: PresenceViewport | null): boolean {
+  if (a === null || b === null) return a === b;
+  return a.x === b.x && a.y === b.y && a.zoom === b.zoom;
 }

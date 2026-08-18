@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRoomUrl, buildRoomWebSocketUrl, parseRoomUrl } from "./room-url";
+import { buildRoomUrl, buildRoomWebSocketUrl, parseRoomUrl, roleClaimedByToken } from "./room-url";
 
 describe("buildRoomUrl / parseRoomUrl", () => {
   it("round trips a room id and key through the URL fragment", () => {
@@ -8,7 +8,7 @@ describe("buildRoomUrl / parseRoomUrl", () => {
 
     const parsed = new URL(url);
     const result = parseRoomUrl(parsed.pathname, parsed.hash);
-    expect(result).toEqual({ ok: true, value: { roomId: "room-123", keyBase64Url: "abc_-XYZ" } });
+    expect(result).toEqual({ ok: true, value: { roomId: "room-123", keyBase64Url: "abc_-XYZ", token: null } });
   });
 
   it("strips a trailing slash from the origin", () => {
@@ -35,8 +35,8 @@ describe("buildRoomUrl / parseRoomUrl", () => {
   });
 
   it("accepts a fragment with or without a leading #", () => {
-    expect(parseRoomUrl("/room/r1", "key=k1")).toEqual({ ok: true, value: { roomId: "r1", keyBase64Url: "k1" } });
-    expect(parseRoomUrl("/room/r1", "#key=k1")).toEqual({ ok: true, value: { roomId: "r1", keyBase64Url: "k1" } });
+    expect(parseRoomUrl("/room/r1", "key=k1")).toEqual({ ok: true, value: { roomId: "r1", keyBase64Url: "k1", token: null } });
+    expect(parseRoomUrl("/room/r1", "#key=k1")).toEqual({ ok: true, value: { roomId: "r1", keyBase64Url: "k1", token: null } });
   });
 });
 
@@ -53,3 +53,38 @@ describe("buildRoomWebSocketUrl", () => {
     expect(buildRoomWebSocketUrl("http://localhost:8788/", "room-1")).toBe("ws://localhost:8788/room/room-1");
   });
 });
+
+describe("role tokens in a room URL", () => {
+  it("puts the token in the query and the key in the fragment — the relay must see one and never the other", () => {
+    const url = buildRoomUrl({ origin: "https://draw.deviva.app", roomId: "r1", keyBase64Url: "k1", token: "viewer.mac" });
+    expect(url).toBe("https://draw.deviva.app/room/r1?t=viewer.mac#key=k1");
+
+    const parsed = new URL(url);
+    expect(parseRoomUrl(parsed.pathname, parsed.hash, parsed.search)).toEqual({
+      ok: true,
+      value: { roomId: "r1", keyBase64Url: "k1", token: "viewer.mac" },
+    });
+  });
+
+  it("reads no token when the caller does not pass the query — a pre-roles link parses as tokenless", () => {
+    const url = buildRoomUrl({ origin: "https://draw.deviva.app", roomId: "r1", keyBase64Url: "k1", token: "viewer.mac" });
+    const parsed = new URL(url);
+    expect(parseRoomUrl(parsed.pathname, parsed.hash)).toEqual({ ok: true, value: { roomId: "r1", keyBase64Url: "k1", token: null } });
+  });
+
+  it("carries the token onto the WebSocket URL, which is the only place it is of any use", () => {
+    expect(buildRoomWebSocketUrl("https://collab.example", "r1", "viewer.mac")).toBe("wss://collab.example/room/r1?t=viewer.mac");
+    expect(buildRoomWebSocketUrl("https://collab.example", "r1", null)).toBe("wss://collab.example/room/r1");
+  });
+
+  it("reads the role a token claims, defaulting to editor for anything it does not recognise", () => {
+    expect(roleClaimedByToken("viewer.mac")).toBe("viewer");
+    expect(roleClaimedByToken("editor.mac")).toBe("editor");
+    expect(roleClaimedByToken(null)).toBe("editor");
+    expect(roleClaimedByToken(undefined)).toBe("editor");
+    expect(roleClaimedByToken("nonsense")).toBe("editor");
+    // Not a prefix match on a longer word: "viewerish." must not read as viewer.
+    expect(roleClaimedByToken("viewerish.mac")).toBe("editor");
+  });
+});
+

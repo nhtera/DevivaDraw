@@ -10,8 +10,9 @@ async function makeDeps() {
   const roomKey = await importRoomKey(await generateRoomKey());
   const markSynced = vi.fn();
   const onPeerLeft = vi.fn();
+  const onPeerJoined = vi.fn();
   const onSnapshotRequested = vi.fn();
-  return { scene, presence, roomKey, markSynced, onPeerLeft, onSnapshotRequested };
+  return { scene, presence, roomKey, markSynced, onPeerLeft, onPeerJoined, onSnapshotRequested };
 }
 
 describe("handleInboundMessage — element-delta", () => {
@@ -92,9 +93,12 @@ describe("handleInboundMessage — peer lifecycle", () => {
     expect(deps.onPeerLeft).toHaveBeenCalledWith("peer-1");
   });
 
-  it("no-ops on peer-joined (informational only)", async () => {
+  it("routes peer-joined to onPeerJoined, so existing peers republish for the newcomer", async () => {
     const deps = await makeDeps();
-    await expect(handleInboundMessage(JSON.stringify({ type: "peer-joined", peerId: "peer-1" }), deps)).resolves.toBeUndefined();
+    await handleInboundMessage(JSON.stringify({ type: "peer-joined", peerId: "peer-1" }), deps);
+    expect(deps.onPeerJoined).toHaveBeenCalledOnce();
+    // Nothing is applied to the scene or presence store from an announcement — it carries no state.
+    expect(deps.presence.list()).toHaveLength(0);
   });
 
   it("routes a relay-forwarded snapshot-request to onSnapshotRequested", async () => {

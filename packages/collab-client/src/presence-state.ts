@@ -8,6 +8,14 @@
  * sending updates (see `collab-session.ts`'s throttled outbound cursor sync), so no extra wire field is
  * needed and every observer converges on the same "idle" verdict independently.
  */
+/**
+ * A peer's visible region, expressed as the SCENE point at the centre of their screen plus their
+ * zoom — not their raw camera scroll. Two peers on differently-sized screens have different scroll
+ * offsets for the same view, so relaying scroll would land a follower somewhere else entirely; a
+ * centre point is the one description of "what I am looking at" that survives the window-size
+ * difference. The follower matches the zoom exactly and centres on the same point, so a wider
+ * window simply sees more around the same content.
+ */
 export interface PresenceViewport {
   x: number;
   y: number;

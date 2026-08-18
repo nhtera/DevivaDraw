@@ -26,6 +26,13 @@ export interface InboundMessageDeps {
   markSynced(id: string, version: number, pageId?: string): void;
   onPeerLeft(peerId: string): void;
   /**
+   * Fires when the relay announces a new member. Presence is ephemeral and never replayed, so a peer
+   * that joins a quiet room sees nobody at all until each existing peer happens to move their mouse —
+   * which for follow-mode means the peer list they would follow *from* is empty. Existing peers answer
+   * by republishing their own presence once, the same shape `onReconnect` already relies on.
+   */
+  onPeerJoined(): void;
+  /**
    * Fires when the *relay* forwards a `snapshot-request` to this peer — meaning the Durable Object had
    * no stored snapshot yet to answer a newcomer/reconnecting peer directly (see
    * `apps/collab-server/src/room-connection-registry.ts`'s fast-path-vs-broadcast doc) and is asking
@@ -140,7 +147,10 @@ export async function handleInboundMessage(raw: string, deps: InboundMessageDeps
     if (typeof parsed.peerId === "string") deps.onPeerLeft(parsed.peerId);
     return;
   }
-  if (parsed.type === "peer-joined") return; // purely informational; nothing to apply
+  if (parsed.type === "peer-joined") {
+    deps.onPeerJoined();
+    return;
+  }
   if (parsed.type === "snapshot-request") {
     deps.onSnapshotRequested();
     return;

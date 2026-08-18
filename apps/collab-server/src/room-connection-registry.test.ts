@@ -235,3 +235,72 @@ describe("RoomConnectionRegistry — snapshot fast path vs broadcast-request", (
     expect(onSnapshotReceived).not.toHaveBeenCalled();
   });
 });
+
+describe("RoomConnectionRegistry — room roles", () => {
+  function room() {
+    const registry = new RoomConnectionRegistry({ limiter: unlimitedLimiter() });
+    const editor = fakeSocket();
+    const viewer = fakeSocket();
+    registry.join("editor", editor);
+    registry.join("viewer", viewer, "viewer");
+    editor.received.length = 0;
+    viewer.received.length = 0;
+    return { registry, editor, viewer };
+  }
+
+  const envelope = (type: string) => JSON.stringify({ type, iv: "aXY", ciphertext: "Y3Q" });
+
+  it("drops a viewer's element-delta — the whole point of the role, and the only place it is enforced", () => {
+    const { registry, editor } = room();
+    registry.handleMessage("viewer", envelope("element-delta"));
+    expect(editor.received).toEqual([]);
+  });
+
+  it("drops a viewer's snapshot — it would otherwise overwrite the room's whole document", () => {
+    const { registry, editor } = room();
+    registry.handleMessage("viewer", envelope("snapshot"));
+    expect(editor.received).toEqual([]);
+  });
+
+  it("relays a viewer's comment-delta — guest commenting is the feature this role exists for", () => {
+    const { registry, editor } = room();
+    registry.handleMessage("viewer", envelope("comment-delta"));
+    expect(editor.received).toEqual([JSON.stringify({ type: "comment-delta", iv: "aXY", ciphertext: "Y3Q", peerId: "viewer" })]);
+  });
+
+  it("relays a viewer's presence, so a viewer still has a cursor and can be followed", () => {
+    const { registry, editor } = room();
+    registry.handleMessage("viewer", envelope("presence"));
+    expect(editor.received).toHaveLength(1);
+  });
+
+  it("answers a viewer's snapshot-request — a viewer has to be able to load the board", () => {
+    const { registry, viewer } = room();
+    registry.handleMessage("editor", envelope("snapshot"));
+    viewer.received.length = 0;
+    registry.handleMessage("viewer", JSON.stringify({ type: "snapshot-request" }));
+    expect(viewer.received).toHaveLength(1);
+  });
+
+  it("does not close a viewer's connection over a rejected frame — an out-of-date client must not reconnect-loop", () => {
+    const { registry, viewer } = room();
+    registry.handleMessage("viewer", envelope("element-delta"));
+    expect(viewer.closeCalls).toEqual([]);
+    expect(registry.connectionCount).toBe(2);
+  });
+
+  it("defaults an untagged join to editor — links minted before roles existed keep working", () => {
+    const { registry, viewer } = room();
+    registry.handleMessage("editor", envelope("element-delta"));
+    expect(viewer.received).toHaveLength(1);
+  });
+
+  it("ignores a frame from a peer that already left", () => {
+    const { registry, editor } = room();
+    registry.leave("viewer");
+    editor.received.length = 0;
+    registry.handleMessage("viewer", envelope("comment-delta"));
+    expect(editor.received).toEqual([]);
+  });
+});
+

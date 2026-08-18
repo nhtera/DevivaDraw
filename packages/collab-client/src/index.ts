@@ -5,7 +5,7 @@
  */
 export const COLLAB_CLIENT_VERSION = "0.1.0";
 
-export type { CollabConnectionStatus, CollabSessionOptions } from "./collab-session";
+export type { CollabConnectionStatus, CollabRole, CollabSessionOptions, MintedRoom, RoomLinks } from "./collab-session";
 export { CollabSession } from "./collab-session";
 
 export type { ConnectionManagerOptions, WebSocketLike } from "./connection-manager";
@@ -35,4 +35,4 @@ export type { PresenceListener, PresencePayload, PresenceReaction, PresenceViewp
 export { isPlausiblePresencePayload, MAX_REACTION_EMOJI_LENGTH, PresenceStore, REACTION_EMOJIS, throttle } from "./presence-state";
 
 export type { BuildRoomUrlOptions, ParsedRoomUrl, ParseRoomUrlErrorReason, ParseRoomUrlResult } from "./room-url";
-export { buildRoomUrl, buildRoomWebSocketUrl, parseRoomUrl } from "./room-url";
+export { buildRoomUrl, buildRoomWebSocketUrl, parseRoomUrl, roleClaimedByToken, ROLE_TOKEN_PARAM } from "./room-url";

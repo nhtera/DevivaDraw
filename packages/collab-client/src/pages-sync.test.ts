@@ -46,8 +46,9 @@ async function makeDeps(pages?: CollabPagesAdapter) {
   const roomKey = await importRoomKey(await generateRoomKey());
   const markSynced = vi.fn();
   const onPeerLeft = vi.fn();
+  const onPeerJoined = vi.fn();
   const onSnapshotRequested = vi.fn();
-  return { scene, pages, presence, roomKey, markSynced, onPeerLeft, onSnapshotRequested };
+  return { scene, pages, presence, roomKey, markSynced, onPeerLeft, onPeerJoined, onSnapshotRequested };
 }
 
 describe("pageId-tagged element deltas", () => {

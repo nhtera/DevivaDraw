@@ -44,6 +44,7 @@ async function makeDeps(pages: CollabPagesAdapter) {
     roomKey: await importRoomKey(await generateRoomKey()),
     markSynced: vi.fn(),
     onPeerLeft: vi.fn(),
+    onPeerJoined: vi.fn(),
     onSnapshotRequested: vi.fn(),
   };
 }

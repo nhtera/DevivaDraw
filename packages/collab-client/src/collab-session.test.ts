@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createRectangleElement, Scene } from "@deviva-draw/engine";
 import { CollabSession } from "./collab-session";
+import { generateRoomKey } from "./message-codec";
 import type { WebSocketLike } from "./connection-manager";
 
 /**
@@ -109,12 +110,25 @@ async function waitUntil(condition: () => boolean, timeoutMs = 2_000): Promise<v
 
 const sessions: CollabSession[] = [];
 
+/**
+ * Stands in for `POST /room`. This harness has no HTTP server (only a socket relay), and the real
+ * request is covered in `apps/collab-server`'s route tests plus the opt-in integration suite. The token
+ * shape matters here though — `{role}.{mac}` is what `roleClaimedByToken` reads to decide the local
+ * role — so the fake mints that shape rather than an arbitrary string.
+ */
+let mintedRooms = 0;
+function fakeCreateRoom(): Promise<{ roomId: string; editorToken: string; viewerToken: string }> {
+  const roomId = `room-${++mintedRooms}`;
+  return Promise.resolve({ roomId, editorToken: `editor.mac-${roomId}`, viewerToken: `viewer.mac-${roomId}` });
+}
+
 function makeSession(relay: FakeRoomRelay, scene: Scene, name: string): CollabSession {
   const session = new CollabSession({
     scene,
     userName: name,
     userColor: "#123456",
     createSocket: () => relay.createSocket(),
+    createRoom: fakeCreateRoom,
     // Fast, deterministic-ish reconnect timing for tests that need to observe a reconnect — production
     // relies on `ConnectionManager`'s own (much larger) defaults.
     initialBackoffMs: 10,
@@ -136,7 +150,7 @@ describe("CollabSession — end-to-end over an in-memory relay", () => {
     const alice = makeSession(relay, aliceScene, "Alice");
     const bob = makeSession(relay, bobScene, "Bob");
 
-    const roomUrl = await alice.startSession("http://collab.example", "https://draw.example");
+    const { editorUrl: roomUrl } = await alice.startSession("http://collab.example", "https://draw.example");
     await bob.joinSession("http://collab.example", roomUrl);
     await waitUntil(() => alice.connectionStatus === "connected" && bob.connectionStatus === "connected");
 
@@ -153,7 +167,7 @@ describe("CollabSession — end-to-end over an in-memory relay", () => {
     const alice = makeSession(relay, aliceScene, "Alice");
     const bob = makeSession(relay, bobScene, "Bob");
 
-    const roomUrl = await alice.startSession("http://collab.example", "https://draw.example");
+    const { editorUrl: roomUrl } = await alice.startSession("http://collab.example", "https://draw.example");
     await bob.joinSession("http://collab.example", roomUrl);
     await waitUntil(() => alice.connectionStatus === "connected" && bob.connectionStatus === "connected");
 
@@ -180,7 +194,7 @@ describe("CollabSession — end-to-end over an in-memory relay", () => {
     const alice = makeSession(relay, aliceScene, "Alice");
     const bob = makeSession(relay, bobScene, "Bob");
 
-    const roomUrl = await alice.startSession("http://collab.example", "https://draw.example");
+    const { editorUrl: roomUrl } = await alice.startSession("http://collab.example", "https://draw.example");
     await bob.joinSession("http://collab.example", roomUrl);
     await waitUntil(() => alice.connectionStatus === "connected" && bob.connectionStatus === "connected");
 
@@ -203,7 +217,7 @@ describe("CollabSession — end-to-end over an in-memory relay", () => {
     const relay = new FakeRoomRelay();
     const aliceScene = new Scene();
     const alice = makeSession(relay, aliceScene, "Alice");
-    const roomUrl = await alice.startSession("http://collab.example", "https://draw.example");
+    const { editorUrl: roomUrl } = await alice.startSession("http://collab.example", "https://draw.example");
     await waitUntil(() => alice.connectionStatus === "connected");
 
     const a = aliceScene.addElement(createRectangleElement({ x: 0, y: 0, width: 1, height: 1 }));
@@ -227,7 +241,7 @@ describe("CollabSession — end-to-end over an in-memory relay", () => {
     const alice = makeSession(relay, aliceScene, "Alice");
     const bob = makeSession(relay, bobScene, "Bob");
 
-    const roomUrl = await alice.startSession("http://collab.example", "https://draw.example");
+    const { editorUrl: roomUrl } = await alice.startSession("http://collab.example", "https://draw.example");
     await bob.joinSession("http://collab.example", roomUrl);
     await waitUntil(() => alice.connectionStatus === "connected" && bob.connectionStatus === "connected");
 
@@ -245,7 +259,7 @@ describe("CollabSession — end-to-end over an in-memory relay", () => {
     const alice = makeSession(relay, aliceScene, "Alice");
     const bob = makeSession(relay, bobScene, "Bob");
 
-    const roomUrl = await alice.startSession("http://collab.example", "https://draw.example");
+    const { editorUrl: roomUrl } = await alice.startSession("http://collab.example", "https://draw.example");
     await bob.joinSession("http://collab.example", roomUrl);
     await waitUntil(() => alice.connectionStatus === "connected" && bob.connectionStatus === "connected");
 
@@ -274,7 +288,7 @@ describe("CollabSession — end-to-end over an in-memory relay", () => {
     const alice = makeSession(relay, aliceScene, "Alice");
     const bob = makeSession(relay, bobScene, "Bob");
 
-    const roomUrl = await alice.startSession("http://collab.example", "https://draw.example");
+    const { editorUrl: roomUrl } = await alice.startSession("http://collab.example", "https://draw.example");
     await bob.joinSession("http://collab.example", roomUrl);
     await waitUntil(() => alice.connectionStatus === "connected" && bob.connectionStatus === "connected");
 
@@ -284,5 +298,37 @@ describe("CollabSession — end-to-end over an in-memory relay", () => {
     aliceScene.addElement(createRectangleElement({ x: 0, y: 0, width: 1, height: 1 }));
     await sleep(200);
     expect(bobScene.getElements()).toHaveLength(0);
+  });
+
+  it("a viewer session sends no element deltas — its own guard, ahead of the relay's", async () => {
+    const relay = new FakeRoomRelay();
+    const editorScene = new Scene();
+    const viewerScene = new Scene();
+    const editor = makeSession(relay, editorScene, "Editor");
+    const viewer = makeSession(relay, viewerScene, "Viewer");
+
+    const { viewerUrl } = await editor.startSession("http://collab.example", "https://draw.example");
+    await viewer.joinSession("http://collab.example", viewerUrl);
+    await waitUntil(() => editor.connectionStatus === "connected" && viewer.connectionStatus === "connected");
+    expect(viewer.currentRole).toBe("viewer");
+    expect(editor.currentRole).toBe("editor");
+
+    // The editor's own edit still reaches the viewer: read-only means it cannot write, not that it is deaf.
+    const fromEditor = editorScene.addElement(createRectangleElement({ x: 1, y: 1, width: 1, height: 1 }));
+    await waitUntil(() => viewerScene.getElement(fromEditor.id) !== undefined);
+
+    const fromViewer = viewerScene.addElement(createRectangleElement({ x: 9, y: 9, width: 2, height: 2 }));
+    await sleep(300); // well past the outbound debounce — nothing should ever arrive
+    expect(editorScene.getElement(fromViewer.id)).toBeUndefined();
+  });
+
+  it("an editor link joins as an editor, and a link with no token at all still does", async () => {
+    const relay = new FakeRoomRelay();
+    const scene = new Scene();
+    const session = makeSession(relay, scene, "Legacy");
+    // A pre-roles link: no `?t=` at all. It must still connect and be able to draw.
+    await session.joinSession("http://collab.example", `https://draw.example/room/room-legacy#key=${await generateRoomKey()}`);
+    await waitUntil(() => session.connectionStatus === "connected");
+    expect(session.currentRole).toBe("editor");
   });
 });

@@ -19,6 +19,7 @@ async function makeDeps(scene: Scene) {
     markSynced: vi.fn(),
     markCommentSynced: vi.fn(),
     onPeerLeft: vi.fn(),
+    onPeerJoined: vi.fn(),
     onSnapshotRequested: vi.fn(),
   };
 }

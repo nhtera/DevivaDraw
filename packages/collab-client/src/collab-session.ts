@@ -26,10 +26,26 @@ import type { CollabPagesAdapter } from "./pages-adapter";
 import { PresenceBroadcaster } from "./presence-broadcaster";
 import { PresenceStore } from "./presence-state";
 import type { PresenceViewport } from "./presence-state";
-import { buildRoomUrl, buildRoomWebSocketUrl, parseRoomUrl } from "./room-url";
+import { buildRoomUrl, buildRoomWebSocketUrl, parseRoomUrl, roleClaimedByToken } from "./room-url";
 import type { Scene } from "@deviva-draw/engine";
 
 export type CollabConnectionStatus = "disconnected" | "connecting" | "connected";
+
+/** What this client may do in the room it is connected to. Reflects the token it holds; the relay is the authority (see `apps/collab-server`'s `room-connection-registry.ts`). */
+export type CollabRole = "editor" | "viewer";
+
+/** The two links a fresh session produces. They address the same room with the same key — only the role token differs. */
+export interface RoomLinks {
+  editorUrl: string;
+  viewerUrl: string;
+}
+
+/** `POST /room`'s response body. */
+export interface MintedRoom {
+  roomId: string;
+  editorToken: string;
+  viewerToken: string;
+}
 
 export interface CollabSessionOptions {
   scene: Scene;
@@ -39,6 +55,13 @@ export interface CollabSessionOptions {
   userColor: string;
   /** Overrides the WebSocket factory (`connection-manager.ts`) — tests only. */
   createSocket?(url: string): WebSocketLike;
+  /**
+   * Overrides the `POST /room` call `startSession` makes — tests only, and for the same reason
+   * `createSocket` exists: the unit suite drives a fake in-memory relay with no HTTP server behind it.
+   * The real request path is covered by `apps/collab-server`'s route tests and by the opt-in
+   * `live-relay.integration.test.ts`, which runs both halves against an actual `wrangler dev`.
+   */
+  createRoom?(apiBaseUrl: string): Promise<MintedRoom>;
   onStatusChange?(status: CollabConnectionStatus): void;
   /** Overrides `ConnectionManager`'s reconnect-backoff timing — tests only (production relies on the defaults). */
   initialBackoffMs?: number;
@@ -57,6 +80,7 @@ export class CollabSession {
   private readonly scene: Scene;
   private readonly pages?: CollabPagesAdapter;
   private readonly createSocket?: (url: string) => WebSocketLike;
+  private readonly createRoom?: (apiBaseUrl: string) => Promise<MintedRoom>;
   private readonly onStatusChange?: (status: CollabConnectionStatus) => void;
   private readonly initialBackoffMs?: number;
   private readonly maxBackoffMs?: number;
@@ -66,6 +90,7 @@ export class CollabSession {
   private roomKey: CryptoKey | null = null;
   private roomId: string | null = null;
   private status: CollabConnectionStatus = "disconnected";
+  private role: CollabRole = "editor";
   private tornDown = true;
 
   private readonly syncedVersions = new Map<string, number>();
@@ -84,6 +109,7 @@ export class CollabSession {
     this.scene = options.scene;
     this.pages = options.pages;
     this.createSocket = options.createSocket;
+    this.createRoom = options.createRoom;
     this.onStatusChange = options.onStatusChange;
     this.initialBackoffMs = options.initialBackoffMs;
     this.maxBackoffMs = options.maxBackoffMs;
@@ -118,20 +144,41 @@ export class CollabSession {
     return this.roomId;
   }
 
-  /** Starts a brand-new session: mints a fresh room id + key and connects. Returns the shareable room URL (the key lives only in its fragment). */
-  async startSession(apiBaseUrl: string, origin: string): Promise<string> {
-    const roomId = crypto.randomUUID();
+  /**
+   * Starts a brand-new session and connects to it as its editor. Returns both shareable links: the
+   * editor link, and a viewer link that joins the same room read-only.
+   *
+   * The room id now comes from the server rather than `crypto.randomUUID()` here, because the role
+   * tokens have to be signed by a secret this client does not hold — an id a client mints has nothing
+   * to sign against. The key is still generated locally and still travels only in the URL fragment,
+   * so what the server learns by minting a room is exactly what it learned before: a random string.
+   */
+  async startSession(apiBaseUrl: string, origin: string): Promise<RoomLinks> {
+    const room = await (this.createRoom ? this.createRoom(apiBaseUrl) : requestRoom(apiBaseUrl));
     const keyBase64Url = await generateRoomKey();
-    await this.connectToRoom(apiBaseUrl, roomId, keyBase64Url);
-    return buildRoomUrl({ origin, roomId, keyBase64Url });
+    await this.connectToRoom(apiBaseUrl, room.roomId, keyBase64Url, room.editorToken);
+    return {
+      editorUrl: buildRoomUrl({ origin, roomId: room.roomId, keyBase64Url, token: room.editorToken }),
+      viewerUrl: buildRoomUrl({ origin, roomId: room.roomId, keyBase64Url, token: room.viewerToken }),
+    };
   }
 
   /** Joins an existing session from a room URL another peer shared (`room-url.ts`'s scheme). Throws on a URL that doesn't parse — the caller (UI layer) surfaces that as a validation error. */
   async joinSession(apiBaseUrl: string, roomUrl: string): Promise<void> {
     const parsed = new URL(roomUrl);
-    const result = parseRoomUrl(parsed.pathname, parsed.hash);
+    const result = parseRoomUrl(parsed.pathname, parsed.hash, parsed.search);
     if (!result.ok) throw new Error(`collab-session: ${result.error}`);
-    await this.connectToRoom(apiBaseUrl, result.value.roomId, result.value.keyBase64Url);
+    await this.connectToRoom(apiBaseUrl, result.value.roomId, result.value.keyBase64Url, result.value.token);
+  }
+
+  /**
+   * What this client may do in the room. Derived from which token it joined with, so it is a
+   * reflection, not a permission: the relay enforces the same thing from the same token, and a client
+   * that lied to itself here would simply have its writes dropped. The UI reads it to render a
+   * read-only session honestly rather than letting a viewer draw into a void.
+   */
+  get currentRole(): CollabRole {
+    return this.role;
   }
 
   /** Tears the session down: closes the socket, stops every timer, clears presence. Safe to call whether or not a session is active. */
@@ -158,6 +205,7 @@ export class CollabSession {
     this.presenceBroadcaster.reset();
     this.roomKey = null;
     this.roomId = null;
+    this.role = "editor";
     this.followedPeerId = null;
     this.setStatus("disconnected");
   }
@@ -199,15 +247,18 @@ export class CollabSession {
     return this.presence.get(this.followedPeerId)?.viewport ?? null;
   }
 
-  private async connectToRoom(apiBaseUrl: string, roomId: string, keyBase64Url: string): Promise<void> {
+  private async connectToRoom(apiBaseUrl: string, roomId: string, keyBase64Url: string, token?: string | null): Promise<void> {
     this.disconnect();
     this.tornDown = false;
     this.roomId = roomId;
     this.roomKey = await importRoomKey(keyBase64Url);
+    // The link's own token decides the local role. A link with no token is an editor — that is what
+    // every room link created before roles existed looks like, and the relay agrees.
+    this.role = roleClaimedByToken(token);
     this.setStatus("connecting");
 
     this.connection = new ConnectionManager({
-      url: buildRoomWebSocketUrl(apiBaseUrl, roomId),
+      url: buildRoomWebSocketUrl(apiBaseUrl, roomId, token),
       createSocket: this.createSocket,
       onOpen: () => {
         this.setStatus("connected");
@@ -257,6 +308,9 @@ export class CollabSession {
       markSynced: (id, version, pageId) => this.syncedVersions.set(pageId === undefined ? id : `${pageId}/${id}`, version),
       markCommentSynced: (id, version, pageId) => this.syncedComments.set(pageId === undefined ? id : `${pageId}/${id}`, version),
       onPeerLeft: (peerId) => this.presence.removePeer(peerId),
+      // Republish, don't clear: the newcomer needs to see this client, and every peer already here is
+      // still valid. Throttled inside the broadcaster, so a burst of joins costs one send.
+      onPeerJoined: () => this.presenceBroadcaster.republish(),
       onSnapshotRequested: () => void this.sendSnapshot(),
     });
   }
@@ -274,11 +328,16 @@ export class CollabSession {
       const live = this.liveConnection();
       if (!live) return;
       const send = (data: string) => live.connection.send(data);
+      // A viewer's element deltas would be dropped by the relay anyway — this guard is politeness, not
+      // the boundary (see `apps/collab-server`'s `room-connection-registry.ts` for the real one). It
+      // spares the socket a stream of frames that can only be discarded. Comments are NOT guarded: a
+      // viewer commenting is the point of the role.
+      const mayEdit = this.role === "editor";
       if (this.pages) {
         for (const pageId of this.pages.listPageIds()) {
           const scene = this.pages.getScene(pageId);
           if (scene) {
-            void flushElementDeltas({ scene, pageId, roomKey: live.roomKey, send }, this.syncedVersions);
+            if (mayEdit) void flushElementDeltas({ scene, pageId, roomKey: live.roomKey, send }, this.syncedVersions);
             void flushCommentDeltas({ scene, pageId, roomKey: live.roomKey, send }, this.syncedComments);
           }
         }
@@ -288,7 +347,7 @@ export class CollabSession {
         }
         return;
       }
-      void flushElementDeltas({ scene: this.scene, roomKey: live.roomKey, send }, this.syncedVersions);
+      if (mayEdit) void flushElementDeltas({ scene: this.scene, roomKey: live.roomKey, send }, this.syncedVersions);
       void flushCommentDeltas({ scene: this.scene, roomKey: live.roomKey, send }, this.syncedComments);
     }, OUTBOUND_SYNC_DEBOUNCE_MS);
   }
@@ -326,6 +385,10 @@ export class CollabSession {
   }
 
   private async sendSnapshot(): Promise<void> {
+    // A snapshot is the whole document — the single most destructive thing a viewer could publish, and
+    // the relay drops it. Not sending one also means a viewer never volunteers to answer another peer's
+    // `snapshot-request`, leaving that to an editor who actually has authority over the document.
+    if (this.role !== "editor") return;
     const live = this.liveConnection();
     if (!live || !live.connection.isOpen) return;
     const send = (data: string) => live.connection.send(data);
@@ -336,3 +399,26 @@ export class CollabSession {
     await sendFullSnapshot({ scene: this.scene, roomKey: live.roomKey, send });
   }
 }
+
+/**
+ * Asks the relay for a room and its two role tokens (`POST /room`).
+ *
+ * Kept a plain module function rather than a method: it needs nothing from the session's state, and
+ * this way the one network call `startSession` makes outside the WebSocket is trivially swappable via
+ * `CollabSessionOptions.createRoom` for tests that run against a socket-only fake relay.
+ */
+async function requestRoom(apiBaseUrl: string): Promise<MintedRoom> {
+  const response = await fetch(`${apiBaseUrl.replace(/\/+$/, "")}/room`, { method: "POST" });
+  if (!response.ok) throw new Error(`collab-session: room creation failed (${response.status})`);
+  const body: unknown = await response.json();
+  if (!isMintedRoom(body)) throw new Error("collab-session: room creation returned an unexpected response");
+  return body;
+}
+
+/** The relay is not a trusted source of well-formed JSON any more than a peer is — a malformed reply becomes a clean error rather than an `undefined` room id in a URL. */
+function isMintedRoom(value: unknown): value is MintedRoom {
+  if (typeof value !== "object" || value === null) return false;
+  const { roomId, editorToken, viewerToken } = value as Record<string, unknown>;
+  return typeof roomId === "string" && roomId !== "" && typeof editorToken === "string" && typeof viewerToken === "string";
+}
+
