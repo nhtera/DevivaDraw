@@ -1,3 +1,10 @@
+/**
+ * Case names carry the rule numbers from `docs/collab-relay-protocol.md` (`R1` whitelist, `R2` rate
+ * limit, `R3` size cap, `R4` broadcast-except-sender, `R5` snapshot fast path, `R6` snapshot slow
+ * path, `R7` role gate). The LAN relay in `apps/desktop/src-tauri/src/lan_relay/registry.rs` names its
+ * cases the same way over the same spec, so the two implementations drifting apart surfaces as a
+ * failing numbered case rather than as a room that behaves differently depending on who hosts it.
+ */
 import { describe, expect, it, vi } from "vitest";
 import { MAX_MESSAGE_LENGTH, RoomConnectionRegistry } from "./room-connection-registry";
 import type { RoomSocket } from "./room-connection-registry";
@@ -53,7 +60,7 @@ describe("RoomConnectionRegistry — join/leave", () => {
 });
 
 describe("RoomConnectionRegistry — relay", () => {
-  it("broadcasts an element-delta to every other connection, stamped with the sender's peerId", () => {
+  it("R4: broadcasts an element-delta to every other connection, stamped with the sender's peerId", () => {
     const registry = new RoomConnectionRegistry({ limiter: unlimitedLimiter() });
     const alice = fakeSocket();
     const bob = fakeSocket();
@@ -71,7 +78,7 @@ describe("RoomConnectionRegistry — relay", () => {
     expect(carol.received).toEqual([expected]);
   });
 
-  it("broadcasts a presence message the same way as an element-delta", () => {
+  it("R4: broadcasts a presence message the same way as an element-delta", () => {
     const registry = new RoomConnectionRegistry({ limiter: unlimitedLimiter() });
     const alice = fakeSocket();
     const bob = fakeSocket();
@@ -84,7 +91,7 @@ describe("RoomConnectionRegistry — relay", () => {
     expect(bob.received).toEqual([JSON.stringify({ type: "presence", iv: "iv1", ciphertext: "ct1", peerId: "alice" })]);
   });
 
-  it("relays a comment-delta exactly like an element-delta — the relay cannot tell a comment from a shape", () => {
+  it("R4: relays a comment-delta exactly like an element-delta — the relay cannot tell a comment from a shape", () => {
     const registry = new RoomConnectionRegistry({ limiter: unlimitedLimiter() });
     const alice = fakeSocket();
     const bob = fakeSocket();
@@ -98,7 +105,7 @@ describe("RoomConnectionRegistry — relay", () => {
     expect(bob.received).toEqual([JSON.stringify({ type: "comment-delta", iv: "iv1", ciphertext: "ct1", peerId: "alice" })]);
   });
 
-  it("drops malformed JSON without throwing or broadcasting anything", () => {
+  it("R1: drops malformed JSON without throwing or broadcasting anything", () => {
     const registry = new RoomConnectionRegistry({ limiter: unlimitedLimiter() });
     const alice = fakeSocket();
     const bob = fakeSocket();
@@ -111,7 +118,7 @@ describe("RoomConnectionRegistry — relay", () => {
   });
 
   it.each(["null", "42", '"a string"', "[]", "{}", '{"type":123}', '{"type":"drop-table"}'])(
-    "drops a structurally invalid or unrecognized message: %s",
+    "R1: drops a structurally invalid or unrecognized message: %s",
     (raw) => {
       const registry = new RoomConnectionRegistry({ limiter: unlimitedLimiter() });
       const alice = fakeSocket();
@@ -126,7 +133,7 @@ describe("RoomConnectionRegistry — relay", () => {
     },
   );
 
-  it("closes the connection with 1009 (Message Too Big) when a frame exceeds MAX_MESSAGE_LENGTH, instead of broadcasting it", () => {
+  it("R3: closes the connection with 1009 (Message Too Big) when a frame exceeds MAX_MESSAGE_LENGTH, instead of broadcasting it", () => {
     const registry = new RoomConnectionRegistry({ limiter: unlimitedLimiter() });
     const alice = fakeSocket();
     const bob = fakeSocket();
@@ -141,7 +148,7 @@ describe("RoomConnectionRegistry — relay", () => {
     expect(bob.received).toEqual([]);
   });
 
-  it("accepts a frame exactly at MAX_MESSAGE_LENGTH (the cap rejects strictly-over, not at-or-over)", () => {
+  it("R3: accepts a frame exactly at MAX_MESSAGE_LENGTH (the cap rejects strictly-over, not at-or-over)", () => {
     const registry = new RoomConnectionRegistry({ limiter: unlimitedLimiter() });
     const alice = fakeSocket();
     const bob = fakeSocket();
@@ -159,7 +166,7 @@ describe("RoomConnectionRegistry — relay", () => {
     expect(bob.received).toHaveLength(1);
   });
 
-  it("closes the connection once its per-connection rate limit is exceeded, instead of just dropping the message", () => {
+  it("R2: closes the connection once its per-connection rate limit is exceeded, instead of just dropping the message", () => {
     const registry = new RoomConnectionRegistry({ limiter: new RateLimiter({ maxRequests: 1, windowMs: 60_000 }) });
     const alice = fakeSocket();
     const bob = fakeSocket();
@@ -176,7 +183,7 @@ describe("RoomConnectionRegistry — relay", () => {
 });
 
 describe("RoomConnectionRegistry — snapshot fast path vs broadcast-request", () => {
-  it("unicasts a cached snapshot directly to the requester without broadcasting to others", () => {
+  it("R5: unicasts a cached snapshot directly to the requester without broadcasting to others", () => {
     const registry = new RoomConnectionRegistry({ limiter: unlimitedLimiter() });
     const alice = fakeSocket();
     const bob = fakeSocket();
@@ -195,7 +202,7 @@ describe("RoomConnectionRegistry — snapshot fast path vs broadcast-request", (
     expect(alice.received.filter((m) => m.includes("snapshot-request"))).toEqual([]);
   });
 
-  it("broadcasts snapshot-request to other peers when no snapshot has ever been seen", () => {
+  it("R6: broadcasts snapshot-request to other peers when no snapshot has ever been seen", () => {
     const registry = new RoomConnectionRegistry({ limiter: unlimitedLimiter() });
     const alice = fakeSocket();
     const bob = fakeSocket();
@@ -209,7 +216,7 @@ describe("RoomConnectionRegistry — snapshot fast path vs broadcast-request", (
     expect(bob.received).toEqual([]); // never echoed back to the requester itself
   });
 
-  it("invokes onSnapshotReceived exactly once per snapshot message, for R2 persistence", () => {
+  it("R5: invokes onSnapshotReceived exactly once per snapshot message, so the Worker can persist it", () => {
     const onSnapshotReceived = vi.fn();
     const registry = new RoomConnectionRegistry({ limiter: unlimitedLimiter(), onSnapshotReceived });
     const alice = fakeSocket();
@@ -221,7 +228,7 @@ describe("RoomConnectionRegistry — snapshot fast path vs broadcast-request", (
     expect(onSnapshotReceived).toHaveBeenCalledWith(JSON.stringify({ type: "snapshot", iv: "i", ciphertext: "c", peerId: "alice" }));
   });
 
-  it("seedSnapshot populates the fast path without treating it as freshly received", () => {
+  it("R5: seedSnapshot populates the fast path without treating it as freshly received", () => {
     const onSnapshotReceived = vi.fn();
     const registry = new RoomConnectionRegistry({ limiter: unlimitedLimiter(), onSnapshotReceived });
     const alice = fakeSocket();
@@ -250,31 +257,31 @@ describe("RoomConnectionRegistry — room roles", () => {
 
   const envelope = (type: string) => JSON.stringify({ type, iv: "aXY", ciphertext: "Y3Q" });
 
-  it("drops a viewer's element-delta — the whole point of the role, and the only place it is enforced", () => {
+  it("R7: drops a viewer's element-delta — the whole point of the role, and the only place it is enforced", () => {
     const { registry, editor } = room();
     registry.handleMessage("viewer", envelope("element-delta"));
     expect(editor.received).toEqual([]);
   });
 
-  it("drops a viewer's snapshot — it would otherwise overwrite the room's whole document", () => {
+  it("R7: drops a viewer's snapshot — it would otherwise overwrite the room's whole document", () => {
     const { registry, editor } = room();
     registry.handleMessage("viewer", envelope("snapshot"));
     expect(editor.received).toEqual([]);
   });
 
-  it("relays a viewer's comment-delta — guest commenting is the feature this role exists for", () => {
+  it("R7: relays a viewer's comment-delta — guest commenting is the feature this role exists for", () => {
     const { registry, editor } = room();
     registry.handleMessage("viewer", envelope("comment-delta"));
     expect(editor.received).toEqual([JSON.stringify({ type: "comment-delta", iv: "aXY", ciphertext: "Y3Q", peerId: "viewer" })]);
   });
 
-  it("relays a viewer's presence, so a viewer still has a cursor and can be followed", () => {
+  it("R7: relays a viewer's presence, so a viewer still has a cursor and can be followed", () => {
     const { registry, editor } = room();
     registry.handleMessage("viewer", envelope("presence"));
     expect(editor.received).toHaveLength(1);
   });
 
-  it("answers a viewer's snapshot-request — a viewer has to be able to load the board", () => {
+  it("R7: answers a viewer's snapshot-request — a viewer has to be able to load the board", () => {
     const { registry, viewer } = room();
     registry.handleMessage("editor", envelope("snapshot"));
     viewer.received.length = 0;
@@ -282,20 +289,20 @@ describe("RoomConnectionRegistry — room roles", () => {
     expect(viewer.received).toHaveLength(1);
   });
 
-  it("does not close a viewer's connection over a rejected frame — an out-of-date client must not reconnect-loop", () => {
+  it("R7: does not close a viewer's connection over a rejected frame — an out-of-date client must not reconnect-loop", () => {
     const { registry, viewer } = room();
     registry.handleMessage("viewer", envelope("element-delta"));
     expect(viewer.closeCalls).toEqual([]);
     expect(registry.connectionCount).toBe(2);
   });
 
-  it("defaults an untagged join to editor — links minted before roles existed keep working", () => {
+  it("R7: defaults an untagged join to editor — links minted before roles existed keep working", () => {
     const { registry, viewer } = room();
     registry.handleMessage("editor", envelope("element-delta"));
     expect(viewer.received).toHaveLength(1);
   });
 
-  it("ignores a frame from a peer that already left", () => {
+  it("R7: ignores a frame from a peer that already left", () => {
     const { registry, editor } = room();
     registry.leave("viewer");
     editor.received.length = 0;

@@ -17,6 +17,12 @@
  * viewer" flag is decoration — a viewer can open devtools and send whatever frame they like — so the
  * boundary has to be here, and it is still a decision about a message's *type*, never its content: the
  * relay learns no more about a rejected `element-delta` than about an accepted one.
+ *
+ * Those decisions are specified in `docs/collab-relay-protocol.md` as rules `R1`…`R7`, because this is
+ * no longer the only implementation of them: the desktop app hosts the same protocol on a LAN
+ * (`apps/desktop/src-tauri/src/lan_relay/registry.rs`). Both files implement that one spec and both
+ * test suites name their cases after it, so the two cannot quietly diverge into two protocols. Nothing
+ * may be added here that the spec does not describe.
  */
 import type { RateLimiter } from "./rate-limit";
 import type { RoomRole } from "./room-role-token";
