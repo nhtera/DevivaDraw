@@ -9,7 +9,7 @@
  * bare `{type: "snapshot-request"}` signal or an opaque `{type, iv, ciphertext}` envelope whose
  * `iv`/`ciphertext` it only ever copies verbatim between connections — there is no `SubtleCrypto`/key
  * material anywhere in this file. Its only decisions are: is this connection over its per-connection
- * rate limit, does `type` look like one of the four known message kinds, and (for `snapshot-request`)
+ * rate limit, does `type` look like one of the five known message kinds, and (for `snapshot-request`)
  * does a stored snapshot already exist to answer immediately versus asking another connected peer to
  * produce one.
  */
@@ -21,7 +21,12 @@ export interface RoomSocket {
   close(code?: number, reason?: string): void;
 }
 
-const KNOWN_MESSAGE_TYPES = new Set(["element-delta", "presence", "snapshot", "snapshot-request"]);
+/**
+ * The message kinds this relay will route. `comment-delta` is one more opaque envelope exactly like
+ * `element-delta` — adding it costs one string here precisely because the relay is content-blind and
+ * has no idea a comment differs from a shape.
+ */
+const KNOWN_MESSAGE_TYPES = new Set(["element-delta", "comment-delta", "presence", "snapshot", "snapshot-request"]);
 
 /**
  * Hard cap on a single inbound WebSocket frame — a basic abuse/memory guard mirroring

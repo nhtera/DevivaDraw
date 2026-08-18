@@ -17,12 +17,13 @@ export { decryptEnvelope, encryptEnvelope, generateRoomKey, importRoomKey } from
 export { isPlausibleRemoteElement, mergeRemoteElement, remoteElementWins } from "./lww-merge";
 
 export type { OutboundSyncDeps } from "./outbound-sync";
-export { flushElementDeltas, sendDocumentSnapshot, sendFullSnapshot, sendPresenceUpdate } from "./outbound-sync";
+export { flushCommentDeltas, flushElementDeltas, sendDocumentSnapshot, sendFullSnapshot, sendPresenceUpdate } from "./outbound-sync";
 
 export type { CollabPagesAdapter, PagesManifest, PagesManifestEntry } from "./pages-adapter";
 export type { PageListEntry, PageStoreListener } from "./page-store";
 export { PageStore } from "./page-store";
 export { createPageStoreCollabAdapter } from "./page-store-adapter";
+export { mergeRemoteComments, mergeRemoteCommentMessage, mergeRemoteCommentThread, parseRemoteCommentMessage, parseRemoteCommentThread } from "./comments-adapter";
 export { isPlausibleLayersManifest } from "./layers-adapter";
 export type { LayersManifest } from "./layers-adapter";
 export { isPlausibleManifest, remoteManifestWins } from "./pages-adapter";

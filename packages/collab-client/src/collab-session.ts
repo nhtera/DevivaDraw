@@ -21,7 +21,7 @@ import { generateRoomKey, importRoomKey } from "./message-codec";
 import { ConnectionManager } from "./connection-manager";
 import type { WebSocketLike } from "./connection-manager";
 import { handleInboundMessage } from "./inbound-message-handler";
-import { flushElementDeltas, sendDocumentSnapshot, sendFullSnapshot } from "./outbound-sync";
+import { flushCommentDeltas, flushElementDeltas, sendDocumentSnapshot, sendFullSnapshot } from "./outbound-sync";
 import type { CollabPagesAdapter } from "./pages-adapter";
 import { PresenceBroadcaster } from "./presence-broadcaster";
 import { PresenceStore } from "./presence-state";
@@ -69,6 +69,8 @@ export class CollabSession {
   private tornDown = true;
 
   private readonly syncedVersions = new Map<string, number>();
+  /** Comment-record sync state, kept apart from `syncedVersions` on purpose — see `outbound-sync.ts`'s `flushCommentDeltas` for why a shared map guarded by a naming convention is a collision waiting to happen. */
+  private readonly syncedComments = new Map<string, number>();
   private outboundTimer: ReturnType<typeof setTimeout> | null = null;
   private unsubscribeScene: (() => void) | null = null;
   private unsubscribePages: (() => void) | null = null;
@@ -151,6 +153,7 @@ export class CollabSession {
     if (this.snapshotTimer !== null) clearInterval(this.snapshotTimer);
     this.snapshotTimer = null;
     this.syncedVersions.clear();
+    this.syncedComments.clear();
     this.presence.clear();
     this.presenceBroadcaster.reset();
     this.roomKey = null;
@@ -242,6 +245,7 @@ export class CollabSession {
       presence: this.presence,
       roomKey: this.roomKey,
       markSynced: (id, version, pageId) => this.syncedVersions.set(pageId === undefined ? id : `${pageId}/${id}`, version),
+      markCommentSynced: (id, version, pageId) => this.syncedComments.set(pageId === undefined ? id : `${pageId}/${id}`, version),
       onPeerLeft: (peerId) => this.presence.removePeer(peerId),
       onSnapshotRequested: () => void this.sendSnapshot(),
     });
@@ -263,7 +267,10 @@ export class CollabSession {
       if (this.pages) {
         for (const pageId of this.pages.listPageIds()) {
           const scene = this.pages.getScene(pageId);
-          if (scene) void flushElementDeltas({ scene, pageId, roomKey: live.roomKey, send }, this.syncedVersions);
+          if (scene) {
+            void flushElementDeltas({ scene, pageId, roomKey: live.roomKey, send }, this.syncedVersions);
+            void flushCommentDeltas({ scene, pageId, roomKey: live.roomKey, send }, this.syncedComments);
+          }
         }
         if (this.manifestDirty) {
           this.manifestDirty = false;
@@ -272,6 +279,7 @@ export class CollabSession {
         return;
       }
       void flushElementDeltas({ scene: this.scene, roomKey: live.roomKey, send }, this.syncedVersions);
+      void flushCommentDeltas({ scene: this.scene, roomKey: live.roomKey, send }, this.syncedComments);
     }, OUTBOUND_SYNC_DEBOUNCE_MS);
   }
 

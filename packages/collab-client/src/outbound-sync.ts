@@ -55,10 +55,55 @@ export async function flushElementDeltas(deps: OutboundSyncDeps, syncedVersions:
   }
 }
 
+/**
+ * The comment sibling of `flushElementDeltas`, with the identical version-diffing strategy and the
+ * identical stale-after-encrypt guard — a concurrent local edit or an inbound merge can land on a
+ * record while this coroutine is suspended mid-encrypt, and sending the superseded frame (or, worse,
+ * recording its version as synced) is how a store goes quietly stale.
+ *
+ * `syncedComments` is a SEPARATE map from the element one, not a prefixed namespace inside it: a
+ * comment id and an element id are both opaque strings, and a shared map guarded only by a naming
+ * convention is one forgetful edit away from a collision that silently stops syncing an element.
+ *
+ * Threads and messages are flushed as their own `comment-delta` frames — never batched into one —
+ * because per-record deltas are exactly what lets two peers' concurrent replies both survive.
+ */
+export async function flushCommentDeltas(deps: OutboundSyncDeps, syncedComments: Map<string, number>): Promise<void> {
+  const encrypt = deps.encryptEnvelope ?? encryptEnvelope;
+  const scene = deps.scene;
+  const key = (id: string) => (deps.pageId === undefined ? id : `${deps.pageId}/${id}`);
+
+  for (const thread of scene.getAllCommentThreads()) {
+    if (syncedComments.get(key(thread.id)) === thread.version) continue;
+    const versionAtScanTime = thread.version;
+    const envelope = await encrypt(deps.roomKey, "comment-delta", deps.pageId === undefined ? { thread } : { thread, pageId: deps.pageId });
+    const current = scene.getCommentThread(thread.id);
+    if (!current || current.version !== versionAtScanTime) continue; // superseded during the encrypt window
+    syncedComments.set(key(thread.id), versionAtScanTime);
+    deps.send(JSON.stringify(envelope));
+  }
+
+  for (const message of scene.getAllCommentMessages()) {
+    if (syncedComments.get(key(message.id)) === message.version) continue;
+    const versionAtScanTime = message.version;
+    const envelope = await encrypt(deps.roomKey, "comment-delta", deps.pageId === undefined ? { message } : { message, pageId: deps.pageId });
+    const current = scene.getCommentMessage(message.id);
+    if (!current || current.version !== versionAtScanTime) continue;
+    syncedComments.set(key(message.id), versionAtScanTime);
+    deps.send(JSON.stringify(envelope));
+  }
+}
+
+/** The comment arrays a snapshot carries for one scene, or `{}` when it has none — an untouched scene adds no keys, so pre-comments peers see exactly the payload they always did. */
+function commentsSnapshotFields(scene: Scene): { comments?: unknown[]; commentMessages?: unknown[] } {
+  if (!scene.hasComments()) return {};
+  return { comments: scene.getAllCommentThreads(), commentMessages: scene.getAllCommentMessages() };
+}
+
 /** Sends every current element (including soft-deleted ones) as one `snapshot` message — the full-state recovery path a newly-joined or reconnecting peer's `snapshot-request` resolves against. */
 export async function sendFullSnapshot(deps: OutboundSyncDeps): Promise<void> {
   const elements = [...deps.scene.elementsUnsorted()];
-  const envelope = await encryptEnvelope(deps.roomKey, "snapshot", { elements });
+  const envelope = await encryptEnvelope(deps.roomKey, "snapshot", { elements, ...commentsSnapshotFields(deps.scene) });
   deps.send(JSON.stringify(envelope));
 }
 
@@ -73,13 +118,16 @@ export async function sendDocumentSnapshot(deps: Omit<OutboundSyncDeps, "scene" 
     manifest,
     pages: manifest.pages.map((entry) => {
       const layers = pages.getLayersManifest(entry.id);
+      const scene = pages.getScene(entry.id);
       return {
         id: entry.id,
         name: entry.name,
-        elements: [...(pages.getScene(entry.id)?.elementsUnsorted() ?? [])],
+        elements: [...(scene?.elementsUnsorted() ?? [])],
         // Attached inside the per-page entry (never a new wire type) — pre-layers peers ignore the
         // unknown key; `null` (never-mutated) pages send nothing so they can't outrank real state.
         ...(layers !== null ? { layers } : {}),
+        // Comments ride the same way, under the same "omit when empty" rule.
+        ...(scene ? commentsSnapshotFields(scene) : {}),
       };
     }),
   };

@@ -84,6 +84,20 @@ describe("RoomConnectionRegistry — relay", () => {
     expect(bob.received).toEqual([JSON.stringify({ type: "presence", iv: "iv1", ciphertext: "ct1", peerId: "alice" })]);
   });
 
+  it("relays a comment-delta exactly like an element-delta — the relay cannot tell a comment from a shape", () => {
+    const registry = new RoomConnectionRegistry({ limiter: unlimitedLimiter() });
+    const alice = fakeSocket();
+    const bob = fakeSocket();
+    registry.join("alice", alice);
+    registry.join("bob", bob);
+    [alice, bob].forEach((s) => (s.received.length = 0));
+
+    registry.handleMessage("alice", JSON.stringify({ type: "comment-delta", iv: "iv1", ciphertext: "ct1" }));
+
+    expect(alice.received).toEqual([]);
+    expect(bob.received).toEqual([JSON.stringify({ type: "comment-delta", iv: "iv1", ciphertext: "ct1", peerId: "alice" })]);
+  });
+
   it("drops malformed JSON without throwing or broadcasting anything", () => {
     const registry = new RoomConnectionRegistry({ limiter: unlimitedLimiter() });
     const alice = fakeSocket();

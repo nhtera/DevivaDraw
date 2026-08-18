@@ -11,6 +11,7 @@ import type { RoomEnvelope } from "./message-codec";
 import { mergeRemoteElement } from "./lww-merge";
 import { isPlausibleManifest } from "./pages-adapter";
 import { isPlausibleLayersManifest } from "./layers-adapter";
+import { mergeRemoteComments, mergeRemoteCommentMessage, mergeRemoteCommentThread } from "./comments-adapter";
 import type { CollabPagesAdapter } from "./pages-adapter";
 import type { Scene } from "@deviva-draw/engine";
 import type { PresenceStore } from "./presence-state";
@@ -33,6 +34,16 @@ export interface InboundMessageDeps {
    * state promptly instead of only catching whatever element-deltas happen to arrive after they joined.
    */
   onSnapshotRequested(): void;
+  /**
+   * Records that a comment record is now synced at `version`, in the caller's SEPARATE comment map —
+   * see `outbound-sync.ts`'s `flushCommentDeltas` for why it is not the element map.
+   *
+   * OPTIONAL, unlike `markSynced`: this interface is part of the package's public surface, and a host
+   * that predates comments must keep compiling. Omitting it costs only a redundant re-send of a
+   * just-received record on the next outbound scan (the receiving peer's LWW then discards it as an
+   * already-applied identical delta) — never correctness.
+   */
+  markCommentSynced?(id: string, version: number, pageId?: string): void;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -57,6 +68,20 @@ async function applyElementPayload(payload: unknown, deps: InboundMessageDeps): 
   }
 }
 
+/** One `comment-delta` frame: exactly one of `thread`/`message`, routed to its page the same way an element delta is. */
+function applyCommentPayload(payload: unknown, deps: InboundMessageDeps): void {
+  if (!isRecord(payload)) return;
+  const target = resolveTargetScene(payload.pageId, deps);
+  if (!target) return; // a delta racing the deletion of its page must not resurrect it
+  const pageId = typeof payload.pageId === "string" ? payload.pageId : undefined;
+
+  const thread = mergeRemoteCommentThread(target, payload.thread);
+  if (thread) deps.markCommentSynced?.(thread.id, thread.version, pageId);
+
+  const message = mergeRemoteCommentMessage(target, payload.message);
+  if (message) deps.markCommentSynced?.(message.id, message.version, pageId);
+}
+
 function mergeElementsInto(target: Scene, elements: unknown[], deps: InboundMessageDeps, pageId?: string): void {
   for (const element of elements) {
     if (mergeRemoteElement(target, element)) {
@@ -64,6 +89,13 @@ function mergeElementsInto(target: Scene, elements: unknown[], deps: InboundMess
       deps.markSynced(applied.id, applied.version, pageId);
     }
   }
+}
+
+/** A snapshot's comment arrays for one scene — absent on a pre-comments peer's snapshot, which is simply nothing to merge. */
+function mergeCommentsInto(target: Scene, rawThreads: unknown, rawMessages: unknown, deps: InboundMessageDeps, pageId?: string): void {
+  const applied = mergeRemoteComments(target, rawThreads, rawMessages);
+  for (const thread of applied.threads) deps.markCommentSynced?.(thread.id, thread.version, pageId);
+  for (const message of applied.messages) deps.markCommentSynced?.(message.id, message.version, pageId);
 }
 
 async function applySnapshotPayload(payload: unknown, deps: InboundMessageDeps): Promise<void> {
@@ -83,6 +115,7 @@ async function applySnapshotPayload(payload: unknown, deps: InboundMessageDeps):
       // the read-time orphan rule reunites any elements that arrived first).
       if (isPlausibleLayersManifest(entry.layers)) deps.pages.applyRemoteLayersManifest(entry.id, entry.layers);
       mergeElementsInto(target, entry.elements, deps, entry.id);
+      mergeCommentsInto(target, entry.comments, entry.commentMessages, deps, entry.id);
     }
     return;
   }
@@ -90,6 +123,7 @@ async function applySnapshotPayload(payload: unknown, deps: InboundMessageDeps):
   // Legacy single-scene snapshot (a pre-pages peer): everything lands in the default scene.
   if (!Array.isArray(payload.elements)) return;
   mergeElementsInto(deps.scene, payload.elements, deps);
+  mergeCommentsInto(deps.scene, payload.comments, payload.commentMessages, deps);
 }
 
 /** Entry point: parse `raw`, route by `type`, decrypt+apply. Never throws — every failure path is a silent no-op by design (see module doc). */
@@ -116,6 +150,11 @@ export async function handleInboundMessage(raw: string, deps: InboundMessageDeps
   if (envelope.type === "element-delta") {
     const decrypted = await decryptEnvelope(deps.roomKey, envelope);
     if (decrypted.ok) await applyElementPayload(decrypted.payload, deps);
+    return;
+  }
+  if (envelope.type === "comment-delta") {
+    const decrypted = await decryptEnvelope(deps.roomKey, envelope);
+    if (decrypted.ok) applyCommentPayload(decrypted.payload, deps);
     return;
   }
   if (envelope.type === "snapshot") {

@@ -1,17 +1,18 @@
 /**
  * Last-writer-wins conflict resolution for remote element deltas — the entire correctness guarantee
  * for concurrent edits, so this must be implemented exactly (not approximated) and identically on
- * every client: a higher `version` always wins outright; an equal `version` is broken by a
- * deterministic, order-independent comparison of `versionNonce` (lexicographic string comparison, not
- * numeric — either is deterministic, but the string form is what every client in this codebase compares,
- * so it must stay that way rather than silently drifting to a different-but-also-deterministic rule)
- * so all peers converge to the same winner without a central arbiter. Fractional-index z-order
+ * every client. The comparison itself now lives in the engine (`scene/lww-record.ts`) because comment
+ * records resolve with the identical rule and the engine's own store has to apply it inside
+ * `applyRemote*` — one implementation, two callers, rather than two implementations that could drift
+ * and split the network. This module keeps the element-specific validation and apply step.
+ * Fractional-index z-order
  * conflicts need no separate handling: `index` is just another field on the element, so whichever
  * element wins the version/versionNonce comparison carries its `index` along as part of the same
  * atomic decision, and fractional-index comparison is itself total-order-consistent regardless of
  * application order.
  */
 import type { AnyElement, Scene } from "@deviva-draw/engine";
+import { lwwRecordWins } from "@deviva-draw/engine";
 
 /**
  * Structural validation for an inbound remote element — the decrypted payload is still untrusted at
@@ -46,10 +47,7 @@ export function isPlausibleRemoteElement(value: unknown): value is AnyElement {
  * which callers use to skip a redundant `Scene.applyRemoteElement`/rebroadcast.
  */
 export function remoteElementWins(local: AnyElement | undefined, remote: AnyElement): boolean {
-  if (!local) return true;
-  if (remote.version !== local.version) return remote.version > local.version;
-  if (remote.versionNonce === local.versionNonce) return false;
-  return String(remote.versionNonce) > String(local.versionNonce);
+  return lwwRecordWins(local, remote);
 }
 
 /**
