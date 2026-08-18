@@ -19,7 +19,7 @@
  */
 import { generateRoomKey, importRoomKey } from "./message-codec";
 import { ConnectionManager } from "./connection-manager";
-import type { WebSocketLike } from "./connection-manager";
+import type { GiveUpReason, WebSocketLike } from "./connection-manager";
 import { handleInboundMessage } from "./inbound-message-handler";
 import { flushCommentDeltas, flushElementDeltas, sendDocumentSnapshot, sendFullSnapshot } from "./outbound-sync";
 import type { CollabPagesAdapter } from "./pages-adapter";
@@ -75,6 +75,13 @@ export interface CollabSessionOptions {
    */
   createRoom?(apiBaseUrl: string): Promise<MintedRoom>;
   onStatusChange?(status: CollabConnectionStatus): void;
+  /**
+   * Fires once when a session ends on its own rather than because the user left — the host stopped
+   * hosting, the relay refused this client, or it became unreachable. A status change alone cannot
+   * carry this: "disconnected" is also what leaving looks like, and the two need different words on
+   * screen.
+   */
+  onEnded?(reason: GiveUpReason): void;
   /** Overrides `ConnectionManager`'s reconnect-backoff timing — tests only (production relies on the defaults). */
   initialBackoffMs?: number;
   maxBackoffMs?: number;
@@ -94,6 +101,7 @@ export class CollabSession {
   private readonly createSocket?: (url: string) => WebSocketLike;
   private readonly createRoom?: (apiBaseUrl: string) => Promise<MintedRoom>;
   private readonly onStatusChange?: (status: CollabConnectionStatus) => void;
+  private readonly onEnded?: (reason: GiveUpReason) => void;
   private readonly initialBackoffMs?: number;
   private readonly maxBackoffMs?: number;
   private readonly presenceBroadcaster: PresenceBroadcaster;
@@ -123,6 +131,7 @@ export class CollabSession {
     this.createSocket = options.createSocket;
     this.createRoom = options.createRoom;
     this.onStatusChange = options.onStatusChange;
+    this.onEnded = options.onEnded;
     this.initialBackoffMs = options.initialBackoffMs;
     this.maxBackoffMs = options.maxBackoffMs;
     this.presenceBroadcaster = new PresenceBroadcaster({
@@ -298,10 +307,11 @@ export class CollabSession {
       // The room is not coming back: the host stopped, this client was refused, or the attempts ran
       // out. Reported as a real disconnect rather than a permanent "connecting", so the UI can offer
       // the session as over instead of showing a spinner with nothing behind it.
-      onGiveUp: () => {
+      onGiveUp: (reason) => {
         if (this.tornDown) return;
         this.presence.clear();
         this.setStatus("disconnected");
+        this.onEnded?.(reason);
       },
       onMessage: (data) => void this.dispatchInbound(data),
       initialBackoffMs: this.initialBackoffMs,

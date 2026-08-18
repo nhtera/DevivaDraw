@@ -20,6 +20,8 @@ import { useOfflineHint } from "../hooks/use-online";
 
 export interface CollabDialogProps {
   collab: UseCollabSessionResult;
+  /** Joins a room. Supplied by the shell, which replaces the open document rather than merging into it — see `deviva-draw-shell.tsx`. Defaults to the plain session join for a host rendering this dialog directly. */
+  onJoin?(url: string): Promise<void>;
   /** Hosting state from `useLanHosting`; its `supported` flag decides whether any hosting UI renders. Optional so an application already rendering this dialog directly keeps compiling — omitting it simply means no hosting, which is what every host but the desktop app does anyway. */
   hosting?: UseLanHostingResult;
   onClose(): void;
@@ -46,6 +48,7 @@ const ERROR_KEY: Record<NonNullable<CollabErrorReason>, TranslationKey> = {
 export function CollabDialog(props: CollabDialogProps) {
   const { collab, onClose } = props;
   const hosting = props.hosting ?? NO_HOSTING;
+  const join = props.onJoin ?? collab.joinSession;
   const { t } = useTranslation();
   const [joinUrl, setJoinUrl] = useState("");
   const [copied, setCopied] = useState<"editor" | "viewer" | null>(null);
@@ -109,7 +112,7 @@ export function CollabDialog(props: CollabDialogProps) {
                 style={inputStyle}
                 data-testid="collab-dialog-join-input"
               />
-              <button type="button" onClick={() => void collab.joinSession(joinUrl)} disabled={!joinUrl} data-testid="collab-dialog-join">
+              <button type="button" onClick={() => void join(joinUrl)} disabled={!joinUrl} data-testid="collab-dialog-join">
                 {t("collab.dialog.join")}
               </button>
             </div>

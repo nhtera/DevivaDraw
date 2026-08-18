@@ -8,7 +8,7 @@ export const COLLAB_CLIENT_VERSION = "0.1.0";
 export type { CollabConnectionStatus, CollabRole, CollabSessionOptions, MintedRoom, RoomLinks } from "./collab-session";
 export { CollabSession } from "./collab-session";
 
-export type { ConnectionManagerOptions, WebSocketLike } from "./connection-manager";
+export type { ConnectionManagerOptions, GiveUpReason, WebSocketLike } from "./connection-manager";
 export { computeReconnectDelayMs, ConnectionManager } from "./connection-manager";
 
 export type { DecryptEnvelopeResult, EnvelopeCodecOptions, RoomEnvelope } from "./message-codec";

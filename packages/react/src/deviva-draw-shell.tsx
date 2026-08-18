@@ -50,6 +50,7 @@ import { LayersPanel } from "./components/layers-panel";
 import { CommentsCanvasLayer } from "./components/comments/comments-canvas-layer";
 import { CommentsPanel } from "./components/comments/comments-panel";
 import { CollabDialog } from "./components/collab-dialog";
+import { SessionEndedNotice } from "./components/session-ended-notice";
 import { ShortcutsDialog } from "./components/shortcuts-dialog";
 import { FindPanel } from "./components/find-panel";
 import { ExportDialog } from "./components/export-dialog";
@@ -86,7 +87,7 @@ import type { ShareDialogState } from "./actions/action-types";
 import type { DevivaDrawProps } from "./deviva-draw-app-types";
 
 export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(function DevivaDrawShell(props, ref) {
-  const { initialData, persistenceKey, onChange, className, style, initialViewOnly, shareApiBaseUrl, initialRoomUrl, fileOperations, onDocumentStateChange, lanHost } = props;
+  const { initialData, persistenceKey, onChange, className, style, initialViewOnly, shareApiBaseUrl, initialRoomUrl, fileOperations, onDocumentStateChange, lanHost, confirmDiscardChanges } = props;
   const canvasHostRef = useRef<HTMLDivElement | null>(null);
 
   // The document's page list, seeded once: host-supplied `initialData` wraps into a single page
@@ -406,6 +407,29 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   // `apiBaseUrl` doc) rather than introducing a second, near-identical prop.
   const canvasBackground = useCanvasBackground(runtime?.scene ?? null);
   const collab = useCollabSession({ scene: runtime?.scene ?? null, pageStore, apiBaseUrl: shareApiBaseUrl });
+  /**
+   * Joining a room is opening a document, not merging one.
+   *
+   * Merging was the old behaviour and it was wrong in a way that mattered: a peer that had drawn
+   * anything kept its own pages, and the page manifest then published that work — every page, every
+   * element — into the room it had just joined. Somebody's unsaved board went to everyone there.
+   *
+   * So the room's board replaces what is open, after the host has had its chance to ask about
+   * unsaved work. Blanking first also means the joiner arrives as an untouched client, which is
+   * exactly the state page adoption is built for.
+   *
+   * Starting a session is deliberately NOT this: sharing the board you already have is the whole
+   * point of hosting one.
+   */
+  const joinRoom = useCallback(
+    async (url: string) => {
+      if (confirmDiscardChanges && !(await confirmDiscardChanges())) return;
+      handle?.newDocument();
+      await collab.joinSession(url);
+    },
+    [confirmDiscardChanges, handle, collab],
+  );
+
   // Hosting is a peer of the session, not a mode of it: it must survive the dialog closing, and it is
   // the one collaboration path that works with no `shareApiBaseUrl` and no internet at all.
   const hosting = useLanHosting({ lanHost, hostSession: collab.hostSession, leaveSession: collab.leaveSession });
@@ -576,7 +600,10 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       {runtime && initialViewOnly && !panelsHidden && (
         <ShareViewerBadge viewOnly={viewOnly.value} onEditCopy={() => void runtime.actionRegistry.run("toggle-view-only", runtime)} />
       )}
-      {runtime && collabDialogOpen.value && <CollabDialog collab={collab} hosting={hosting} onClose={() => collabDialogOpen.set(false)} />}
+      {/* Outside the dialog on purpose: a session usually ends while the dialog is closed, and a
+          notice nobody can see is not a notice. */}
+      {collab.endedReason !== null && <SessionEndedNotice reason={collab.endedReason} onDismiss={collab.dismissEnded} />}
+      {runtime && collabDialogOpen.value && <CollabDialog collab={collab} hosting={hosting} onJoin={joinRoom} onClose={() => collabDialogOpen.set(false)} />}
       {runtime && commandPaletteOpen.value && <CommandPalette runtime={runtime} onClose={() => commandPaletteOpen.set(false)} />}
       {pendingPlacement && <ImagePlacementOverlay placement={pendingPlacement} getCamera={getCamera} />}
       {runtime && <LinkBadgesOverlay scene={runtime.scene} cameraStore={cameraStore} />}

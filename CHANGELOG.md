@@ -4,6 +4,28 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.11.3] — 2026-08-18
+
+### Fixed
+
+- **Joining a room no longer publishes your open board to it.** A peer that had drawn anything kept
+  its own pages on joining — and the page manifest then sent that work, every page and every element,
+  into the room it had just joined, where everyone could see it. Unsaved private work went to
+  strangers. Joining is now what it always should have been: opening a document. The room's board
+  replaces what is open rather than merging with it, after the host has had its chance to ask about
+  unsaved changes. Starting a session is deliberately unchanged — sharing the board you already have
+  is the point of hosting one.
+- **A replaced document forgets the file it used to be.** Otherwise the next Save would write the new
+  contents straight over the user's previous file.
+
+### Added
+
+- **A notice when a session ends without you leaving it.** A host who stops hosting, a refused
+  connection, or a relay that never came back all used to end in silence: the peers simply vanished
+  and the canvas kept working, so there was nothing to distinguish "everyone went quiet" from "you
+  are alone in a document nobody else can see". It says which happened, because a host that stopped
+  is final while a lost network might not be.
+
 ## [0.11.2] — 2026-08-18
 
 ### Fixed

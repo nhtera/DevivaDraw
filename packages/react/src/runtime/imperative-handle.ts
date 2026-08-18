@@ -78,6 +78,14 @@ export interface DevivaDrawHandle {
    * live-reload flow's "no camera jump" contract.
    */
   openDocument(text: string, path: string | null, options?: { preserveCamera?: boolean }): boolean;
+  /**
+   * Replaces the document with an empty one — a blank page, no file identity, no unsaved changes.
+   *
+   * Does NOT prompt about unsaved work: like `openDocument`, the host owns that decision, because
+   * only the host knows whether it already asked. Used when joining a collaboration room, where the
+   * room's board replaces whatever was open rather than merging with it.
+   */
+  newDocument(): void;
   /** Save with the outcome surfaced — see `PersistenceOperations.saveSceneOutcome`. Hosts without provider-backed persistence resolve `"saved"` after the browser save flow. */
   saveDocument(options?: { saveAs?: boolean }): Promise<SaveDocumentOutcome>;
   /**
@@ -96,6 +104,7 @@ export interface DevivaDrawHandle {
 export interface DocumentControlDeps {
   runAction(actionId: string): boolean;
   openDocument(text: string, path: string | null, options?: { preserveCamera?: boolean }): boolean;
+  newDocument(): void;
   saveDocument(options?: { saveAs?: boolean }): Promise<SaveDocumentOutcome>;
   /** The self-contained document — see `DevivaDrawHandle.getDocument`. */
   getDocument(): MultiPageDocumentV1 | SceneDocument;
@@ -121,6 +130,7 @@ export function buildImperativeHandle(deps: ImperativeHandleDeps): DevivaDrawHan
   return {
     runAction: (actionId) => documentControl?.runAction(actionId) ?? false,
     openDocument: (text, path, options) => documentControl?.openDocument(text, path, options) ?? false,
+    newDocument: () => documentControl?.newDocument(),
     saveDocument: (options) => documentControl?.saveDocument(options) ?? Promise.resolve("canceled" as const),
     // Falls back to the single live scene when no host wired document control up (test harnesses):
     // still self-contained, just one page's worth.

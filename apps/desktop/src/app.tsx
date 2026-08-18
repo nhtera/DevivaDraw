@@ -36,6 +36,7 @@ export function App() {
       ref={editorRef}
       shareApiBaseUrl={SHARE_API_BASE_URL}
       lanHost={lanHost}
+      confirmDiscardChanges={documentHost.confirmDiscardChanges}
       fileOperations={fileOperations}
       onDocumentStateChange={documentHost.onDocumentStateChange}
       offlineHints

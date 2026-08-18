@@ -225,7 +225,8 @@ describe("buildImperativeHandle — getDocument", () => {
   it("delegates to the host's document control when one is wired (multi-page hosts)", () => {
     const scene = new Scene();
     const whole = { type: "devivadraw/document", schemaVersion: 1, pages: [] } as never;
-    const handle = buildImperativeHandle({ ...buildDeps(scene), documentControl: { runAction: () => false, openDocument: () => false, saveDocument: () => Promise.resolve("canceled" as const), getDocument: () => whole } });
+    const handle = buildImperativeHandle({ ...buildDeps(scene), documentControl: { runAction: () => false, openDocument: () => false,
+      newDocument: () => {}, saveDocument: () => Promise.resolve("canceled" as const), getDocument: () => whole } });
 
     expect(handle.getDocument()).toBe(whole);
   });

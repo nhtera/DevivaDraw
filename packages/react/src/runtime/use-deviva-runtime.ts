@@ -374,6 +374,17 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
         textMeasurer: createCanvasTextMeasurer(document.createElement("canvas").getContext("2d")!),
         imageDecodeCache: new ImageDecodeCache(createBrowserImageDecoder()),
         documentControl: {
+          // A blank document, the way `openDocument` replaces one — same swap, same autosave flush,
+          // but with no file behind it. The identity reset is the part that matters: a document that
+          // kept its old path here would let the next Save write this new, empty (or, once a room's
+          // board arrives, someone else's) content straight over the user's own file.
+          newDocument: () => {
+            if (pageStore) pageStore.replaceAll([{ id: generatePageId(), name: "Page 1", scene: new Scene() }], null);
+            else onSceneReplaced(new Scene());
+            cameraStore.setCamera(createCamera());
+            documentState.markNewDocument();
+            autosave?.flush();
+          },
           // Same dispatch the in-shell menu/palette use — one action surface for native menus too.
           runAction: (actionId) => {
             if (!builtRuntime.actionRegistry.list().some((action) => action.id === actionId)) return false;

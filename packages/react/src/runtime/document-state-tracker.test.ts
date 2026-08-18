@@ -46,3 +46,49 @@ describe("DocumentStateTracker", () => {
     expect(seen).toHaveBeenCalledTimes(2);
   });
 });
+
+/**
+ * The rule that keeps a replaced document from writing over the file it used to be.
+ */
+describe("markNewDocument", () => {
+  it("forgets the file the document used to be, so the next save cannot overwrite it", () => {
+    const tracker = new DocumentStateTracker();
+    tracker.markSaved({ path: "/home/me/my-work.devivadraw", name: "my-work.devivadraw" });
+    tracker.markContentChanged();
+
+    tracker.markNewDocument();
+
+    expect(tracker.getState().path).toBeNull();
+    expect(tracker.getState().name).toBe("Untitled");
+  });
+
+  it("is clean, because a blank document has nothing in it to lose", () => {
+    const tracker = new DocumentStateTracker();
+    tracker.markContentChanged();
+    expect(tracker.getState().dirty).toBe(true);
+
+    tracker.markNewDocument();
+
+    expect(tracker.getState().dirty).toBe(false);
+  });
+
+  it("goes dirty again on the first edit after it, like any other document", () => {
+    const tracker = new DocumentStateTracker();
+    tracker.markNewDocument();
+
+    tracker.markContentChanged();
+
+    expect(tracker.getState().dirty).toBe(true);
+  });
+
+  it("notifies, so a host title bar drops the file name it was showing", () => {
+    const tracker = new DocumentStateTracker();
+    tracker.markSaved({ path: "/tmp/a.devivadraw", name: "a.devivadraw" });
+    let notifications = 0;
+    tracker.subscribe(() => (notifications += 1));
+
+    tracker.markNewDocument();
+
+    expect(notifications).toBe(1);
+  });
+});

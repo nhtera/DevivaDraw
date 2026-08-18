@@ -101,27 +101,43 @@ export class DocumentHost {
   }
 
   /**
-   * The ONE unsaved-changes gate for every app-exit path — window close, Cmd+W, Cmd+Q, AND the
-   * updater's restart (`exit: "relaunch"`). Prompts, optionally saves, then exits; returns
-   * without exiting on Cancel or a failed/canceled save.
+   * The ONE unsaved-changes gate, shared by everything that would otherwise lose the open document:
+   * every app-exit path (window close, Cmd+W, Cmd+Q, the updater's restart) and joining a
+   * collaboration room, which replaces the document with somebody else's board.
+   *
+   * `true` means it is safe to proceed — the work was saved, or the user chose to abandon it, or
+   * there was nothing unsaved to begin with (the common case, which asks nothing). `false` means
+   * Cancel, or a save that failed or was canceled: the document stays open and stays dirty.
+   *
+   * Self-guarding, because the callers can overlap and stacked prompts are their own bug.
    */
-  async guardedClose(exit: "close" | "relaunch" = "close"): Promise<void> {
-    if (this.closePromptInFlight) return; // self-guarding: close, quit, AND updater-restart share it — prompts never stack
+  readonly confirmDiscardChanges = async (): Promise<boolean> => {
+    if (this.closePromptInFlight) return false;
     this.closePromptInFlight = true;
     try {
-      if (this.state.dirty) {
-        const choice = await invoke<string>("prompt_unsaved", { name: this.state.name });
-        if (choice === "cancel") return;
-        if (choice === "save") {
-          const outcome = await this.saveFlow(false);
-          if (outcome !== "saved") return; // canceled or failed → stay open, stay dirty
-        }
-      }
+      if (!this.state.dirty) return true;
+      const choice = await invoke<string>("prompt_unsaved", { name: this.state.name });
+      if (choice === "cancel") return false;
+      if (choice === "save") return (await this.saveFlow(false)) === "saved";
+      return true; // "don't save" — the user chose to lose it
+    } finally {
+      this.closePromptInFlight = false;
+    }
+  };
+
+  /**
+   * The unsaved-changes gate followed by actually leaving — window close, Cmd+W, Cmd+Q, AND the
+   * updater's restart (`exit: "relaunch"`). Returns without exiting on Cancel or a failed/canceled
+   * save.
+   */
+  async guardedClose(exit: "close" | "relaunch" = "close"): Promise<void> {
+    try {
+      if (!(await this.confirmDiscardChanges())) return;
       this.closing = true;
       if (exit === "relaunch") await relaunch();
       else await getCurrentWindow().destroy();
-    } finally {
-      this.closePromptInFlight = false;
+    } catch (error) {
+      console.error("deviva-draw: close was interrupted", error);
     }
   }
 

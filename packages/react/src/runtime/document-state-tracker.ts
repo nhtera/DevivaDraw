@@ -46,6 +46,22 @@ export class DocumentStateTracker {
     this.notify();
   }
 
+  /**
+   * A blank document replaced whatever was open: no file identity, and clean, because there is
+   * nothing in it yet to lose.
+   *
+   * Separate from `markSaved` and not expressible with it: passing a null identity there would leave
+   * the document pointing at no file while still counting as "saved", which is the same end state by
+   * accident rather than on purpose. It matters most for what it prevents — a document that keeps its
+   * old path after being replaced would let the next Save write the new contents over the user's
+   * previous file.
+   */
+  markNewDocument(): void {
+    this.identity = null;
+    this.savedRevision = this.revision;
+    this.notify();
+  }
+
   getState(): DocumentState {
     return {
       path: this.identity?.path ?? null,

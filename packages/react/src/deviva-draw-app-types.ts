@@ -34,6 +34,16 @@ export interface DevivaDrawProps {
   fileOperations?: FileOperationsProvider;
   /** Fired synchronously on every document identity/dirty transition (`{path, name, dirty}`) — the desktop shell's title bar, macOS documentEdited dot, recents, and unsaved-close guard all hang off this. Dirty is content-only: pan/zoom and page switching never set it. */
   onDocumentStateChange?(state: DocumentState): void;
+  /**
+   * Asked before this editor replaces the open document with somebody else's — today, before joining
+   * a collaboration room. Resolve `true` to proceed, `false` to abort the join.
+   *
+   * Exists because only the host knows what "unsaved" means for it: the desktop shell has real files
+   * and its own Save / Don't save / Cancel prompt, while a browser has autosave and usually nothing
+   * to ask about. Omit it and joining proceeds without asking, which is right for a host whose
+   * document is not the user's own work (the standalone web app scopes a room to its own storage).
+   */
+  confirmDiscardChanges?(): Promise<boolean>;
   /** Lets this editor host a collaboration room on the local network — desktop-only, since hosting means listening on a TCP port. Omit (the browser default) and no hosting UI renders at all. See `browser/lan-host-controller.ts`. */
   lanHost?: LanHostController;
   /** Lets online-only entry points (Share, Collaborate, Mermaid AI) render a "requires internet" hint and disable themselves while `navigator.onLine` is false — set by the desktop shell. Omit (the browser default) and those surfaces render exactly as before, hint code inert. */

@@ -15,7 +15,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { adoptRoomPages, CollabSession, createPageStoreCollabAdapter } from "@deviva-draw/collab-client";
-import type { CollabConnectionStatus, CollabPagesAdapter, CollabRole, MintedRoom, PresenceViewport, RemotePeerPresence } from "@deviva-draw/collab-client";
+import type { CollabConnectionStatus, CollabPagesAdapter, CollabRole, GiveUpReason, MintedRoom, PresenceViewport, RemotePeerPresence } from "@deviva-draw/collab-client";
 import type { Scene } from "@deviva-draw/engine";
 import { randomGuestColor, randomGuestName } from "./random-collab-identity";
 import type { PageStore } from "../pages/page-store";
@@ -70,6 +70,13 @@ export interface UseCollabSessionResult {
   followedPeerId: string | null;
   /** The followed peer's latest viewport — `null` when not following, or while they have not published one yet. */
   followedViewport: PresenceViewport | null;
+  /**
+   * Why the session ended on its own, or `null`. Distinct from `status`, which reads `disconnected`
+   * for leaving too — and leaving needs no announcement, while a host that stopped hosting does.
+   */
+  endedReason: GiveUpReason | null;
+  /** Dismisses the "session ended" notice. */
+  dismissEnded(): void;
   /** The local user's active page id in a multi-page host, `null` otherwise. Exposed so the peer list can tell which peers are on this page and therefore followable. */
   localPageId: string | null;
 }
@@ -94,6 +101,7 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
   // to react when EITHER side changes pages — a peer's move arrives via `peers`, the local user's does
   // not arrive at all unless something re-renders on it.
   const [localPageId, setLocalPageId] = useState<string | null>(null);
+  const [endedReason, setEndedReason] = useState<GiveUpReason | null>(null);
 
   useEffect(() => {
     if (!sessionAnchor) return;
@@ -107,6 +115,7 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
       userName: identity.name,
       userColor: identity.color,
       onStatusChange: setStatus,
+      onEnded: setEndedReason,
     });
     sessionRef.current = session;
     const unsubscribePresence = session.presence.subscribe(() => setPeers(session.presence.list()));
@@ -136,6 +145,7 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
       setViewerUrl(null);
       setRole("editor");
       setPeers([]);
+      setEndedReason(null);
     };
     // Keyed on the anchor ALONE, deliberately: with a page store, `scene` changes on every page
     // switch and must not re-create (i.e. disconnect) the session; without one, the anchor IS the
@@ -148,6 +158,7 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
       setError("not-configured");
       return;
     }
+    setEndedReason(null);
     try {
       const links = await session.startSession(apiBaseUrl, window.location.origin);
       setRoomUrl(links.editorUrl);
@@ -166,6 +177,7 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
       setError("not-configured");
       return;
     }
+    setEndedReason(null);
     try {
       // The relay is both the endpoint and the link's origin here: a self-hosted room has no separate
       // web app in front of it, so the address that serves the socket is the address on the link.
@@ -188,6 +200,7 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
         setError("not-configured");
         return;
       }
+      setEndedReason(null);
       // Captured BEFORE connecting: afterwards the room's pages and this client's own are
       // indistinguishable in the store.
       const preJoinPageIds = pageStore ? new Set(pageStore.getPages().map((page) => page.id)) : null;
@@ -218,6 +231,8 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
   );
 
   const leaveSession = useCallback(() => {
+    // Leaving is not something to announce back to the person who chose it.
+    setEndedReason(null);
     sessionRef.current?.disconnect();
     setRoomUrl(null);
     setViewerUrl(null);
@@ -271,7 +286,9 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
   // hook a viewport one render stale.
   const followedViewport = followedPeerId === null ? null : (peers.find((peer) => peer.peerId === followedPeerId)?.viewport ?? null);
 
-  return { status, roomUrl, viewerUrl, role, peers, error, startSession, hostSession, joinSession, leaveSession, updateCursor, sendReaction, setHandRaised, setLocalViewport, follow, followedPeerId, followedViewport, localPageId };
+  const dismissEnded = useCallback(() => setEndedReason(null), []);
+
+  return { status, roomUrl, viewerUrl, role, peers, error, endedReason, dismissEnded, startSession, hostSession, joinSession, leaveSession, updateCursor, sendReaction, setHandRaised, setLocalViewport, follow, followedPeerId, followedViewport, localPageId };
 }
 
 /**
