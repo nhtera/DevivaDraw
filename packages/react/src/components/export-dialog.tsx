@@ -22,6 +22,7 @@ import {
   exportSceneToSvgFile,
 } from "../browser/scene-file-operations";
 import { exportSceneSlidesPdfFile, exportSceneSlidesPptxFile } from "../browser/slide-export";
+import { useEscapeToClose } from "../hooks/use-escape-to-close";
 import { useTranslation } from "../i18n/use-translation";
 import type { DevivaRuntime } from "../runtime/runtime-types";
 
@@ -31,6 +32,7 @@ type Scale = (typeof SCALES)[number];
 export function ExportDialog(props: { runtime: DevivaRuntime; onClose(): void }) {
   const { runtime, onClose } = props;
   const { t } = useTranslation();
+  useEscapeToClose(onClose);
   const [scale, setScale] = useState<Scale>(2);
   const [includeBackground, setIncludeBackground] = useState(true);
   const [darkMode, setDarkMode] = useState(false);

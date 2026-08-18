@@ -16,6 +16,7 @@ import { useTranslation } from "../i18n/use-translation";
 import { canFollow } from "../hooks/use-collab-session";
 import type { CollabErrorReason, UseCollabSessionResult } from "../hooks/use-collab-session";
 import type { UseLanHostingResult } from "../hooks/use-lan-hosting";
+import { useEscapeToClose } from "../hooks/use-escape-to-close";
 import { useOfflineHint } from "../hooks/use-online";
 
 export interface CollabDialogProps {
@@ -50,6 +51,7 @@ export function CollabDialog(props: CollabDialogProps) {
   const hosting = props.hosting ?? NO_HOSTING;
   const join = props.onJoin ?? collab.joinSession;
   const { t } = useTranslation();
+  useEscapeToClose(onClose);
   const [joinUrl, setJoinUrl] = useState("");
   const [copied, setCopied] = useState<"editor" | "viewer" | null>(null);
 

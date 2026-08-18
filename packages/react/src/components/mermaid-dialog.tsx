@@ -20,6 +20,7 @@ import { MermaidPreview } from "./mermaid-preview";
 import { decodeNaturalSize } from "../browser/browser-image-decode";
 import { renderUnsupportedToImage } from "../runtime/mermaid-image-fallback";
 import type { MermaidImage } from "../runtime/mermaid-image-fallback";
+import { useEscapeToClose } from "../hooks/use-escape-to-close";
 import { useTranslation } from "../i18n/use-translation";
 import type { TranslationKey } from "../i18n/catalog-en";
 import type { CameraStore } from "../runtime/camera-store";
@@ -45,6 +46,7 @@ type ImageState = { status: "idle" | "loading" | "ready" | "error"; image?: Merm
 export function MermaidDialog(props: { runtime: DevivaRuntime; cameraStore: CameraStore; getViewportSize(): { width: number; height: number }; onClose(): void }) {
   const { runtime, cameraStore, getViewportSize, onClose } = props;
   const { t } = useTranslation();
+  useEscapeToClose(onClose);
   const [source, setSource] = useState(EXAMPLE);
   const [debounced, setDebounced] = useState(EXAMPLE);
   const [imageState, setImageState] = useState<ImageState>({ status: "idle" });

@@ -32,6 +32,7 @@ import { parseLibraryFile } from "../browser/library-import";
 import { insertLibraryElementsAt } from "../browser/insert-library-item";
 import type { Translator } from "../i18n/translate";
 import { useSelectionVersion } from "../runtime/use-live-version";
+import { useEscapeToClose } from "../hooks/use-escape-to-close";
 import { useTranslation } from "../i18n/use-translation";
 import type { CameraStore } from "../runtime/camera-store";
 import type { DevivaRuntime } from "../runtime/runtime-types";
@@ -76,6 +77,7 @@ interface LibraryPanelProps {
 export function LibraryPanel(props: LibraryPanelProps) {
   const { runtime, cameraStore, getViewportSize, onClose } = props;
   const { t } = useTranslation();
+  useEscapeToClose(onClose);
   const [items, setItems] = useState<LibraryItem[]>(() => loadLibrary());
   const [status, setStatus] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -134,14 +136,6 @@ export function LibraryPanel(props: LibraryPanelProps) {
   // dropped on the canvas, "Add to library" from the context menu — would otherwise not show up until
   // it was closed and reopened.
   useEffect(() => onLibraryChanged(() => setItems(loadLibrary())), []);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
 
   // Reserve the sidebar's width for the right-anchored chrome (the minimap, the toggle) while it is
   // open — see the module doc. Cleared on unmount so closing the panel hands the space straight back.

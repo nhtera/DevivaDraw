@@ -14,6 +14,7 @@ import type { ShareDialogState } from "../actions/action-types";
 import { revokeShareLink } from "../browser/share-link-client";
 import { readShareLinkHistory, removeShareLinkHistoryEntry } from "../browser/share-link-history";
 import type { ShareLinkHistoryEntry } from "../browser/share-link-history";
+import { useEscapeToClose } from "../hooks/use-escape-to-close";
 import { useOfflineHint } from "../hooks/use-online";
 
 export interface ShareDialogProps {
@@ -37,6 +38,7 @@ const EXPIRY_CHOICES = [
 export function ShareDialog(props: ShareDialogProps) {
   const { state, onClose, onStartCollab, apiBaseUrl, onRegenerate } = props;
   const { t } = useTranslation();
+  useEscapeToClose(onClose);
   // Renders only in hosts that opted in (the desktop shell) — see `hooks/use-online.ts`.
   const offline = useOfflineHint();
   const [copied, setCopied] = useState(false);

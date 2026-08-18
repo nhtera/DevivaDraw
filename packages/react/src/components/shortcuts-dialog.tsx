@@ -6,8 +6,9 @@
  * Keydown leak defense-in-depth: same two-layer fix as `command-palette.tsx` — the primary mechanism
  * is `use-deviva-runtime.ts`'s `isChromeOverlayOpen` suppression of the global shortcut resolver
  * while this dialog is open; the search input's own `onKeyDown` additionally `stopPropagation`s (so a
- * letter typed here can never bubble to `window`) and handles `Escape` itself (this dialog has no
- * other keyboard-close path — closing was previously click-outside/the header button only).
+ * letter typed here can never bubble to `window`) and handles `Escape` itself — every other dialog
+ * gets that key from `useEscapeToClose`, whose window listener this input's `stopPropagation` would
+ * otherwise keep the key from ever reaching.
  */
 import { useState } from "react";
 import type { KeyboardEvent } from "react";

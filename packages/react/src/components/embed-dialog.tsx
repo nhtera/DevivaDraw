@@ -8,6 +8,7 @@ import { createEmbedElement, DEFAULT_EMBED_HEIGHT, DEFAULT_EMBED_WIDTH, isEmbedd
 import { useState } from "react";
 import { buttonStyle, dialogOverlayStyle, dialogStyle, inputStyle, labelStyle } from "./chrome-styles";
 import { Icon } from "./icon";
+import { useEscapeToClose } from "../hooks/use-escape-to-close";
 import { useTranslation } from "../i18n/use-translation";
 import type { CameraStore } from "../runtime/camera-store";
 import type { DevivaRuntime } from "../runtime/runtime-types";
@@ -15,6 +16,7 @@ import type { DevivaRuntime } from "../runtime/runtime-types";
 export function EmbedDialog(props: { runtime: DevivaRuntime; cameraStore: CameraStore; getViewportSize(): { width: number; height: number }; onClose(): void }) {
   const { runtime, cameraStore, getViewportSize, onClose } = props;
   const { t } = useTranslation();
+  useEscapeToClose(onClose);
   const [url, setUrl] = useState("");
   const valid = isEmbeddable(url);
 
