@@ -4,6 +4,62 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.11.0] — 2026-08-18
+
+Everything Excalidraw+ and tldraw charge for that a whiteboard can give away without accounts,
+cloud storage, or a licence gate: comments, presentation beyond parity, enforced viewer links, and
+a room that needs no internet at all.
+
+### Added
+
+- **Comment threads pinned to the board.** A thread anchors to a shape and follows it through move,
+  resize and rotation; deleting the shape leaves the conversation behind as a point-anchored thread
+  rather than destroying it, because a comment is about the work and outlives any one rectangle.
+  Threads live beside elements rather than as elements — their own store, their own last-writer-wins
+  envelope, their own wire type — so they never enter undo/redo, never appear in a PNG or SVG export,
+  and a board with no comments serialises byte-for-byte as it did before. Replies converge when two
+  people answer at once, and a resolved thread leaves the canvas while staying in the panel.
+- **Presenter notes, deck export, and audience reactions.** A frame carries the notes you speak
+  from, visible only to the presenter and round-tripped in the file. A deck exports to a real
+  `.pptx` and a multi-page PDF, one slide per frame, written from scratch with no new dependency.
+  The audience can react with an emoji or raise a hand; both ride the presence channel, so they
+  expire on their own and never touch the document.
+- **Follow what someone else is looking at.** Follow a peer from the collaboration dialog and your
+  canvas tracks theirs. Panning breaks the follow — the reflex response to a view moving on its own
+  is the gesture that ends it — and a pill names who you are following, since a mode with no visible
+  exit is a trap. Following ends by itself when that person leaves or moves to another page, rather
+  than swinging your view to coordinates on a page you are not looking at.
+- **A viewer link the server itself enforces.** Starting a session now yields two links: an editor
+  link and a read-only one. The relay verifies a signed token on the connection and drops a viewer's
+  edits, so the limit holds against a client that has been tampered with — a browser-side read-only
+  flag is decoration. The check remains a decision about a message's *type*, never its content: the
+  relay still cannot read anything it routes. Links created before roles existed keep working.
+- **Host a collaboration room on your own network.** The desktop app can run the relay itself, so a
+  workshop, a classroom, or a team behind an air gap draws together with no internet and no server.
+  The hosting machine still cannot read the board — the room key travels in the link's fragment
+  between people and reaches no relay, exactly as with the hosted one. Peers join from the desktop
+  app; a browser cannot open the unencrypted socket a local-network room uses, and opening a join
+  link in one returns a page saying so rather than failing silently.
+
+### Changed
+
+- **The two relay implementations answer to one written specification.** Hosting locally means the
+  relay now exists twice, which is the obvious way to end up with two subtly different protocols.
+  Its decisions are specified once in `docs/collab-relay-protocol.md` as numbered rules, both
+  implementations cite it, and both test suites name their cases after it — so a drift between them
+  surfaces as a failing numbered case rather than as a room that behaves differently depending on
+  who hosts it.
+- **The desktop app may open `ws:` connections.** Required for local-network hosting: a relay's
+  address does not exist until somebody hosts, and a content-security policy cannot express
+  "private addresses only". Nothing but the application's own bundle executes in the webview, but
+  this is a genuine widening of that policy and is recorded as such.
+
+### Fixed
+
+- **Opening someone's room no longer merges your own board into it.** A room tab now keeps its own
+  storage, so joining a session neither carries your pages in nor leaves a stray page on everyone
+  else's board.
+
 ## [0.10.1] — 2026-08-18
 
 ### Fixed
