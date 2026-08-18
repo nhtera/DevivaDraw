@@ -14,6 +14,7 @@ import { DEFAULT_BACKGROUND_COLOR_PALETTE, DEFAULT_STROKE_COLOR_PALETTE, ROUNDNE
 import type { AnyElement, FillStyle, RoundnessValue, ShapeStyle, StrokeStyle, TextElement } from "@deviva-draw/engine";
 import { useReducer } from "react";
 import { ColorPicker } from "./color-picker";
+import { FrameNotesSection } from "./frame-notes-section";
 import { Icon } from "./icon";
 import { LayerActionsSection } from "./layer-actions-section";
 import { LinkSection } from "./link-section";
@@ -199,6 +200,7 @@ export function PropertiesPanelBody(props: PropertiesPanelBodyProps) {
       <TextStyleSection runtime={runtime} />
       <TableStyleSection runtime={runtime} />
       <ArrowStyleSection runtime={runtime} />
+      <FrameNotesSection runtime={runtime} />
       {runtime.selection.size > 0 && (
         <>
           <div style={{ height: 1, background: "var(--dd-chrome-border)" }} />

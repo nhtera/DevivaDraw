@@ -37,13 +37,18 @@ test("keyboard returns to normal after exiting — the presentation keys stop be
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("toolbar-select-tool")).toBeVisible();
 
+  // `n` is the note tool's letter, and presentation claims it for the notes strip — it must come back.
+  await page.keyboard.press("n");
+  await expect(page.getByTestId("toolbar-note-tool")).toHaveAttribute("aria-pressed", "true");
+  await page.getByTestId("toolbar-select-tool").click();
+
   // Typing into a text editor must work normally again, including the keys presentation had claimed.
   await page.getByTestId("toolbar-text-tool").click();
   await page.mouse.click(600, 500);
   const textarea = page.getByTestId("text-editor-overlay-textarea");
   await expect(textarea).toBeVisible();
-  await page.keyboard.type("hello there");
-  await expect(textarea).toHaveValue("hello there");
+  await page.keyboard.type("hello, note that n types fine");
+  await expect(textarea).toHaveValue("hello, note that n types fine");
 });
 
 test("the Present entry is disabled with no frames, and works with exactly one", async ({ page }) => {

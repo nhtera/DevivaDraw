@@ -1,8 +1,14 @@
 /**
- * Export dialog (Excalidraw parity): pick a scale + whether to include the background, then export the
- * scene as PNG, SVG, or PDF — or copy it to the clipboard. The quick "Export as PNG/SVG" menu items
- * still exist for a one-click default; this dialog is the "I want options" path. All the actual
- * rendering lives in `browser/scene-file-operations.ts`; this is just the control surface.
+ * Export dialog: pick a scale + whether to include the background, then export the scene as PNG, SVG,
+ * or PDF — or copy it to the clipboard. The quick "Export as PNG/SVG" menu items still exist for a
+ * one-click default; this dialog is the "I want options" path.
+ *
+ * Below those sits the deck block: the scene's frames as a `.pptx` or a multi-page PDF. It is a
+ * separate section because it exports something different — the frames, in slide order — rather than
+ * the scope the options above choose.
+ *
+ * All the actual rendering lives in `browser/scene-file-operations.ts` and `browser/slide-export.ts`;
+ * this is just the control surface.
  */
 import { useState } from "react";
 import { frameContainedElementIds } from "@deviva-draw/engine";
@@ -15,6 +21,7 @@ import {
   exportSceneToPngFile,
   exportSceneToSvgFile,
 } from "../browser/scene-file-operations";
+import { exportSceneSlidesPdfFile, exportSceneSlidesPptxFile } from "../browser/slide-export";
 import { useTranslation } from "../i18n/use-translation";
 import type { DevivaRuntime } from "../runtime/runtime-types";
 
@@ -123,6 +130,41 @@ export function ExportDialog(props: { runtime: DevivaRuntime; onClose(): void })
           <Icon name="copy-image" />
           {t("action.copyAsImage")}
         </button>
+
+        <div style={sectionDividerStyle} />
+
+        {/* Deck exports are their own block, not another format button: they export the FRAMES rather
+            than the scope chosen above, so sitting them in the same row would imply the scale/scope
+            options apply the same way. Offered only when there is a deck to export — with the reason
+            said out loud, since a disabled control that does not explain itself is a dead end. */}
+        <span style={labelStyle}>{t("export.slides")}</span>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            type="button"
+            disabled={busy || frames.length === 0}
+            title={frames.length === 0 ? t("export.slidesNeedFrames") : undefined}
+            data-testid="export-pptx"
+            style={{ ...actionStyle, ...(frames.length === 0 ? disabledButtonStyle : null) }}
+            onClick={() => run(() => exportSceneSlidesPptxFile(scene, scale, background, { darkMode }))}
+          >
+            PPTX
+          </button>
+          <button
+            type="button"
+            disabled={busy || frames.length === 0}
+            title={frames.length === 0 ? t("export.slidesNeedFrames") : undefined}
+            data-testid="export-slides-pdf"
+            style={{ ...actionStyle, ...(frames.length === 0 ? disabledButtonStyle : null) }}
+            onClick={() => run(() => exportSceneSlidesPdfFile(scene, scale, background ?? (darkMode ? "#1e1e1e" : "#ffffff"), { darkMode }))}
+          >
+            PDF
+          </button>
+        </div>
+        {frames.length === 0 && (
+          <span data-testid="export-slides-hint" style={{ ...labelStyle, marginTop: 6 }}>
+            {t("export.slidesNeedFrames")}
+          </span>
+        )}
       </div>
     </div>
   );

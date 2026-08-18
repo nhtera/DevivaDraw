@@ -46,6 +46,10 @@ export interface UseCollabSessionResult {
   leaveSession(): void;
   /** Publishes the local user's cursor position (scene coordinates); throttled internally by `CollabSession`. A no-op while no session is connected. */
   updateCursor(point: { x: number; y: number } | null): void;
+  /** Sends a one-shot emoji reaction to every peer. Lossy by design and never retried — a no-op while no session is connected. */
+  sendReaction(emoji: string): void;
+  /** Raises or lowers the local user's hand for every peer. Sticky until changed or the session ends. */
+  setHandRaised(raised: boolean): void;
 }
 
 export function useCollabSession(options: UseCollabSessionOptions): UseCollabSessionResult {
@@ -150,5 +154,13 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
     sessionRef.current?.updateCursor(point);
   }, []);
 
-  return { status, roomUrl, peers, error, startSession, joinSession, leaveSession, updateCursor };
+  const sendReaction = useCallback((emoji: string) => {
+    sessionRef.current?.sendReaction(emoji);
+  }, []);
+
+  const setHandRaised = useCallback((raised: boolean) => {
+    sessionRef.current?.setHandRaised(raised);
+  }, []);
+
+  return { status, roomUrl, peers, error, startSession, joinSession, leaveSession, updateCursor, sendReaction, setHandRaised };
 }

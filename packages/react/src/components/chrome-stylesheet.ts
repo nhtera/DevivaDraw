@@ -127,7 +127,15 @@ ${ROOT}[data-dd-density="touch"] [data-testid="toolbar"] { --dd-toolbar-shift: t
    screen edges rather than arriving. */
 @keyframes dd-slide-in-right { from { transform: translateX(100%); } to { transform: none; } }
 @keyframes dd-pop-in { from { opacity: 0; transform: scale(0.97) translateY(-3px); } to { opacity: 1; transform: none; } }
+/* A presentation reaction drifts up from where its sender's cursor was and fades out. Defined outside
+   the reduced-motion block because the element is REMOVED when the animation's lifetime elapses — with
+   no animation at all it would sit fully opaque until then, so the reduced-motion variant below keeps
+   the fade and drops only the travel. */
+@keyframes dd-reaction-float { from { opacity: 0; transform: translate(-50%, 0) scale(0.7); } 15% { opacity: 1; transform: translate(-50%, -10px) scale(1); } to { opacity: 0; transform: translate(-50%, -90px) scale(1); } }
+@keyframes dd-reaction-fade { from { opacity: 0; transform: translate(-50%, 0); } 15% { opacity: 1; } to { opacity: 0; transform: translate(-50%, 0); } }
+${ROOT} .dd-reaction { animation: dd-reaction-fade var(--dd-reaction-lifetime, 2600ms) ease-out forwards; }
 @media (prefers-reduced-motion: no-preference) {
+  ${ROOT} .dd-reaction { animation-name: dd-reaction-float; }
   ${ROOT} button, ${ROOT} a.dd-menu-link { transition: background 120ms ease, color 120ms ease, transform 90ms ease; }
   ${ROOT} button:active:not(:disabled) { transform: scale(0.95); }
   ${ROOT} .dd-animate-in { animation: dd-pop-in 140ms cubic-bezier(0.16, 1, 0.3, 1); }

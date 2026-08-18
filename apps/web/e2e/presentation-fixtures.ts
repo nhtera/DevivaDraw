@@ -9,11 +9,12 @@ import type { Page } from "@playwright/test";
 
 export const AUTOSAVE_KEY = "devivadraw:autosave:v1";
 
-export function frameElement(id: string, name: string, x: number, index: string): Record<string, unknown> {
+export function frameElement(id: string, name: string, x: number, index: string, notes?: string): Record<string, unknown> {
   return {
     id,
     type: "frame",
     name,
+    ...(notes === undefined ? {} : { notes }),
     x,
     y: 0,
     width: 400,

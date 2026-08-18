@@ -379,6 +379,8 @@ export interface ExportRenderExtras {
   elements?: readonly AnyElement[];
   /** Renders default-palette colors through the dark adapter — pair with a dark `background` for a dark-mode export. */
   darkMode?: boolean;
+  /** Margin around the exported content, in scene units. Defaults to `DEFAULT_EXPORT_PADDING`; slide exports pass `0` so a frame fills its slide edge to edge and keeps its exact aspect ratio. */
+  padding?: number;
 }
 
 function darkAdapter(): ElementColorAdapter {
@@ -390,7 +392,7 @@ export async function renderSceneToPngBlob(scene: Scene, scale: ExportScale = 1,
     scene,
     createRenderTarget: createBrowserExportRenderTarget,
     scale,
-    padding: DEFAULT_EXPORT_PADDING,
+    padding: extras.padding ?? DEFAULT_EXPORT_PADDING,
     backgroundColor: background,
     elements: extras.elements,
     adaptColors: extras.darkMode ? darkAdapter() : undefined,

@@ -474,6 +474,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
           cameraStore={cameraStore}
           getViewportSize={() => ({ width: canvasHostRef.current?.clientWidth ?? 0, height: canvasHostRef.current?.clientHeight ?? 0 })}
           onExit={() => presentationActive.set(false)}
+          collab={collab}
         />
       )}
       {runtime && !panelsHidden && !isNarrow && minimapVisible.value && (

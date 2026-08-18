@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { AUTOSAVE_KEY, loadDeck, startPresenting } from "./presentation-fixtures";
+import { AUTOSAVE_KEY, deckDocument, frameElement, loadDeck, startPresenting } from "./presentation-fixtures";
 
 /**
  * Presentation mode: frames walked as slides.
@@ -99,4 +99,56 @@ test("presenting hides the editor chrome, and Escape restores every bit of it", 
   await expect(page.getByTestId("toolbar-select-tool")).toBeVisible();
   await expect(page.getByTestId("top-bar-menu")).toBeVisible();
   await expect(page.getByTestId("library-toggle")).toBeVisible();
+});
+
+test("presenter notes are hidden until asked for, follow the slide, and never touch the canvas", async ({ page }) => {
+  const deck = deckDocument([
+    frameElement("f-a", "1. First", 0, "a001", "Open with the demo."),
+    frameElement("f-b", "2. Second", 1000, "a002"),
+  ]);
+  await loadDeck(page, deck);
+  await startPresenting(page);
+
+  // Hidden by default — a deck with notes must not cost stage space until the presenter wants them.
+  await expect(page.getByTestId("presenter-notes")).toBeHidden();
+
+  await page.keyboard.press("n");
+  await expect(page.getByTestId("presenter-notes")).toHaveText("Open with the demo.");
+
+  // The strip follows the walk, and says so when the next slide carries nothing.
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByTestId("presentation-counter")).toHaveText("2 / 2");
+  await expect(page.getByTestId("presenter-notes")).toHaveText("No notes for this slide.");
+
+  await page.keyboard.press("n");
+  await expect(page.getByTestId("presenter-notes")).toBeHidden();
+});
+
+test("the HUD notes button toggles the same strip the N key does", async ({ page }) => {
+  await loadDeck(page, deckDocument([frameElement("f-a", "1. First", 0, "a001", "Speak slowly.")]));
+  await startPresenting(page);
+
+  await page.getByTestId("presentation-notes-toggle").click();
+  await expect(page.getByTestId("presenter-notes")).toHaveText("Speak slowly.");
+  await page.keyboard.press("n");
+  await expect(page.getByTestId("presenter-notes")).toBeHidden();
+});
+
+test("notes are authored from the properties panel and survive a reload", async ({ page }) => {
+  await loadDeck(page, deckDocument([frameElement("f-a", "1. First", 0, "a001")]));
+
+  // The same click `presentation-selection.spec.ts` uses to select this fixture's frame at the default camera.
+  await page.mouse.click(400, 300);
+  const notes = page.getByTestId("frame-notes");
+  await expect(notes).toBeVisible();
+  await notes.fill("Remember the numbers.");
+  await notes.blur();
+
+  await page.waitForTimeout(1300); // autosave debounce
+  await page.reload();
+  await expect(page.getByTestId("deviva-draw-root")).toBeVisible();
+
+  await startPresenting(page);
+  await page.keyboard.press("n");
+  await expect(page.getByTestId("presenter-notes")).toHaveText("Remember the numbers.");
 });

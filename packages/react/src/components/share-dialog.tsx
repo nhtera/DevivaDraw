@@ -5,12 +5,12 @@
  * pattern `shortcuts-dialog.tsx` uses for its own open/closed state, just with more than two states
  * worth distinguishing.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { buttonStyle, dialogOverlayStyle, dialogStyle, inputStyle } from "./chrome-styles";
 import { Icon } from "./icon";
+import { LinkQrCode } from "./link-qr-code";
 import { useTranslation } from "../i18n/use-translation";
 import type { ShareDialogState } from "../actions/action-types";
-import { encodeQrCodeSvg } from "../browser/qr-code";
 import { revokeShareLink } from "../browser/share-link-client";
 import { readShareLinkHistory, removeShareLinkHistoryEntry } from "../browser/share-link-history";
 import type { ShareLinkHistoryEntry } from "../browser/share-link-history";
@@ -139,7 +139,7 @@ export function ShareDialog(props: ShareDialogProps) {
             <button type="button" style={{ marginTop: 8 }} onClick={() => copyLink(state.url)} data-testid="share-dialog-copy">
               {copied ? t("share.dialog.copied") : t("share.dialog.copy")}
             </button>
-            <ShareQrCode url={state.url} label={t("share.dialog.qrLabel")} />
+            <LinkQrCode url={state.url} label={t("share.dialog.qrLabel")} testId="share-qr" />
             <p data-testid="share-dialog-snapshot-note" style={{ marginTop: 10, fontSize: 12, color: "var(--dd-text-secondary)" }}>
               {t("share.dialog.snapshotNote")}
             </p>
@@ -217,39 +217,3 @@ export function ShareDialog(props: ShareDialogProps) {
   );
 }
 
-/**
- * The share link as a scannable code — the phone-in-hand path onto the board, for which copying a
- * URL is no help at all.
- *
- * Encoded locally (see `browser/qr-code.ts`: the URL's fragment carries the scene key, so it must
- * never reach a third-party renderer).
- *
- * The one piece of chrome here that ignores the theme, on purpose: the modules are fixed black on a
- * fixed white ground, including the quiet zone. A scanner needs light modules to read as light, so
- * following a dark theme would produce a code that looks right and does not scan. Only the caption
- * below it is themed.
- */
-function ShareQrCode(props: { url: string; label: string }) {
-  const { url, label } = props;
-  // Encoding walks the whole module grid, so it is memoized against the URL rather than repeated on
-  // every unrelated re-render of the dialog (the copy button's "Copied!" state alone causes several).
-  const code = useMemo(() => encodeQrCodeSvg(url), [url]);
-  if (!code) return null;
-
-  return (
-    <div style={{ marginTop: 10, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-      <svg
-        data-testid="share-qr"
-        role="img"
-        aria-label={label}
-        viewBox={`0 0 ${code.size} ${code.size}`}
-        width={144}
-        height={144}
-        style={{ background: "#ffffff", borderRadius: 6, display: "block" }}
-      >
-        <path d={code.path} fill="#000000" />
-      </svg>
-      <span style={{ fontSize: 11, color: "var(--dd-text-secondary)" }}>{label}</span>
-    </div>
-  );
-}

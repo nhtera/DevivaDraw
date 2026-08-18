@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { buttonStyle, dialogOverlayStyle, dialogStyle, inputStyle, labelStyle } from "./chrome-styles";
 import { Icon } from "./icon";
+import { LinkQrCode } from "./link-qr-code";
 import type { TranslationKey } from "../i18n/catalog-en";
 import { useTranslation } from "../i18n/use-translation";
 import type { CollabErrorReason, UseCollabSessionResult } from "../hooks/use-collab-session";
@@ -116,6 +117,8 @@ export function CollabDialog(props: CollabDialogProps) {
                 {t("collab.dialog.leave")}
               </button>
             </div>
+            {/* The room link is long and typed by nobody: scanning it is how a phone joins the session. */}
+            <LinkQrCode url={collab.roomUrl} label={t("collab.dialog.qrLabel")} testId="collab-qr" />
             <p style={labelStyle}>{t("collab.dialog.peersLabel", { count: collab.peers.length })}</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {collab.peers.map((peer) => (
