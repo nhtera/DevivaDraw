@@ -15,6 +15,38 @@ Deviva Draw ships two collaboration surfaces, both **end-to-end encrypted**:
 Try both at [draw.deviva.app](https://draw.deviva.app) - the Share and
 Collaborate actions in the main menu.
 
+## Comment threads
+
+Press `c` (or pick the comment tool from **More tools**) and click the canvas to
+drop a pin. Clicking a shape anchors the thread to it, so the pin follows that
+shape through every move, resize, and rotation; clicking empty canvas anchors it
+to the point. A thread whose shape is later deleted keeps its last position
+rather than disappearing.
+
+`Alt`+`C` opens the comments panel, which lists every thread on the page —
+including the two kinds that have no canvas pin: **resolved** threads (finished
+conversations leave the canvas but stay listed) and page-level threads. Clicking
+a row flies the camera to it.
+
+A few deliberate properties:
+
+- Comments are records **parallel to** elements, not elements. They never appear
+  in a PNG or SVG export, never take part in selection or z-order, and never
+  enter undo history — undoing a drawing must not silently retract someone's
+  reply.
+- Only the author of a message can edit or delete it. There are no accounts, so
+  that identity is a value stored in your own browser: a convenience, not a
+  security boundary. What actually gates access is who has the room link.
+- Threads sync over the live room as their own encrypted message type. Each
+  message is its own record, so two people replying at the same moment both keep
+  their reply.
+- Comments round-trip through `.devivadraw` files, local autosave, and share
+  links. A board with no comments serializes exactly as it did before the
+  feature existed.
+
+On a read-only share link the conversation is visible but the composer is not —
+replying needs a live room.
+
 ## Enabling collaboration in your embed
 
 Both features activate when you point the component at a collab server:

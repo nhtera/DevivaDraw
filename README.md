@@ -42,6 +42,9 @@ MIT license.
   align/distribute, group/ungroup, z-ordering, snapping, grid, undo/redo.
 - **Live collaboration** — real-time multiplayer with presence cursors over
   Cloudflare Durable Objects, with the session key never sent to the server.
+- **Comment threads** — pin a conversation to a shape or to any point, reply,
+  resolve, delete; pins ride their shape through move/resize/rotate, and threads
+  sync live over the same encrypted room.
 - **End-to-end-encrypted share links** — share a read-only snapshot; the
   decryption key lives only in the URL fragment and never reaches the backend.
 - **Persistence & export** — local autosave, `.devivadraw` files, PNG (with the

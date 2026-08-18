@@ -27,6 +27,12 @@ These are settled; revisit only with explicit maintainer sign-off:
 | **Extended tool set** | ✅ done | Triangle/hexagon/star, cloud/heart, x-box/check-box, block arrows, sticky notes, frames, tables (editable text grids), highlighter, lasso select. |
 | **Share links** | ✅ done | End-to-end-encrypted, read-only snapshots stored as R2 blobs; key stays in the URL fragment. |
 | **Live collaboration** | ✅ done | Real-time multiplayer + presence cursors over Cloudflare Durable Objects. |
+| **Comment threads** | ✅ done | Anchored, resolvable threads with per-message records; sync over the encrypted room, round-trip through files/autosave/share links, and stay out of exports and undo. |
+| **Multi-page documents** | ✅ done | Pages panel, per-page cameras, page-list manifest synced with the same LWW discipline as elements. |
+| **Layers** | ✅ done | Ordered layer list per page with visibility/lock gating across render, hit-test, export, and search. |
+| **Presentation mode** | ✅ done | Frames walked as slides: fullscreen, laser pointer, view-only lockdown, keyboard navigation. |
+| **Desktop app** | ✅ done | Tauri v2 shell with real file open/save and full offline operation. |
+| **AI agents (MCP)** | ✅ done | MCP server + worker exposing the scene to agents, including joining a live room. |
 | **React library** | ✅ done | `<DevivaDraw/>` component, hooks, and scene-read API for embedding. |
 
 ## What's next
@@ -40,6 +46,9 @@ Candidate follow-ups (not yet scheduled):
   call-site changes.
 - **Follow mode.** Following a peer's viewport exists in the collab client but is
   not yet wired into the React chrome.
+- **Guest commenting with viewer roles.** Comment threads ship today for anyone
+  in a room; a relay-enforced viewer role ("may comment, may not edit") is the
+  remaining half.
 - **More frame semantics.** Frames group and move their contents; clipping and
   nesting are future work.
 - **Additional framework adapters.** A Vue/vanilla adapter alongside the React
