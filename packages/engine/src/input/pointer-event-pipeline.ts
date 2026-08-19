@@ -149,7 +149,17 @@ export class PointerEventPipeline {
     globalTarget.onPointerCancel?.(this.handlePointerCancel);
   }
 
+  /**
+   * Aborts any gesture still in flight before dropping the listeners. Without this, tearing the
+   * pipeline down mid-drag strands the gesture: `selection-move-gesture` opens a history batch on
+   * pointerdown that only a later finish/cancel closes, and the scene it was opened on outlives the
+   * runtime (an inactive page keeps its live `Scene`), so the abandoned page's `HistoryStack` would
+   * keep an open batch forever and corrupt undo grouping whenever the user came back to it. A page
+   * switch during a drag is the reachable route — find-across-pages can switch pages before pointerup
+   * — but every teardown path (file open, "new scene", unmount) had the same hole.
+   */
   detach(): void {
+    if (this.activePointerId !== null || this.options.toolStateMachine.isGestureInProgress()) this.abortActiveGesture(EMPTY_MODIFIERS);
     this.options.element.dispose();
     this.options.globalTarget.dispose();
   }

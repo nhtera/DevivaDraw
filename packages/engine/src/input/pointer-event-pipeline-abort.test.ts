@@ -213,4 +213,33 @@ describe("PointerEventPipeline pan override", () => {
     expect(toolStateMachine.isGestureInProgress()).toBe(false);
     expect(batchOpen).toBe(false);
   });
+
+  // A page switch mid-drag tears the runtime (and this pipeline) down before pointerup. The gesture's
+  // history batch was opened on a `Scene` that outlives the runtime — an inactive page keeps its live
+  // scene — so leaving it open would strand that page's undo stack until the user returned to it.
+  it("detaching mid-gesture cancels the gesture and any open history batch", () => {
+    let batchOpen = true;
+    const historyStack: HistoryBatchGuard = { isBatchOpen: () => batchOpen, cancelBatch: () => (batchOpen = false) };
+    const { pipeline, element, selectTool, toolStateMachine } = buildHarness(historyStack);
+
+    element.firePointerDown({ pointerId: 1, clientX: 0, clientY: 0 });
+    element.firePointerMove({ pointerId: 1, clientX: 30, clientY: 30 });
+    pipeline.detach(); // no pointerup ever arrives
+
+    expect(selectTool.calls).toEqual(["start:0,0", "move:30,30", "cancel"]);
+    expect(toolStateMachine.isGestureInProgress()).toBe(false);
+    expect(batchOpen).toBe(false);
+  });
+
+  it("detaching with no gesture in flight touches neither the tool nor history", () => {
+    let batchOpen = false;
+    const historyStack: HistoryBatchGuard = { isBatchOpen: () => batchOpen, cancelBatch: () => (batchOpen = false) };
+    const { pipeline, element, selectTool } = buildHarness(historyStack);
+
+    element.firePointerDown({ pointerId: 1, clientX: 0, clientY: 0 });
+    element.firePointerUp({ pointerId: 1, clientX: 0, clientY: 0 });
+    pipeline.detach();
+
+    expect(selectTool.calls).toEqual(["start:0,0", "end:0,0"]);
+  });
 });
