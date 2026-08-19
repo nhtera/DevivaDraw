@@ -43,7 +43,7 @@ base.
 | `selection/` | Hit-test, marquee, lasso select, resize/rotate handles, arrow vertex handles + point-drag editor, group transform, align/distribute, group/ungroup, snapping, clipboard, z-order ops, frame membership, `SelectionTool`. |
 | `bindings/` | Arrow-to-shape binding model, per-outline-kind geometry, connection anchors + snap solve, gap/proximity thresholds, endpoint preview, suggested-binding resolver, binding recompute, scene-sync hooks, arrow labels. See [System Architecture](./system-architecture.md#arrow-binding-how-an-arrow-stays-attached-to-a-shape). |
 | `text/` | Font loading, text measurement/wrap (injectable `TextMeasurer`), bound-text layout/lifecycle for bindable containers, text edit session. |
-| `images/` | Content-addressed file store (`FilesMap`), image insert (resize/validate), `ImageDecodeCache` (injectable decoder). |
+| `images/` | Content-addressed file store (`FilesMap`), image insert (header-size precheck, downscale-on-insert, injected decode/re-encode seams), `ImageDecodeCache`. |
 | `persistence/` | `SceneDocumentV1` schema, migrations registry, validation, serialize/deserialize, localStorage autosave. |
 | `export/` | Export geometry, PNG (scene embedded via tEXt chunk), SVG, copy-as-image. |
 

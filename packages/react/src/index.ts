@@ -70,6 +70,12 @@ export { findFirstImageItem, isImageMimeType, looksLikeSvgMarkup, SVG_MIME_TYPE,
 export type { UsePasteAndDropOptions } from "./hooks/use-paste-and-drop";
 export { usePasteAndDrop } from "./hooks/use-paste-and-drop";
 
+// `ImageInsertOutcome` is part of `UsePasteAndDropOptions` (it replaced the old `onInsertError`),
+// and `downscaleImage` is the browser adapter an embedder needs to opt into resize-instead-of-refuse.
+export type { ImageInsertOutcome } from "./browser/image-insert-outcome";
+export { outcomeFromInsertError } from "./browser/image-insert-outcome";
+export { decodeNaturalSize, downscaleImage } from "./browser/browser-image-decode";
+
 // --- Scene-read / diagram extraction (embedding hosts that read structure off the canvas) ---
 
 export type { CanvasArrowBindingInput, CanvasShapeInput, CanvasShapeProps, ToCanvasShapeInputResult } from "./scene-read/to-canvas-shape-input";

@@ -13,7 +13,7 @@
  * breaking every toolbar/panel/menu button. Keeping chrome as `rootRef` siblings instead of
  * `canvasHostRef` descendants avoids this entirely rather than special-casing it per component.
  */
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { createCamera, deserializeMultiPageDocument } from "@deviva-draw/engine";
 import type { RemoteCursorOverlay } from "@deviva-draw/engine";
 import { restoreBrowserAutosaveDocument } from "./browser/scene-file-operations";
@@ -65,6 +65,7 @@ import { ExitZenPill } from "./components/exit-zen-pill";
 import { CollabViewerBadge } from "./components/collab-viewer-badge";
 import { FollowingPeerPill } from "./components/following-peer-pill";
 import { AutosaveQuotaBanner } from "./components/autosave-quota-banner";
+import { ImageInsertNotice } from "./components/image-insert-notice";
 import { TopBannerStack } from "./components/top-banner-stack";
 import { PresentationController } from "./components/presentation/presentation-controller";
 import { useCanvasBackground } from "./runtime/use-live-version";
@@ -74,7 +75,7 @@ import { BottomToolbar } from "./components/mobile/bottom-toolbar";
 import { MobilePropertiesBar } from "./components/mobile/mobile-properties-bar";
 import { useLayoutTier } from "./components/responsive-layout";
 import { useTheme } from "./theme/theme-provider";
-import { decodeNaturalSize } from "./browser/browser-image-decode";
+import { decodeNaturalSize, downscaleImage } from "./browser/browser-image-decode";
 import { createCameraStore } from "./runtime/camera-store";
 import { useContextMenuTriggers } from "./runtime/use-context-menu-triggers";
 import { useStableCallback, useStableGetter } from "./runtime/use-stable-ref";
@@ -85,6 +86,7 @@ import { NOOP_HANDLE } from "./runtime/noop-handle";
 import type { DevivaDrawHandle } from "./runtime/imperative-handle";
 import type { DevivaRuntime } from "./runtime/runtime-types";
 import type { ShareDialogState } from "./actions/action-types";
+import type { ImageInsertOutcome } from "./browser/image-insert-outcome";
 import type { DevivaDrawProps } from "./deviva-draw-app-types";
 
 export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(function DevivaDrawShell(props, ref) {
@@ -315,6 +317,10 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     () => ({ width: canvasHostRef.current?.clientWidth ?? 0, height: canvasHostRef.current?.clientHeight ?? 0 }),
     [],
   );
+  // What just happened to an image insert — resized, or refused, and why. Transient: the notice
+  // clears itself, and a fresh outcome replaces whatever was on screen.
+  const [imageInsertOutcome, setImageInsertOutcome] = useState<ImageInsertOutcome | null>(null);
+  const clearImageInsertOutcome = useCallback(() => setImageInsertOutcome(null), []);
   usePasteAndDrop({
     containerRef: canvasHostRef,
     // `null` scene in view-only detaches the listeners entirely — paste/drop are scene mutations.
@@ -322,7 +328,8 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     getCamera,
     getViewportSize,
     decodeNaturalSize,
-    onInsertError: (error) => console.warn("deviva-draw: image insert rejected", error),
+    downscale: downscaleImage,
+    onInsertOutcome: setImageInsertOutcome,
     onEmbeddedSceneDrop: (parsed) => {
       const result = deserializeMultiPageDocument(parsed);
       if (!result.ok) return false;
@@ -352,7 +359,8 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
     getCamera,
     getViewportSize,
     decodeNaturalSize,
-    onInsertError: (error) => console.warn("deviva-draw: image insert rejected", error),
+    downscale: downscaleImage,
+    onInsertOutcome: setImageInsertOutcome,
   });
 
   // The "9" image shortcut (matching Excalidraw) — image insert is a DOM file-picker action, not an
@@ -539,6 +547,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
         {/* Rendered here rather than beside the dialog: a session usually ends while the dialog is
             closed, and a notice nobody can see is not a notice. */}
         {collab.endedReason !== null && <SessionEndedNotice reason={collab.endedReason} onDismiss={collab.dismissEnded} />}
+        {imageInsertOutcome !== null && <ImageInsertNotice outcome={imageInsertOutcome} onDismiss={clearImageInsertOutcome} />}
       </TopBannerStack>
       {runtime && presentationActive.value && (
         <PresentationController
@@ -591,7 +600,9 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
         />
       )}
       {runtime && shortcutsDialogOpen.value && <ShortcutsDialog runtime={runtime} onClose={() => shortcutsDialogOpen.set(false)} />}
-      {runtime && findOpen.value && <FindPanel runtime={runtime} onClose={() => findOpen.set(false)} />}
+      {runtime && findOpen.value && (
+        <FindPanel runtime={runtime} pageStore={pageStore} onSwitchPage={(id) => parkCameraThen(() => pageStore.setActivePage(id))} onClose={() => findOpen.set(false)} />
+      )}
       {runtime && shareDialog.value.status !== "closed" && (
         <ShareDialog
           state={shareDialog.value}

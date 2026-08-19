@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { Scene } from "../scene/scene";
-import { DEFAULT_MAX_FILE_SIZE_BYTES, fitInitialSize, ImageFileTooLargeError, insertImageFile } from "./insert-image-file";
-import type { DecodeNaturalSizeFn } from "./insert-image-file";
+import { DEFAULT_MAX_FILE_SIZE_BYTES, fitInitialSize, ImageFileTooLargeError, ImagePixelLimitError, insertImageFile } from "./insert-image-file";
+import type { DecodeNaturalSizeFn, DownscaleImageFn } from "./insert-image-file";
 
 function bytesFrom(text: string): Uint8Array {
   return new TextEncoder().encode(text);
@@ -174,5 +174,160 @@ describe("pixel-dimension limits", () => {
     await expect(
       insertImageFile({ scene, bytes: oversized, mimeType: "image/png", decodeNaturalSize: decodeSmall, position: { x: 0, y: 0 } }),
     ).rejects.toBeInstanceOf(ImageFileTooLargeError);
+  });
+});
+
+/**
+ * A real PNG header, because the insert path now reads declared dimensions out of the bytes before
+ * deciding anything — a `TextEncoder` blob has no header and would take the "unknown format" path.
+ */
+function pngBytes(width: number, height: number, padding = 0): Uint8Array {
+  const bytes = new Uint8Array(24 + padding);
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(16, width);
+  view.setUint32(20, height);
+  // Padding varies the content so two fixtures of the same dimensions still hash differently.
+  for (let index = 0; index < padding; index += 1) bytes[24 + index] = (index * 31) % 256;
+  return bytes;
+}
+
+describe("insertImageFile oversized handling", () => {
+  /** Stands in for the browser canvas adapter: halves the longest edge until it fits, and reports the bytes it produced. */
+  function fakeDownscaler(): { fn: DownscaleImageFn; calls: number } {
+    const state = { calls: 0 };
+    const fn: DownscaleImageFn = (_dataURL, mimeType, limits) => {
+      state.calls += 1;
+      return Promise.resolve({ bytes: pngBytes(limits.maxPixels, limits.maxPixels / 2, 8), mimeType, width: limits.maxPixels, height: limits.maxPixels / 2 });
+    };
+    return { fn, get calls() { return state.calls; } };
+  }
+
+  it("downscales an over-budget photo and inserts it instead of refusing", async () => {
+    const scene = new Scene();
+    const downscaler = fakeDownscaler();
+    const decode = vi.fn<DecodeNaturalSizeFn>(() => Promise.resolve({ width: 8000, height: 4000 }));
+
+    const result = await insertImageFile({
+      scene,
+      bytes: pngBytes(12000, 6000, 1024),
+      mimeType: "image/png",
+      decodeNaturalSize: decode,
+      downscale: downscaler.fn,
+    });
+
+    expect(downscaler.calls).toBe(1);
+    expect(result.resized).toEqual({ from: { width: 12000, height: 6000, bytes: 1048 }, to: { width: 8000, height: 4000, bytes: 32 } });
+    expect(scene.getElements()).toHaveLength(1);
+  });
+
+  it("hashes the bytes it actually stored, not the originals", async () => {
+    const scene = new Scene();
+    const downscaler = fakeDownscaler();
+    const original = pngBytes(12000, 6000, 512);
+
+    const { fileId } = await insertImageFile({ scene, bytes: original, mimeType: "image/png", decodeNaturalSize: decode400x200, downscale: downscaler.fn });
+
+    const storedOnly = await insertImageFile({ scene: new Scene(), bytes: pngBytes(8000, 4000, 8), mimeType: "image/png", decodeNaturalSize: decode400x200 });
+    expect(fileId).toBe(storedOnly.fileId); // the id names the re-encoded content that is in the store
+    expect(scene.getFile(fileId)).toBeDefined();
+  });
+
+  it("records the stored pixels as naturalWidth/naturalHeight, so exports scale against what exists", async () => {
+    const scene = new Scene();
+    const downscaler = fakeDownscaler();
+    const decode: DecodeNaturalSizeFn = () => Promise.resolve({ width: 8000, height: 4000 });
+
+    const { element } = await insertImageFile({ scene, bytes: pngBytes(12000, 6000, 1024), mimeType: "image/png", decodeNaturalSize: decode, downscale: downscaler.fn });
+
+    expect(element.naturalWidth).toBe(8000);
+    expect(element.naturalHeight).toBe(4000);
+  });
+
+  it("rejects a decompression bomb without ever decoding it", async () => {
+    const scene = new Scene();
+    const decode = vi.fn<DecodeNaturalSizeFn>(() => Promise.resolve({ width: 30000, height: 30000 }));
+    const downscaler = fakeDownscaler();
+
+    // A few hundred bytes of header declaring 900 megapixels — the case a byte ceiling cannot catch.
+    await expect(
+      insertImageFile({ scene, bytes: pngBytes(30000, 30000, 256), mimeType: "image/png", decodeNaturalSize: decode, downscale: downscaler.fn }),
+    ).rejects.toBeInstanceOf(ImagePixelLimitError);
+
+    expect(decode).not.toHaveBeenCalled();
+    expect(downscaler.calls).toBe(0); // downscaling would have to decode it too
+    expect(scene.getElements()).toHaveLength(0);
+  });
+
+  it("rejects beyond the absolute byte ceiling even with a downscaler", async () => {
+    const scene = new Scene();
+    const downscaler = fakeDownscaler();
+    const huge = new Uint8Array(101 * 1024 * 1024);
+
+    await expect(insertImageFile({ scene, bytes: huge, mimeType: "image/png", decodeNaturalSize: decode400x200, downscale: downscaler.fn })).rejects.toBeInstanceOf(ImageFileTooLargeError);
+    expect(downscaler.calls).toBe(0);
+  });
+
+  it("never re-encodes a GIF or an SVG — animation and vectors do not survive a canvas round-trip", async () => {
+    const downscaler = fakeDownscaler();
+    const overBudget = new Uint8Array(DEFAULT_MAX_FILE_SIZE_BYTES + 1);
+
+    await expect(
+      insertImageFile({ scene: new Scene(), bytes: overBudget, mimeType: "image/gif", decodeNaturalSize: decode400x200, downscale: downscaler.fn }),
+    ).rejects.toBeInstanceOf(ImageFileTooLargeError);
+    await expect(
+      insertImageFile({ scene: new Scene(), bytes: overBudget, mimeType: "image/svg+xml", decodeNaturalSize: decode400x200, downscale: downscaler.fn }),
+    ).rejects.toBeInstanceOf(ImageFileTooLargeError);
+    expect(downscaler.calls).toBe(0);
+  });
+
+  it("with no downscaler, behaves exactly as before: over the byte cap is refused", async () => {
+    const scene = new Scene();
+    const overBudget = new Uint8Array(DEFAULT_MAX_FILE_SIZE_BYTES + 1);
+
+    await expect(insertImageFile({ scene, bytes: overBudget, mimeType: "image/png", decodeNaturalSize: decode400x200 })).rejects.toBeInstanceOf(ImageFileTooLargeError);
+  });
+
+  it("with no downscaler, an over-pixel image still inserts — the pixel budget is a downscale trigger, not a new refusal", async () => {
+    const scene = new Scene();
+    const decode = vi.fn<DecodeNaturalSizeFn>(() => Promise.resolve({ width: 12000, height: 6000 }));
+
+    const { element } = await insertImageFile({ scene, bytes: pngBytes(12000, 6000), mimeType: "image/png", decodeNaturalSize: decode });
+
+    expect(element.naturalWidth).toBe(12000);
+    expect(scene.getElements()).toHaveLength(1);
+  });
+
+  it("refuses a gigapixel image whatever the caller supplies — the area ceiling is not negotiable", async () => {
+    const decode = vi.fn<DecodeNaturalSizeFn>(() => Promise.resolve({ width: 30000, height: 30000 }));
+
+    await expect(insertImageFile({ scene: new Scene(), bytes: pngBytes(30000, 30000), mimeType: "image/png", decodeNaturalSize: decode })).rejects.toBeInstanceOf(ImagePixelLimitError);
+    // A GIF cannot be downscaled, but it can still be a bomb.
+    const gifBomb = new Uint8Array(13);
+    gifBomb.set([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]);
+    new DataView(gifBomb.buffer).setUint16(6, 65535, true);
+    new DataView(gifBomb.buffer).setUint16(8, 65535, true);
+    await expect(insertImageFile({ scene: new Scene(), bytes: gifBomb, mimeType: "image/gif", decodeNaturalSize: decode })).rejects.toBeInstanceOf(ImagePixelLimitError);
+    expect(decode).not.toHaveBeenCalled();
+  });
+
+  it("leaves an in-budget image completely untouched", async () => {
+    const scene = new Scene();
+    const downscaler = fakeDownscaler();
+
+    const result = await insertImageFile({ scene, bytes: pngBytes(400, 200, 64), mimeType: "image/png", decodeNaturalSize: decode400x200, downscale: downscaler.fn });
+
+    expect(downscaler.calls).toBe(0);
+    expect(result.resized).toBeUndefined();
+  });
+
+  it("applies no pixel policy to a format whose header it cannot read", async () => {
+    // An SVG carries no readable raster header; the unknown case must stay permissive, not refuse.
+    const scene = new Scene();
+    const svg = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>');
+
+    const { element } = await insertImageFile({ scene, bytes: svg, mimeType: "image/svg+xml", decodeNaturalSize: decode400x200 });
+
+    expect(element.naturalWidth).toBe(400);
   });
 });

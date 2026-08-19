@@ -126,8 +126,19 @@ export { validateCommentAnchor, validateCommentMessage, validateCommentThread } 
 
 export { findTextMatches } from "./scene/find-text-matches";
 
-export type { DecodeNaturalSizeFn, InsertImageFileOptions, InsertImageFileResult } from "./images/insert-image-file";
-export { DEFAULT_MAX_FILE_SIZE_BYTES, fitInitialSize, ImageFileTooLargeError, insertImageFile } from "./images/insert-image-file";
+export type { DecodeNaturalSizeFn, DownscaleImageFn, ImageResizedInfo, InsertImageFileOptions, InsertImageFileResult } from "./images/insert-image-file";
+export {
+  DEFAULT_ABSOLUTE_MAX_FILE_SIZE_BYTES,
+  DEFAULT_MAX_DECODE_PIXEL_AREA,
+  DEFAULT_MAX_FILE_SIZE_BYTES,
+  DEFAULT_MAX_IMAGE_PIXELS,
+  fitInitialSize,
+  ImageFileTooLargeError,
+  ImagePixelLimitError,
+  insertImageFile,
+} from "./images/insert-image-file";
+export type { ImageHeaderSize, ReadableImageFormat } from "./images/read-image-header-size";
+export { readImageHeaderSize } from "./images/read-image-header-size";
 export { bytesToDataURL, computeFileId, FilesMap } from "./images/files-map";
 export type { ImageDecodeFn } from "./images/image-decode-cache";
 export { createBrowserImageDecoder, ImageDecodeCache } from "./images/image-decode-cache";

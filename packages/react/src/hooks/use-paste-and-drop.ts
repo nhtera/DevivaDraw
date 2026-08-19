@@ -24,7 +24,9 @@ import { useEffect } from "react";
 import type { RefObject } from "react";
 import { insertImageFile, readEmbeddedSceneData, readEmbeddedSceneDataFromSvg, screenToScene } from "@deviva-draw/engine";
 import type { Camera, Scene } from "@deviva-draw/engine";
-import type { DecodeNaturalSizeFn } from "@deviva-draw/engine";
+import type { DecodeNaturalSizeFn, DownscaleImageFn } from "@deviva-draw/engine";
+import { reportInsertFailure } from "../browser/image-insert-outcome";
+import type { ImageInsertOutcome } from "../browser/image-insert-outcome";
 import { findFirstImageItem, looksLikeSvgMarkup, shouldConsumePaste, svgMarkupToBytes, SVG_MIME_TYPE } from "./clipboard-image-detection";
 import type { ClipboardItemKind } from "./clipboard-image-detection";
 
@@ -36,9 +38,11 @@ export interface UsePasteAndDropOptions {
   /** CSS-pixel viewport size — used both to center a paste (no drop point) and to cap the fitted initial insert size. */
   getViewportSize: () => { width: number; height: number };
   decodeNaturalSize: DecodeNaturalSizeFn;
+  /** Re-encodes an oversized image instead of refusing it — see `browser/browser-image-decode.ts`. Omit and an over-budget file is rejected, as before. */
+  downscale?: DownscaleImageFn;
   maxFileSizeBytes?: number;
-  /** Called when an insert is rejected (oversized file, undecodable image, ...); there's no toast/notification system yet, so the composed app shell just logs it (`console.warn`). */
-  onInsertError?: (error: unknown) => void;
+  /** Reports what happened to an insert — resized-and-inserted as well as rejected — so the shell can put it on screen (`components/image-insert-notice.tsx`) rather than in the console. */
+  onInsertOutcome?: (outcome: ImageInsertOutcome) => void;
   /**
    * Offered the scene JSON embedded in a dropped export (a PNG's `tEXt` chunk / an SVG's
    * `<metadata>`) before the file is inserted as a plain image. Return `true` to claim it (the shell
@@ -54,15 +58,17 @@ type ScenePresentOptions = UsePasteAndDropOptions & { scene: Scene };
 
 async function insertBlobAt(blob: { type: string; arrayBuffer(): Promise<ArrayBuffer> }, position: { x: number; y: number }, options: ScenePresentOptions): Promise<void> {
   const bytes = new Uint8Array(await blob.arrayBuffer());
-  await insertImageFile({
+  const { resized } = await insertImageFile({
     scene: options.scene,
     bytes,
     mimeType: blob.type,
     decodeNaturalSize: options.decodeNaturalSize,
+    downscale: options.downscale,
     position,
     maxFitSize: options.getViewportSize(),
     maxFileSizeBytes: options.maxFileSizeBytes,
   });
+  if (resized) options.onInsertOutcome?.({ kind: "resized", resized });
 }
 
 function viewportCenter(options: ScenePresentOptions): { x: number; y: number } {
@@ -77,7 +83,7 @@ function tryPasteImageFile(items: DataTransferItemList, options: ScenePresentOpt
     if (!item || item.kind !== "file" || !findFirstImageItem([item])) continue;
     const file = item.getAsFile();
     if (!file) continue;
-    insertBlobAt(file, viewportCenter(options), options).catch((error: unknown) => options.onInsertError?.(error));
+    insertBlobAt(file, viewportCenter(options), options).catch((error: unknown) => reportInsertFailure(error, options.onInsertOutcome));
     return true;
   }
   return false;
@@ -115,14 +121,14 @@ function tryPasteSvgText(items: DataTransferItemList, options: ScenePresentOptio
         position: viewportCenter(options),
         maxFitSize: options.getViewportSize(),
         maxFileSizeBytes: options.maxFileSizeBytes,
-      }).catch((error: unknown) => options.onInsertError?.(error));
+      }).catch((error: unknown) => reportInsertFailure(error, options.onInsertOutcome));
     });
     return;
   }
 }
 
 export function usePasteAndDrop(options: UsePasteAndDropOptions): void {
-  const { containerRef, scene, getCamera, getViewportSize, decodeNaturalSize, maxFileSizeBytes, onInsertError } = options;
+  const { containerRef, scene, getCamera, getViewportSize, decodeNaturalSize, downscale, maxFileSizeBytes, onInsertOutcome } = options;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -178,7 +184,7 @@ export function usePasteAndDrop(options: UsePasteAndDropOptions): void {
             }
           }
           await insertBlobAt(file, dropPoint, narrowedOptions);
-        })().catch((error: unknown) => narrowedOptions.onInsertError?.(error));
+        })().catch((error: unknown) => reportInsertFailure(error, narrowedOptions.onInsertOutcome));
         return; // one image per drop keeps "single insert point" semantics simple — YAGNI beyond that for V1
       }
     };
@@ -191,5 +197,5 @@ export function usePasteAndDrop(options: UsePasteAndDropOptions): void {
       container.removeEventListener("dragover", handleDragOver);
       container.removeEventListener("drop", handleDrop);
     };
-  }, [containerRef, scene, getCamera, getViewportSize, decodeNaturalSize, maxFileSizeBytes, onInsertError]);
+  }, [containerRef, scene, getCamera, getViewportSize, decodeNaturalSize, downscale, maxFileSizeBytes, onInsertOutcome]);
 }

@@ -18,8 +18,10 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { bytesToDataURL, fitInitialSize, insertImageFile, screenToScene } from "@deviva-draw/engine";
-import type { AnyElement, Camera, DecodeNaturalSizeFn, HistoryStack, Scene, SelectionState } from "@deviva-draw/engine";
+import type { AnyElement, Camera, DecodeNaturalSizeFn, DownscaleImageFn, HistoryStack, Scene, SelectionState } from "@deviva-draw/engine";
 import type { RefObject } from "react";
+import { reportInsertFailure } from "../browser/image-insert-outcome";
+import type { ImageInsertOutcome } from "../browser/image-insert-outcome";
 
 /** An image picked but not yet dropped — what the ghost overlay renders and the place-click inserts. */
 export interface PendingImagePlacement {
@@ -42,14 +44,17 @@ export interface UseImageFilePickerOptions {
   /** CSS-pixel viewport size — caps the fitted initial size. */
   getViewportSize: () => { width: number; height: number };
   decodeNaturalSize: DecodeNaturalSizeFn;
-  onInsertError?: (error: unknown) => void;
+  /** Re-encodes an oversized image instead of refusing it — see `browser/browser-image-decode.ts`. */
+  downscale?: DownscaleImageFn;
+  /** Reports what actually happened, so the chrome can show it. Called for a successful-but-resized insert as well as for a rejection. */
+  onInsertOutcome?: (outcome: ImageInsertOutcome) => void;
 }
 
 export function useImageFilePicker(options: UseImageFilePickerOptions): {
   openImagePicker: () => void;
   pendingPlacement: PendingImagePlacement | null;
 } {
-  const { scene, history, selection, containerRef, getCamera, getViewportSize, decodeNaturalSize, onInsertError } = options;
+  const { scene, history, selection, containerRef, getCamera, getViewportSize, decodeNaturalSize, downscale, onInsertOutcome } = options;
   const [pendingPlacement, setPendingPlacement] = useState<PendingImagePlacement | null>(null);
 
   const openImagePicker = useCallback(() => {
@@ -68,12 +73,12 @@ export function useImageFilePicker(options: UseImageFilePickerOptions): {
           const fittedSize = fitInitialSize(natural.width, natural.height, getViewportSize());
           setPendingPlacement({ dataURL, bytes, mimeType: file.type, fittedSize });
         } catch (error) {
-          onInsertError?.(error);
+          reportInsertFailure(error, onInsertOutcome);
         }
       })();
     };
     input.click();
-  }, [scene, history, selection, getViewportSize, decodeNaturalSize, onInsertError]);
+  }, [scene, history, selection, getViewportSize, decodeNaturalSize, onInsertOutcome]);
 
   // While a placement is armed: the next pointerdown inside the canvas host drops the image there.
   // Window listeners in the capture phase, so the drop click never reaches the engine's own host
@@ -92,18 +97,23 @@ export function useImageFilePicker(options: UseImageFilePickerOptions): {
       void (async () => {
         try {
           history.beginBatch();
-          const { element } = await insertImageFile({
+          const { element, resized } = await insertImageFile({
             scene,
             bytes: pendingPlacement.bytes,
             mimeType: pendingPlacement.mimeType,
             decodeNaturalSize,
+            downscale,
             position,
             maxFitSize: getViewportSize(),
           });
           history.endBatch(scene.getElements());
           selection.selectOnly([element.id]);
+          if (resized) onInsertOutcome?.({ kind: "resized", resized });
         } catch (error) {
-          onInsertError?.(error);
+          // The batch was opened before the await; leaving it open on a rejected insert would
+          // swallow every later undo step on this scene until something else cancelled it.
+          history.cancelBatch();
+          reportInsertFailure(error, onInsertOutcome);
         }
       })();
     };
@@ -118,7 +128,7 @@ export function useImageFilePicker(options: UseImageFilePickerOptions): {
       window.removeEventListener("pointerdown", handlePointerDown, true);
       window.removeEventListener("keydown", handleKeyDown, true);
     };
-  }, [pendingPlacement, scene, history, selection, containerRef, getCamera, getViewportSize, decodeNaturalSize, onInsertError]);
+  }, [pendingPlacement, scene, history, selection, containerRef, getCamera, getViewportSize, decodeNaturalSize, downscale, onInsertOutcome]);
 
   return { openImagePicker, pendingPlacement };
 }
