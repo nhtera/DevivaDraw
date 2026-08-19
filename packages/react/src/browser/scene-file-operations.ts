@@ -37,6 +37,7 @@ import type {
   MultiPageDocumentV1,
   SceneDocument,
   ScenePage,
+  StoredFile,
 } from "@deviva-draw/engine";
 import { createAutosaveFileOffload } from "./autosave-file-offload";
 import type { AutosaveFileOffload } from "./autosave-file-offload";
@@ -271,6 +272,26 @@ export async function saveDocumentToFile(document: MultiPageDocumentV1): Promise
   await saveFile(`scene${SCENE_FILE_EXTENSION}`, JSON.stringify(document, null, 2), "application/json");
 }
 
+/**
+ * `AutosaveController` plus the one thing version history needs and nothing else could safely
+ * provide: the document exactly as the last write would have serialised it.
+ *
+ * The exclusions are the whole point. `startBrowserDocumentAutosave` decides which image payloads to
+ * leave out of its write (see `autosave-file-offload.ts`), and that decision lives in a closure local
+ * — so a snapshot taken by serialising the page store independently would use a *different*, and
+ * possibly wrong, exclusion set: bytes the file store has not accepted yet would be referenced by id
+ * with nothing holding them. Rather than duplicate that judgement, the controller hands it out.
+ *
+ * Deliberately declared here rather than by widening the engine's `AutosaveController`: that
+ * interface is also what the single-scene `startBrowserAutosave`/`startAutosave` return, and a single
+ * scene has no multi-page document to give. Extending here keeps the engine's exported shape — and
+ * every embedder implementing it — untouched.
+ */
+export interface DocumentAutosaveController extends AutosaveController {
+  /** The document as the last write would serialise it, image payloads excluded exactly as autosave excludes them. */
+  snapshotDocument(): MultiPageDocumentV1;
+}
+
 /** Debounce matching the engine's single-scene autosave — one write per quiet period, not per mutation. */
 const DOCUMENT_AUTOSAVE_DEBOUNCE_MS = 1000;
 
@@ -304,7 +325,7 @@ export function startBrowserDocumentAutosave(
   // whole point of `autosave-file-offload.ts`. Omit (or pass nothing, as a host with no working
   // database does) and the bytes stay embedded exactly as they always were.
   files?: Promise<FileStoreLike | null>,
-): AutosaveController {
+): DocumentAutosaveController {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const clearPending = () => {
     if (timer !== null) clearTimeout(timer);
@@ -344,6 +365,16 @@ export function startBrowserDocumentAutosave(
       unsubscribeDocument();
       unsubscribeCamera?.();
       clearPending();
+    },
+    snapshotDocument() {
+      // `sync()` first, exactly as `write()` does: it is what advances `persistedIds` to whatever the
+      // file store has accepted by now, and a snapshot built from a stale set would exclude nothing
+      // (bloating the record with pixels) or exclude too much (naming bytes nothing holds).
+      offload?.sync();
+      // No `getDocumentMeta` here — the desktop shell's `{originPath, unsaved}` marker describes the
+      // autosave *slot*, not the board. A stored version restored into a different document must not
+      // carry a claim about which file it came from.
+      return document.toDocument(true, camera?.getCamera(), offload?.persistedIds);
     },
   };
 }
@@ -447,9 +478,22 @@ export async function copySceneImageToClipboard(scene: Scene, background: string
   });
 }
 
-/** Renders a detached set of elements (a library item) to a small white-background PNG data URL for use as a preview thumbnail. */
-export async function renderElementsToThumbnail(elements: readonly AnyElement[]): Promise<string> {
+/**
+ * Renders a detached set of elements to a small white-background PNG data URL for use as a preview
+ * thumbnail — a library item, or one page of a stored version.
+ *
+ * `files` is not optional decoration. The scene built here is brand new and holds no image payloads,
+ * and `image-renderer.ts` draws an error placeholder for any file entry it cannot find — so elements
+ * that reference their images by id (which is every element in a version snapshot, and every library
+ * item) render as red broken-image boxes unless their bytes are registered first. That is precisely
+ * the worst place for it: a preview exists to be recognised by sight.
+ *
+ * Registered before the elements, not after, so no frame is ever composed against a scene that is
+ * still missing them.
+ */
+export async function renderElementsToThumbnail(elements: readonly AnyElement[], files?: ReadonlyMap<string, StoredFile>): Promise<string> {
   const scene = new Scene();
+  if (files) for (const [fileId, file] of files) scene.restoreFile(fileId, file);
   for (const element of elements) scene.restoreElement(structuredClone(element));
   const blob = await renderSceneToPngBlob(scene, 1, "#ffffff");
   return blobToDataUrl(blob);

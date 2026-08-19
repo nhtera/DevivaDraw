@@ -127,6 +127,15 @@ export function buildViewActions(): Action[] {
       run: (runtime) => runtime.ui.setLayersPanelVisible(!runtime.ui.getLayersPanelVisible()),
     },
     {
+      // Not viewer-allowed: the panel's headline control replaces the whole document, and a
+      // view-only surface has no business offering it. Deliberately shortcut-less — every other
+      // binding here toggles a view, where this one opens a door to replacing the board.
+      id: "toggle-version-history",
+      labelKey: "action.toggleVersionHistory",
+      icon: "history",
+      run: (runtime) => runtime.ui.setVersionHistoryOpen(!runtime.ui.getVersionHistoryOpen()),
+    },
+    {
       // Viewer-allowed, unlike the layers panel: reading a conversation is not editing the document,
       // and a read-only surface still wants the panel (it is the only way to reach a page-anchored or
       // resolved thread). The composer's own gating is the popover's `readOnly` prop.

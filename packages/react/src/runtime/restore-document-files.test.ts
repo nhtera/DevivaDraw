@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createImageElement, Scene } from "@deviva-draw/engine";
 import type { FileStoreLike, StoredFile } from "@deviva-draw/engine";
-import { expectStoredFiles, restoreDocumentFiles } from "./restore-document-files";
+import { collectOrphanedFiles, expectStoredFiles, restoreDocumentFiles } from "./restore-document-files";
 
 function file(dataURL: string): StoredFile {
   return { mimeType: "image/png", dataURL, createdAt: 1 };
@@ -37,7 +37,7 @@ describe("restoreDocumentFiles", () => {
     const scene = sceneReferencing("a");
     const store = fakeStore({ a: file("data:a") });
 
-    const result = await restoreDocumentFiles([scene], store);
+    const result = await restoreDocumentFiles([scene], store, []);
 
     expect(scene.getFile("a")?.dataURL).toBe("data:a");
     expect(result.restored).toBe(1);
@@ -47,7 +47,7 @@ describe("restoreDocumentFiles", () => {
     const first = sceneReferencing("a");
     const second = sceneReferencing("b");
 
-    await restoreDocumentFiles([first, second], fakeStore({ a: file("data:a"), b: file("data:b") }));
+    await restoreDocumentFiles([first, second], fakeStore({ a: file("data:a"), b: file("data:b") }), []);
 
     expect(first.getFile("a")).toBeDefined();
     expect(first.getFile("b")).toBeUndefined();
@@ -62,7 +62,7 @@ describe("restoreDocumentFiles", () => {
     const listener = vi.fn();
     scene.subscribe(listener);
 
-    await restoreDocumentFiles([scene], fakeStore({ a: file("data:a") }));
+    await restoreDocumentFiles([scene], fakeStore({ a: file("data:a") }), []);
 
     expect(listener).not.toHaveBeenCalled();
   });
@@ -70,7 +70,7 @@ describe("restoreDocumentFiles", () => {
   it("collects stored files no page references any more", async () => {
     const store = fakeStore({ a: file("data:a"), orphan: file("data:orphan") });
 
-    const result = await restoreDocumentFiles([sceneReferencing("a")], store);
+    const result = await restoreDocumentFiles([sceneReferencing("a")], store, []);
 
     expect([...store.data.keys()]).toEqual(["a"]);
     expect(result.collected).toBe(1);
@@ -85,7 +85,7 @@ describe("restoreDocumentFiles", () => {
     const store = fakeStore({ a: file("data:stored") });
     const getMany = vi.spyOn(store, "getMany");
 
-    await restoreDocumentFiles([scene], store);
+    await restoreDocumentFiles([scene], store, []);
 
     expect(getMany).not.toHaveBeenCalled();
     expect(scene.getFile("a")?.dataURL).toBe("data:inline");
@@ -94,7 +94,7 @@ describe("restoreDocumentFiles", () => {
   it("survives a document whose file is missing from the store", async () => {
     const scene = sceneReferencing("gone");
 
-    const result = await restoreDocumentFiles([scene], fakeStore());
+    const result = await restoreDocumentFiles([scene], fakeStore(), []);
 
     expect(result.restored).toBe(0);
     expect(scene.getFile("gone")).toBeUndefined();
@@ -103,7 +103,7 @@ describe("restoreDocumentFiles", () => {
   it("stops expecting a file once it has arrived", async () => {
     const scene = sceneReferencing("a");
 
-    await restoreDocumentFiles([scene], fakeStore({ a: file("data:a") }));
+    await restoreDocumentFiles([scene], fakeStore({ a: file("data:a") }), []);
 
     expect(scene.isFilePending("a")).toBe(false);
   });
@@ -113,7 +113,7 @@ describe("restoreDocumentFiles", () => {
   it("stops expecting a file that turned out not to be there", async () => {
     const scene = sceneReferencing("gone");
 
-    await restoreDocumentFiles([scene], fakeStore());
+    await restoreDocumentFiles([scene], fakeStore(), []);
 
     expect(scene.isFilePending("gone")).toBe(false);
   });
@@ -136,3 +136,50 @@ describe("expectStoredFiles", () => {
   });
 });
 
+/**
+ * The fail-safe. Collection deletes on the strength of its keep-set, so the difference between
+ * "nothing else owns anything" and "I could not find out what else owns things" is the difference
+ * between reclaiming disk and losing a user's pictures. These are the tests that hold that line.
+ */
+describe("collectOrphanedFiles keep-set", () => {
+  it("deletes what nothing references when the keep-set is genuinely empty", async () => {
+    const store = fakeStore({ orphan: file("data:orphan") });
+
+    const collected = await collectOrphanedFiles([new Scene()], store, []);
+
+    expect(collected).toBe(1);
+    expect([...store.data.keys()]).toEqual([]);
+  });
+
+  it("spares a file the keep-set names even though no scene mentions it", async () => {
+    const store = fakeStore({ "held-elsewhere": file("data:held") });
+
+    const collected = await collectOrphanedFiles([new Scene()], store, ["held-elsewhere"]);
+
+    expect(collected).toBe(0);
+    expect([...store.data.keys()]).toEqual(["held-elsewhere"]);
+  });
+
+  it("collects nothing at all when the keep-set could not be determined", async () => {
+    const store = fakeStore({ orphan: file("data:orphan"), another: file("data:another") });
+    const deleteMany = vi.spyOn(store, "deleteMany");
+
+    const collected = await collectOrphanedFiles([new Scene()], store, null);
+
+    // Not "deleted nothing because nothing was orphaned" — the store was never even examined.
+    expect(collected).toBe(0);
+    expect(deleteMany).not.toHaveBeenCalled();
+    expect([...store.data.keys()].sort()).toEqual(["another", "orphan"]);
+  });
+
+  it("carries that refusal through the boot restore, which still restores what it can", async () => {
+    const store = fakeStore({ a: file("data:a"), orphan: file("data:orphan") });
+
+    const result = await restoreDocumentFiles([sceneReferencing("a")], store, null);
+
+    // The images the document needs still come back; only the deleting half is called off.
+    expect(result.restored).toBe(1);
+    expect(result.collected).toBe(0);
+    expect([...store.data.keys()].sort()).toEqual(["a", "orphan"]);
+  });
+});

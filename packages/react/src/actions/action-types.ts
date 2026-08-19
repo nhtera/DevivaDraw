@@ -45,6 +45,9 @@ export interface UiToggleState {
   setStatsPanelVisible(value: boolean): void;
   getLayersPanelVisible(): boolean;
   setLayersPanelVisible(value: boolean): void;
+  /** Version history — every stored snapshot of this board, with preview and restore. */
+  getVersionHistoryOpen(): boolean;
+  setVersionHistoryOpen(value: boolean): void;
   /** The comments panel — every thread on the page, including the resolved and page-anchored ones that have no canvas pin. */
   getCommentsPanelVisible(): boolean;
   setCommentsPanelVisible(value: boolean): void;

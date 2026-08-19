@@ -3,10 +3,9 @@
  * document comes back from localStorage synchronously with `fileId` references but no bytes, and this
  * puts the bytes back — then collects the ones nothing points at any more.
  *
- * Collection runs here, at boot, and nowhere else. That is not an arbitrary schedule: the moment a
- * document is loaded is the one moment there is no undo stack, so an id no element references cannot
- * be resurrected by an undo, which is exactly the condition `Scene.pruneOrphanedFiles` documents as
- * the caller's responsibility to establish.
+ * Collection is safe exactly when no undo can bring a reference back: at boot, and on a whole-document
+ * swap (a file opened, a share link loaded, a page switched) — see `collectOrphanedFiles`. Notably
+ * NOT after "Reset canvas", which is one undo away from restoring every element it cleared.
  */
 import { referencedFileIds } from "@deviva-draw/engine";
 import type { FileStoreLike, Scene } from "@deviva-draw/engine";
@@ -29,7 +28,7 @@ export interface RestoreDocumentFilesResult {
  * identical to the one it just read. Bringing saved bytes back is not an edit. Repainting is
  * therefore the caller's job: invalidate the canvas once this resolves.
  */
-export async function restoreDocumentFiles(scenes: readonly Scene[], store: FileStoreLike, alsoKeep: Iterable<string> = []): Promise<RestoreDocumentFilesResult> {
+export async function restoreDocumentFiles(scenes: readonly Scene[], store: FileStoreLike, alsoKeep: CollectionKeepSet): Promise<RestoreDocumentFilesResult> {
   const restored = await restoreSceneFiles(scenes, store);
   // Recomputed after the restore, not before: `referencedFileIds` is cheap, and reading it here means
   // collection can never race a scene the restore has just changed.
@@ -38,15 +37,35 @@ export async function restoreDocumentFiles(scenes: readonly Scene[], store: File
 }
 
 /**
+ * The set of file ids something outside the open document still owns — or `null`, meaning **the
+ * caller could not work out what is still owned, so nothing may be collected on this pass**.
+ *
+ * The distinction is the entire point of the type, and it exists because the alternative is a silent
+ * catastrophe. Collection deletes every stored file the keep-set does not name, so an empty set reads
+ * as "nothing outside the document owns anything — take it all". A caller that hit an error while
+ * building its keep-set and fell back to `[]` would therefore be asking for exactly the wrong thing,
+ * in a codebase that has already shipped three separate bugs where an image was deleted out from
+ * under something that still needed it. `null` is how "I do not know" is said out loud; there is no
+ * default, so every caller has to say one or the other.
+ */
+export type CollectionKeepSet = Iterable<string> | null;
+
+/**
  * Deletes every stored file the given scenes no longer mention. Safe exactly when no undo can bring
  * a reference back — at boot, and on a whole-document swap (opening a file, loading a share link),
  * both of which start from a fresh history. Notably NOT after "Reset canvas", which is one undo away
- * from restoring every element it cleared. Returns how many were deleted.
+ * from restoring every element it cleared. Returns how many were deleted — `0` when `alsoKeep` is
+ * `null`, because then nothing is examined at all.
  */
-export async function collectOrphanedFiles(scenes: readonly Scene[], store: FileStoreLike, alsoKeep: Iterable<string> = []): Promise<number> {
+export async function collectOrphanedFiles(scenes: readonly Scene[], store: FileStoreLike, alsoKeep: CollectionKeepSet): Promise<number> {
+  // The fail-safe. A caller that could not determine what is still owned gets no collection at all
+  // this pass: the file store is allowed to keep garbage indefinitely, and it is not allowed to lose
+  // an image something still needs. See `CollectionKeepSet`.
+  if (alsoKeep === null) return 0;
   const referenced = referencedFileIds(scenes);
   // Things outside the document can own a file too — the library keeps items long after the board
-  // they came from is gone (see `browser/library-storage.ts`'s `libraryFileIds`).
+  // they came from is gone (see `browser/library-storage.ts`'s `libraryFileIds`), and version
+  // history holds every image any stored snapshot still references.
   for (const fileId of alsoKeep) referenced.add(fileId);
   const orphans = (await store.listIds()).filter((fileId) => !referenced.has(fileId));
   if (orphans.length > 0) await store.deleteMany(orphans);

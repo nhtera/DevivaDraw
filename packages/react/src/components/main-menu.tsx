@@ -30,6 +30,8 @@ export interface MainMenuProps {
   onOpenCollab(): void;
   onOpenExport(): void;
   onOpenLibrary(): void;
+  /** Opens the version-history dialog. Routed through the shell like the other dialogs rather than through the action registry, so the menu closes first. */
+  onOpenVersionHistory(): void;
   onOpenMermaid(): void;
   onOpenEmbed(): void;
   /** Whether the host configured `shareApiBaseUrl` — gates both "Share" and "Collaborate…", which both depend on the same collab-server endpoint (see `deviva-draw-app-types.ts`'s `shareApiBaseUrl` doc). `false` hides them entirely rather than showing a menu entry that would just fail every time. */
@@ -140,7 +142,7 @@ const VIEWPORT_MARGIN = 8;
 const FLYOUT_HEIGHT_ESTIMATE = PREFERENCE_TOGGLES.length * 34 + 144 + 162;
 
 export function MainMenu(props: MainMenuProps) {
-  const { runtime, onClose, onOpenShortcuts, onOpenCollab, onOpenExport, onOpenLibrary, onOpenMermaid, onOpenEmbed, shareEnabled } = props;
+  const { runtime, onClose, onOpenShortcuts, onOpenCollab, onOpenExport, onOpenLibrary, onOpenVersionHistory, onOpenMermaid, onOpenEmbed, shareEnabled } = props;
   const { t, locale, setLocale } = useTranslation();
   const { preference, setPreference } = useTheme();
   const { preference: inputDevice, setPreference: setInputDevice } = useInputDevicePreference();
@@ -276,6 +278,16 @@ export function MainMenu(props: MainMenuProps) {
         }}
       >
         {t("menu.embed")}
+      </MenuButton>
+      <MenuButton
+        testId="main-menu-version-history"
+        icon="history"
+        onClick={() => {
+          onClose();
+          onOpenVersionHistory();
+        }}
+      >
+        {t("action.toggleVersionHistory")}
       </MenuButton>
       <MenuButton testId="main-menu-copy-image" icon="copy-image" onClick={() => run("copy-as-image")}>
         {t("action.copyAsImage")}

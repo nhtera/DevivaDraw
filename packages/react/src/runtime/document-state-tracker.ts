@@ -62,6 +62,16 @@ export class DocumentStateTracker {
     this.notify();
   }
 
+  /**
+   * Monotonic content-revision counter — the same number `dirty` is derived from, exposed for
+   * consumers that need "did the document change since I last looked?" rather than "is it unsaved?".
+   * Version history's cadence reads it: two questions about the same fact should not be answered by
+   * two different counters that can drift.
+   */
+  getContentRevision(): number {
+    return this.revision;
+  }
+
   getState(): DocumentState {
     return {
       path: this.identity?.path ?? null,

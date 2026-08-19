@@ -53,6 +53,8 @@ import { CollabDialog } from "./components/collab-dialog";
 import { SessionEndedNotice } from "./components/session-ended-notice";
 import { ShortcutsDialog } from "./components/shortcuts-dialog";
 import { FindPanel } from "./components/find-panel";
+import { VersionHistoryPanel } from "./components/version-history-panel";
+import { useVersionHistory } from "./hooks/use-version-history";
 import { ExportDialog } from "./components/export-dialog";
 import { LibraryPanel } from "./components/library-panel";
 import { LibraryToggle } from "./components/library-toggle";
@@ -180,6 +182,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const libraryOpen = useToggleState(false);
   const mermaidOpen = useToggleState(false);
   const embedOpen = useToggleState(false);
+  const versionHistoryOpen = useToggleState(false);
   const mainMenuOpen = useToggleState(false);
   const shareDialog = useValueState<ShareDialogState>({ status: "closed" });
   const collabDialogOpen = useToggleState(false);
@@ -208,6 +211,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       mermaidOpen.value ||
       embedOpen.value ||
       mainMenuOpen.value ||
+      versionHistoryOpen.value ||
       shareDialog.value.status !== "closed" ||
       collabDialogOpen.value ||
       contextMenuTriggers.point !== null ||
@@ -224,7 +228,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   const remoteCursorsRef = useRef<RemoteCursorOverlay[]>([]);
   const getRemoteCursors = useCallback(() => remoteCursorsRef.current, []);
 
-  const { runtime, editSession, handle, autosaveStatus } = useDevivaRuntime({
+  const { runtime, editSession, handle, autosaveStatus, getVersionScheduler, getVersionStore, getFileStore, collectUnusedFiles, repaint } = useDevivaRuntime({
     containerRef: canvasHostRef,
     cameraStore,
     initialData,
@@ -243,6 +247,8 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
       setStatsPanelVisible: statsPanel.set,
       getLayersPanelVisible: layersPanel.get,
       setLayersPanelVisible: layersPanel.set,
+      getVersionHistoryOpen: versionHistoryOpen.get,
+      setVersionHistoryOpen: versionHistoryOpen.set,
       getCommentsPanelVisible: commentsPanel.get,
       setCommentsPanelVisible: commentsPanel.set,
       getMinimapVisible: minimapVisible.get,
@@ -415,7 +421,36 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
   // requires (`shareApiBaseUrl` — both are that Worker's endpoints, see `use-collab-session.ts`'s
   // `apiBaseUrl` doc) rather than introducing a second, near-identical prop.
   const canvasBackground = useCanvasBackground(runtime?.scene ?? null);
-  const collab = useCollabSession({ scene: runtime?.scene ?? null, pageStore, apiBaseUrl: shareApiBaseUrl });
+  // Version history's "before joining a room" milestone. Fired from inside the join rather than from
+  // the call sites that trigger one (the dialog, the auto-join a room URL performs) because only the
+  // hook knows the instant at which this peer's own board is still its own — see `onBeforeJoin`.
+  const snapshotBeforeJoin = useCallback(() => void getVersionScheduler()?.snapshotNow("milestone", "before-join"), [getVersionScheduler]);
+  const collab = useCollabSession({ scene: runtime?.scene ?? null, pageStore, apiBaseUrl: shareApiBaseUrl, onBeforeJoin: snapshotBeforeJoin });
+
+  /**
+   * Version history. Built after `useCollabSession` because its restore guard reads that session's
+   * state — the one thing restore is not allowed to do is replace the document out from under a room.
+   *
+   * `sessionActive` is the rendered value, for the panel's disabled-and-explained button.
+   * `isSessionActive` is the same fact read without waiting for a render, which is what the guard
+   * inside `restore-version-snapshot.ts` gets: `collab.isJoining()` is written synchronously before
+   * the connect is awaited, so a guard built on it cannot be blind during the connect window.
+   */
+  const sessionActive = collab.status !== "disconnected" || collab.joining;
+  const getSessionConnected = useStableGetter(collab.status !== "disconnected");
+  const isSessionActive = useCallback(() => getSessionConnected() || collab.isJoining(), [getSessionConnected, collab]);
+  const versionHistory = useVersionHistory({
+    open: versionHistoryOpen.value,
+    getVersionStore,
+    getVersionScheduler,
+    getFileStore,
+    collectUnusedFiles,
+    pageStore,
+    isSessionActive,
+    // A restored document's images are read back after the swap, and bringing stored bytes into a
+    // scene deliberately does not notify — so the frame has to be asked for.
+    onRestored: repaint,
+  });
   /**
    * Joining a room is opening a document, not merging one.
    *
@@ -569,6 +604,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
           onOpenCollab={() => collabDialogOpen.set(true)}
           onOpenExport={() => exportDialogOpen.set(true)}
           onOpenLibrary={() => libraryOpen.set(true)}
+          onOpenVersionHistory={() => versionHistoryOpen.set(true)}
           onOpenMermaid={() => mermaidOpen.set(true)}
           onOpenEmbed={() => embedOpen.set(true)}
           shareEnabled={Boolean(shareApiBaseUrl)}
@@ -599,6 +635,7 @@ export const DevivaDrawShell = forwardRef<DevivaDrawHandle, DevivaDrawProps>(fun
           onClose={() => libraryOpen.set(false)}
         />
       )}
+      {runtime && versionHistoryOpen.value && <VersionHistoryPanel history={versionHistory} sessionActive={sessionActive} onClose={() => versionHistoryOpen.set(false)} />}
       {runtime && shortcutsDialogOpen.value && <ShortcutsDialog runtime={runtime} onClose={() => shortcutsDialogOpen.set(false)} />}
       {runtime && findOpen.value && (
         <FindPanel runtime={runtime} pageStore={pageStore} onSwitchPage={(id) => parkCameraThen(() => pageStore.setActivePage(id))} onClose={() => findOpen.set(false)} />

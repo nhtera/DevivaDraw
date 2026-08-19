@@ -15,7 +15,7 @@
  * stabilize (see `deviva-draw-shell.tsx`); `onChange` is stabilized internally here since it's this
  * hook's own parameter, not forwarded from another already-stable source.
  */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import {
   createBrowserImageDecoder,
@@ -31,7 +31,13 @@ import type { AnyElement, FileStoreLike, MultiPageDocumentV1, RemoteCursorOverla
 import type { FileOperationsProvider } from "../browser/file-operations-provider";
 import { referencedFileIds } from "@deviva-draw/engine";
 import { openIndexedDbFileStore } from "../browser/indexeddb-file-store";
+import { openIndexedDbVersionStore } from "../browser/indexeddb-version-store";
+import type { VersionStore } from "../browser/indexeddb-version-store";
+import type { MilestoneReason } from "../browser/version-snapshot-types";
+import { startVersionSnapshotScheduler } from "./version-snapshot-scheduler";
+import type { VersionSnapshotScheduler } from "./version-snapshot-scheduler";
 import { collectOrphanedFiles, expectStoredFiles, restoreDocumentFiles, restoreSceneFiles } from "./restore-document-files";
+import { buildCollectionKeepSet } from "./collection-keep-set";
 import { retainedFileIds } from "../browser/retained-file-ids";
 import { documentFromFileText } from "../browser/scene-file-operations";
 import { buildPersistenceOperations } from "./build-persistence-operations";
@@ -41,6 +47,7 @@ import { buildRuntime } from "./build-runtime";
 import type { DevivaDrawHandle } from "./imperative-handle";
 import { buildImperativeHandle } from "./imperative-handle";
 import { restoreBrowserAutosave, startBrowserAutosave, startBrowserDocumentAutosave } from "../browser/scene-file-operations";
+import type { DocumentAutosaveController } from "../browser/scene-file-operations";
 import { PageStore } from "../pages/page-store";
 import { createBrowserExportRenderTarget, createRoughSvgGenerator } from "../browser/persistence-adapters";
 import { getLiveElements, getLiveFiles } from "./scene-live-snapshot";
@@ -102,6 +109,40 @@ export interface UseDevivaRuntimeResult {
   handle: DevivaDrawHandle | null;
   /** Live "can autosave still save?" signal for the chrome's storage-full warning — see `autosave-status-store.ts`. */
   autosaveStatus: AutosaveStatusStore;
+  /**
+   * Version history's scheduler, or `null` while it is still starting / for a host that has no
+   * version history at all (no IndexedDB, `initialData`-managed persistence, or no page store).
+   *
+   * A stable getter rather than a returned value: the scheduler starts asynchronously, after the
+   * image restore settles, and turning that into React state would re-render every consumer of this
+   * hook for an event none of them can act on. Callers that need to *react* to its arrival get that
+   * in the history panel's own hook; callers that only need to fire a milestone (a room join, a file
+   * open) want exactly this — "give me the scheduler if there is one".
+   */
+  getVersionScheduler(): VersionSnapshotScheduler | null;
+  /** Version history's store once it has opened, or `null` where this host has none. Same stable-getter reasoning as `getVersionScheduler`. */
+  getVersionStore(): VersionStore | null;
+  /** The image file store once it has opened, or `null` where this host has none — what a version preview reads its pictures from, and what a restore rehydrates from. */
+  getFileStore(): FileStoreLike | null;
+  /**
+   * Runs one orphan-collection pass with the current keep-set — the same pass a document swap runs.
+   *
+   * Exposed because deleting version records does not delete the images they were protecting: those
+   * are reclaimed only when collection next notices nothing points at them. "Clear history" that did
+   * not call this would empty a list while leaving every byte behind, which is not what the user
+   * asked for when they cleared their history.
+   */
+  collectUnusedFiles(): Promise<void>;
+  /**
+   * Forces one repaint of the static canvas layer.
+   *
+   * Bringing stored image bytes back into a scene deliberately does not notify (see
+   * `restore-document-files.ts`: a restore is not an edit, and treating it as one would mark the
+   * document dirty on boot). The cost of that decision is that the caller has to ask for the frame —
+   * which a restore of a stored version must, since its images arrive after the document is already
+   * on screen.
+   */
+  repaint(): void;
 }
 
 function buildInitialScene(initialData: SceneDocument | MultiPageDocumentV1 | null | undefined, persistenceKey: string | undefined): Scene {
@@ -138,7 +179,66 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
   // Resolves once those payloads are back in their scenes. Held across rebuilds because it gates
   // saving and exporting, which must not depend on which page happens to be open.
   const filesRestoredRef = useRef<Promise<void> | null>(null);
+  // Version history's own database, opened beside the file store and on the same terms: once per
+  // mount, never for a host that manages its own persistence. A separate database rather than a
+  // second store in `devivadraw-files`, so images never wait behind a schema upgrade for a feature
+  // they do not need.
+  const versionStoreRef = useRef<Promise<VersionStore | null> | null>(null);
+  if (versionStoreRef.current === null && !initialData) versionStoreRef.current = openIndexedDbVersionStore();
+  const versionStore = versionStoreRef.current;
+  // The scheduler outlives every runtime rebuild — its cadence is a property of the session, not of
+  // whichever page is on screen, and re-creating it per page switch would reset the five-minute
+  // window every time the user looked at another page. Started once, disposed once (see the
+  // unmount-only effect below).
+  const versionSchedulerRef = useRef<VersionSnapshotScheduler | null>(null);
+  const versionSchedulerStartedRef = useRef(false);
+  // The live document autosave controller, held so the scheduler — created once — can always read the
+  // *current* one's `snapshotDocument`. A rebuild replaces the controller; a scheduler that captured
+  // the first one would keep serialising through a disposed writer's exclusion set.
+  const documentAutosaveRef = useRef<DocumentAutosaveController | null>(null);
+  const getVersionScheduler = useCallback(() => versionSchedulerRef.current, []);
+  // The version store once it has opened, for the panel's own operations (listing, restoring,
+  // clearing). `null` until then, and forever where there is no version history at all.
+  const openedVersionStoreRef = useRef<VersionStore | null>(null);
+  const getVersionStore = useCallback(() => openedVersionStoreRef.current, []);
+  // The image store, resolved. Held separately from the `fileStore` promise so a caller in an event
+  // handler can ask "is there one?" without awaiting. Subscribed once, not per render — the promise
+  // never changes, and a `.then` per render would pile up callbacks for the lifetime of the mount.
+  const openedFileStoreRef = useRef<FileStoreLike | null>(null);
+  const fileStoreSubscribedRef = useRef(false);
+  if (fileStore && !fileStoreSubscribedRef.current) {
+    fileStoreSubscribedRef.current = true;
+    void fileStore.then((store) => (openedFileStoreRef.current = store)).catch(() => undefined);
+  }
+  const getFileStore = useCallback(() => openedFileStoreRef.current, []);
+
+  // The keep-set every collection pass is judged against, including its refusal case — see
+  // `collection-keep-set.ts`, which is where that decision lives and is tested.
+  const collectionKeepSet = useCallback(() => buildCollectionKeepSet(retainedFileIds(persistenceKey), versionStore), [versionStore, persistenceKey]);
+
+  /**
+   * One orphan-collection pass on demand — see `UseDevivaRuntimeResult.collectUnusedFiles`.
+   *
+   * Waits on `filesRestoredRef` for the same reason the boot path does: collecting before the
+   * restore has put the bytes back into their scenes would judge "is anything still referencing
+   * this?" against scenes that have not finished loading, and delete on the strength of it.
+   */
+  const collectUnusedFiles = useCallback(async () => {
+    if (!fileStore) return;
+    try {
+      const [store] = await Promise.all([fileStore, filesRestoredRef.current]);
+      if (!store) return;
+      const scenes = pageStore ? pageStore.getScenes() : sceneRef.current ? [sceneRef.current] : [];
+      await collectOrphanedFiles(scenes, store, await collectionKeepSet());
+    } catch (error) {
+      console.warn("deviva-draw: could not collect unused image data", error);
+    }
+  }, [fileStore, pageStore, collectionKeepSet]);
+
   const stageRef = useRef<CanvasStage | null>(null);
+  // Through the ref, not a captured stage: the stage a caller last saw may already have been replaced
+  // by a runtime rebuild.
+  const repaint = useCallback(() => stageRef.current?.staticLayer.invalidate(), []);
   if (sceneRef.current === null) sceneRef.current = pageStore ? pageStore.getActiveScene() : buildInitialScene(initialData, persistenceKey);
 
   const [runtime, setRuntime] = useState<DevivaRuntime | null>(null);
@@ -223,7 +323,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
             for (const pending of scenes) pending.stopExpectingFiles(referencedFileIds(scenes));
             return;
           }
-          const { restored } = await restoreDocumentFiles(scenes, store, retainedFileIds(persistenceKey));
+          const { restored } = await restoreDocumentFiles(scenes, store, await collectionKeepSet());
           // A restore is not a scene change (see `restore-document-files.ts`), so nothing repaints on
           // its own — the canvas has to be told, and via the ref because the stage this mount created
           // may already have been replaced by a rebuild.
@@ -238,7 +338,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
       // session. "Reset canvas" deliberately does NOT rebuild — an undo can still bring those
       // elements back, so their bytes wait.
       void Promise.all([fileStore, filesRestoredRef.current])
-        .then(([store]) => store && collectOrphanedFiles(pageStore ? pageStore.getScenes() : [scene], store, retainedFileIds(persistenceKey)))
+        .then(async ([store]) => store && collectOrphanedFiles(pageStore ? pageStore.getScenes() : [scene], store, await collectionKeepSet()))
         .catch((error: unknown) => console.warn("deviva-draw: could not collect unused image data", error));
     }
 
@@ -259,7 +359,10 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
     });
 
     const usingHostManagedData = Boolean(initialData);
-    const autosave = usingHostManagedData
+    // Split out from `autosave` below because only the DOCUMENT flavour can feed version history: a
+    // single `Scene` has no multi-page document to snapshot, which is exactly why the seam lives on
+    // its own controller type rather than on the engine's (see `DocumentAutosaveController`).
+    const documentAutosave = usingHostManagedData
       ? null
       : pageStore
         ? startBrowserDocumentAutosave(
@@ -276,7 +379,35 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
             autosaveStatus,
             autosaveFileStore,
           )
-        : startBrowserAutosave(scene, persistenceKey, autosaveStatus, autosaveFileStore);
+        : null;
+    // The single-scene fallback, unchanged: reached only when there is no page store and the host is
+    // not managing its own data. Everything downstream still talks to `autosave`, whichever it is.
+    const autosave = documentAutosave ?? (usingHostManagedData || pageStore ? null : startBrowserAutosave(scene, persistenceKey, autosaveStatus, autosaveFileStore));
+    // Published for the version scheduler, which is created once and must always serialise through
+    // whichever controller is live now — see the ref's own doc.
+    documentAutosaveRef.current = documentAutosave;
+
+    // Version history starts once per session, and only after the image restore has settled. The
+    // ordering is the same one the autosave offload needs (see the comment above it): a snapshot
+    // taken before the restore names files the scenes have not re-registered, so it would reference
+    // bytes nothing in memory holds — and, once Phase 2's keep-set exists, would then protect them
+    // from collection on the strength of a document that was never really the board.
+    if (versionStore && documentAutosave && !versionSchedulerStartedRef.current) {
+      versionSchedulerStartedRef.current = true;
+      void Promise.all([versionStore, filesRestoredRef.current])
+        .then(([store]) => {
+          if (!store) return;
+          openedVersionStoreRef.current = store;
+          versionSchedulerRef.current = startVersionSnapshotScheduler({
+            store,
+            // Read through the ref, never captured: this closure outlives the controller it was
+            // created beside.
+            snapshotDocument: () => documentAutosaveRef.current!.snapshotDocument(),
+            getContentRevision: () => documentState.getContentRevision(),
+          });
+        })
+        .catch((error: unknown) => console.warn("deviva-draw: could not start version history", error));
+    }
 
     // Autosave only writes in response to a scene *change*, and a scene that was just opened from a
     // file has none — so without this, opening a document and reloading restored the document from
@@ -285,7 +416,19 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
     // create a save where the user has none.
     if (sceneVersion > 0) autosave?.flush();
 
+    /**
+     * Records the board *before* an operation that replaces the whole document. Fire-and-forget by
+     * design: the swap must not wait on a database, and the snapshot's content is captured
+     * synchronously inside `snapshotNow` precisely so it can be (see the scheduler's `capture`).
+     *
+     * A no-op while the scheduler is still starting, or where there is none at all. That is the
+     * honest behaviour: the alternative — blocking a file open on version history being ready —
+     * would make a feature about not losing work into a reason to wait for it.
+     */
+    const milestone = (reason: MilestoneReason) => void versionSchedulerRef.current?.snapshotNow("milestone", reason);
+
     const onSceneReplaced = (opened: Scene) => {
+      milestone("before-open");
       // Pages mode: a single-scene load (the imperative `loadScene` API) becomes a whole-document
       // replace; the page-store subscription above performs the actual swap.
       if (pageStore) {
@@ -303,8 +446,8 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
       getCamera: cameraStore.getCamera,
       setCamera: cameraStore.setCamera,
       ui,
-      createPersistence: ({ history, selection }) =>
-        buildPersistenceOperations({
+      createPersistence: ({ history, selection }) => {
+        const persistence = buildPersistenceOperations({
           getScene: () => sceneRef.current!,
           history,
           selection,
@@ -312,7 +455,10 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
           pages: pageStore
             ? {
                 getDocument: () => pageStore.toDocument(false, cameraStore.getCamera()),
-                replaceDocument: (document) => pageStore.replaceAll(document.pages, document.activePageId),
+                replaceDocument: (document) => {
+                  milestone("before-open");
+                  pageStore.replaceAll(document.pages, document.activePageId);
+                },
               }
             : undefined,
           shareApiBaseUrl,
@@ -331,7 +477,20 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
             // no scene mutation, so without this flush the marker would go stale until the next edit.
             autosave?.flush();
           },
-        }),
+        });
+        return {
+          ...persistence,
+          // "Reset canvas" is the one document-emptying operation that is NOT a runtime rebuild —
+          // it is an undo-batched clear, deliberately so, since an undo can bring every element
+          // back (see the collection comment above). That makes it easy to under-estimate: a user
+          // who clears, draws for an hour, then wants the old board back has walked past the end of
+          // the undo stack. The milestone is that board's only remaining copy.
+          newScene: () => {
+            milestone("before-clear");
+            persistence.newScene();
+          },
+        };
+      },
       shareApiBaseUrl,
       getThemeMode,
       toggleThemeMode,
@@ -379,6 +538,10 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
           // kept its old path here would let the next Save write this new, empty (or, once a room's
           // board arrives, someone else's) content straight over the user's own file.
           newDocument: () => {
+            // Only the page-store branch below can reach version history (see `documentAutosave`),
+            // so the `onSceneReplaced` fallback's own `before-open` milestone cannot double-fire
+            // alongside this one — that path has no scheduler at all.
+            milestone("before-clear");
             if (pageStore) pageStore.replaceAll([{ id: generatePageId(), name: "Page 1", scene: new Scene() }], null);
             else onSceneReplaced(new Scene());
             cameraStore.setCamera(createCamera());
@@ -398,6 +561,7 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
             // the camera across the swap (replaceAll/page effects would otherwise restore the
             // FILE's parked camera, which is wherever the agent's write left it).
             const camera = openOptions?.preserveCamera ? cameraStore.getCamera() : null;
+            milestone("before-open");
             if (pageStore) pageStore.replaceAll(opened.pages, opened.activePageId);
             else {
               const first = opened.pages[0]?.scene;
@@ -485,5 +649,5 @@ export function useDevivaRuntime(options: UseDevivaRuntimeOptions): UseDevivaRun
     // precisely so they *don't* need to be stable themselves.
   }, [sceneVersion]);
 
-  return { runtime, editSession, handle, autosaveStatus };
+  return { runtime, editSession, handle, autosaveStatus, getVersionScheduler, getVersionStore, getFileStore, collectUnusedFiles, repaint };
 }

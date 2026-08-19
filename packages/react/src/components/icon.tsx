@@ -59,6 +59,7 @@ const GLYPHS: Record<string, string> = {
   "view-only": "👁",
   stats: "📊",
   minimap: "🗺",
+  history: "🕘",
   file: "📄",
   "folder-open": "📂",
   save: "💾",

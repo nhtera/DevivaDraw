@@ -31,6 +31,17 @@ export interface UseCollabSessionOptions {
   pageStore?: PageStore | null;
   /** The collab-server's base URL — omitted makes `startSession`/`joinSession` reject immediately rather than attempting a request to nowhere, mirroring `PersistenceOperations.shareScene`'s `shareApiBaseUrl` contract. */
   apiBaseUrl?: string;
+  /**
+   * Called synchronously at the moment `joinSession` captures the pre-join board, before the connect
+   * is awaited — the last instant at which this peer's own document is still distinguishable from
+   * the room's (see the `preJoinPageIds` comment in `joinSession`). Version history hooks its
+   * "before joining a room" milestone here.
+   *
+   * A plain callback rather than this hook knowing about snapshots: collaboration has no business
+   * depending on version history, and the one thing it can uniquely offer — "this instant, and no
+   * later" — is exactly what a callback expresses.
+   */
+  onBeforeJoin?(): void;
 }
 
 /** Machine-checkable failure reason (mirrors `DecryptSceneErrorReason`'s "code, not prose" contract) so the dialog component picks an i18n'd message rather than displaying free text. `null` means no error is currently active. */
@@ -38,6 +49,27 @@ export type CollabErrorReason = "not-configured" | "start-failed" | "join-failed
 
 export interface UseCollabSessionResult {
   status: CollabConnectionStatus;
+  /**
+   * `true` from the moment a session starts being established — joined, started, or hosted — until
+   * that has resolved or failed.
+   *
+   * `status`/`roomUrl`/`role` are all set *after* the connect is awaited, so for the whole length of
+   * one this hook otherwise looks exactly like a disconnected one. Anything that must not
+   * happen "during a session" — replacing the whole document, above all — would sail straight through
+   * a guard that only asked whether it was connected. Rendered state, for a UI that wants to explain
+   * itself while connecting.
+   */
+  joining: boolean;
+  /**
+   * The same fact as `joining`, read without waiting for a render.
+   *
+   * A guard on a destructive operation must not be able to answer from a render that has not happened
+   * yet: `setJoining(true)` schedules a re-render, and anything reading the rendered value in that
+   * window sees `false`. This getter reads the ref the flag is written to synchronously, before the
+   * await — so a guard built on it is correct at the instant it is asked rather than at the instant
+   * React last painted.
+   */
+  isJoining(): boolean;
   /** The link for this session in the local user's own role — the editor link when they started it, the link they joined with otherwise. */
   roomUrl: string | null;
   /** The read-only link for this session. Only the peer that started it holds one: a viewer cannot hand out rights they do not have, and an editor who joined by link was never given the viewer token. */
@@ -82,7 +114,7 @@ export interface UseCollabSessionResult {
 }
 
 export function useCollabSession(options: UseCollabSessionOptions): UseCollabSessionResult {
-  const { scene, pageStore, apiBaseUrl } = options;
+  const { scene, pageStore, apiBaseUrl, onBeforeJoin } = options;
   const sessionRef = useRef<CollabSession | null>(null);
   // The session lives as long as its anchor: the stable page store when present (a page switch swaps
   // `scene` but must not drop a live session), the scene itself otherwise.
@@ -102,6 +134,15 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
   // not arrive at all unless something re-renders on it.
   const [localPageId, setLocalPageId] = useState<string | null>(null);
   const [endedReason, setEndedReason] = useState<GiveUpReason | null>(null);
+  // Two homes for one fact, deliberately — see `joining` and `isJoining` on the result type. The ref
+  // is what guards read; the state is what re-renders the chrome.
+  const joiningRef = useRef(false);
+  const [joining, setJoining] = useState(false);
+  const setJoiningFlag = useCallback((value: boolean) => {
+    joiningRef.current = value;
+    setJoining(value);
+  }, []);
+  const isJoining = useCallback(() => joiningRef.current, []);
 
   useEffect(() => {
     if (!sessionAnchor) return;
@@ -159,6 +200,9 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
       return;
     }
     setEndedReason(null);
+    // Raised for the whole connect, exactly as `joinSession` does — a session being established is a
+    // session, whichever end of it this peer is.
+    setJoiningFlag(true);
     try {
       const links = await session.startSession(apiBaseUrl, window.location.origin);
       setRoomUrl(links.editorUrl);
@@ -168,8 +212,10 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
     } catch (caught) {
       console.error("deviva-draw: collab startSession failed", caught);
       setError("start-failed");
+    } finally {
+      setJoiningFlag(false);
     }
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, setJoiningFlag]);
 
   const hostSession = useCallback(async (relayBaseUrl: string, room: MintedRoom) => {
     const session = sessionRef.current;
@@ -178,6 +224,7 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
       return;
     }
     setEndedReason(null);
+    setJoiningFlag(true);
     try {
       // The relay is both the endpoint and the link's origin here: a self-hosted room has no separate
       // web app in front of it, so the address that serves the socket is the address on the link.
@@ -190,8 +237,10 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
       console.error("deviva-draw: collab hostSession failed", caught);
       setError("start-failed");
       throw caught;
+    } finally {
+      setJoiningFlag(false);
     }
-  }, []);
+  }, [setJoiningFlag]);
 
   const joinSession = useCallback(
     async (url: string) => {
@@ -202,7 +251,14 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
       }
       setEndedReason(null);
       // Captured BEFORE connecting: afterwards the room's pages and this client's own are
-      // indistinguishable in the store.
+      // indistinguishable in the store. The same is true of the board's *content* — remote elements
+      // arrive incrementally through the LWW manifest union long before `adoptRoomPages` runs — so
+      // anything that wants a picture of this peer's own document has to take it here, not later.
+      onBeforeJoin?.();
+      // Raised before the await, and lowered in both exits below: the window this covers is exactly
+      // the one in which this client's own board is being merged with the room's and no other signal
+      // says so.
+      setJoiningFlag(true);
       const preJoinPageIds = pageStore ? new Set(pageStore.getPages().map((page) => page.id)) : null;
       const preJoinActiveId = pageStore?.getActivePageId() ?? null;
       try {
@@ -225,9 +281,13 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
       } catch (caught) {
         console.error("deviva-draw: collab joinSession failed", caught);
         setError("join-failed");
+      } finally {
+        // `finally`, not a line in each branch: a join that threw somewhere unanticipated must not
+        // leave the flag raised forever, which would disable restore for the rest of the session.
+        setJoiningFlag(false);
       }
     },
-    [apiBaseUrl, pageStore],
+    [apiBaseUrl, pageStore, onBeforeJoin, setJoiningFlag],
   );
 
   const leaveSession = useCallback(() => {
@@ -288,7 +348,7 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
 
   const dismissEnded = useCallback(() => setEndedReason(null), []);
 
-  return { status, roomUrl, viewerUrl, role, peers, error, endedReason, dismissEnded, startSession, hostSession, joinSession, leaveSession, updateCursor, sendReaction, setHandRaised, setLocalViewport, follow, followedPeerId, followedViewport, localPageId };
+  return { status, joining, isJoining, roomUrl, viewerUrl, role, peers, error, endedReason, dismissEnded, startSession, hostSession, joinSession, leaveSession, updateCursor, sendReaction, setHandRaised, setLocalViewport, follow, followedPeerId, followedViewport, localPageId };
 }
 
 /**

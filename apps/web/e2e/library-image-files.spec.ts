@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { RED_BLUE_PNG, clearFileDatabase, insertImage, patchColor, storedFileIds } from "./image-file-store-fixtures";
+import { clearVersionDatabase } from "./version-history-fixtures";
 
 /**
  * A library item stores which image it uses, never the image itself. That makes the library the one
@@ -7,6 +8,11 @@ import { RED_BLUE_PNG, clearFileDatabase, insertImage, patchColor, storedFileIds
  * item has to read the bytes back. Get either wrong and the failure is quietly nasty: the saved
  * thumbnail (rendered while the board still held the image) keeps looking perfect while the item
  * places a broken box.
+ *
+ * The library is no longer the *only* owner outside the document — version history is a second one,
+ * and clearing the canvas takes a snapshot that references the board's images on purpose. These
+ * specs are about the library, so they empty history where it would otherwise mask the answer;
+ * `image-files-indexeddb-lifecycle.spec.ts` is where the version-history half is asserted.
  */
 
 async function openLibrary(page: import("@playwright/test").Page): Promise<void> {
@@ -26,6 +32,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => localStorage.clear());
   await clearFileDatabase(page);
+  await clearVersionDatabase(page);
   await page.reload();
   await expect(page.getByTestId("deviva-draw-root")).toBeVisible();
 });
@@ -67,9 +74,12 @@ test("deleting the library item lets the bytes go", async ({ page }) => {
 
   await resetCanvas(page);
   await page.evaluate(() => localStorage.removeItem("devivadraw:library:v1"));
+  // …and not the milestone snapshot that clearing the canvas just took, which is a real owner of
+  // these bytes and would otherwise keep them alive whatever the library did.
+  await clearVersionDatabase(page);
   await page.reload();
   await expect(page.getByTestId("deviva-draw-root")).toBeVisible();
 
-  // Nothing refers to it now — not the board, not the library.
+  // Nothing refers to it now — not the board, not the library, not version history.
   await expect.poll(() => storedFileIds(page)).toHaveLength(0);
 });

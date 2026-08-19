@@ -59,6 +59,7 @@ React or a DOM.
 - `index.ts` — package entry, re-exports the `<DevivaDraw/>` component, hooks, and scene-read helpers.
 - `components/` — the full UI chrome: toolbar, more-tools overflow menu, main menu (open/save/export/theme/language), style panel, context menu, shortcuts dialog, command palette, share & collab dialogs, canvas hint, text-editor overlay.
 - `runtime/` — wires engine tools, actions, and render loop into the React tree (`use-deviva-runtime`, `build-tools`, `build-runtime`, `start-render-loop`).
+- `browser/` — everything that only makes sense in a browser: localStorage autosave, the IndexedDB image-file store, and the IndexedDB **version store** (document snapshots, retention policy, restore).
 - `theme/` — light/dark/system theme provider, tokens, and storage.
 - `preferences/` — canvas preferences that persist on their own key, independent of the scene (currently "snap to objects").
 - `i18n/` — translation catalogs (English + Vietnamese) and `useTranslation`.
@@ -75,6 +76,22 @@ resolution built on the engine's `version`/`versionNonce` invariant.
 The standalone web app — a Vite + React SPA that mounts `<DevivaDraw/>` with
 localStorage autosave, share-link routing (`/s/…`), and collab-room routing
 (`/room/…`).
+
+## Where a document lives
+
+Three stores, each holding what it is good at:
+
+| Store | Holds |
+|---|---|
+| `localStorage` (`devivadraw:autosave:v1`) | The live document — every page, deleted elements included, image bytes excluded and referenced by `fileId`. |
+| IndexedDB `devivadraw-files` | Image payloads, content-addressed so the same picture is stored once however many places reference it. |
+| IndexedDB `devivadraw-versions` | Version history: whole-document snapshots, taken automatically and before anything that replaces the document. |
+
+A snapshot references image bytes rather than copying them, so history costs
+document JSON and nothing more. The price of that is a rule the whole feature
+rests on: orphan collection must know about snapshots, and **if the version store
+cannot be read, collection does not run at all** — the file store may keep garbage,
+but it may never lose an image something still needs.
 
 ## apps/collab-server/src
 
