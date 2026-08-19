@@ -1,6 +1,6 @@
 {
   "name": "@deviva-draw/mcp",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "description": "MCP server for Deviva Draw: lets AI agents create, edit, query, and export whiteboard scenes headlessly",
   "type": "module",
   "license": "MIT",
