@@ -7,6 +7,15 @@
  */
 import type { ReactNode } from "react";
 
+/** The frame-with-a-photo drawing shared by the PNG and SVG export rows. */
+const PICTURE = (
+  <>
+    <rect x="3" y="4.5" width="14" height="11" rx="1.5" />
+    <circle cx="7.5" cy="8.5" r="1.4" fill="currentColor" stroke="none" />
+    <path d="M4 14 L8 10 L11 13 L13.5 10.5 L16 13" />
+  </>
+);
+
 export const MENU_GLYPHS: Record<string, ReactNode> = {
   // Undo/redo as clean rounded arc-arrows (replacing the earlier ↶/↷ Unicode glyphs, which rendered
   // as thin off-center hooks): a left-pointing arrowhead whose shaft curls down and around, mirrored
@@ -182,21 +191,9 @@ export const MENU_GLYPHS: Record<string, ReactNode> = {
       <rect x="7" y="11" width="5.5" height="5" />
     </>
   ),
-  // Both PNG and SVG export share the "picture" motif (they shared 🖼 before).
-  "export-png": (
-    <>
-      <rect x="3" y="4.5" width="14" height="11" rx="1.5" />
-      <circle cx="7.5" cy="8.5" r="1.4" fill="currentColor" stroke="none" />
-      <path d="M4 14 L8 10 L11 13 L13.5 10.5 L16 13" />
-    </>
-  ),
-  "export-svg": (
-    <>
-      <rect x="3" y="4.5" width="14" height="11" rx="1.5" />
-      <circle cx="7.5" cy="8.5" r="1.4" fill="currentColor" stroke="none" />
-      <path d="M4 14 L8 10 L11 13 L13.5 10.5 L16 13" />
-    </>
-  ),
+  // Both PNG and SVG export share the "picture" motif (they shared 🖼 before), so it is drawn once.
+  "export-png": PICTURE,
+  "export-svg": PICTURE,
   search: (
     <>
       <circle cx="9" cy="9" r="5" />
@@ -220,6 +217,10 @@ export const MENU_GLYPHS: Record<string, ReactNode> = {
       <path d="M13.2 12.2 C16.6 12.2 16.8 14.3 16.8 16" />
     </>
   ),
+  // A dial whose ring opens at the upper left and closes into an arrowhead pointing backwards around
+  // it — "history" as time running in reverse, not a plain clock. Replaces the 🕘 emoji, which drew in
+  // full colour beside this set's flat strokes.
+  history: <><path d="M3.2 10 A6.8 6.8 0 1 0 5.5 4.9 L3.2 7" /><path d="M3.2 3.2 V7 H7" /><path d="M10 6.2 V10 L13 11.5" /></>,
   // Warning triangle — the storage-full banner's mark. Rounded corners so it sits with the rest of
   // this set rather than reading as a system dialog icon.
   alert: (
