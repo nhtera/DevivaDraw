@@ -1,6 +1,6 @@
 {
   "name": "@deviva-draw/engine",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "description": "Framework-agnostic whiteboard core: element model, scene store, history, renderer, geometry, tools",
   "type": "module",
   "license": "MIT",
@@ -48,7 +48,8 @@
     "prepublishOnly": "pnpm run build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "font:build": "node scripts/build-hand-drawn-font.mjs"
   },
   "dependencies": {
     "fractional-indexing": "^4.0.0",
@@ -56,6 +57,7 @@
     "roughjs": "^4.6.6"
   },
   "devDependencies": {
+    "subset-font": "2.5.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   }

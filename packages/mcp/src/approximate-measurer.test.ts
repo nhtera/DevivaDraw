@@ -4,8 +4,8 @@ import { createApproximateTextMeasurer } from "./approximate-measurer";
 describe("createApproximateTextMeasurer", () => {
   it("scales width with font size parsed from the CSS shorthand", () => {
     const measurer = createApproximateTextMeasurer();
-    const at20 = measurer.measureTextWidth("hello", '20px "Excalifont", sans-serif');
-    const at40 = measurer.measureTextWidth("hello", '40px "Excalifont", sans-serif');
+    const at20 = measurer.measureTextWidth("hello", '20px "DevivaHand", sans-serif');
+    const at40 = measurer.measureTextWidth("hello", '40px "DevivaHand", sans-serif');
     expect(at40).toBeCloseTo(at20 * 2);
     expect(at20).toBeGreaterThan(0);
   });

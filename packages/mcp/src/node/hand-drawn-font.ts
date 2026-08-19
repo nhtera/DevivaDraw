@@ -1,5 +1,5 @@
 /**
- * Registers the engine's bundled hand-drawn face (Excalifont, SIL OFL 1.1 — shipped as a woff2
+ * Registers the engine's bundled hand-drawn face (Patrick Hand, SIL OFL 1.1 — shipped as a woff2
  * data URI the engine re-exports) with `@napi-rs/canvas`'s `GlobalFonts`, once per process. The
  * Phase 2 spike confirmed skia accepts the woff2 directly, so no converted-ttf asset is vendored.
  */

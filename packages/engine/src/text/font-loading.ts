@@ -2,17 +2,19 @@
  * Font-family CSS stacks + a `fontsReady` gate for text measurement/render.
  *
  * `"normal"`/`"code"` resolve to OS-provided font stacks. The `"hand-drawn-slot"` family — the default
- * text face, matching the sketchy rough.js shape rendering the way Excalidraw/tldraw pair a hand-drawn
- * font with sketchy shapes — is the bundled Excalifont (SIL OFL), embedded as a self-contained base64
- * `woff2` data URI (`hand-drawn-font-data.ts`) so it ships with the package and needs no external host.
+ * text face, a hand-drawn font paired with the sketchy rough.js shape rendering so text and shapes read
+ * as one hand — is the bundled Patrick Hand (SIL OFL), embedded as a self-contained base64 `woff2` data
+ * URI (`hand-drawn-font-data.ts`) so it ships with the package and needs no external host.
  * `loadTextFonts` registers every `FontFace` in `sources` (defaulting to that bundled font) via the
- * injected `target.fonts`, then awaits `target.fonts.ready`; glyphs the Latin subset lacks fall back to
- * the sans stack listed after the custom family in `TEXT_FONT_FAMILY_CSS`.
+ * injected `target.fonts`, then awaits `target.fonts.ready`. The subset covers Latin-1, Latin
+ * Extended-A/B and the full Vietnamese precomposed block (see `hand-drawn-font-data.ts` for the exact
+ * ranges); anything outside them falls back to the sans stack listed after the custom family in
+ * `TEXT_FONT_FAMILY_CSS`.
  */
 import type { TextFontFamily } from "../elements/text-element";
 import { HAND_DRAWN_FONT_DATA_URL, HAND_DRAWN_FONT_FAMILY } from "./hand-drawn-font-data";
 
-/** CSS `font-family` stack for each `TextFontFamily` slot; `"hand-drawn-slot"` leads with the bundled Excalifont, then the same sans stack as `"normal"` for any glyph the subset doesn't cover. */
+/** CSS `font-family` stack for each `TextFontFamily` slot; `"hand-drawn-slot"` leads with the bundled hand-drawn face, then the same sans stack as `"normal"` for any glyph outside its subset. */
 export const TEXT_FONT_FAMILY_CSS: Record<TextFontFamily, string> = {
   normal: '"Helvetica Neue", Arial, "Segoe UI", sans-serif',
   code: '"Cascadia Code", "Fira Code", Menlo, Consolas, monospace',

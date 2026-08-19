@@ -15,9 +15,9 @@ import { createElementBase } from "./element-factory-defaults";
 
 /**
  * `"normal"`/`"code"` resolve to OS font stacks (a standard sans-serif + monospace). `"hand-drawn-slot"`
- * is the default face: the bundled Excalifont (SIL OFL), a sketchy hand-drawn font that matches the
- * rough.js shape rendering — see `text/font-loading.ts`. The slot name is kept for backward-compatible
- * stored data even though a real font now backs it.
+ * is the default face: the bundled Patrick Hand (SIL OFL), a hand-drawn font that matches the rough.js
+ * shape rendering — see `text/font-loading.ts`. The slot name is kept for backward-compatible stored
+ * data even though a real font now backs it.
  */
 export type TextFontFamily = "normal" | "code" | "hand-drawn-slot";
 

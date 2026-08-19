@@ -199,9 +199,13 @@ single package's version.
 
 ## Notes
 
-- **Hand-drawn font.** The engine ships OS font stacks; a licensed/commissioned
-  hand-drawn font drops into `text/font-loading.ts` sources with no call-site
-  changes.
+- **Hand-drawn font.** The engine bundles Patrick Hand (SIL OFL 1.1), subset to
+  Latin + Vietnamese and inlined as a base64 `woff2` data URI, so there is no
+  external font request and nothing to configure at deploy time. The artifact is
+  committed; regenerate it with `pnpm --filter @deviva-draw/engine font:build`
+  after changing the ranges in `scripts/build-hand-drawn-font.mjs`, and commit
+  the result. `text/font-loading.ts` still takes `sources`, so a host can
+  register additional faces without call-site changes.
 - **Room roles are enforced by the relay, not the client.** A viewer's
   `element-delta` and `snapshot` frames are dropped in
   `room-connection-registry.ts`; its `presence`, `snapshot-request` and

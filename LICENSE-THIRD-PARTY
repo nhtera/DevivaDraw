@@ -11,6 +11,19 @@ reproduced in distribution bundles as required.
 | perfect-freehand | MIT | Pressure-sensitive freehand ink strokes | in use |
 | fractional-indexing | CC0 | Stable ordering keys for element z-index | in use |
 
+## Bundled fonts
+
+Shipped inside the engine bundle rather than pulled from a CDN, so the app needs no external asset
+request and works under a strict CSP.
+
+| Font | License | Purpose | Status |
+|---|---|---|---|
+| Patrick Hand (Patrick Wagesreiter) | SIL OFL 1.1 | The default hand-drawn text face, subset to Latin + Vietnamese (`packages/engine/src/text/hand-drawn-font-data.ts`) | in use |
+
+The full license text and the upstream source, hash and retrieval date are committed beside the
+source file in `packages/engine/assets/` (`PatrickHand-OFL.txt`, `PROVENANCE.md`). The copyright line
+declares no Reserved Font Name, so the subset ships under the original name as OFL requires.
+
 ## Desktop app (Rust crates)
 
 Linked into the Tauri shell (`apps/desktop/src-tauri`). Everything below the Tauri

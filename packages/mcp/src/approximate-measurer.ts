@@ -9,10 +9,15 @@
 import type { TextMeasurer } from "@deviva-draw/engine";
 
 /**
- * Average advance width as a fraction of font size — calibrated against the bundled hand-drawn
- * face, which is narrower than typical UI sans-serifs.
+ * Average advance width as a fraction of font size, measured from the bundled hand-drawn face's own
+ * `hmtx` table: 0.36 over prose, 0.37 over a pangram and Vietnamese, 0.40 over the lowercase
+ * alphabet. 0.4 takes the widest of those, because a wrap estimator should err towards wrapping
+ * early rather than overflowing its container.
+ *
+ * Recalibrate this whenever the bundled face changes — it was 0.6 for the previous, wider font, and
+ * the swap is what makes that number wrong rather than merely conservative.
  */
-const AVERAGE_GLYPH_WIDTH_RATIO = 0.6;
+const AVERAGE_GLYPH_WIDTH_RATIO = 0.4;
 
 const FONT_SIZE_PATTERN = /(\d+(?:\.\d+)?)px/;
 

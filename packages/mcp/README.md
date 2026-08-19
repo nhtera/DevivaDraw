@@ -62,4 +62,4 @@ Full setup (Claude Desktop, Cursor), the complete tool reference, and examples:
 
 ## License
 
-MIT. Bundled hand-drawn font: Excalifont (SIL OFL 1.1).
+MIT. Bundled hand-drawn font: Patrick Hand (SIL OFL 1.1).

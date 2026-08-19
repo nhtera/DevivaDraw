@@ -6,7 +6,7 @@ describe("TEXT_FONT_FAMILY_CSS", () => {
   it("defines a CSS stack for every TextFontFamily slot; the hand-drawn slot leads with the bundled font and falls back to sans", () => {
     expect(TEXT_FONT_FAMILY_CSS.normal).toContain("sans-serif");
     expect(TEXT_FONT_FAMILY_CSS.code).toContain("monospace");
-    // Leads with the bundled Excalifont family, then the sans stack for any glyph the subset lacks.
+    // Leads with the bundled hand-drawn family, then the sans stack for any glyph outside its subset.
     expect(TEXT_FONT_FAMILY_CSS["hand-drawn-slot"]).toContain(HAND_DRAWN_FONT_FAMILY);
     expect(TEXT_FONT_FAMILY_CSS["hand-drawn-slot"]).toContain("sans-serif");
   });
