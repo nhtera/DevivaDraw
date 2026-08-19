@@ -1,5 +1,7 @@
-# Desktop installers on v* tags: macOS (universal dmg), Windows (nsis), Linux (AppImage + deb),
-# published to a DRAFT GitHub Release for human review before it goes live. Signing/notarization
+# Desktop installers on v* tags: macOS (universal dmg), Windows (nsis), Linux (AppImage + deb).
+# `releaseDraft: true` below almost never takes effect: `release.yml` runs on the same tag and
+# creates the GitHub release from the CHANGELOG first, so tauri-action finds it by tag and uploads
+# onto that already-published release rather than minting a draft. Signing/notarization
 # activate automatically when the corresponding secrets exist; without them the build ships
 # unsigned (beta strategy — the release train never blocks on cert timelines).
 #
@@ -48,9 +50,10 @@ jobs:
             os: windows-latest
             args: ""
           - name: Linux x64
-            os: ubuntu-22.04
+            os: ubuntu-24.04
             args: ""
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -59,11 +62,19 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      # Acquire timeouts and retries are load-bearing, not tidiness. On 2026-08-19 this step hung for
+      # over three hours on two separate runners: the Azure-local mirror answered `Ign:` for every
+      # index, apt fell back to archive.ubuntu.com, and the fallback stalled mid-fetch with nothing to
+      # cut it off. Default apt waits forever, so a slow mirror reads as a wedged job. It now fails in
+      # minutes instead, and `timeout-minutes` on the job caps the damage of anything else that hangs.
       - name: Install Linux WebKit deps
         if: startsWith(matrix.os, 'ubuntu')
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf xdg-utils
+          APT_OPTS="-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30"
+          sudo apt-get $APT_OPTS update
+          sudo apt-get $APT_OPTS install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf xdg-utils
 
       - uses: dtolnay/rust-toolchain@stable
         with:
