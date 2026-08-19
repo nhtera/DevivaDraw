@@ -458,7 +458,7 @@ export { lockSelection, unlockSelection } from "./selection/selection-lock";
 export { dropArrowBindingsMovingAlone } from "./selection/arrow-binding-drop";
 
 export type { SnapGuide, SnapGuideOrientation, SnapResult } from "./selection/snapping";
-export { computeGridSnap, computeObjectSnap, snapPointToGrid } from "./selection/snapping";
+export { computeGapSnap, computeGridSnap, computeObjectSnap, snapPointToGrid } from "./selection/snapping";
 
 export type { DuplicateOffset } from "./selection/clipboard";
 export { DEFAULT_DUPLICATE_OFFSET, duplicateElements, expandForDuplication, insertElements, InternalClipboard } from "./selection/clipboard";

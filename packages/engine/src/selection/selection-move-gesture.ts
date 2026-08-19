@@ -17,7 +17,7 @@ import { elementIntersectsRect } from "../render/viewport-culling";
 import type { SceneRect } from "../render/viewport-culling";
 import { elementBounds } from "./selection-geometry";
 import type { SelectionToolDeps } from "./selection-tool-deps";
-import { computeGridSnap, computeObjectSnap } from "./snapping";
+import { computeGapSnap, computeGridSnap, computeObjectSnap } from "./snapping";
 import { translateElements } from "./translate-elements";
 import type { SnapGuide } from "./snapping";
 
@@ -35,6 +35,12 @@ import type { SnapGuide } from "./snapping";
  */
 const SNAP_THRESHOLD_PX = 8;
 
+/** A frozen snap reference: its bounds, plus the group it belongs to (gap snap treats a group as one object — see `collapseGroups`). */
+interface SnapCandidate {
+  bounds: SceneRect;
+  groupId: string | undefined;
+}
+
 export class MoveGesture {
   private readonly deps: SelectionToolDeps;
   private startPoint: Point | null = null;
@@ -42,7 +48,10 @@ export class MoveGesture {
   private wasDuplicating = false;
   private preDuplicateSelectionIds: string[] | null = null;
   private snapGuides: readonly SnapGuide[] = [];
+  /** Alignment references, frozen on the first move that wants them — see `snapCandidates`. */
   private frozenSnapCandidates: SceneRect[] | null = null;
+  /** The same references with each group collapsed to one rect — see `collapseGroups`. Frozen alongside, so neither projection is rebuilt per pointer move. */
+  private frozenGapCandidates: SceneRect[] | null = null;
 
   constructor(deps: SelectionToolDeps) {
     this.deps = deps;
@@ -105,11 +114,36 @@ export class MoveGesture {
         dx += correction.dx;
         dy += correction.dy;
       } else if (this.deps.getObjectSnapEnabled?.()) {
-        this.frozenSnapCandidates ??= this.snapCandidates();
-        const snap = computeObjectSnap(movingBounds, this.frozenSnapCandidates, SNAP_THRESHOLD_PX / this.deps.getZoom());
-        dx += snap.dx;
-        dy += snap.dy;
-        this.snapGuides = snap.guides;
+        const threshold = SNAP_THRESHOLD_PX / this.deps.getZoom();
+        if (this.frozenSnapCandidates === null) {
+          const candidates = this.snapCandidates();
+          this.frozenSnapCandidates = candidates.map((candidate) => candidate.bounds);
+          this.frozenGapCandidates = collapseGroups(candidates);
+        }
+        const align = computeObjectSnap(movingBounds, this.frozenSnapCandidates, threshold);
+        dx += align.dx;
+        dy += align.dy;
+        const guides = [...align.guides];
+
+        // Equal spacing, only on an axis alignment did not already claim. Alignment is the stronger
+        // intent, and a rule that picks whichever correction happens to be smaller is a canvas whose
+        // behaviour the user cannot predict. Whether alignment claimed an axis is read off its
+        // guides rather than off its delta, because a delta of 0 is also what "already aligned"
+        // looks like — and stealing that axis for a gap snap would pull the shape back out of line.
+        const alignedX = align.guides.some((guide) => guide.orientation === "vertical");
+        const alignedY = align.guides.some((guide) => guide.orientation === "horizontal");
+        if (!alignedX || !alignedY) {
+          const gap = computeGapSnap({ ...movingBounds, x: movingBounds.x + align.dx, y: movingBounds.y + align.dy }, this.frozenGapCandidates ?? [], threshold);
+          if (!alignedX && gap.dx !== 0) {
+            dx += gap.dx;
+            guides.push(...gap.guides.filter((guide) => guide.orientation === "horizontal"));
+          }
+          if (!alignedY && gap.dy !== 0) {
+            dy += gap.dy;
+            guides.push(...gap.guides.filter((guide) => guide.orientation === "vertical"));
+          }
+        }
+        this.snapGuides = guides;
       }
     }
 
@@ -143,18 +177,20 @@ export class MoveGesture {
    * bounds are derived from the selection, so a guide to them aligns the shape with where its own
    * connector used to be — an alignment with no independent referent.
    */
-  private snapCandidates(): SceneRect[] {
+  private snapCandidates(): SnapCandidate[] {
     const movingIds = new Set(this.originalElements?.keys() ?? []);
     const attachedArrowIds = new Set<string>();
     for (const element of this.originalElements?.values() ?? []) {
       for (const arrowId of boundArrowIds(element)) attachedArrowIds.add(arrowId);
     }
     const visible = this.deps.getVisibleSceneRect?.() ?? null;
-    const candidates: SceneRect[] = [];
+    const candidates: SnapCandidate[] = [];
     for (const element of this.deps.scene.getElements()) {
       if (element.isDeleted || movingIds.has(element.id) || attachedArrowIds.has(element.id)) continue;
       if (visible && !elementIntersectsRect(element, visible)) continue;
-      candidates.push(elementBounds(element));
+      // The outermost group id, matching `expandToGroupMembers`: a nested group moves as its
+      // outermost group, so that is the object gap snap should measure against.
+      candidates.push({ bounds: elementBounds(element), groupId: element.groupIds[0] });
     }
     return candidates;
   }
@@ -204,5 +240,41 @@ export class MoveGesture {
     this.preDuplicateSelectionIds = null;
     this.snapGuides = [];
     this.frozenSnapCandidates = null;
+    this.frozenGapCandidates = null;
   }
+}
+
+/**
+ * The alignment candidates, with every group collapsed into the union rect of its members.
+ *
+ * Alignment snap is right to work per element: lining up on one member of a group is a real intent,
+ * and the guide drawn for it points at something the user can see. Gap snap is not. A group of three
+ * stacked shapes has its own deliberate internal spacing, and offering that spacing to a shape being
+ * dragged somewhere else proposes a distance copied from inside a thing the user is not interacting
+ * with — appearing and vanishing as the drag crosses the group's region, which is the single biggest
+ * source of gap-guide noise. A group is one object for the purpose of "how far apart are these".
+ *
+ * Derived from the already-frozen, already-viewport-filtered candidate list, once per gesture: this
+ * is a second projection of the same search, never a wider one. A group half off screen therefore
+ * collapses to the half that is on screen, which is also the only half the user could have been
+ * spacing against.
+ */
+function collapseGroups(candidates: readonly SnapCandidate[]): SceneRect[] {
+  const collapsed: SceneRect[] = [];
+  const groupBounds = new Map<string, SceneRect>();
+  for (const candidate of candidates) {
+    if (candidate.groupId === undefined) {
+      collapsed.push(candidate.bounds);
+      continue;
+    }
+    const existing = groupBounds.get(candidate.groupId);
+    groupBounds.set(candidate.groupId, existing === undefined ? candidate.bounds : unionRect(existing, candidate.bounds));
+  }
+  return [...collapsed, ...groupBounds.values()];
+}
+
+function unionRect(a: SceneRect, b: SceneRect): SceneRect {
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  return { x, y, width: Math.max(a.x + a.width, b.x + b.width) - x, height: Math.max(a.y + a.height, b.y + b.height) - y };
 }

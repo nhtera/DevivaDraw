@@ -50,6 +50,12 @@ export interface InteractiveLayerContext {
   lineWidth: number;
   fillText?(text: string, x: number, y: number): void;
   font?: string;
+  // Optional like `fillText`/`font`: this interface is deliberately the narrow slice of
+  // `CanvasRenderingContext2D` the layer actually uses, so a test double implements only what the
+  // path under test needs. Gap-guide labels use these three and skip drawing without them.
+  textAlign?: CanvasTextAlign;
+  textBaseline?: CanvasTextBaseline;
+  measureText?(text: string): { width: number };
   ellipse?(x: number, y: number, radiusX: number, radiusY: number, rotation: number, startAngle: number, endAngle: number): void;
   arc?(x: number, y: number, radius: number, startAngle: number, endAngle: number): void;
 }
@@ -89,6 +95,12 @@ const SELECTION_COLOR = "#1971c2";
 const HANDLE_SIZE_PX = 8;
 const ROTATE_HANDLE_OFFSET_PX = 28;
 const SNAP_GUIDE_COLOR = "#e64980";
+/** Gap-guide measurement chrome, all in screen pixels so it holds its size at any zoom. The label uses the UI font stack, not the canvas text face — it is chrome, not content. */
+const GAP_TICK_HALF_PX = 4;
+const GAP_LABEL_FONT = "11px system-ui, sans-serif";
+const GAP_LABEL_HEIGHT_PX = 14;
+const GAP_LABEL_PADDING_PX = 4;
+const GAP_LABEL_OFFSET_PX = 9;
 const MARQUEE_FILL = "rgba(25, 113, 194, 0.08)";
 const REMOTE_CURSOR_SIZE_PX = 12;
 const LASER_COLOR_RGB = "255, 45, 45";
@@ -221,13 +233,24 @@ export class InteractiveLayer {
     this.ctx.restore();
   }
 
+  /**
+   * Two kinds of guide, drawn differently because they say different things. An alignment guide is a
+   * dashed line running *through* the edges that lined up — it points at a shared coordinate. A gap
+   * guide is a solid span with a tick at each end and the distance written beside it: it measures the
+   * space *between* two things, which a line through them cannot express, and a spacing guide with no
+   * number does not explain the nudge the user just felt.
+   *
+   * Ticks, text, and dash lengths are all in screen pixels rather than scene units, so the guide
+   * stays the same weight and the label stays legible at any zoom.
+   */
   private drawSnapGuides(guides: readonly SnapGuide[], camera: Camera): void {
     if (guides.length === 0) return;
     this.ctx.save();
     this.ctx.strokeStyle = SNAP_GUIDE_COLOR;
     this.ctx.lineWidth = 1;
-    this.ctx.setLineDash([4, 4]);
     for (const guide of guides) {
+      const isGap = guide.kind === "gap";
+      this.ctx.setLineDash(isGap ? [] : [4, 4]);
       const from =
         guide.orientation === "vertical" ? sceneToScreen({ x: guide.position, y: guide.from }, camera) : sceneToScreen({ x: guide.from, y: guide.position }, camera);
       const to =
@@ -236,6 +259,36 @@ export class InteractiveLayer {
       this.ctx.moveTo(from.x, from.y);
       this.ctx.lineTo(to.x, to.y);
       this.ctx.stroke();
+      if (!isGap) continue;
+
+      // End ticks, perpendicular to the span, so a short gap still reads as a measurement rather
+      // than as a stray line segment.
+      const tickX = guide.orientation === "horizontal" ? 0 : GAP_TICK_HALF_PX;
+      const tickY = guide.orientation === "horizontal" ? GAP_TICK_HALF_PX : 0;
+      this.ctx.beginPath();
+      for (const end of [from, to]) {
+        this.ctx.moveTo(end.x - tickX, end.y - tickY);
+        this.ctx.lineTo(end.x + tickX, end.y + tickY);
+      }
+      this.ctx.stroke();
+
+      if (guide.label === undefined || !this.ctx.fillText) continue;
+      const midX = (from.x + to.x) / 2;
+      const midY = (from.y + to.y) / 2;
+      this.ctx.font = GAP_LABEL_FONT;
+      this.ctx.textAlign = "center";
+      this.ctx.textBaseline = "middle";
+
+      // A filled chip behind the text: the label sits over whatever the user is arranging, and
+      // unbacked text on top of a shape is unreadable exactly when it is needed.
+      const textWidth = this.ctx.measureText?.(guide.label).width ?? guide.label.length * 6;
+      const chipWidth = textWidth + GAP_LABEL_PADDING_PX * 2;
+      const chipX = midX - chipWidth / 2;
+      const chipY = midY - GAP_LABEL_HEIGHT_PX / 2 - (guide.orientation === "horizontal" ? GAP_LABEL_OFFSET_PX : 0);
+      this.ctx.fillStyle = SNAP_GUIDE_COLOR;
+      this.ctx.fillRect(chipX, chipY, chipWidth, GAP_LABEL_HEIGHT_PX);
+      this.ctx.fillStyle = "#ffffff";
+      this.ctx.fillText(guide.label, midX, chipY + GAP_LABEL_HEIGHT_PX / 2);
     }
     this.ctx.restore();
   }

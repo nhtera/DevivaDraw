@@ -128,3 +128,60 @@ describe("InteractiveLayer.render — remote cursors", () => {
     expect(ctx.fill).not.toHaveBeenCalled();
   });
 });
+
+describe("InteractiveLayer gap guides", () => {
+  /** The fake context plus the text surface a gap label needs — `fakeContext` deliberately omits it, since most overlay paths draw no text. */
+  function textCapableContext(): InteractiveLayerContext & { fillText: ReturnType<typeof vi.fn>; measureText: ReturnType<typeof vi.fn> } {
+    const ctx = fakeContext() as InteractiveLayerContext & { fillText: ReturnType<typeof vi.fn>; measureText: ReturnType<typeof vi.fn> };
+    ctx.fillText = vi.fn();
+    ctx.measureText = vi.fn(() => ({ width: 20 }));
+    ctx.font = "";
+    return ctx;
+  }
+
+  it("draws an alignment guide dashed and a gap guide solid", () => {
+    const ctx = textCapableContext();
+    new InteractiveLayer(ctx).render(
+      {
+        ...EMPTY_OVERLAY,
+        snapGuides: [
+          { orientation: "vertical", position: 10, from: 0, to: 100 },
+          { orientation: "horizontal", position: 50, from: 100, to: 200, kind: "gap", label: "100" },
+        ],
+      },
+      createCamera(),
+    );
+
+    const dashCalls = (ctx.setLineDash as unknown as { mock: { calls: number[][][] } }).mock.calls;
+    expect(dashCalls).toContainEqual([[4, 4]]); // the alignment guide
+    expect(dashCalls).toContainEqual([[]]); // the gap guide
+  });
+
+  it("writes the gap distance beside the span", () => {
+    const ctx = textCapableContext();
+    new InteractiveLayer(ctx).render(
+      { ...EMPTY_OVERLAY, snapGuides: [{ orientation: "horizontal", position: 50, from: 100, to: 200, kind: "gap", label: "100" }] },
+      createCamera(),
+    );
+
+    expect(ctx.fillText).toHaveBeenCalledWith("100", 150, expect.any(Number));
+  });
+
+  it("still draws the span when the context cannot render text", () => {
+    // `fakeContext` has no `fillText`: the measurement must not disappear just because the label can't.
+    const ctx = fakeContext();
+    new InteractiveLayer(ctx).render(
+      { ...EMPTY_OVERLAY, snapGuides: [{ orientation: "horizontal", position: 50, from: 100, to: 200, kind: "gap", label: "100" }] },
+      createCamera(),
+    );
+
+    expect(ctx.stroke).toHaveBeenCalled();
+  });
+
+  it("treats a guide with no `kind` as an alignment guide, as every existing caller expects", () => {
+    const ctx = textCapableContext();
+    new InteractiveLayer(ctx).render({ ...EMPTY_OVERLAY, snapGuides: [{ orientation: "vertical", position: 10, from: 0, to: 100 }] }, createCamera());
+
+    expect(ctx.fillText).not.toHaveBeenCalled();
+  });
+});
