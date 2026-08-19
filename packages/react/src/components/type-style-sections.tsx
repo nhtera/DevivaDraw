@@ -4,7 +4,7 @@
  * shape" style set), so these write via `Scene.updateElement` for every matching selected element in
  * one batched history step instead of through `styleState.applyToSelection`.
  */
-import { DEFAULT_STROKE_COLOR_PALETTE, FONT_SIZE_LEVELS } from "@deviva-draw/engine";
+import { DEFAULT_STROKE_COLOR_PALETTE, FONT_SIZE_LEVELS, findBoundTextRef } from "@deviva-draw/engine";
 import type { AnyElement, ArrowElement, Arrowhead, ArrowType, TextAlign, TextElement, TextFontFamily } from "@deviva-draw/engine";
 import { ColorPicker } from "./color-picker";
 import { buttonStyle, labelStyle } from "./chrome-styles";
@@ -32,10 +32,33 @@ const ARROW_TYPE_OPTIONS: ArrowType[] = ["straight", "curved", "elbow"];
 /** Text-align values reuse the existing chrome align glyphs; arrowheads use the self-authored SVG set (`icon-style-glyphs.tsx`). */
 const TEXT_ALIGN_ICONS: Record<TextAlign, string> = { left: "align-left", center: "align-center-h", right: "align-right" };
 
+/**
+ * Every text element the font controls should write through: text elements in the selection, plus the
+ * bound label of any selected shape or arrow that has one. A labelled shape is the common case — the
+ * label is what the user sees and wants bigger — and without this the only route to its font size is
+ * double-clicking into the label and back out, which is a detour past controls that were already on
+ * screen. Both other whiteboards surface font size for a labelled shape for the same reason.
+ */
+function selectedTextTargets(runtime: DevivaRuntime): TextElement[] {
+  const targets: TextElement[] = [];
+  const push = (element: AnyElement | undefined) => {
+    if (!element || element.isDeleted || element.type !== "text") return;
+    if (!targets.some((existing) => existing.id === element.id)) targets.push(element);
+  };
+  for (const id of runtime.selection.getSelectedIds()) {
+    const element = runtime.scene.getElement(id);
+    if (!element || element.isDeleted) continue;
+    push(element);
+    const labelRef = findBoundTextRef(element);
+    if (labelRef) push(runtime.scene.getElement(labelRef.id));
+  }
+  return targets;
+}
+
 export function TextStyleSection(props: { runtime: DevivaRuntime }) {
   const { runtime } = props;
   const { t } = useTranslation();
-  const textElements = selectedElementsOfType<"text">(runtime, "text");
+  const textElements = selectedTextTargets(runtime);
   if (textElements.length === 0) return null;
   const first = textElements[0] as TextElement;
 
@@ -49,6 +72,7 @@ export function TextStyleSection(props: { runtime: DevivaRuntime }) {
       />
       <StyleSection
         label={t("panel.fontSize")}
+        testIdPrefix="font-size"
         value={String(first.fontSize)}
         options={Object.entries(FONT_SIZE_LEVELS).map(([label, value]) => ({ value: String(value), label }))}
         onChange={(value) => updateBatched(runtime, textElements, { fontSize: Number(value) })}
@@ -97,6 +121,7 @@ export function TextPropertiesPanel(props: { runtime: DevivaRuntime; targets: Te
       />
       <StyleSection
         label={t("panel.fontSize")}
+        testIdPrefix="font-size"
         value={String(first.fontSize)}
         options={Object.entries(FONT_SIZE_LEVELS).map(([label, value]) => ({ value: String(value), label }))}
         onChange={(value) => set({ fontSize: Number(value) })}

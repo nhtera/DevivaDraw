@@ -36,6 +36,13 @@ All notable changes to Deviva Draw are documented here. The format follows
   binds first; automatic entries are always pruned before ones you named. If storage runs out,
   snapshotting stops for the session and the panel says so instead of failing silently.
 
+- **Font size, family and alignment for a shape's label, from the shape's own panel.** A rectangle,
+  ellipse, diamond, note or arrow that carries a label now shows Font family / Font size / Text align
+  in the properties panel alongside its stroke and fill, so making a label bigger is a click on `XL`
+  rather than a trip in and out of the text editor. The label's container absorbs the change: the box
+  grows if the larger text no longer fits, and an arrow's label re-centres on its midpoint. The whole
+  thing is one undo step.
+
 ### Changed
 
 - **Orphaned image collection now knows about version history, and refuses to run when it cannot.**
@@ -55,6 +62,13 @@ All notable changes to Deviva Draw are documented here. The format follows
   0.12.0 while `src-tauri`'s `Cargo.toml` and `tauri.conf.json` stayed at 0.11.5, so a `v*` tag would
   have built installers labelled 0.11.5 under a 0.13.0 release. No code change — three version
   strings and the Cargo lockfile entry.
+
+### Fixed
+
+- **The "Version history" menu row is a drawn icon, not a colour emoji.** It was the one entry in the
+  menu with no glyph in the icon set, so it fell through to the operating system's 🕘 — a shaded,
+  full-colour clock sitting in a column of flat monochrome strokes. It now has its own mark: a dial
+  whose ring opens into an arrowhead running backwards around the face.
 
 ## [0.12.0] — 2026-08-19
 

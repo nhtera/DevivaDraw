@@ -108,7 +108,18 @@ function syncOnce(scene: Scene, container: Container, measurer: TextMeasurer): v
  */
 export function registerBoundTextContainerSyncHook(scene: Scene, measurer: TextMeasurer): () => void {
   return scene.registerUpdateHook((updated) => {
-    if (updated.isDeleted || !isBindableContainer(updated)) return;
-    syncOnce(scene, updated, measurer);
+    if (updated.isDeleted) return;
+    if (isBindableContainer(updated)) {
+      syncOnce(scene, updated, measurer);
+      return;
+    }
+    // The label's own half of the same glue. Restyling a bound text — a bigger font size, a wider
+    // family — changes how much room it needs, and the container branch above never sees that
+    // update, so the container would keep its old height and the label would spill out of it. Both
+    // halves running the one idempotent `syncOnce` is what makes the pair consistent whichever side
+    // moved; it also means a restyle arriving from a remote peer re-layouts exactly like a local one.
+    if (updated.type !== "text" || !updated.containerId) return;
+    const container = scene.getElement(updated.containerId);
+    if (container && !container.isDeleted && isBindableContainer(container)) syncOnce(scene, container, measurer);
   });
 }

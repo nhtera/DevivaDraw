@@ -148,6 +148,16 @@ export function registerArrowBindingHooks(scene: Scene, measurer?: TextMeasurer)
       return;
     }
 
+    // A label restyled from the properties panel (font size/family) changes its own measured box, so
+    // it has to re-center on the arrow the same way an arrow move re-centers it. `recenterArrowLabel`
+    // writes only on a real change, so the write this makes to `updated` itself terminates here
+    // rather than re-entering. A non-arrow container falls through to `recenterArrowLabelIfPresent`'s
+    // own guard and no-ops; `text/bound-text-container-sync.ts` owns that case.
+    if (updated.type === "text" && updated.containerId && !updated.isDeleted && measurer) {
+      recenterArrowLabelIfPresent(scene, updated.containerId, measurer);
+      return;
+    }
+
     const arrowIds = boundArrowIds(updated);
     if (arrowIds.length === 0) return;
 

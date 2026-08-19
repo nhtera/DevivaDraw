@@ -71,6 +71,25 @@ describe("registerBoundTextContainerSyncHook", () => {
     unregister();
   });
 
+  it("grows the container and re-lays the label out when the label's own font size changes", () => {
+    const scene = new Scene();
+    const measurer = createFixedWidthTextMeasurer(6);
+    const unregister = registerBoundTextContainerSyncHook(scene, measurer);
+    const { containerId, textId } = setupBoundContainer(scene);
+    const beforeHeight = scene.getElement(containerId)!.height;
+
+    // The panel writes nothing but `fontSize` — every geometry consequence has to follow from the hook.
+    scene.updateElement(textId, { fontSize: 96 } as Partial<TextElement>);
+
+    const container = scene.getElement(containerId)!;
+    const text = scene.getElement(textId) as TextElement;
+    expect(container.height).toBeGreaterThan(beforeHeight); // the box absorbed the taller line
+    expect(text.height).toBeGreaterThan(0);
+    // …and the label is still centred inside the box it just grew, not left at the old offset.
+    expect(text.y + text.height / 2).toBeCloseTo(container.y + container.height / 2, 5);
+    unregister();
+  });
+
   it("ignores a container with no bound text", () => {
     const scene = new Scene();
     const measurer = createFixedWidthTextMeasurer(6);

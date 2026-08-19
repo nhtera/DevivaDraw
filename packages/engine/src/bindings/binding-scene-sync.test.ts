@@ -226,6 +226,25 @@ describe("registerArrowBindingHooks", () => {
     expect(labelAfter).not.toEqual(labelBefore); // position/version changed
   });
 
+  it("re-centers a bound arrow label when the label's own font size changes, and terminates", () => {
+    const { scene, arrow } = setup();
+    const { textElementId } = getOrCreateArrowLabel(scene, arrow.id);
+    scene.updateElement(textElementId, { text: "hello" } as Partial<TextElement>);
+    registerArrowBindingHooks(scene, createFixedWidthTextMeasurer(6));
+
+    // The properties panel writes only `fontSize`; the re-center is the hook's job. If the hook wrote
+    // unconditionally this would never return — the element it writes is the one that triggered it.
+    const before = scene.getElement(textElementId) as TextElement;
+    const centerBefore = { x: before.x + before.width / 2, y: before.y + before.height / 2 };
+
+    scene.updateElement(textElementId, { fontSize: 48 } as Partial<TextElement>);
+
+    const label = scene.getElement(textElementId) as TextElement;
+    expect(label.height).toBeGreaterThan(before.height); // re-measured at the new size, not the old one
+    expect(label.x + label.width / 2).toBeCloseTo(centerBefore.x, 5); // and still centred on the arrow
+    expect(label.y + label.height / 2).toBeCloseTo(centerBefore.y, 5);
+  });
+
   it("without a measurer, arrow geometry changes still work but the label is left untouched", () => {
     const { scene, shapeA, arrow } = setup();
     bindArrowEndpoint(scene, arrow.id, "start", shapeA.id, { focus: 0, gap: 0 });

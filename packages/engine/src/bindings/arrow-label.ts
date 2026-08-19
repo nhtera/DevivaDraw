@@ -75,6 +75,20 @@ function recenterArrowLabel(scene: Scene, arrow: ArrowElement, textElement: Text
     width: metrics.widthPx,
     height: metrics.totalHeightPx,
   };
+  // Writing only a real change is what lets `binding-scene-sync.ts` re-center from a *label* update
+  // as well as an arrow one: an unconditional write there would re-enter this hook forever, since the
+  // element it writes is the element that triggered it. Same idempotency argument
+  // `text/bound-text-container-sync.ts` relies on, and it also spares the churn of an arrow update
+  // that never moved the midpoint.
+  if (
+    textElement.text === changes.text &&
+    textElement.x === changes.x &&
+    textElement.y === changes.y &&
+    textElement.width === changes.width &&
+    textElement.height === changes.height
+  ) {
+    return;
+  }
   scene.updateElement(textElement.id, changes);
 }
 
