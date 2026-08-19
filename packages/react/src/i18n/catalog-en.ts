@@ -228,6 +228,11 @@ export const catalogEn = {
   "find.next": "Next match",
   "find.previous": "Previous match",
   "find.close": "Close",
+  "find.onPage": "on {page}",
+  "image.insert.resized": "Image was large, so it was resized to {width}×{height}",
+  "image.insert.tooLarge": "That image is over {limit} and was not inserted",
+  "image.insert.tooManyPixels": "That image is {width}×{height} — too large to open safely, so it was not inserted",
+  "image.insert.failed": "That image could not be inserted",
 
   "menu.canvasBackground": "Canvas background",
   "menu.library": "Library",

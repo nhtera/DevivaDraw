@@ -15,6 +15,7 @@
 import { useEffect, useReducer } from "react";
 import type { Scene, SelectionState, ToolStateMachine } from "@deviva-draw/engine";
 import type { CameraStore } from "./camera-store";
+import type { PageStore } from "../pages/page-store";
 
 /** Bumps on every scene mutation — covers element add/update/delete, undo/redo (`loadElementsSnapshot` notifies too), file changes, layer-list changes, and comment mutations (every composed store notifies through the one `Scene` signal). */
 export function useSceneVersion(scene: Scene): number {
@@ -63,5 +64,21 @@ export function useToolVersion(toolStateMachine: ToolStateMachine): number {
 export function useCameraVersion(cameraStore: CameraStore): number {
   const [version, dispatch] = useReducer((count: number) => count + 1, 0);
   useEffect(() => cameraStore.subscribe(() => dispatch()), [cameraStore]);
+  return version;
+}
+
+/**
+ * Bumps whenever the page list or the active page changes. Subscribing bumps too, for the same
+ * render-before-effect window `useToolVersion` documents: a page switch landing between the render
+ * that read the store and the effect that subscribed would otherwise leave the component painting a
+ * stale page.
+ */
+export function usePagesVersion(pageStore: PageStore | null): number {
+  const [version, dispatch] = useReducer((count: number) => count + 1, 0);
+  useEffect(() => {
+    if (!pageStore) return;
+    dispatch();
+    return pageStore.subscribe(() => dispatch());
+  }, [pageStore]);
   return version;
 }

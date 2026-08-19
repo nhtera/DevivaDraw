@@ -228,6 +228,11 @@ export const catalogVi: Record<TranslationKey, string> = {
   "find.next": "Kết quả sau",
   "find.previous": "Kết quả trước",
   "find.close": "Đóng",
+  "find.onPage": "ở {page}",
+  "image.insert.resized": "Ảnh lớn nên đã được thu nhỏ còn {width}×{height}",
+  "image.insert.tooLarge": "Ảnh vượt quá {limit} nên không được chèn",
+  "image.insert.tooManyPixels": "Ảnh có kích thước {width}×{height} — quá lớn để mở an toàn nên không được chèn",
+  "image.insert.failed": "Không thể chèn ảnh này",
 
   "menu.canvasBackground": "Nền canvas",
   "menu.library": "Thư viện",
