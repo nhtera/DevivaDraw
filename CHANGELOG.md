@@ -51,6 +51,10 @@ All notable changes to Deviva Draw are documented here. The format follows
   document exactly as the last autosave write would have serialised it, with the same image
   exclusions. Purely additive: the engine's `AutosaveController` is unchanged, and no existing
   implementer of it breaks.
+- **Desktop version strings realigned to 0.13.0.** `apps/desktop`'s `package.json` had drifted to
+  0.12.0 while `src-tauri`'s `Cargo.toml` and `tauri.conf.json` stayed at 0.11.5, so a `v*` tag would
+  have built installers labelled 0.11.5 under a 0.13.0 release. No code change — three version
+  strings and the Cargo lockfile entry.
 
 ## [0.12.0] — 2026-08-19
 
