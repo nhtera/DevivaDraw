@@ -4,6 +4,54 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.13.0] — 2026-08-19
+
+### Added
+
+- **Version history: the board remembers what it looked like an hour ago.** Undo has always died at
+  reload, and the crash-recovery slot was a single manual escape hatch — so a board an hour into an
+  afternoon had no way back to where it started. The document now snapshots itself into IndexedDB:
+  automatically, at most one snapshot per five minutes of *changed* editing, and always immediately
+  before anything that replaces the whole document (opening a file, clearing the canvas, joining a
+  room, restoring another version). "Version history" in the main menu and the command palette lists
+  them newest first, previews any of them as a real picture of the board, and restores one in a
+  click. Restoring is itself undoable — the board you were on is saved first — and you can name a
+  version, delete one, or empty the history entirely.
+
+  Three decisions worth knowing:
+
+  - **Snapshots are document-level.** A restore brings back every page together, because pages
+    reference each other and restoring one of them alone desynchronises the rest. The confirmation
+    names how many pages it is about to replace.
+  - **Snapshots reference image bytes, they never copy them.** The file store is content-addressed
+    and already deduplicates, so thirty versions of a board full of photographs cost thirty copies of
+    the *document*, not of the photographs. Measured on a 256-element board: 30 snapshots occupy
+    about 544 KB on disk.
+  - **Restoring is refused while a collaboration session is connected — or still connecting.** A
+    whole-document replacement dropped into a room is the shape of the 0.11.1–0.11.3 data-loss bugs,
+    and the connecting window is the part where nothing on screen says a session exists yet. The
+    button is disabled with the reason shown, rather than hidden or quietly failing.
+
+  History is capped at 30 automatic plus 10 named versions, and at 50 MB of snapshot data, whichever
+  binds first; automatic entries are always pruned before ones you named. If storage runs out,
+  snapshotting stops for the session and the panel says so instead of failing silently.
+
+### Changed
+
+- **Orphaned image collection now knows about version history, and refuses to run when it cannot.**
+  Collection deletes every stored image the keep-set does not name, and a snapshot holds its images by
+  reference — so the keep-set gained every file any stored version still references. The more
+  important half is the refusal: if the version store cannot be read, collection is skipped entirely
+  for that pass rather than proceeding with whatever keep-set could be assembled. Keeping unreferenced
+  bytes on disk costs storage; getting this wrong would cost people their pictures. The internal
+  `collectOrphanedFiles` keep-set parameter is now required and nullable, so "I could not work out
+  what is still owned" can be said out loud and cannot be mistaken for "nothing is owned".
+- **New exported type `DocumentAutosaveController`** (`@deviva-draw/react`), returned by
+  `startBrowserDocumentAutosave` — `AutosaveController` plus `snapshotDocument()`, which hands out the
+  document exactly as the last autosave write would have serialised it, with the same image
+  exclusions. Purely additive: the engine's `AutosaveController` is unchanged, and no existing
+  implementer of it breaks.
+
 ## [0.12.0] — 2026-08-19
 
 ### Fixed

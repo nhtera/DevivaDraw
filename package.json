@@ -1,6 +1,6 @@
 {
   "name": "deviva-draw",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "private": true,
   "description": "Deviva Draw — infinite canvas whiteboard: engine, React lib, and collaborative web app",
   "packageManager": "pnpm@11.21.0",
