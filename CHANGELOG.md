@@ -4,6 +4,38 @@ All notable changes to Deviva Draw are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.14.0] — 2026-08-23
+
+### Added
+
+- **Mermaid import lays out subgraphs the way the diagram reads.** Flowcharts whose subgraphs are
+  tied together by cross-subgraph edges used to come in as overlapping boxes with other nodes trapped
+  inside them. The from-scratch layout engine now does real compound-graph layout: every subgraph
+  gets an exclusive corridor (border "walls" reserved on each rank it spans), and a nesting-graph
+  ranking pass — solved with a network simplex, like the classic layered-graph literature — packs
+  each subgraph into a tight band so clusters stack along the flow direction instead of smearing
+  across the top and sprawling sideways. Frames never overlap, nothing foreign appears inside one,
+  nested subgraphs nest, and the same machinery lays out composite states in state diagrams. On the
+  same source, the arrangement now matches what mermaid.live renders.
+
+- **Imported diagrams are live diagrams, not pictures.** Every edge is bound to its two node shapes
+  exactly as if it had been drawn by hand — drag a node and its arrows follow, delete one and the
+  bindings degrade gracefully. Edges that bend around other nodes render as smooth curves instead of
+  sharp-cornered polylines, and each stays a normal editable arrow.
+
+- **Labels on every closed shape.** Cylinders, hexagons, parallelograms, trapezoids and double
+  circles can now hold a bound text label like rectangles always could — double-click one to edit
+  its label. This is what Mermaid import emits for those node shapes, and it fixes two real bugs in
+  one: select-all-and-drag no longer leaves such labels behind (the container-move sync used to skip
+  those shape types), and saving no longer silently detaches them (the serializer treated the
+  binding as impossible and stripped it).
+
+### Fixed
+
+- **`subgraph App["Your App"]` titles parse.** The no-space quoted-title form — the most common way
+  Mermaid subgraphs are titled — fell through the parser and rendered its raw source text as the
+  frame name; ids may also contain hyphens now.
+
 ## [0.13.0] — 2026-08-19
 
 ### Added
