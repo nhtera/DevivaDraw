@@ -10,7 +10,16 @@ import type { AnyElement } from "../elements/element-types";
 import { createTextElement } from "../elements/text-element";
 import type { TextElement, VerticalAlign } from "../elements/text-element";
 import type { NoteElement } from "../elements/note-element";
-import type { DiamondElement, EllipseElement, RectangleElement } from "../elements/shape-elements";
+import type {
+  CylinderElement,
+  DiamondElement,
+  DoubleCircleElement,
+  EllipseElement,
+  HexagonElement,
+  ParallelogramElement,
+  RectangleElement,
+  TrapezoidElement,
+} from "../elements/shape-elements";
 import type { Scene } from "../scene/scene";
 import { TEXT_FONT_FAMILY_CSS } from "./font-loading";
 import { boundTextWrapWidth, BOUND_TEXT_PADDING, layoutBoundText } from "./bound-text-layout";
@@ -19,13 +28,35 @@ import type { TextMeasurer } from "./text-measurement";
 import type { TextEditSession } from "./text-edit-session";
 
 /** Element types a `TextElement` can bind inside — arrows join this set once arrow-bound labels ship (this linking logic is written to be type-agnostic beyond this list, so extending it needs no rework). */
-type BindableContainer = RectangleElement | EllipseElement | DiamondElement | NoteElement;
+export type BindableContainer =
+  | RectangleElement
+  | EllipseElement
+  | DiamondElement
+  | NoteElement
+  | CylinderElement
+  | DoubleCircleElement
+  | HexagonElement
+  | ParallelogramElement
+  | TrapezoidElement;
 /**
  * Exported so `bindings/shape-outline-geometry.test.ts` can assert every one of these is also
  * bind-geometry-capable. The two lists answer different questions and are allowed to differ in size,
  * but this one must stay a subset — when it silently wasn't, dropping an arrow on a note threw.
+ * The closed diagram shapes (cylinder, hexagon, …) are members because Mermaid import emits labels
+ * bound inside them — a container type missing here means its label neither follows a move nor
+ * survives serialization (`serialize-scene.ts` salvages the "impossible" binding away).
  */
-export const BINDABLE_CONTAINER_TYPES: ReadonlySet<string> = new Set(["rectangle", "ellipse", "diamond", "note"]);
+export const BINDABLE_CONTAINER_TYPES: ReadonlySet<string> = new Set([
+  "rectangle",
+  "ellipse",
+  "diamond",
+  "note",
+  "cylinder",
+  "double-circle",
+  "hexagon",
+  "parallelogram",
+  "trapezoid",
+]);
 
 export function isBindableContainer(element: AnyElement): element is BindableContainer {
   return BINDABLE_CONTAINER_TYPES.has(element.type);

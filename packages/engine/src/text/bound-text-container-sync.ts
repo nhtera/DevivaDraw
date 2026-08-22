@@ -25,18 +25,16 @@
  * height — bottoms out in at most one extra pass: the second pass recomputes against the
  * now-already-grown height and finds it unchanged.
  */
-import type { NoteElement } from "../elements/note-element";
-import type { RectangleElement, EllipseElement, DiamondElement } from "../elements/shape-elements";
 import type { Point } from "../render/camera";
 import type { Scene } from "../scene/scene";
 import { BOUND_TEXT_PADDING, boundTextWrapWidth, layoutBoundText } from "./bound-text-layout";
 import { findBoundTextRef, isBindableContainer } from "./bound-text";
+import type { BindableContainer } from "./bound-text";
 import { TEXT_FONT_FAMILY_CSS } from "./font-loading";
 import { buildFontCssString } from "./text-measurement";
 import type { TextMeasurer } from "./text-measurement";
 import type { VerticalAlign } from "../elements/text-element";
 
-type Container = RectangleElement | EllipseElement | DiamondElement | NoteElement;
 
 /** Rotates `point` by `radians` around `center` — a small local copy of the same trick `bindings/shape-border-intersection.ts`'s `rotatePoint` and `selection/selection-geometry.ts`'s `rotatePointAroundCenter` each keep their own copy of, so this module stays independent of the selection subsystem. */
 function rotateAroundCenter(point: Point, center: Point, radians: number): Point {
@@ -59,7 +57,7 @@ function verticalOffset(align: VerticalAlign, containerHeight: number, textHeigh
   }
 }
 
-function syncOnce(scene: Scene, container: Container, measurer: TextMeasurer): void {
+function syncOnce(scene: Scene, container: BindableContainer, measurer: TextMeasurer): void {
   const textRef = findBoundTextRef(container);
   if (!textRef) return;
   const textElement = scene.getElement(textRef.id);

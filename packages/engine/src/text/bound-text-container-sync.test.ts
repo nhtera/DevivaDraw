@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createRectangleElement } from "../elements/shape-elements";
+import { createCylinderElement, createRectangleElement } from "../elements/shape-elements";
 import type { TextElement } from "../elements/text-element";
 import { Scene } from "../scene/scene";
 import { createFixedWidthTextMeasurer } from "./text-measurement";
@@ -27,6 +27,27 @@ describe("registerBoundTextContainerSyncHook", () => {
     const after = scene.getElement(textId)!;
     expect(after.x).toBe(before.x + 200);
     expect(after.y).toBe(before.y + 300);
+    unregister();
+  });
+
+  it("moves the label of a diagram shape (cylinder) — every bindable container type syncs", () => {
+    // Regression: Mermaid import binds labels inside cylinder/hexagon/… shapes; when those types were
+    // missing from BINDABLE_CONTAINER_TYPES, a select-all drag moved the shapes but left their labels
+    // behind (only bound text of rect/ellipse/diamond/note followed).
+    const scene = new Scene();
+    const measurer = createFixedWidthTextMeasurer(6);
+    const unregister = registerBoundTextContainerSyncHook(scene, measurer);
+    const container = scene.addElement(createCylinderElement({ x: 0, y: 0, width: 120, height: 60 }));
+    const { textElementId } = getOrCreateBoundText(scene, container.id);
+    bindTextToContainer(scene, container.id, textElementId);
+    scene.updateElement(textElementId, { text: "Postgres" } as Partial<TextElement>);
+    const before = scene.getElement(textElementId)!;
+
+    scene.updateElement(container.id, { x: 150, y: 90 });
+
+    const after = scene.getElement(textElementId)!;
+    expect(after.x).toBe(before.x + 150);
+    expect(after.y).toBe(before.y + 90);
     unregister();
   });
 
