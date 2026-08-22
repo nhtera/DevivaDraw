@@ -98,10 +98,11 @@ class FlowchartBuilder {
   private openSubgraph(rest: string): void {
     let id: string | undefined;
     let title: string | undefined;
-    const withTitle = rest.match(/^(?:([A-Za-z0-9_]+)\s+)?\[(.+)\]$/);
+    // `subgraph id[Title]` / `subgraph id [Title]` / `subgraph [Title]` — the title may be quoted.
+    const withTitle = rest.match(/^(?:([A-Za-z0-9_-]+)\s*)?\[(.+)\]$/);
     if (withTitle) {
       id = withTitle[1];
-      title = withTitle[2];
+      title = withTitle[2]!.replace(/^["']|["']$/g, "");
     } else if (/^[A-Za-z0-9_]+$/.test(rest)) {
       id = rest;
       title = rest;

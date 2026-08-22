@@ -39,6 +39,20 @@ describe("parseFlowchart — subgraphs", () => {
     expect(flow.nodes.find((n) => n.id === "LB")!.subgraphId).toBe("web");
     expect(flow.nodes.find((n) => n.id === "Client")!.subgraphId).toBeUndefined();
   });
+
+  it("parses the no-space quoted-title form: subgraph App[\"Your App\"]", () => {
+    const flow = parseFlowchart(`flowchart TB
+      subgraph App["Your App (Remix, embedded)"]
+        UI[Polaris UI]
+      end
+      subgraph Workers["BullMQ Workers"]
+        W1[import]
+      end`);
+    const app = flow.subgraphs.find((s) => s.id === "App")!;
+    expect(app.title).toBe("Your App (Remix, embedded)");
+    expect(flow.nodes.find((n) => n.id === "UI")!.subgraphId).toBe("App");
+    expect(flow.subgraphs.find((s) => s.id === "Workers")!.title).toBe("BullMQ Workers");
+  });
 });
 
 describe("parseFlowchart — styling", () => {
