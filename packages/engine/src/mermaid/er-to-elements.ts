@@ -29,9 +29,13 @@ export function erToElements(source: string): AnyElement[] {
   const layout = layoutFlowchart(input);
 
   const elements: AnyElement[] = [];
+  const shapeOfNode = new Map<string, AnyElement>();
   for (const entity of diagram.entities) {
     const box = layout.nodes.get(entity.id);
-    if (box) elements.push(...createCompartmentElements(box, specs.get(entity.id)!, `mermaid-${entity.id}`));
+    if (!box) continue;
+    const els = createCompartmentElements(box, specs.get(entity.id)!, `mermaid-${entity.id}`);
+    shapeOfNode.set(entity.id, els[0]!);
+    elements.push(...els);
   }
   for (const edge of diagram.edges) {
     const points = layout.edges.get(edge.index);
@@ -42,6 +46,7 @@ export function erToElements(source: string): AnyElement[] {
         points,
         { startArrowhead: "none", endArrowhead: "none", strokeStyle: edge.dashed ? "dashed" : undefined, label: label || undefined },
         `mermaid-edge-${edge.from}-${edge.to}`,
+        { start: shapeOfNode.get(edge.from), end: shapeOfNode.get(edge.to) },
       ),
     );
   }

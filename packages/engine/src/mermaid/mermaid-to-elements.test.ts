@@ -177,8 +177,19 @@ describe("flowchartToElements", () => {
     };
     const textA = els.find((e) => e.type === "text" && e.groupIds[0] === "mermaid-A") as { id: string; containerId: string | null };
     expect(textA.containerId).toBe(shapeA.id); // label points at its container
-    expect(shapeA.boundElements).toEqual([{ id: textA.id, type: "text" }]); // and back
+    expect(shapeA.boundElements).toContainEqual({ id: textA.id, type: "text" }); // and back (plus arrow back-refs)
     expect(shapeA.link).toBe("https://x.dev"); // click A "url" → element link
+  });
+
+  it("binds edge arrows to their node shapes with reciprocal back-refs", () => {
+    const els = flowchartToElements(parseFlowchart("flowchart TD\n A[One] --> B[Two]"));
+    const arrow = els.find((e) => e.type === "arrow")!;
+    const shapeA = els.find((e) => e.type === "rectangle" && e.groupIds[0] === "mermaid-A")!;
+    const shapeB = els.find((e) => e.type === "rectangle" && e.groupIds[0] === "mermaid-B")!;
+    expect(arrow.type === "arrow" && arrow.startBinding?.elementId).toBe(shapeA.id);
+    expect(arrow.type === "arrow" && arrow.endBinding?.elementId).toBe(shapeB.id);
+    expect(shapeA.boundElements).toContainEqual({ id: arrow.id, type: "arrow" });
+    expect(shapeB.boundElements).toContainEqual({ id: arrow.id, type: "arrow" });
   });
 
   it("sits an edge label on a pill in the gap between the two boxes, not on either", () => {

@@ -4,6 +4,7 @@
  * the edge is labelled, a solid pill at the polyline's arc-length midpoint so the line reads as
  * broken around the label — the Excalidraw look. Arrow + pill + label share one group id.
  */
+import { computeFocusForBindingPoint } from "../../bindings/recompute-binding";
 import type { Arrowhead } from "../../elements/arrow-element";
 import { createArrowElement } from "../../elements/arrow-element";
 import type { AnyElement } from "../../elements/element-types";
@@ -28,6 +29,31 @@ interface Point {
   y: number;
 }
 
+/** Source/target node shapes the emitted arrow should stay attached to (either side optional). */
+export interface EdgeBindTargets {
+  start?: AnyElement;
+  end?: AnyElement;
+}
+
+/**
+ * Writes one end's binding onto the arrow and the reciprocal `boundElements` back-ref onto the shape,
+ * mirroring what `bindings/binding-model.ts` maintains for interactively drawn arrows — so dragging a
+ * node reroutes its imported edges too. `focus` is derived from the routed endpoint so the arrow
+ * keeps its layout position until a drag actually recomputes it; the endpoint sits on the border,
+ * hence `gap: 0`.
+ */
+function bindArrowEnd(arrow: AnyElement, end: "start" | "end", shape: AnyElement, endpoint: Point, reference: Point): void {
+  const focus = computeFocusForBindingPoint(shape.type, shape, reference, endpoint);
+  const binding = { elementId: shape.id, focus, gap: 0 };
+  if (arrow.type !== "arrow") return;
+  if (end === "start") arrow.startBinding = binding;
+  else arrow.endBinding = binding;
+  const refs = shape.boundElements ?? [];
+  if (!refs.some((ref) => ref.id === arrow.id && ref.type === "arrow")) {
+    shape.boundElements = [...refs, { id: arrow.id, type: "arrow" }];
+  }
+}
+
 /** The point halfway along a polyline by arc length — where an edge label should sit, clear of both boxes. */
 function polylineMidpoint(points: Point[]): Point {
   const segments = points.slice(1).map((p, i) => Math.hypot(p.x - points[i]!.x, p.y - points[i]!.y));
@@ -42,7 +68,7 @@ function polylineMidpoint(points: Point[]): Point {
   return points[Math.floor(points.length / 2)]!;
 }
 
-export function createEdgeElements(points: Point[], visual: EdgeVisual, groupId: string): AnyElement[] {
+export function createEdgeElements(points: Point[], visual: EdgeVisual, groupId: string, bind?: EdgeBindTargets): AnyElement[] {
   if (points.length < 2) return [];
   const origin = points[0]!;
   const relative = points.map((p) => ({ x: p.x - origin.x, y: p.y - origin.y }));
@@ -56,6 +82,9 @@ export function createEdgeElements(points: Point[], visual: EdgeVisual, groupId:
       width: Math.max(...xs) - Math.min(...xs),
       height: Math.max(...ys) - Math.min(...ys),
       points: relative,
+      // A bend-routed edge (layout dummies added intermediate points) renders as a smoothed curve
+      // through those points instead of a sharp-cornered polyline.
+      arrowType: relative.length > 2 ? "curved" : "straight",
       startArrowhead: visual.startArrowhead,
       endArrowhead: visual.endArrowhead,
       strokeColor: visual.strokeColor,
@@ -65,6 +94,11 @@ export function createEdgeElements(points: Point[], visual: EdgeVisual, groupId:
       groupIds,
     }),
   ];
+  const arrow = elements[0]!;
+  const first = points[0]!;
+  const last = points[points.length - 1]!;
+  if (bind?.start) bindArrowEnd(arrow, "start", bind.start, first, last);
+  if (bind?.end) bindArrowEnd(arrow, "end", bind.end, last, first);
   if (visual.label) {
     const mid = polylineMidpoint(points);
     const labelWidth = Math.max(48, visual.label.length * EDGE_LABEL_CHAR_WIDTH);

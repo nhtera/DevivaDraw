@@ -38,15 +38,22 @@ export function classToElements(source: string): AnyElement[] {
   const layout = layoutFlowchart(input);
 
   const elements: AnyElement[] = [];
+  const shapeOfNode = new Map<string, AnyElement>();
   for (const node of diagram.nodes) {
     const box = layout.nodes.get(node.id);
-    if (box) elements.push(...createCompartmentElements(box, specs.get(node.id)!, `mermaid-${node.id}`));
+    if (!box) continue;
+    const els = createCompartmentElements(box, specs.get(node.id)!, `mermaid-${node.id}`);
+    shapeOfNode.set(node.id, els[0]!);
+    elements.push(...els);
   }
   for (const edge of diagram.edges) {
     const points = layout.edges.get(edge.index);
     if (points) {
       elements.push(
-        ...createEdgeElements(points, edgeVisual(edge.relation, edge.dashed, edge.label), `mermaid-edge-${edge.from}-${edge.to}`),
+        ...createEdgeElements(points, edgeVisual(edge.relation, edge.dashed, edge.label), `mermaid-edge-${edge.from}-${edge.to}`, {
+          start: shapeOfNode.get(edge.from),
+          end: shapeOfNode.get(edge.to),
+        }),
       );
     }
   }

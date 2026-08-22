@@ -37,21 +37,26 @@ function arrowhead(head: Head): Arrowhead {
 export function flowchartToElements(flow: Flowchart): AnyElement[] {
   const groups = new Map<string, string>();
   for (const node of flow.nodes) if (node.subgraphId !== undefined) groups.set(node.id, node.subgraphId);
+  const groupParents = new Map<string, string>();
+  for (const sg of flow.subgraphs) if (sg.parentId !== undefined) groupParents.set(sg.id, sg.parentId);
   const input: LayoutInput = {
     direction: flow.direction,
     nodes: flow.nodes.map((node) => ({ id: node.id, ...measureNodeSize(node.label, node.shape) })),
     edges: flow.edges.map((edge) => ({ from: edge.from, to: edge.to, index: edge.index, minlen: edge.minlen })),
     groups,
+    groupParents,
   };
   const layout = layoutFlowchart(input);
 
   // Subgraphs → frames, emitted first so they sit behind the nodes; members get `frameId`.
   const { frames, frameOfNode } = createSubgraphFrames(flow, layout.nodes);
   const elements: AnyElement[] = [...frames];
+  const shapeOfNode = new Map<string, AnyElement>();
   for (const node of flow.nodes) {
     const box = layout.nodes.get(node.id);
     if (!box) continue;
     const nodeElements = createNodeElements(node, box, resolveNodeStyle(node, flow));
+    shapeOfNode.set(node.id, nodeElements[0]!);
     const frameId = frameOfNode.get(node.id);
     if (frameId) for (const element of nodeElements) element.frameId = frameId;
     elements.push(...nodeElements);
@@ -74,6 +79,7 @@ export function flowchartToElements(flow: Flowchart): AnyElement[] {
           label: edge.label,
         },
         `mermaid-edge-${edge.from}-${edge.to}`,
+        { start: shapeOfNode.get(edge.from), end: shapeOfNode.get(edge.to) },
       ),
     );
   }

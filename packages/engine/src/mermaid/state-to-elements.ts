@@ -93,28 +93,39 @@ export function stateToElements(source: string): AnyElement[] {
 
   const groups = new Map<string, string>();
   for (const node of diagram.nodes) if (node.parent) groups.set(node.id, node.parent);
+  const groupParents = new Map<string, string>();
+  for (const composite of diagram.composites) if (composite.parent) groupParents.set(composite.id, composite.parent);
 
   const input: LayoutInput = {
     direction: diagram.direction,
     nodes: diagram.nodes.map((node) => ({ id: node.id, ...measure(node, diagram.direction) })),
     edges: edges.map((edge) => ({ from: edge.from, to: edge.to, index: edge.index, minlen: 1 })),
     groups,
+    groupParents,
   };
   const layout = layoutFlowchart(input);
 
   const { frames, frameOfNode } = createStateFrames(diagram.composites, diagram.nodes, layout.nodes);
   const elements: AnyElement[] = [...frames];
+  const shapeOfNode = new Map<string, AnyElement>();
   for (const node of diagram.nodes) {
     const box = layout.nodes.get(node.id);
     if (!box) continue;
     const els = nodeElements(node, box);
+    shapeOfNode.set(node.id, els[0]!);
     const frameId = frameOfNode.get(node.id);
     if (frameId) for (const el of els) el.frameId = frameId;
     elements.push(...els);
   }
   for (const edge of edges) {
     const points = layout.edges.get(edge.index);
-    if (points) elements.push(...createEdgeElements(points, { startArrowhead: "none", endArrowhead: "arrow", label: edge.label }, `mermaid-edge-${edge.from}-${edge.to}`));
+    if (points)
+      elements.push(
+        ...createEdgeElements(points, { startArrowhead: "none", endArrowhead: "arrow", label: edge.label }, `mermaid-edge-${edge.from}-${edge.to}`, {
+          start: shapeOfNode.get(edge.from),
+          end: shapeOfNode.get(edge.to),
+        }),
+      );
   }
   return elements;
 }

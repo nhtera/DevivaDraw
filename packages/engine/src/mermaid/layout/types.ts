@@ -15,6 +15,8 @@ export interface LayoutInput {
   direction: FlowDirection;
   /** nodeId → innermost subgraph id, so the layout keeps subgraph members clustered. Optional. */
   groups?: Map<string, string>;
+  /** subgraphId → parent subgraph id for nested subgraphs, so cluster handling nests. Optional. */
+  groupParents?: Map<string, string>;
 }
 
 /** A node in the layout graph — a real IR node or an inserted dummy that bends a long edge. */

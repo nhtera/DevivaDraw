@@ -97,10 +97,13 @@ export function route(
     edges.set(chain.index, points);
   }
 
-  // Normalize so the whole diagram starts at (0,0).
+  // Normalize so the whole diagram starts at (0,0). Only visible geometry counts: dummy and wall
+  // nodes can sit far outside the drawn content and must not inflate the margins.
   let minX = Infinity;
   let minY = Infinity;
-  for (const box of boxes.values()) {
+  for (const node of nodes.values()) {
+    if (node.isDummy) continue;
+    const box = boxes.get(node.id)!;
     minX = Math.min(minX, box.x);
     minY = Math.min(minY, box.y);
   }
