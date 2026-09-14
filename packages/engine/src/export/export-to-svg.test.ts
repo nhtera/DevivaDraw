@@ -206,3 +206,48 @@ describe("exportToSvg — hostile element id (collab-controlled) never reaches m
     expect(svg).toContain('clipPath id="table-cell-ximagehrefxonerroralert1rectidx-0-0"');
   });
 });
+
+describe("exportToSvg — a selection export must not embed the rest of the board", () => {
+  /**
+   * Regression: the metadata block used to serialize the whole `scene` regardless of the `elements`
+   * passed, so the export dialog's "Only selected elements" option shipped every element, every
+   * pasted image's base64 bytes, and every comment (with author names) inside a file the user
+   * believed contained one shape.
+   */
+  it("embeds only the exported elements, not the whole scene", () => {
+    const scene = new Scene();
+    const exported = createRectangleElement({ x: 0, y: 0, width: 100, height: 50 });
+    const secret = createTextElement({ x: 500, y: 500, text: "salary numbers" });
+    scene.addElement(exported);
+    scene.addElement(secret);
+
+    const svg = exportToSvg({ ...baseOptions(scene), elements: [exported] });
+    const embedded = JSON.parse(readEmbeddedSceneDataFromSvg(svg)!);
+
+    expect(embedded.elements.map((element: { id: string }) => element.id)).toEqual([exported.id]);
+    expect(svg).not.toContain("salary numbers");
+  });
+
+  it("leaves an unselected image's bytes out of the embedded payload", () => {
+    const scene = new Scene();
+    scene.addFile("f1", { mimeType: "image/png", dataURL: "data:image/png;base64,SECRETBYTES", createdAt: 1 });
+    scene.addElement(createImageElement({ x: 200, y: 200, width: 20, height: 20, fileId: "f1", naturalWidth: 20, naturalHeight: 20 }));
+    const exported = createRectangleElement({ x: 0, y: 0, width: 100, height: 50 });
+    scene.addElement(exported);
+
+    const svg = exportToSvg({ ...baseOptions(scene), elements: [exported] });
+
+    expect(JSON.parse(readEmbeddedSceneDataFromSvg(svg)!).files).toEqual({});
+    expect(svg).not.toContain("SECRETBYTES");
+  });
+
+  it("still embeds the full scene when no selection is given", () => {
+    const scene = new Scene();
+    scene.addElement(createRectangleElement({ x: 0, y: 0, width: 100, height: 50 }));
+    scene.addElement(createTextElement({ x: 500, y: 500, text: "still here" }));
+
+    const embedded = JSON.parse(readEmbeddedSceneDataFromSvg(exportToSvg(baseOptions(scene)))!);
+
+    expect(embedded.elements).toHaveLength(2);
+  });
+});

@@ -162,7 +162,12 @@ export function exportToSvg(options: ExportToSvgOptions): string {
     : "";
 
   // Visible-only for the same reason as the PNG chunk: metadata must not carry what the pixels exclude.
-  const metadata = embedSceneData ? `<metadata>${escapeXmlText(JSON.stringify(serializeScene(scene, { excludeHidden: true })))}</metadata>` : "";
+  // That applies to a SELECTION just as it does to hidden layers — when the caller passed an explicit
+  // element list, the embedded document is restricted to it, or "export only these shapes" would ship
+  // the whole board inside the file.
+  const metadata = embedSceneData
+    ? `<metadata>${escapeXmlText(JSON.stringify(serializeScene(scene, { excludeHidden: true, ...(options.elements !== undefined ? { onlyElementIds: new Set(options.elements.map((element) => element.id)) } : {}) })))}</metadata>`
+    : "";
 
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${pixelWidth}" height="${pixelHeight}" viewBox="0 0 ${pixelWidth} ${pixelHeight}">`,
