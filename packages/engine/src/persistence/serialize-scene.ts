@@ -33,6 +33,20 @@ export interface SerializeSceneOptions {
    */
   excludeHidden?: boolean;
   /**
+   * Restricts the output to exactly these element ids — the SELECTION counterpart to `excludeHidden`,
+   * and it exists for the same reason: an export-embedded payload must never carry content the pixels
+   * exclude. Without it, "export only the selected elements" still embeds the whole board (every
+   * element, every image's base64 bytes, every comment and its author) in the SVG `<metadata>` / PNG
+   * re-open chunk, so a file shared as one shape silently ships the entire document.
+   *
+   * Comments are filtered alongside: only threads anchored to an included element survive. A
+   * point/page-anchored thread belongs to the board, not the selection, so it is dropped rather than
+   * exported with content that isn't there. Layers are kept — structural, needed for re-open fidelity.
+   *
+   * Export paths only; save/autosave/share must never set this (those are full-fidelity formats).
+   */
+  onlyElementIds?: ReadonlySet<string>;
+  /**
    * Leaves these files' bytes out of `files`, keeping the elements' `fileId` references intact — for
    * a host that persists the payloads separately (see `file-store.ts` for why: base64 image bytes are
    * what exhausts a small synchronous store, and they don't have to live there).
@@ -54,8 +68,15 @@ export interface SerializeSceneOptions {
  * since-deleted image never bloats the output.
  */
 export function serializeScene(scene: Scene, options: SerializeSceneOptions = {}): SceneDocumentV1 {
-  const { includeDeleted = false, appState, excludeHidden = false, excludeFileIds } = options;
-  const elements = scene.getElements().filter((element) => (includeDeleted || !element.isDeleted) && !(excludeHidden && scene.isElementHidden(element)));
+  const { includeDeleted = false, appState, excludeHidden = false, excludeFileIds, onlyElementIds } = options;
+  const elements = scene
+    .getElements()
+    .filter(
+      (element) =>
+        (includeDeleted || !element.isDeleted) &&
+        !(excludeHidden && scene.isElementHidden(element)) &&
+        (onlyElementIds === undefined || onlyElementIds.has(element.id)),
+    );
 
   const referencedFileIds = new Set<string>();
   for (const element of elements) {
@@ -85,8 +106,21 @@ export function serializeScene(scene: Scene, options: SerializeSceneOptions = {}
   // included deliberately (unlike elements' `includeDeleted`): a comment deletion that vanished on
   // save could be out-voted by a peer's stale copy and resurrect the thread.
   if (scene.hasComments()) {
-    document.comments = scene.getAllCommentThreads();
-    document.commentMessages = scene.getAllCommentMessages();
+    const allThreads = scene.getAllCommentThreads();
+    // A selection export carries only the threads pinned to elements it actually contains — see
+    // `onlyElementIds`. Everything else would be commentary (and author names) about content the
+    // exported pixels do not show.
+    const threads =
+      onlyElementIds === undefined
+        ? allThreads
+        : allThreads.filter((thread) => thread.anchor.kind === "element" && onlyElementIds.has(thread.anchor.elementId));
+    document.comments = threads;
+    if (onlyElementIds === undefined) {
+      document.commentMessages = scene.getAllCommentMessages();
+    } else {
+      const keptThreadIds = new Set(threads.map((thread) => thread.id));
+      document.commentMessages = scene.getAllCommentMessages().filter((message) => keptThreadIds.has(message.threadId));
+    }
   }
   return document;
 }

@@ -128,7 +128,12 @@ export async function exportToPng(options: ExportToPngOptions): Promise<Blob> {
 
   // Visible-only, matching the pixels: an export's embedded re-open payload must never leak a
   // hidden layer's content through file metadata. Full fidelity lives in .devivadraw/share formats.
-  const sceneJson = JSON.stringify(serializeScene(scene, { excludeHidden: true }));
+  // Same invariant as the SVG metadata block: the re-open chunk must not carry what the pixels
+  // exclude — hidden layers OR, when the caller passed an explicit element list, everything outside
+  // that selection.
+  const sceneJson = JSON.stringify(
+    serializeScene(scene, { excludeHidden: true, ...(options.elements !== undefined ? { onlyElementIds: new Set(options.elements.map((element) => element.id)) } : {}) }),
+  );
   const pngBytes = await blobToBytes(blob);
   const embedded = writeTextChunk(pngBytes, SCENE_DATA_PNG_KEYWORD, toBase64Utf8(sceneJson));
   // `Blob`'s constructor type only accepts an `ArrayBuffer`-backed view, while `Uint8Array` is
